@@ -39,15 +39,30 @@ function allSemesters(){
   return [...map.entries()].map(([id,name])=>({id,name})).sort((a,b)=>semRank(b.id)-semRank(a.id));
 }
 function semName(id){ const s=(db.semesters||[]).find(x=>x.id===id); return s?s.name:semNameFromId(id); }
+/* 다음 학기 id 계산 (spring→summer→fall→winter→다음해 spring) */
+function nextSemId(fromId){
+  const m=String(fromId||currentSemester().id).match(/sem_(\d+)_(\w+)/); if(!m) return currentSemester().id;
+  let year=+m[1]; const order=['spring','summer','fall','winter']; let idx=order.indexOf(m[2]);
+  idx++; if(idx>3){ idx=0; year++; }
+  return `sem_${year}_${order[idx]}`;
+}
+/* 다음학기 대기용 학기 선택지 — 현재 다음 학기부터 4개 */
+function waitSemList(){
+  const out=[]; let id=currentSemester().id;
+  for(let i=0;i<4;i++){ id=nextSemId(id); out.push({id, name:semNameFromId(id)}); }
+  return out;
+}
 
 /* ---------- 데이터 레이어 (기존 포팅, 읽기 전용) ---------- */
 const TABLES = [
   { key:'branches', table:'branches', fromRow:r=>({id:r.id,name:r.name}) },
-  { key:'users', table:'users', fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name}) },
+  { key:'users', table:'users', fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,isManager:!!r.is_manager,menus:r.menus}) },
   { key:'semesters', table:'semesters', fromRow:r=>({id:r.id,name:r.name}) },
   { key:'students', table:'students', fromRow:r=>({id:r.id,code:r.code,name:r.name,school:r.school,grade:r.grade}) },
-  { key:'semesterRecords', table:'semester_records', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,classLabel:r.class_label,teacher:r.teacher,status:r.status,origin:r.origin,enrollDate:r.enroll_date,withdrawDate:r.withdraw_date,transfer:!!r.transfer,transferIn:!!r.transfer_in,transferTo:r.transfer_to,kind:r.kind||'regular'}) },
+  { key:'semesterRecords', table:'semester_records', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,classLabel:r.class_label,teacher:r.teacher,targetType:r.target_type,status:r.status,origin:r.origin,enrollDate:r.enroll_date,withdrawDate:r.withdraw_date,transfer:!!r.transfer,transferIn:!!r.transfer_in,transferTo:r.transfer_to,kind:r.kind||'regular'}) },
   { key:'studentMovements', table:'student_movements', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,type:r.type,date:r.date,memo:r.memo}) },
+  { key:'counselingHistories', table:'counseling_histories', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,date:r.date,type:r.type,content:r.content,counselor:r.counselor,batchId:r.batch_id,mistag:!!r.mistag}) },
+  { key:'mcExemptions', table:'mc_exemptions', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,stage:r.stage}) },
 ];
 let db = null;
 function initSupabase(){ if(sb) return sb; sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); return sb; }
@@ -115,12 +130,24 @@ function setSession(s){ session=s; sessionStorage.setItem(SKEY,JSON.stringify(s)
 function clearSession(){ session=null; sessionStorage.removeItem(SKEY); }
 
 /* ---------- 권한 모델 ---------- */
+/* ---------- 라인 아이콘 (차분한 SVG) ---------- */
+const _sv=(p,s)=>`<svg viewBox="0 0 24 24" width="${s||19}" height="${s||19}" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const IC={
+  dashboard:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  wonmu:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  chongmu:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  insa:'<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>',
+  unyoung:'<path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v3"/><path d="M3 5v14a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-3"/><path d="M18 12a2 2 0 0 0 0 4h3v-4Z"/>',
+  perm:'<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  clip:'<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
+};
+const icon=(k,s)=>_sv(IC[k]||'', s);
 const MODULES=[
-  {key:'dashboard', ic:'📊', name:'대시보드', sub:'인원현황·마감', items:[['인원 마감',''],['분원 현황','']]},
-  {key:'wonmu', ic:'🎓', name:'원무', sub:'원생·상담·레벨테스트', items:[['신규예약',''],['레벨테스트',''],['상담관리',''],['원생현황',''],['등록/퇴원율',''],['대시보드','']]},
-  {key:'chongmu', ic:'📦', name:'총무', sub:'교재·청소·소모품·A/S', items:[['교재재고',''],['청소업체',''],['소모품',''],['A/S 관리','']]},
-  {key:'insa', ic:'🗂️', name:'인사·서류', sub:'입퇴사·교육청·서류', items:[['입·퇴사',''],['교육청 신고',''],['서류보관',''],['자격/안전교육','']]},
-  {key:'unyoung', ic:'💰', name:'운영비', sub:'수입·지출·예산·결산', items:[['수입/지출',''],['예산관리',''],['결산',''],['정산','']]},
+  {key:'dashboard', ic:'dashboard', name:'대시보드', sub:'인원현황·마감', items:[['인원 마감',''],['분원 현황','']]},
+  {key:'wonmu', ic:'wonmu', name:'원무', sub:'원생·상담·레벨테스트', items:[['신규예약',''],['레벨테스트',''],['상담관리',''],['원생현황',''],['등록/퇴원율',''],['대시보드','']]},
+  {key:'chongmu', ic:'chongmu', name:'총무', sub:'교재·청소·소모품·A/S', items:[['교재재고',''],['청소업체',''],['소모품',''],['A/S 관리','']]},
+  {key:'insa', ic:'insa', name:'인사·서류', sub:'입퇴사·교육청·서류', items:[['입·퇴사',''],['교육청 신고',''],['서류보관',''],['자격/안전교육','']]},
+  {key:'unyoung', ic:'unyoung', name:'운영비', sub:'수입·지출·예산·결산', items:[['수입/지출',''],['예산관리',''],['결산',''],['정산','']]},
 ];
 // 역할별 기본 프리셋 (모듈 단위 레벨 0안보임/1보기/2수정/3삭제)
 const ROLE_PRESET={
@@ -134,7 +161,38 @@ function loadPerms(){ try{return JSON.parse(localStorage.getItem(PKEY))||{};}cat
 function savePerms(p){ localStorage.setItem(PKEY,JSON.stringify(p)); }
 // 특정 역할의 모듈 레벨 (개별 저장 없으면 프리셋)
 function permOf(role){ const saved=loadPerms(); return saved[role] || ROLE_PRESET[role] || ROLE_PRESET.teacher; }
-function canModule(moduleKey){ const p=permOf(session.role); const lv=(moduleKey==='perm')?(p.perm||0):(p[moduleKey]||0); return lv>0; }
+/* ===== 계정별 메뉴 권한 (users.is_manager / users.menus) ===== */
+const ALL_MENUS=['dashboard','leveltest','inwon','chongmu','insa','unyoung'];
+const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황',chongmu:'총무',insa:'인사·서류',unyoung:'운영비'};
+function uid(p){ return (p||'id')+'_'+Math.random().toString(36).slice(2,9); }
+function curUser(){ return ((db&&db.users)||[]).find(u=>u.id===session.userId) || {}; }
+function isManagerUser(){ return !!curUser().isManager; }
+function userMenus(){
+  const u=curUser();
+  if(u.isManager) return ALL_MENUS.slice();
+  if(u.menus){ try{ const a=JSON.parse(u.menus); if(Array.isArray(a)) return a; }catch(e){} }
+  // 명시 menus 없으면 기존 역할 프리셋에서 유도(하위호환)
+  const p=ROLE_PRESET[session.role]||ROLE_PRESET.teacher; const out=[];
+  if((p.dashboard||0)>0) out.push('dashboard');
+  if((p.wonmu||0)>0) out.push('leveltest','inwon');
+  if((p.chongmu||0)>0) out.push('chongmu');
+  if((p.insa||0)>0) out.push('insa');
+  if((p.unyoung||0)>0) out.push('unyoung');
+  return out;
+}
+function hasMenu(k){ return userMenus().includes(k); }
+function canModule(moduleKey){
+  if(moduleKey==='perm'||moduleKey==='accounts') return isManagerUser();
+  if(moduleKey==='wonmu') return hasMenu('leveltest')||hasMenu('inwon');
+  if(moduleKey==='chongmu') return hasMenu('chongmu')||hasMenu('unyoung');  // 운영비가 총무 안으로 흡수됨
+  return hasMenu(moduleKey);
+}
+function firstView(){
+  if(hasMenu('dashboard')) return 'dashboard';
+  if(canModule('wonmu')) return 'wonmu';
+  for(const m of MODULES){ if(m.key!=='dashboard'&&m.key!=='wonmu'&&canModule(m.key)) return m.key; }
+  return isManagerUser()?'accounts':'dashboard';
+}
 
 /* ---------- UI: 로그인 ---------- */
 function showLogin(){ $('appView').classList.add('hide'); $('loginView').classList.remove('hide'); }
@@ -149,7 +207,7 @@ function doLogin(){
 function logout(){ clearSession(); location.hash=''; showLogin(); }
 
 /* ---------- UI: 앱 진입 ---------- */
-let state={ semId:null, view:'dashboard', dashMonthIdx:null };
+let state={ semId:null, view:'dashboard', dashMonthIdx:null, ltY:null, ltM:null };
 function enterApp(){
   $('loginView').classList.add('hide'); $('appView').classList.remove('hide');
   // 학기 셀렉트
@@ -166,30 +224,40 @@ function enterApp(){
   $('sbUserRole').textContent=roleLabel;
   const br=db.branches.find(b=>b.id===session.branchId);
   $('sbScope').textContent = session.role==='admin' ? '통합관리 · 전체' : ('통합관리 · '+(br?br.name:'분원'));
+  // 담임: 통합 셸 없이 인원현황(담임 화면)으로 바로 — 학원 전체 인원 같은 건 안 보여줌
+  if(session.role==='teacher'){ state.view='wonmu'; wonmuState.view='inwon'; render(); return; }
+  state.view = firstView();
+  wonmuState.view = 'hub';   // 원무 내부 상태도 초기화 (다음에 원무 들어가면 첫 화면부터)
   buildSidebar();
-  state.view = canModule('dashboard') ? 'dashboard' : 'wonmu';
   render();
 }
 function buildSidebar(){
   let h='<div class="sb-sect">메뉴</div>';
   MODULES.forEach(m=>{
+    if(m.key==='unyoung') return;   // 운영비는 총무 안으로 흡수 — 사이드바 별도 표시 안 함
     if(!canModule(m.key)) return;
-    h+=`<div class="sb-item ${state.view===m.key?'active':''}" onclick="nav('${m.key}')"><span class="ic">${m.ic}</span>${m.name}</div>`;
+    h+=`<div class="sb-item ${state.view===m.key?'active':''}" onclick="nav('${m.key}')"><span class="ic">${icon(m.ic)}</span>${m.name}</div>`;
   });
-  if(canModule('perm')){
+  if(isManagerUser()){
     h+='<div class="sb-sect">설정</div>';
-    h+=`<div class="sb-item ${state.view==='perm'?'active':''}" onclick="nav('perm')"><span class="ic">🔐</span>권한 설정<span class="me">나만</span></div>`;
+    h+=`<div class="sb-item ${state.view==='accounts'?'active':''}" onclick="nav('accounts')"><span class="ic">${icon('perm')}</span>계정 관리</div>`;
   }
   $('sbNav').innerHTML=h;
 }
-function nav(v){ state.view=v; buildSidebar(); render(); window.scrollTo(0,0); }
+function nav(v){ if(v==='wonmu') wonmuState.view='hub'; if(v==='chongmu' && typeof chongmuView!=='undefined') chongmuView='hub'; state.view=v; buildSidebar(); render(); window.scrollTo(0,0); closeSidebar(); }
+/* ---- 모바일 사이드바 토글 (햄버거) ---- */
+function toggleSidebar(){ const sb=$('sidebar'), bd=$('sbBackdrop'); if(!sb) return; const open=!sb.classList.contains('open'); sb.classList.toggle('open',open); if(bd) bd.classList.toggle('show',open); }
+function closeSidebar(){ const sb=$('sidebar'), bd=$('sbBackdrop'); if(sb) sb.classList.remove('open'); if(bd) bd.classList.remove('show'); }
+window.toggleSidebar=toggleSidebar; window.closeSidebar=closeSidebar;
 
 /* ---------- 렌더 라우터 ---------- */
 function render(){
   const c=$('content'); const v=state.view;
-  $('semPick').style.display = (v==='dashboard'||v==='wonmu')?'flex':'none';
+  $('semPick').style.display = (v==='dashboard')?'flex':'none';
   if(v==='dashboard'){ $('crumbs').innerHTML='<b>대시보드</b>'; renderDashboard(c); }
-  else if(v==='perm'){ $('crumbs').innerHTML='<span class="mut">설정 › </span><b>권한 설정</b>'; renderPerm(c); }
+  else if(v==='accounts'){ $('crumbs').innerHTML='<span class="mut">설정 › </span><b>계정 관리</b>'; renderAccounts(c); }
+  else if(v==='wonmu'){ $('crumbs').innerHTML='<b>원무</b>'; renderWonmu(c); }
+  else if(v==='chongmu'){ $('crumbs').innerHTML = (chongmuView==='books') ? '<b>총무</b><span class="mut"> › 교재 재고관리</span>' : (chongmuView==='expense') ? '<b>총무</b><span class="mut"> › 운영비 관리</span>' : '<b>총무</b>'; renderChongmu(c); }
   else { const m=MODULES.find(x=>x.key===v); $('crumbs').innerHTML=`<b>${m.name}</b>`; renderStub(c,m); }
 }
 
@@ -215,17 +283,29 @@ function renderDashboard(c){
   const data=brs.map(b=>{
     const recs=recordsOf(b.id,state.semId);
     const mc=monthlyClosing(recs,months);
-    const startRecs = whole ? recs.filter(r=>enrollMonth(r)==null) : [];
+    // 기준(학기초 or 그 달 시작) 인원 레코드 — 월 선택 시에도 CHESS/ACE 세도록 실제 레코드로 계산
+    let startRecs;
+    if(whole){ startRecs = recs.filter(r=>enrollMonth(r)==null); }
+    else {
+      const prior = months.slice(0, mi);   // 그 달보다 앞선 달들
+      startRecs = recs.filter(r=>{
+        const em=enrollMonth(r);
+        const enrolledByStart = (em==null) || prior.includes(em);   // 학기초부터 or 이전 달 입학
+        if(!enrolledByStart) return false;
+        const wm=withdrawMonth(r);
+        return !(wm!=null && prior.includes(wm));                   // 이전 달에 이미 나간 학생 제외
+      });
+    }
     const nwRecs = recs.filter(r=>scope(enrollMonth(r))&&!r.transferIn);
     const tiRecs = recs.filter(r=>scope(enrollMonth(r))&&r.transferIn);
     const wdRecs = recs.filter(r=>scope(withdrawMonth(r))&&!r.transfer);
     const trRecs = recs.filter(r=>scope(withdrawMonth(r))&&r.transfer);
     const actRecs = recs.filter(r=>r.status==='active');
-    const baseNum = whole ? startRecs.length : (mc.cells[mi]?mc.cells[mi].monthStart:0);
+    const baseNum = startRecs.length;
     return {b, mc, startRecs, nwRecs, tiRecs, wdRecs, trRecs, actRecs, baseNum};
   });
   const flat=(g)=>{ const a=[]; data.forEach(d=>a.push(...g(d))); return a; };
-  const caStart = whole ? countCA(flat(d=>d.startRecs)) : {total:data.reduce((a,d)=>a+d.baseNum,0),chess:null,ace:null};
+  const caStart = countCA(flat(d=>d.startRecs));
   const caNew=countCA(flat(d=>d.nwRecs)), caTi=countCA(flat(d=>d.tiRecs)), caWd=countCA(flat(d=>d.wdRecs)), caTr=countCA(flat(d=>d.trRecs)), caAct=countCA(flat(d=>d.actRecs));
   const baseTot=caStart.total;
   const sumRate=(baseTot+caNew.total+caTi.total)>0 ? caWd.total/(baseTot+caNew.total+caTi.total)*100 : 0;
@@ -235,8 +315,8 @@ function renderDashboard(c){
 
   const title = session.role==='admin' ? '전 분원 인원 현황' : `${(db.branches.find(b=>b.id===session.branchId)||{}).name||'분원'} 인원 현황`;
   const periodTxt = whole ? '학기 전체' : `${months[mi]}월`;
-  let h=`<div class="page-h"><div><h2>📋 <span class="em">${title}</span></h2><p>${esc(semNm)} · ${periodTxt} 기준</p></div>
-    <div class="pick"><span>📅 기간</span><select onchange="state.dashMonthIdx=+this.value;render()">
+  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('clip',24)}</span><span class="em">${title}</span></h2><p>${esc(semNm)} · ${periodTxt} 기준</p></div>
+    <div class="pick"><span>기간</span><select onchange="state.dashMonthIdx=+this.value;render()">
       <option value="-1" ${whole?'selected':''}>학기 전체</option>
       ${months.map((m,i)=>`<option value="${i}" ${i===mi?'selected':''}>${m}월</option>`).join('')}
     </select></div></div>`;
@@ -256,10 +336,10 @@ function renderDashboard(c){
   </div>`;
 
   // 표
-  h+=`<div class="twrap"><div class="tw-h"><div class="t">🏫 분원별 인원 현황 (${periodTxt})</div>
-    <div class="leg"><span><span class="dot" style="background:var(--pos)"></span>신입·전입</span><span><span class="dot" style="background:var(--neg)"></span>퇴원·전출</span><span><span class="dot" style="background:#0c447c"></span>CHESS</span><span><span class="dot" style="background:#085041"></span>ACE</span></div></div>
+  h+=`<div class="twrap"><div class="tw-h"><div class="t">분원별 인원 현황 (${periodTxt})</div>
+    <div class="leg"><span><span class="dot" style="background:var(--pos)"></span>신입·전입</span><span><span class="dot" style="background:var(--neg)"></span>퇴원·전출</span><span><span class="dot" style="background:#c24a4a"></span>CHESS</span><span><span class="dot" style="background:#356fb2"></span>ACE</span></div></div>
     <div class="scroll"><table class="grid"><thead>
-    <tr class="sub"><th class="col-b">분원</th><th>${baseLabel}</th><th class="sep-l">신입</th><th>전입</th><th>퇴원</th><th>전출</th><th>현재 재원</th><th class="col-rate">퇴원율</th><th class="col-note">비고</th></tr>
+    <tr class="sub"><th class="col-b">분원</th><th>${baseLabel}</th><th class="sep-l">신입</th><th>전입</th><th>퇴원</th><th>전출</th><th class="col-now">현재 재원</th><th class="col-rate">퇴원율</th><th class="col-note">비고</th></tr>
     </thead><tbody>`;
   data.forEach(d=>{
     const b2=d.baseNum, nw=d.nwRecs.length, ti=d.tiRecs.length, wd=d.wdRecs.length, tr=d.trRecs.length;
@@ -271,31 +351,1083 @@ function renderDashboard(c){
     h+=`<tr><td class="col-b">${esc(d.b.name)}</td><td class="num">${b2}</td>
       <td class="num in sep-l">${nw?'+'+nw:'·'}</td><td class="num jin">${ti?'+'+ti:'·'}</td>
       <td class="num out">${wd?'-'+wd:'·'}</td><td class="num out">${tr?'-'+tr:'·'}</td>
-      <td class="num end">${ca.total}<div class="ca-cell"><span class="ca-chess">CHESS ${ca.chess}</span><span class="ca-ace">ACE ${ca.ace}</span></div></td>
+      <td class="col-now"><div class="now-wrap"><span class="now-num num">${ca.total}</span><span class="now-ca"><span class="ca-chess">CHESS ${ca.chess}</span><span class="ca-ace">ACE ${ca.ace}</span></span></div></td>
       <td class="col-rate"><span class="rate ${rateCls(rate)} ${isBest?'best':''}">${rate.toFixed(1)}%</span></td>
       <td class="col-note">${notes.length?notes.join(''):'<span class="mut">·</span>'}</td></tr>`;
   });
+  if(data.length>1){   // 분원이 여러 개(=어드민)일 때만 합계 행 표시. 분원 계정은 자기 한 줄뿐이라 합계 불필요
   h+=`<tr class="sum"><td class="col-b">합계</td><td class="num">${fmt(baseTot)}</td>
     <td class="num sep-l">+${caNew.total}</td><td class="num">${caTi.total?'+'+caTi.total:'·'}</td><td class="num">-${caWd.total}</td><td class="num">${caTr.total?'-'+caTr.total:'·'}</td>
-    <td class="num">${fmt(caAct.total)}<div class="ca-cell"><span class="ca-chess">CHESS ${caAct.chess}</span><span class="ca-ace">ACE ${caAct.ace}</span></div></td>
+    <td class="col-now"><div class="now-wrap"><span class="now-num num">${fmt(caAct.total)}</span><span class="now-ca"><span class="ca-chess">CHESS ${caAct.chess}</span><span class="ca-ace">ACE ${caAct.ace}</span></span></div></td>
     <td class="col-rate"><span class="rate ${rateCls(sumRate)}">${sumRate.toFixed(1)}%</span></td><td class="col-note"></td></tr>`;
+  }
   h+='</tbody></table></div></div>';
 
-  // 월별 추이 차트 (선택 분원 or 전체 합)
+  // 월별 상세 — 월 카드 (위 KPI줄과 리듬 맞춤, 폭은 위 표와 동일하게 꽉 참)
   const trend=months.map((m,i)=>{ let ins=0,outs=0; data.forEach(d=>{const cc=d.mc.cells[i];ins+=cc.newThis+cc.transferIn;outs+=cc.withdraw+cc.transfer;}); return {m,ins,outs}; });
-  const mx=Math.max(1,...trend.map(t=>Math.max(t.ins,t.outs)));
-  h+=`<div class="grid2"><div class="panel"><div class="panel-h"><div class="t">📈 학기 월별 추이</div><div class="leg"><span><span class="kdot" style="background:var(--pos)"></span>유입</span> <span><span class="kdot" style="background:var(--neg)"></span>유출</span></div></div><div class="chart">`;
-  trend.forEach(t=>{ h+=`<div class="mbar"><div class="bars"><div class="bar bin" style="height:${t.ins/mx*100}%"></div><div class="bar bout" style="height:${t.outs/mx*100}%"></div></div><div class="mlab">${t.m}월</div></div>`; });
-  h+=`</div></div><div class="panel"><div class="panel-h"><div class="t">🗓️ 월별 상세</div></div><table class="grid" style="min-width:auto"><thead><tr class="sub"><th class="col-b">월</th><th>유입</th><th>유출</th><th>순증감</th></tr></thead><tbody>`;
-  trend.forEach(t=>{ const nn=t.ins-t.outs; h+=`<tr><td class="col-b">${t.m}월</td><td class="num in">+${t.ins}</td><td class="num out">-${t.outs}</td><td><span class="rate ${nn>=0?'lo':'hi'}">${nn>=0?'+':''}${nn}</span></td></tr>`; });
-  h+='</tbody></table></div></div>';
+  h+=`<div class="mtitle">학기 월별 상세 <span>신규 · 퇴원 · 순증감</span></div><div class="mcards">`;
+  trend.forEach(t=>{ const nn=t.ins-t.outs; const nnTxt=nn>0?'순증 +'+nn:(nn<0?'순증 '+nn:'순증 0');
+    h+=`<div class="mcard"><div class="mc-top"><span class="mm">${t.m}월</span><span class="net ${nn>0?'pos':nn<0?'neg':'zero'}">${nnTxt}</span></div>
+      <div class="mc-body">
+        <div class="mi"><span class="l">신규</span><span class="v ${t.ins?'in':'mut'}">${t.ins?'+'+t.ins:'·'}</span></div>
+        <div class="mi"><span class="l">퇴원</span><span class="v ${t.outs?'out':'mut'}">${t.outs?'-'+t.outs:'·'}</span></div>
+      </div></div>`; });
+  h+='</div>';
   c.innerHTML=h;
+}
+
+/* ---------- 대시보드: 레벨테스트 퍼널 (예약→참석→등록, 분원별·월별) ---------- */
+function ltMetrics(recs){
+  let booked=recs.length, attended=0, enrolled=0, notEnr=0, failed=0, waitNext=0, noshow=0, canceled=0, parentOnly=0;
+  recs.forEach(r=>{
+    const en=r.enrolled, st=r.status;
+    if(st==='canceled') canceled++;
+    else if(st==='noshow') noshow++;
+    else if(st==='parent_only') parentOnly++;   // 학부모만 참석 — 시험 안 봤으니 응시/합격 아님
+    // 시험을 본 상태(참석): 학부모만참석은 제외. attended 또는 등록/미등록/미통과/다음학기대기 판정이 있으면 참석
+    if(st!=='parent_only' && (st==='attended' || en==='enrolled' || en==='not_enrolled' || en==='failed' || en==='waiting_next')) attended++;
+    if(en==='enrolled' && st!=='parent_only') enrolled++;
+    if(en==='not_enrolled' && st!=='parent_only') notEnr++;
+    if(en==='failed' && st!=='parent_only') failed++;   // 미통과: 성적 미달로 등록 불가
+    if(en==='waiting_next' && st!=='parent_only') waitNext++;  // 다음학기 대기
+  });
+  return {booked,attended,enrolled,notEnr,failed,waitNext,noshow,canceled,parentOnly};
+}
+/* 미통과는 "우리가 등록시킬 수 없는" 인원이라 등록률·전환율 분모에서 제외.
+   대신 미통과율은 별도 지표로 표시. */
+function ltRates(m){
+  const convBase = Math.max(0, m.attended - m.failed);   // 전환 모수 = 참석 − 미통과 (시험 통과자)
+  const bookBase = Math.max(0, m.booked   - m.failed);   // 예약 기준에서도 미통과 제외
+  return {
+    att:  m.booked   ? m.attended/m.booked*100   : 0,    // 참석률 (미통과도 시험은 봤으니 포함)
+    conv: convBase   ? m.enrolled/convBase*100   : 0,    // 전환율 (참석 기준, 미통과 제외)
+    enr:  bookBase   ? m.enrolled/bookBase*100   : 0,    // 등록률 (예약 기준, 미통과 제외)
+    fail: m.attended ? m.failed/m.attended*100   : 0,    // 미통과율 (참석 기준)
+    convBase, bookBase
+  };
+}
+function goodRate(r){ return r>=60?'lo':r>=40?'mid':'hi'; }
+function enrRateCls(r){ return r>=50?'lo':r>=30?'mid':'hi'; }
+
+/* ============================================================================
+   원무 모듈 — 레벨테스트 예약 (Supabase: level_test_reservations)
+   ============================================================================ */
+let reservations=[];
+let bookState={ y:null, m:null, sel:null, branchId:null, loaded:false, adding:false, editId:null };
+let wonmuState={ view:'hub', ltPeriod:-1, ltFilter:'all', ltListBranch:'all', ltPage:1, delLogOpen:false, ltSearch:'', ltGrade:'all', ltTab:'status', anBranch:'all', anType:'all', anPeriod:-1, anGrade:'all', anExamPage:0, anLevelPage:0, anListPage:0, inSort:'active', inOpenBr:null };
+function anPager(page,total,per,fn){ const pages=Math.ceil(total/per); if(pages<=1) return ''; let pg=Math.min(Math.max(0,page),pages-1);
+  return `<div class="an-pager"><button onclick="${fn}(-1)" ${pg<=0?'disabled':''}>‹</button><span>${pg+1} / ${pages}</span><button onclick="${fn}(1)" ${pg>=pages-1?'disabled':''}>›</button></div>`; }
+function gradeSort(a,b){ const o=['초등1','초등2','초등3','초등4','초등5','초등6','중등1','중등2','중등3','고등1','고등2','고등3']; const ia=o.indexOf(a),ib=o.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib)||String(a).localeCompare(String(b)); }
+const _pad=n=>String(n).padStart(2,'0');
+const IC_CAL='<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>';
+const IC_ROSTER='<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/></svg>';
+
+function renderWonmu(c){ c.innerHTML='<div class="wscope" id="wonmuBody"></div>'; renderWonmuBody(); }
+function wonmuGo(v){ wonmuState.view=v; renderWonmuBody(); window.scrollTo(0,0); }
+function renderWonmuBody(){
+  const body=$('wonmuBody'); if(!body) return;
+  const v=wonmuState.view, cr=$('crumbs');
+  const home='<span class="cl" onclick="wonmuGo(\'hub\')">원무</span>';
+  if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
+  else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
+  else if(v==='booking'){ if(cr) cr.innerHTML=`${home} › <span class="cl" onclick="wonmuGo('leveltest')">레벨테스트</span> › <b>예약 입력</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'leveltest\')">‹ 레벨테스트로</div><div id="bkInner"></div>'; renderBooking($('bkInner')); }
+  else { if(cr) cr.innerHTML='<b>원무</b>'; renderWonmuHub(body); }
+}
+
+/* ---------- 원무 홈(허브): 레벨테스트 / 인원현황 두 카드 ---------- */
+function branchHeadcount(bid){
+  const recs=recordsOf(bid,state.semId);
+  return {
+    active: recs.filter(r=>r.status==='active').length,
+    nw: recs.filter(r=>enrollMonth(r)!=null && !r.transferIn).length,
+    wd: recs.filter(r=>withdrawMonth(r)!=null && !r.transfer).length,
+  };
+}
+function ltBarRow(name, m, maxBooked){
+  const w=(n)=> maxBooked>0 ? Math.max(n>0?4:0, n/maxBooked*100) : 0;
+  const R=ltRates(m);
+  return `<div class="frow"><div class="fr-nm">${esc(name)}</div>
+    <div class="track">
+      <div class="seg s0" style="width:${w(m.booked)}%">${m.booked?`<span class="cnt">${m.booked}</span>`:''}</div>
+      <div class="seg s1" style="width:${w(m.attended)}%">${m.attended?`<span class="cnt">${m.attended}</span>`:''}</div>
+      <div class="seg s2" style="width:${w(m.enrolled)}%">${m.enrolled?`<span class="cnt">${m.enrolled}</span>`:''}</div>
+    </div>
+    <div class="fr-pct"><div class="p1">참석률 ${m.booked?R.att.toFixed(0):0}%</div><div class="p2">등록률 ${m.booked?R.enr.toFixed(0):0}%</div></div></div>`;
+}
+/* 다음학기 대기 알림 배너 — 현재 학기가 대기 대상 학기와 같아지면 연락 대상으로 표시 */
+const IC_BELL='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+function waitAlertBanner(){
+  const due=reservations.filter(r=> r.enrolled==='waiting_next' && r.wait_semester===state.semId && (session.role==='admin'||r.branch_id===session.branchId));
+  if(!due.length) return '';
+  const rows=due.sort((a,b)=>String(a.student_name||'').localeCompare(String(b.student_name||''))).map(r=>{
+    const meta=[bName(r.branch_id), r.school, gradeTxt(r.grade)].filter(Boolean).join(' · ');
+    return `<div class="wa-item"><span class="wa-nm">${esc(r.student_name||'')}</span><span class="wa-meta">${esc(meta)}</span>${r.parent_phone?`<span class="wa-ph">${esc(r.parent_phone)}</span>`:''}</div>`;
+  }).join('');
+  return `<div class="wait-alert">
+    <div class="wa-head"><span class="wa-ic">${IC_BELL}</span><span class="wa-t">${esc(semName(state.semId))} 등록 연락 대상 <b>${due.length}명</b></span><span class="wa-hint">지난 학기에 ‘다음학기 대기’로 잡아둔 학생들이에요 · 연락해 보세요</span></div>
+    <div class="wa-list">${rows}</div>
+  </div>`;
+}
+function renderWonmuHub(b){
+  if(!bookState.loaded){ b.innerHTML='<div class="page-h"><div><h2><span class="h-ic">'+icon('wonmu',24)+'</span><span class="em">원무</span></h2><p>불러오는 중…</p></div></div><div class="book-loading">현황 불러오는 중…</div>'; ensureReservations().then(()=>{ if(state.view==='wonmu') renderWonmuBody(); }); return; }
+  const brs=branchList();
+  const semYms=semesterYM(state.semId).map(p=>p.ym);   // 학기 전체 월들
+  const inSem=r=>{ const ym=String(r.reserved_date||'').slice(0,7); return semYms.length?semYms.includes(ym):true; };
+  const ltRows=brs.map(x=>({b:x, m:ltMetrics(reservations.filter(r=>r.branch_id===x.id && inSem(r)))}));
+  const ltTot=ltMetrics(reservations.filter(r=> (session.role==='admin'||r.branch_id===session.branchId) && inSem(r)));
+  const maxBooked=Math.max(1,...ltRows.map(r=>r.m.booked));
+  const ltR=ltRates(ltTot);
+  const hcRows=brs.map(x=>({b:x, ...branchHeadcount(x.id)}));
+  const maxAct=Math.max(1,...hcRows.map(r=>r.active));
+  const hcTot=hcRows.reduce((a,r)=>({active:a.active+r.active,nw:a.nw+r.nw,wd:a.wd+r.wd}),{active:0,nw:0,wd:0});
+  const wdRate=(hcTot.active+hcTot.wd)>0?hcTot.wd/(hcTot.active+hcTot.wd)*100:0;
+
+  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('wonmu',24)}</span><span class="em">원무</span></h2><p>원생 · 상담 · 레벨테스트 — 보고 싶은 걸 골라 들어가세요</p></div></div>`;
+  h+=waitAlertBanner();
+  h+=`<div class="whub">`;
+
+  // 레벨테스트 카드 (레벨테스트 메뉴 권한 있을 때만)
+  if(hasMenu('leveltest')){
+  h+=`<div class="hub-card" onclick="wonmuGo('leveltest')">
+    <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>레벨테스트</h3><p>예약 · 참석 · 등록 현황 + 성적 · 코멘트</p></div><div class="hc-go">들어가기 ›</div></div>
+    <div class="legend"><div class="ls"><div class="li"><span class="sw r0"></span>예약</div><div class="li"><span class="sw r1"></span>참석</div><div class="li"><span class="sw r2"></span>등록</div></div><span class="mo">${esc(semName(state.semId))} · 분원별</span></div>`;
+  if(ltRows.length){ ltRows.forEach(r=>{ h+=ltBarRow(r.b.name, r.m, maxBooked); }); }
+  else h+=`<div class="empty-msg">표시할 분원이 없어요.</div>`;
+  h+=`<div class="hc-foot"><span class="l">전체 예약 ${ltTot.booked} · 참석 ${ltTot.attended} · 등록 ${ltTot.enrolled}${ltTot.failed?` · 미통과 ${ltTot.failed}`:''}</span><span class="r"><span class="b">참석률 ${ltR.att.toFixed(0)}%</span> · 등록률 ${ltR.enr.toFixed(0)}%</span></div></div>`;
+  }
+
+  // 인원현황 카드 (인원현황 메뉴 권한 있을 때만)
+  if(hasMenu('inwon')){
+  h+=`<div class="hub-card" onclick="wonmuGo('inwon')">
+    <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>인원현황</h3><p>재원 · 신규 · 퇴원 · 반별 · 담임별 · 상담</p></div><div class="hc-go">들어가기 ›</div></div>
+    <div class="legend"><div class="ls"><div class="li"><span class="sw h1"></span>현재 재원</div></div><span class="mo h">${esc(semName(state.semId))} · 분원별</span></div>`;
+  if(hcRows.length){ hcRows.forEach(r=>{ const w=Math.max(r.active>0?6:0, r.active/maxAct*100);
+    h+=`<div class="frow"><div class="fr-nm">${esc(r.b.name)}</div>
+      <div class="track"><div class="seg hbg" style="width:100%"></div><div class="seg h1seg" style="width:${w}%"></div><span class="n-in">${r.active}</span></div>
+      <div class="fr-pct"><div class="h-in">신규 +${r.nw}</div><div class="h-out">${r.wd?('퇴원 -'+r.wd):'퇴원 0'}</div></div></div>`;
+  }); } else h+=`<div class="empty-msg">표시할 분원이 없어요.</div>`;
+  h+=`<div class="hc-foot"><span class="l">현재 재원 ${fmt(hcTot.active)}명</span><span class="r"><span class="g">신규 +${hcTot.nw}</span> · 퇴원율 ${wdRate.toFixed(1)}%</span></div></div>`;
+  }
+
+  h+=`</div>`;
+  b.innerHTML=h;
+}
+
+/* ---------- 레벨테스트 상세 (admin 뷰어) ---------- */
+function statusBadge(r){
+  const st=r.status||'booked';
+  if(st==='noshow') return '<span class="st noshow">노쇼</span>';
+  if(st==='canceled') return '<span class="st cancel">취소</span>';
+  if(st==='parent_only') return '<span class="st parent">학부모만 참석</span>';
+  if(st==='attended') return '<span class="st done">참석</span>';
+  return '<span class="st booked">예약</span>';
+}
+function enrollBadge(r){
+  if(r.status==='canceled'||r.status==='noshow'||r.status==='parent_only') return '<span class="mut">–</span>';
+  const en=r.enrolled||'pending';
+  if(en==='enrolled') return '<span class="st enroll">등록완료</span>';
+  if(en==='not_enrolled') return '<span class="st noenr">미등록</span>';
+  if(en==='failed') return '<span class="st fail">미통과</span>';
+  if(en==='waiting_next') return '<span class="st waitn">다음학기 대기</span>'+(r.wait_semester?`<div class="waitn-sem">${esc(semNameFromId(r.wait_semester))}</div>`:'');
+  return '<span class="mut">대기</span>';
+}
+function scoreCell(r){
+  if(r.test_level||r.test_score!=null&&r.test_score!==''){ return `${r.test_level?`<span class="lvl">${esc(r.test_level)}</span>`:''}${(r.test_score!=null&&r.test_score!=='')?esc(r.test_score)+'점':''}`; }
+  return '<span class="mut">·</span>';
+}
+function isAttended(r){ if(r.status==='parent_only'||r.status==='canceled'||r.status==='noshow') return false; return r.status==='attended'||r.enrolled==='enrolled'||r.enrolled==='not_enrolled'||r.enrolled==='failed'||r.enrolled==='waiting_next'; }
+/* 테스터 코멘트 칸: 테스터 코멘트가 있으면 그걸, 없으면 미등록 사유(실무자가 남긴 메모)를 보여줌 */
+function cmtCell(r){
+  const c = r.tester_comment || r.not_enrolled_reason;
+  if(c) return esc(c);
+  if(r.status==='noshow') return '<span class="mut">미응시</span>';
+  if(r.status==='canceled') return '<span class="mut">취소</span>';
+  if(r.status==='parent_only') return '<span class="mut">학부모만 참석 (시험 미응시)</span>';
+  return '<span class="mut">·</span>';
+}
+/* 상세 목록에서 등록 여부를 바로 바꾸는 드롭다운 (캘린더 안 들어가고) */
+function enrollEditCell(r){
+  if(r.status==='canceled'||r.status==='noshow'||r.status==='parent_only') return '<span class="mut">–</span>';
+  const en=r.enrolled||'pending';
+  const opts=[['pending','대기'],['enrolled','등록완료'],['not_enrolled','미등록'],['failed','미통과'],['waiting_next','다음학기 대기']];
+  return `<select class="enr-sel enr-${en}" onchange="setResEnrolled('${r.id}',this.value)">${opts.map(o=>`<option value="${o[0]}" ${o[0]===en?'selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
+}
+function scoreLinkCell(r){
+  const res=ltResults[r.id];
+  if(res){ return `<span class="score-link" onclick="openScoreView('${res.id}')"><span class="lvl">${esc(res.assigned_level||'')}</span>${res.total_score!=null?esc(res.total_score)+'점':''}<span class="sv-ic">›</span></span>`; }
+  return scoreCell(r);
+}
+function semesterYM(semId){
+  const mm=String(semId||'').match(/sem_(\d+)_(\w+)/); if(!mm) return [];
+  const year=+mm[1]; const season=SEASONS.find(s=>s.key===mm[2]); if(!season) return [];
+  return season.months.map(mo=>{ const y=(season.key==='winter'&&(mo===1||mo===2))?year+1:year; return {y, m:mo, ym:`${y}-${_pad(mo)}`}; });
+}
+function ltSetPeriod(v){ wonmuState.ltPeriod=parseInt(v,10); wonmuState.ltPage=1; renderWonmuBody(); }
+function ltSetFilter(f){ wonmuState.ltFilter=f; wonmuState.ltPage=1; renderWonmuBody(); }
+function ltSetListBranch(v){ wonmuState.ltListBranch=v; wonmuState.ltPage=1; renderWonmuBody(); }
+function ltSetPage(p){ wonmuState.ltPage=p; renderApptbl(); }
+function toggleDelLog(){ wonmuState.delLogOpen=!wonmuState.delLogOpen; renderWonmuBody(); }
+function ltSetSearch(v){ wonmuState.ltSearch=v; wonmuState.ltPage=1; renderApptbl(); }
+function ltSetGrade(v){ wonmuState.ltGrade=v; wonmuState.ltPage=1; renderApptbl(); }
+function pageList(cur,total){ const out=[]; if(total<=7){ for(let p=1;p<=total;p++)out.push(p); return out; } out.push(1); let s=Math.max(2,cur-1), e=Math.min(total-1,cur+1); if(s>2)out.push('…'); for(let p=s;p<=e;p++)out.push(p); if(e<total-1)out.push('…'); out.push(total); return out; }
+function openBranchCalendar(id){ bookState.branchId=id; bookState.sel=null; bookState.adding=false; bookState.editId=null; wonmuGo('booking'); }
+/* 상세에서 학생 클릭 → 그 학생 예약이 있는 캘린더 날짜로 이동 + 편집칸 열기 */
+function openResInCalendar(id){
+  const r=reservations.find(x=>x.id===id); if(!r){ toast('예약을 찾을 수 없어요','err'); return; }
+  const d=String(r.reserved_date||'').slice(0,10);
+  bookState.branchId=r.branch_id||(session.role==='admin'?'all':session.branchId);
+  if(d){ bookState.y=+d.slice(0,4); bookState.m=+d.slice(5,7)-1; bookState.sel=d; }
+  bookState.editId=id; bookState.adding=false; bookState.delConfirm=null;
+  wonmuGo('booking'); window.scrollTo(0,0);
+}
+function renderLtDetail(b){
+  if(!bookState.loaded){ b.innerHTML='<div class="lt-back" onclick="wonmuGo(\'hub\')">‹ 원무 홈</div><div class="book-loading">레벨테스트 불러오는 중…</div>'; ensureReservations().then(()=>{ if(state.view==='wonmu') renderWonmuBody(); }); return; }
+  const tab=wonmuState.ltTab||'status';
+  const tabBar=`<div class="lt-headrow"><div class="lt-back" onclick="wonmuGo('hub')">‹ 원무 홈</div>
+    <div class="lt-tabs"><button class="${tab==='status'?'on':''}" onclick="ltSetTab('status')">현황</button><button class="${tab==='analysis'?'on':''}" onclick="ltSetTab('analysis')">분석</button></div></div>`;
+  if(tab==='analysis'){ b.innerHTML = tabBar + renderLtAnalysis(); return; }
+  let periods=semesterYM(state.semId);
+  if(!periods.length){ const t=new Date(); periods=[{y:t.getFullYear(),m:t.getMonth()+1,ym:`${t.getFullYear()}-${_pad(t.getMonth()+1)}`}]; }
+  if(wonmuState.ltPeriod==null) wonmuState.ltPeriod=-1;
+  let sel=wonmuState.ltPeriod; if(sel>=periods.length) sel=-1;
+  const ymSet=periods.map(p=>p.ym);
+  const inScope=r=>{ const ym=String(r.reserved_date||'').slice(0,7); return sel<0?ymSet.includes(ym):ym===ymSet[sel]; };
+  const brs=branchList();
+  const scopedAll=reservations.filter(r=> (session.role==='admin'||r.branch_id===session.branchId) && inScope(r));
+  const tot=ltMetrics(scopedAll);
+  const R=ltRates(tot);
+  const brData=brs.map(x=>({b:x, m:ltMetrics(reservations.filter(r=>r.branch_id===x.id && inScope(r)))}));
+  const maxBooked=Math.max(1,...brData.map(d=>d.m.booked));
+  const periodLabel=sel<0?'학기 전체':`${periods[sel].m}월`;
+
+  let h=tabBar+`
+  <div class="lt-top"><div><h2><span class="hic">${IC_CAL}</span>레벨테스트</h2><p>분원을 누르면 그 분원 캘린더(예약·출결)로 들어가요</p></div>
+    <div class="lt-ctrls">
+      <button class="lt-xlsxbtn" onclick="triggerExcelUpload()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>엑셀 등록</button>
+      <button class="lt-inputbtn" onclick="openBranchCalendar('all')">＋ 예약 입력</button>
+      ${session.role==='admin'?`<button class="lt-logbtn ${wonmuState.delLogOpen?'on':''}" onclick="toggleDelLog()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>삭제 기록${delLogs.length?` ${delLogs.length}`:''}</button>`:''}
+      <div class="pick"><span>기간</span><select onchange="ltSetPeriod(this.value)"><option value="-1" ${sel<0?'selected':''}>학기 전체</option>${periods.map((p,i)=>`<option value="${i}" ${i===sel?'selected':''}>${p.m}월</option>`).join('')}</select></div>
+    </div></div>`;
+
+  // 삭제 기록 패널 (본사 전용) — 노쇼 지우기 조작 감사
+  if(session.role==='admin' && wonmuState.delLogOpen){
+    h+=`<div class="lt-card dellog"><div class="lt-ch"><div class="t">예약 삭제 기록 <span class="hint">누가·언제·왜 지웠는지 · 최근순</span></div></div>`;
+    if(!delLogs.length){ h+=`<div class="empty-msg">삭제된 예약이 없어요.</div>`; }
+    else{
+      h+=`<div class="apptbl-wrap"><table class="apptbl"><thead><tr><th>삭제일시</th><th>삭제자</th><th>학생</th><th>분원</th><th>예약일</th><th>삭제 시 상태</th><th>사유</th></tr></thead><tbody>`;
+      delLogs.forEach(l=>{
+        const dt=String(l.deleted_at||'').replace('T',' ').slice(0,16);
+        const stTxt=[l.status_at_delete==='noshow'?'노쇼':l.status_at_delete==='canceled'?'취소':l.status_at_delete==='attended'?'참석':'예약',
+          l.enrolled_at_delete==='enrolled'?'등록':l.enrolled_at_delete==='not_enrolled'?'미등록':l.enrolled_at_delete==='failed'?'미통과':l.enrolled_at_delete==='waiting_next'?'다음학기대기':''].filter(Boolean).join(' · ');
+        const isNoshow=l.status_at_delete==='noshow'||l.status_at_delete==='canceled';
+        h+=`<tr><td class="dt">${esc(dt)}</td><td>${esc(l.deleted_by||'')}</td>
+          <td class="stu">${esc(l.student_name||'')}${l.student_code?`<span class="code">${esc(l.student_code)}</span>`:''}</td>
+          <td class="subc">${esc(bName(l.branch_id))}</td>
+          <td class="subc">${esc(String(l.reserved_date||'').slice(5).replace('-','/'))}</td>
+          <td>${isNoshow?`<span class="st noshow">${esc(stTxt)}</span>`:`<span class="mut">${esc(stTxt||'·')}</span>`}</td>
+          <td class="cmt">${l.reason?esc(l.reason):'<span class="mut">·</span>'}</td></tr>`;
+      });
+      h+=`</tbody></table></div>`;
+    }
+    h+=`</div>`;
+  }
+
+  // 요약 퍼널 (위: 예약→참석→등록 가운데정렬 / 아래: 상태별 통계 한 줄)
+  h+=`<div class="summary">
+    <div class="sfunnel">
+      <div class="sstep tipable" onmouseover="ltTip(event,'booked')" onmouseout="ltTipHide()"><span class="l" style="color:var(--r2)">예약</span><span class="v">${tot.booked}<span class="u">명</span></span><span class="r">&nbsp;</span></div>
+      <span class="sarrow">›</span>
+      <div class="sstep tipable" onmouseover="ltTip(event,'attended')" onmouseout="ltTipHide()"><span class="l" style="color:var(--wpos)">참석</span><span class="v">${tot.attended}<span class="u">명</span></span><span class="r">${tot.booked?'참석률 '+R.att.toFixed(0)+'%':'&nbsp;'}</span></div>
+      <span class="sarrow">›</span>
+      <div class="sstep tipable" onmouseover="ltTip(event,'enrolled')" onmouseout="ltTipHide()"><span class="l" style="color:var(--wblue)">등록</span><span class="v">${tot.enrolled}<span class="u">명</span></span><span class="r">${tot.booked?'등록률 '+R.enr.toFixed(0)+'%':'&nbsp;'}</span></div>
+      <span class="sdiv">｜</span>
+      <div class="sstep tipable" onmouseover="ltTip(event,'waitn')" onmouseout="ltTipHide()"><span class="l" style="color:#1f8a95">다음학기 대기</span><span class="v" style="color:#1f8a95">${tot.waitNext}<span class="u">명</span></span><span class="r">&nbsp;</span></div>
+    </div>
+    <div class="sstats">
+      <div class="smini tipable" onmouseover="ltTip(event,'noshow')" onmouseout="ltTipHide()"><span class="l">노쇼</span><span class="v neg">${tot.noshow}</span></div>
+      <div class="smini tipable" onmouseover="ltTip(event,'canceled')" onmouseout="ltTipHide()"><span class="l">취소</span><span class="v mut">${tot.canceled}</span></div>
+      <div class="smini tipable" onmouseover="ltTip(event,'notenr')" onmouseout="ltTipHide()"><span class="l">미등록</span><span class="v warn">${tot.notEnr}</span></div>
+      <div class="smini tipable" onmouseover="ltTip(event,'failed')" onmouseout="ltTipHide()"><span class="l">미통과</span><span class="v fail">${tot.failed}</span></div>
+      <div class="smini"><span class="l">미통과율</span><span class="v fail">${tot.attended?R.fail.toFixed(0)+'%':'·'}</span></div>
+    </div></div>`;
+
+  // 분원별 현황 (클릭 → 그 분원 캘린더)
+  h+=`<div class="lt-card"><div class="lt-ch"><div class="t">분원별 현황 <span class="hint">${periodLabel} · 분원을 누르면 캘린더로</span></div><div class="legend"><div class="ls"><div class="li"><span class="sw r0"></span>예약</div><div class="li"><span class="sw r1"></span>참석</div><div class="li"><span class="sw r2"></span>등록</div></div></div></div><div class="bars">`;
+  brData.forEach(d=>{
+    const m=d.m; const w=(n)=> maxBooked>0?Math.max(n>0?4:0,n/maxBooked*100):0;
+    const br=ltRates(m);
+    h+=`<div class="brow" onclick="openBranchCalendar('${d.b.id}')">
+      <div class="fr-nm">${esc(d.b.name)}</div>
+      <div class="track">
+        <div class="seg s0" style="width:${w(m.booked)}%">${m.booked?`<span class="cnt">${m.booked}</span>`:''}</div>
+        <div class="seg s1" style="width:${w(m.attended)}%">${m.attended?`<span class="cnt">${m.attended}</span>`:''}</div>
+        <div class="seg s2" style="width:${w(m.enrolled)}%">${m.enrolled?`<span class="cnt">${m.enrolled}</span>`:''}</div>
+      </div>
+      <div class="fr-pct2">참석 <b>${m.booked?br.att.toFixed(0):0}%</b> · 등록 <b>${m.booked?br.enr.toFixed(0):0}%</b>${m.failed?` · <span class="fail">미통과 ${m.failed}</span>`:''}</div>
+      <div class="chev">›</div></div>`;
+  });
+  h+=`</div></div>`;
+
+  // 응시자 상세 목록 (분원 선택 + 상태 필터 + 10명씩 페이지)
+  const lb=wonmuState.ltListBranch||'all';
+  const base=scopedAll.filter(r=> lb==='all'?true:r.branch_id===lb);
+  const f=wonmuState.ltFilter||'all';
+  const cnt={ all:base.length,
+    attended:base.filter(isAttended).length,
+    enrolled:base.filter(r=>r.enrolled==='enrolled').length,
+    notenr:base.filter(r=>r.enrolled==='not_enrolled').length,
+    failed:base.filter(r=>r.enrolled==='failed').length,
+    waitn:base.filter(r=>r.enrolled==='waiting_next').length,
+    noshow:base.filter(r=>r.status==='noshow').length,
+    booked:base.filter(r=>(r.status||'booked')==='booked').length };
+  const chip=(k,label)=>`<span class="chip ${f===k?'on':''}" onclick="ltSetFilter('${k}')">${label} <span class="c">${cnt[k]}</span></span>`;
+
+  h+=`<div class="lt-card"><div class="lt-ch"><div class="t">응시자 상세 <span class="hint">${periodLabel} · ${cnt.all}명</span></div><div class="lt-ch-r">`;
+  h+=`<div class="lt-search"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="ltSearchInput" placeholder="학생 이름·코드 검색" value="${esc(wonmuState.ltSearch||'')}" oninput="ltSetSearch(this.value)"><button class="lt-search-x" onclick="var i=document.getElementById('ltSearchInput'); if(i)i.value=''; ltSetSearch('')">✕</button></div>`;
+  const gradeOptsH=[...new Set(base.map(r=>gradeTxt(r.grade)).filter(Boolean))].sort(gradeSort);
+  const lg=wonmuState.ltGrade||'all';
+  h+=`<div class="pick"><span>학년</span><select onchange="ltSetGrade(this.value)"><option value="all" ${lg==='all'?'selected':''}>전체 학년</option>${gradeOptsH.map(g=>`<option value="${esc(g)}" ${g===lg?'selected':''}>${esc(g)}</option>`).join('')}</select></div>`;
+  if(session.role==='admin'){
+    h+=`<div class="pick"><span>분원</span><select onchange="ltSetListBranch(this.value)"><option value="all" ${lb==='all'?'selected':''}>전체 분원</option>${brs.map(b2=>`<option value="${b2.id}" ${b2.id===lb?'selected':''}>${esc(b2.name)}</option>`).join('')}</select></div>`;
+  }
+  h+=`</div></div>`;
+  h+=`<div class="chips">${chip('all','전체')}${chip('attended','참석')}${chip('enrolled','등록완료')}${chip('notenr','미등록')}${chip('failed','미통과')}${chip('waitn','다음학기 대기')}${chip('noshow','노쇼')}${chip('booked','예약대기')}</div>`;
+  h+=`<div id="apptblHost"></div>`;
+  h+=`</div>`;
+  b.innerHTML=h;
+  renderApptbl();   // 표 부분만 별도 렌더 (검색 입력이 안 지워져서 한글 조합 안 깨짐)
+}
+/* 응시자 상세 표만 계산·렌더 (검색·페이지 변경 시 이 부분만 다시 그림) */
+function ltFilteredRows(){
+  let periods=semesterYM(state.semId);
+  if(!periods.length){ const t=new Date(); periods=[{y:t.getFullYear(),m:t.getMonth()+1,ym:`${t.getFullYear()}-${_pad(t.getMonth()+1)}`}]; }
+  let sel=wonmuState.ltPeriod; if(sel==null)sel=-1; if(sel>=periods.length)sel=-1;
+  const ymSet=periods.map(p=>p.ym);
+  const inScope=r=>{ const ym=String(r.reserved_date||'').slice(0,7); return sel<0?ymSet.includes(ym):ym===ymSet[sel]; };
+  const scopedAll=reservations.filter(r=> (session.role==='admin'||r.branch_id===session.branchId) && inScope(r));
+  const lb=wonmuState.ltListBranch||'all';
+  const base=scopedAll.filter(r=> lb==='all'?true:r.branch_id===lb);
+  const f=wonmuState.ltFilter||'all';
+  const pred={ all:()=>true, attended:isAttended, enrolled:r=>r.enrolled==='enrolled', notenr:r=>r.enrolled==='not_enrolled', failed:r=>r.enrolled==='failed', waitn:r=>r.enrolled==='waiting_next', noshow:r=>r.status==='noshow', booked:r=>(r.status||'booked')==='booked' }[f]||(()=>true);
+  const q=(wonmuState.ltSearch||'').trim().toLowerCase();
+  const lg=wonmuState.ltGrade||'all';
+  return base.filter(pred)
+    .filter(r=> lg==='all' || gradeTxt(r.grade)===lg)
+    .filter(r=> !q || String(r.student_name||'').toLowerCase().includes(q) || String(r.student_code||'').toLowerCase().includes(q))
+    .sort((a,b)=> (String(a.reserved_date)+String(a.reserved_time||'')).localeCompare(String(b.reserved_date)+String(b.reserved_time||'')));
+}
+function renderApptbl(){
+  const host=$('apptblHost'); if(!host) return;
+  const allRows=ltFilteredRows();
+  const PER=10;
+  const totalPages=Math.max(1,Math.ceil(allRows.length/PER));
+  let page=wonmuState.ltPage||1; if(page>totalPages) page=totalPages; if(page<1) page=1;
+  const rows=allRows.slice((page-1)*PER, page*PER);
+  let h='';
+  if(!allRows.length){ h=`<div class="empty-msg">해당 조건의 응시자가 없어요.</div>`; }
+  else{
+    h+=`<div class="apptbl-wrap"><table class="apptbl"><thead><tr><th>날짜 · 시간</th><th>분원</th><th>학생</th><th>학교 · 학년</th><th>상태</th><th>등록</th><th>성적</th><th>테스터 코멘트</th></tr></thead><tbody>`;
+    rows.forEach(r=>{
+      const dstr=String(r.reserved_date||'').slice(5).replace('-','/').replace(/^0/,'');
+      const meta=[esc(r.school||''), gradeTxt(r.grade)].filter(Boolean).join(' · ')||'<span class="mut">·</span>';
+      h+=`<tr><td class="dt">${dstr} <span>${esc(String(r.reserved_time||'').slice(0,5))}</span></td>
+        <td class="subc">${esc(bName(r.branch_id))}</td>
+        <td class="stu stu-link" onclick="openResInCalendar('${r.id}')" title="캘린더에서 열기"><span class="stu-nm">${esc(r.student_name||'')}</span>${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}</td>
+        <td class="subc">${meta}</td>
+        <td>${statusBadge(r)}</td><td class="enr-cell">${enrollEditCell(r)}</td>
+        <td class="score">${scoreLinkCell(r)}</td>
+        <td class="cmt">${cmtCell(r)}</td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+    if(totalPages>1){
+      h+=`<div class="pager"><span class="pg-info">${(page-1)*PER+1}–${Math.min(page*PER,allRows.length)} / ${allRows.length}명</span>
+        <div class="pg-btns"><button class="pg-nav" ${page<=1?'disabled':''} onclick="ltSetPage(${page-1})">‹</button>`;
+      pageList(page,totalPages).forEach(p=>{ h+= (p==='…') ? `<span class="dots">…</span>` : `<button class="pg ${p===page?'on':''}" onclick="ltSetPage(${p})">${p}</button>`; });
+      h+=`<button class="pg-nav" ${page>=totalPages?'disabled':''} onclick="ltSetPage(${page+1})">›</button></div></div>`;
+    }
+  }
+  host.innerHTML=h;
+}
+
+/* ============================================================================
+   레벨테스트 분석 탭 — 지금 데이터로만 (비교군·백분위 없음). 미통과 = 불합격.
+   ============================================================================ */
+function ltSetTab(t){ wonmuState.ltTab=t; renderWonmuBody(); window.scrollTo(0,0); }
+function anSetBranch(v){ wonmuState.anBranch=v; renderWonmuBody(); }
+function anSetType(v){ wonmuState.anType=v; renderWonmuBody(); }
+function anSetPeriod(v){ wonmuState.anPeriod=parseInt(v,10); renderWonmuBody(); }
+function anSetGrade(v){ wonmuState.anGrade=v; wonmuState.anListPage=0; renderWonmuBody(); }
+function anExamPg(d){ wonmuState.anExamPage=(wonmuState.anExamPage||0)+d; renderWonmuBody(); }
+function anLevelPg(d){ wonmuState.anLevelPage=(wonmuState.anLevelPage||0)+d; renderWonmuBody(); }
+function anListPg(d){ wonmuState.anListPage=(wonmuState.anListPage||0)+d; renderWonmuBody(); }
+/* 지표 위에 마우스 올리면 해당 학생 명단 툴팁 */
+const TIP_LABEL={booked:'예약',attended:'응시(참석)',passed:'합격',enrolled:'등록',notenr:'미등록',failed:'불합격(미통과)',waitn:'다음학기 대기',noshow:'노쇼',canceled:'취소',parent:'학부모만 참석'};
+const TIP_PRED={
+  booked:()=>true, attended:isAttended,
+  passed:r=>isAttended(r)&&r.enrolled!=='failed',
+  enrolled:r=>r.enrolled==='enrolled'&&r.status!=='parent_only',
+  notenr:r=>r.enrolled==='not_enrolled'&&r.status!=='parent_only',
+  failed:r=>r.enrolled==='failed'&&r.status!=='parent_only',
+  waitn:r=>r.enrolled==='waiting_next'&&r.status!=='parent_only',
+  noshow:r=>r.status==='noshow', canceled:r=>r.status==='canceled', parent:r=>r.status==='parent_only'
+};
+function ltTipScope(){
+  let periods=semesterYM(state.semId);
+  if(!periods.length){ const t=new Date(); periods=[{y:t.getFullYear(),m:t.getMonth()+1,ym:`${t.getFullYear()}-${_pad(t.getMonth()+1)}`}]; }
+  const isAdmin=session.role==='admin';
+  if(wonmuState.ltTab==='analysis'){
+    let sel=wonmuState.anPeriod; if(sel==null)sel=-1; if(sel>=periods.length)sel=-1;
+    const ymSet=periods.map(p=>p.ym); const anBranch=isAdmin?(wonmuState.anBranch||'all'):session.branchId; const anType=wonmuState.anType||'all';
+    let s=reservations.filter(r=> (isAdmin?(anBranch==='all'||r.branch_id===anBranch):r.branch_id===session.branchId) && (sel<0?ymSet.includes(String(r.reserved_date||'').slice(0,7)):String(r.reserved_date||'').slice(0,7)===ymSet[sel]));
+    if(anType!=='all') s=s.filter(r=>examTypeOf(r)===anType);
+    return s;
+  }
+  let sel=wonmuState.ltPeriod; if(sel==null)sel=-1; if(sel>=periods.length)sel=-1;
+  const ymSet=periods.map(p=>p.ym);
+  return reservations.filter(r=> (isAdmin||r.branch_id===session.branchId) && (sel<0?ymSet.includes(String(r.reserved_date||'').slice(0,7)):String(r.reserved_date||'').slice(0,7)===ymSet[sel]));
+}
+let _ltTipTimer=null, _tipState={list:[],page:0,label:''};
+const TIP_PER=8;
+function ltTip(ev,bucket){
+  if(_ltTipTimer){ clearTimeout(_ltTipTimer); _ltTipTimer=null; }
+  const pred=TIP_PRED[bucket]||(()=>false);
+  const list=ltTipScope().filter(pred).sort((a,b)=> (String(a.reserved_date)+String(a.reserved_time||'')).localeCompare(String(b.reserved_date)+String(b.reserved_time||'')));
+  _tipState={list, page:0, label:TIP_LABEL[bucket]||''};
+  let t=document.getElementById('ltTip'); if(!t){ t=document.createElement('div'); t.id='ltTip'; t.className='lt-tip'; document.body.appendChild(t);
+    t.addEventListener('mouseenter',()=>{ if(_ltTipTimer){ clearTimeout(_ltTipTimer); _ltTipTimer=null; } });
+    t.addEventListener('mouseleave',ltTipHide);
+  }
+  t.style.display='block';
+  renderTipBody();
+  t.style.left='0px'; t.style.top='0px';
+  const rect=ev.currentTarget.getBoundingClientRect(); const tw=t.offsetWidth, th=t.offsetHeight;
+  let left=rect.left, top=rect.bottom+8;
+  if(left+tw>window.innerWidth-12) left=window.innerWidth-tw-12;
+  if(top+th>window.innerHeight-12) top=rect.top-th-8;
+  t.style.left=Math.max(12,left)+'px'; t.style.top=Math.max(12,top)+'px';
+}
+function renderTipBody(){
+  const t=document.getElementById('ltTip'); if(!t) return;
+  const list=_tipState.list, label=_tipState.label;
+  if(!list.length){ t.innerHTML=`<div class="tp-head">${esc(label)} · 0명</div><div class="tp-more">해당 없음</div>`; return; }
+  const rows=list.map(r=>{ const sc=scoreOf(r); const lv=levelOf(r); const d=String(r.reserved_date||'').slice(5).replace('-','/');
+    return `<div class="tp-row"><span class="tp-nm">${esc(r.student_name||'')}</span><span class="tp-meta">${esc([r.school||'',gradeTxt(r.grade)].filter(Boolean).join(' · '))||'·'}</span><span class="tp-sc">${d}${lv?' · '+esc(lv):''}${sc!=null?' · '+sc+'점':''}</span></div>`;
+  }).join('');
+  t.innerHTML=`<div class="tp-head">${esc(label)} · ${list.length}명</div>${rows}`;
+}
+function ltTipPage(d){}
+function ltTipHide(){ if(_ltTipTimer) clearTimeout(_ltTipTimer); _ltTipTimer=setTimeout(function(){ const t=document.getElementById('ltTip'); if(t) t.style.display='none'; },260); }
+function examTypeOf(r){ const res=ltResults[r.id]; if(res&&res.report_type) return res.report_type==='chess'?'chess':'ace'; return null; }
+function examKeyOf(r){ const res=ltResults[r.id]; return (res&&res.exam_key)||''; }
+/* 시험 종류 라벨 — 공용 시험지("M1,M2(일반형)")는 학년으로 갈라서 M1/M2 구분 */
+function examLabel(r){
+  const k=examKeyOf(r); if(!k) return '';
+  if(/일반형/.test(k) && /M1|M2/.test(k)){
+    const g=gradeKey(r.grade);
+    if(g==='중1') return 'M1(일반형)';
+    if(g==='중2') return 'M2(일반형)';
+  }
+  return k;
+}
+/* 시험 종류 카탈로그 (학년별로 정해진 시험지) */
+const EXAM_META=[
+  {k:'D1',g:'초등1~5',t:'chess'},{k:'D2',g:'초등1~5',t:'chess'},{k:'D3',g:'초등1~5',t:'chess'},{k:'D4',g:'초등1~5',t:'chess'},
+  {k:'L1',g:'초등1~5',t:'chess'},{k:'L2',g:'초등1~5',t:'chess'},{k:'L3',g:'초등1~5',t:'chess'},{k:'L4',g:'초등1~5',t:'chess'},
+  {k:'E6',g:'초등6',t:'ace'},{k:'Voca & Translation',g:'초등6·중등1',t:'ace'},
+  {k:'M1(일반형)',g:'중등1',t:'ace'},{k:'M1(수능형)',g:'중등1',t:'ace'},
+  {k:'M2(일반형)',g:'중등2',t:'ace'},{k:'M2(수능형)',g:'중등2',t:'ace'},
+  {k:'M3(고1형)',g:'중등3',t:'ace'},{k:'M3(고2형)',g:'중등3',t:'ace'},
+];
+function scoreOf(r){ const res=ltResults[r.id]; let s=(res&&res.total_score!=null&&res.total_score!=='')?res.total_score:(r.test_score!=null&&r.test_score!==''?r.test_score:null); return s==null?null:Number(s); }
+function levelOf(r){ const res=ltResults[r.id]; return (res&&res.assigned_level)||r.test_level||''; }
+function gradeKey(g){ g=String(g||'').trim(); let m; if(m=g.match(/중\s*등?\s*(\d)/))return '중'+m[1]; if(m=g.match(/초\s*등?\s*(\d)/))return '초'+m[1]; if(m=g.match(/고\s*(\d)/))return '고'+m[1]; if(m=g.match(/^(\d)$/))return '초'+m[1]; return g||'기타'; }
+const GRADE_ORDER=['초1','초2','초3','초4','초5','초6','중1','중2','중3','고1','고2','고3'];
+const CHESS_LV_ORDER=['D1','D2','D3','D4','L1','L2','L3','L4'];
+let anLastRows=[];   // 엑셀 내보내기용
+
+function renderLtAnalysis(){
+  const isAdmin=session.role==='admin';
+  const brs=branchList();
+  const anBranch=isAdmin?(wonmuState.anBranch||'all'):session.branchId;
+  let periods=semesterYM(state.semId);
+  if(!periods.length){ const t=new Date(); periods=[{y:t.getFullYear(),m:t.getMonth()+1,ym:`${t.getFullYear()}-${_pad(t.getMonth()+1)}`}]; }
+  let sel=wonmuState.anPeriod; if(sel==null)sel=-1; if(sel>=periods.length)sel=-1;
+  const ymSet=periods.map(p=>p.ym);
+  const inScope=r=>{ const ym=String(r.reserved_date||'').slice(0,7); return sel<0?ymSet.includes(ym):ym===ymSet[sel]; };
+  const anType=wonmuState.anType||'all';
+  let scoped=reservations.filter(r=> (isAdmin?(anBranch==='all'||r.branch_id===anBranch):r.branch_id===session.branchId) && inScope(r));
+  if(anType!=='all') scoped=scoped.filter(r=>examTypeOf(r)===anType);
+
+  const m=ltMetrics(scoped);
+  const passed=Math.max(0,m.attended-m.failed);
+  const att=scoped.filter(isAttended);
+  const periodLabel=sel<0?'학기 전체':`${periods[sel].m}월`;
+  const brLabel=isAdmin?(anBranch==='all'?'전체 분원':bName(anBranch)):bName(session.branchId);
+
+  // ---- 필터 바 ----
+  let h=`<div class="an-filter">
+    ${isAdmin?`<div class="pick"><span>분원</span><select onchange="anSetBranch(this.value)"><option value="all" ${anBranch==='all'?'selected':''}>전체 분원</option>${brs.map(b=>`<option value="${b.id}" ${b.id===anBranch?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div>`:''}
+    <div class="pick"><span>기간</span><select onchange="anSetPeriod(this.value)"><option value="-1" ${sel<0?'selected':''}>학기 전체</option>${periods.map((p,i)=>`<option value="${i}" ${i===sel?'selected':''}>${p.m}월</option>`).join('')}</select></div>
+    <div class="an-seg"><button class="${anType==='all'?'on':''}" onclick="anSetType('all')">전체</button><button class="${anType==='chess'?'on':''}" onclick="anSetType('chess')">체스</button><button class="${anType==='ace'?'on':''}" onclick="anSetType('ace')">에이스</button></div>
+  </div>`;
+
+  // ---- 전형 퍼널 ----
+  const mr=ltRates(m);
+  const attRate=mr.att, passRate=m.attended?passed/m.attended*100:0;
+  const enrOfPass=mr.conv, enrOfBook=mr.enr;   // 예약대비 = 등록÷(예약−미통과), 현황과 동일 기준
+  h+=`<div class="lt-card"><div class="lt-ch"><div class="t">신입생 등록 현황 <span class="hint">예약 → 응시 → 합격 → 등록 · ${esc(brLabel)} · ${periodLabel}</span></div></div>
+    <div style="padding:16px 18px 4px">
+    <div class="an-funnel">
+      <div class="an-fstep tipable" onmouseover="ltTip(event,'booked')" onmouseout="ltTipHide()"><div class="fl" style="color:#9f88e8">예약</div><div class="fv">${m.booked}<span class="u">명</span></div><div class="fr">&nbsp;</div></div>
+      <div class="an-farrow">›</div>
+      <div class="an-fstep tipable" onmouseover="ltTip(event,'attended')" onmouseout="ltTipHide()"><div class="fl" style="color:#4bb894">응시</div><div class="fv">${m.attended}<span class="u">명</span></div><div class="fr">${m.booked?'참석률 '+attRate.toFixed(0)+'%':'&nbsp;'}</div></div>
+      <div class="an-farrow">›</div>
+      <div class="an-fstep tipable" onmouseover="ltTip(event,'passed')" onmouseout="ltTipHide()"><div class="fl" style="color:#6f9ad6">합격</div><div class="fv">${passed}<span class="u">명</span></div><div class="fr">${m.attended?'합격률 '+passRate.toFixed(0)+'%':'&nbsp;'}</div></div>
+      <div class="an-farrow">›</div>
+      <div class="an-fstep tipable" onmouseover="ltTip(event,'enrolled')" onmouseout="ltTipHide()"><div class="fl" style="color:#7a5ce0">등록</div><div class="fv">${m.enrolled}<span class="u">명</span></div><div class="fr">${passed?'합격자 중 '+enrOfPass.toFixed(0)+'% · 예약대비 '+enrOfBook.toFixed(0)+'%':'&nbsp;'}</div></div>
+      <div class="an-fdiv">｜</div>
+      <div class="an-fstep tipable" onmouseover="ltTip(event,'waitn')" onmouseout="ltTipHide()"><div class="fl" style="color:#1f8a95">다음학기 대기</div><div class="fv" style="color:#1f8a95">${m.waitNext}<span class="u">명</span></div><div class="fr">&nbsp;</div></div>
+    </div>
+    <div class="an-drops">
+      <div class="an-drop tipable" onmouseover="ltTip(event,'failed')" onmouseout="ltTipHide()">불합격(미통과) <b style="color:#bb4a68">${m.failed}</b></div>
+      <div class="an-drop tipable" onmouseover="ltTip(event,'notenr')" onmouseout="ltTipHide()">합격했지만 미등록 <b style="color:#e2953f">${m.notEnr}</b></div>
+      <div class="an-drop tipable" onmouseover="ltTip(event,'noshow')" onmouseout="ltTipHide()">노쇼 <b>${m.noshow}</b></div>
+      <div class="an-drop tipable" onmouseover="ltTip(event,'canceled')" onmouseout="ltTipHide()">취소 <b>${m.canceled}</b></div>
+      <div class="an-drop tipable" onmouseover="ltTip(event,'parent')" onmouseout="ltTipHide()">학부모만 참석 <b>${m.parentOnly}</b></div>
+    </div></div></div>`;
+
+  // ---- 시험 종류별 응시 현황 (실제 시험지 기준) — 평균도 시험지별로만 ----
+  const examAgg={}; att.forEach(r=>{ const k=examLabel(r); if(!k)return; if(!examAgg[k])examAgg[k]={n:0,pass:0,enr:0,scores:[],grades:{}}; examAgg[k].n++; if(r.enrolled!=='failed')examAgg[k].pass++; if(r.enrolled==='enrolled')examAgg[k].enr++; const s=scoreOf(r); if(s!=null)examAgg[k].scores.push(s); const gk=gradeTxt(r.grade); if(gk)examAgg[k].grades[gk]=(examAgg[k].grades[gk]||0)+1; });
+  const metaKeys=EXAM_META.map(m=>m.k);
+  const extraKeys=Object.keys(examAgg).filter(k=>!metaKeys.includes(k));
+  const examRows=[...EXAM_META.filter(m=>examAgg[m.k]), ...extraKeys.map(k=>({k,g:'기타',t:'ace'}))].filter(m=>examAgg[m.k]);
+  const EX_PER=12; const exPages=Math.max(1,Math.ceil(examRows.length/EX_PER)); let exPg=Math.min(Math.max(0,wonmuState.anExamPage||0),exPages-1);
+  const exSlice=examRows.slice(exPg*EX_PER,(exPg+1)*EX_PER);
+  h+=`<div class="an-grid2 an-grid-exam">`;
+  h+=`<div class="lt-card"><div class="lt-ch"><div class="t">시험 종류별 응시 현황 <span class="hint">어느 시험지를 어느 학년이 봤나 · 실제 시험 기준</span></div></div>
+    <div class="apptbl-wrap"><table class="apptbl an-tbl"><thead><tr><th>시험 종류</th><th>대상 학년</th><th class="r">응시</th><th class="r">평균</th><th class="r">합격</th><th class="r">등록</th></tr></thead><tbody>`;
+  if(!examRows.length) h+=`<tr><td colspan="6" style="text-align:center;color:#a9a2b6;padding:20px">채점된 응시 데이터가 없어요.</td></tr>`;
+  exSlice.forEach(m=>{ const a=examAgg[m.k];
+    const avg=a.scores.length?(a.scores.reduce((x,y)=>x+y,0)/a.scores.length).toFixed(1):'·';
+    const ge=Object.entries(a.grades||{}).sort((x,y)=>y[1]-x[1]);
+    let gradeCell;
+    if(/~/.test(m.g)){   // 체스: 설계범위 + 최다(동률이면 나란히) 박스
+      let badge='';
+      if(ge.length){ const tc=ge[0][1]; const tops=ge.filter(e=>e[1]===tc).map(e=>e[0]);
+        const txt = tops.length===1 ? '최다 '+esc(tops[0]) : esc(tops.slice(0,3).join('·'))+(tops.length>3?' 외':'');
+        badge=` <span class="grade-badge">${txt}</span>`; }
+      gradeCell = esc(m.g)+badge;
+    } else {   // 에이스: 학년 고정 — 박스 하나
+      gradeCell = `<span class="grade-badge">${esc(ge[0]?ge[0][0]:m.g)}</span>`;
+    }
+    h+=`<tr><td class="nm">${esc(m.k)} <span class="typetag ${m.t}" style="margin-left:5px">${m.t==='ace'?'에이스':'체스'}</span></td><td class="subc">${gradeCell}</td><td class="r"><b>${a.n}</b></td><td class="r">${avg}</td><td class="r">${a.pass}</td><td class="r">${a.enr}</td></tr>`;
+  });
+  h+=`</tbody></table></div>${anPager(exPg,examRows.length,EX_PER,'anExamPg')}</div>`;
+
+  // ---- 배정 레벨 분포 (카드 현황판 · 인원 많은 순 · 6개씩 페이지) ----
+  const lvAgg={}; att.forEach(r=>{ const t=examTypeOf(r); const lv=levelOf(r); if(t&&lv){ const k=t+'|'+lv; if(!lvAgg[k])lvAgg[k]={lv,t,n:0,enr:0}; lvAgg[k].n++; if(r.enrolled==='enrolled')lvAgg[k].enr++; } });
+  const lvList=Object.values(lvAgg).sort((a,b)=> b.n-a.n || String(a.lv).localeCompare(String(b.lv)));
+  const lvTotal=lvList.reduce((s,x)=>s+x.n,0);
+  const LV_PER=6; const lvPages=Math.max(1,Math.ceil(lvList.length/LV_PER)); let lvPg=Math.min(Math.max(0,wonmuState.anLevelPage||0),lvPages-1);
+  const lvSlice=lvList.slice(lvPg*LV_PER,(lvPg+1)*LV_PER);
+  h+=`<div class="lt-card"><div class="lt-ch"><div class="t">배정 레벨 분포 <span class="hint">많은 순 · 레벨 ${lvList.length}종</span></div></div>`;
+  if(!lvList.length){ h+=`<div class="empty-msg">성적 데이터가 없어요.</div>`; }
+  else{
+    h+=`<div class="lvgrid">`;
+    lvSlice.forEach(x=>{ const pct=lvTotal?Math.round(x.n/lvTotal*100):0;
+      h+=`<div class="lvcard ${x.t}"><div class="lvc-top"><span class="lname">${esc(x.lv)}</span><span class="ltag ${x.t==='ace'?'a':'c'}">${x.t==='ace'?'에이스':'체스'}</span></div><div class="lbig">${x.n}<small>명</small></div><div class="lsub">비율 ${pct}% · 등록 ${x.enr}</div></div>`;
+    });
+    h+=`</div>${anPager(lvPg,lvList.length,LV_PER,'anLevelPg')}`;
+  }
+  h+=`</div>`;
+  h+=`</div>`;   // an-grid-exam 닫기
+
+  // ---- 응시자 상세 (시험지별 등수 — D1·D2… 각 시험지 안에서 순위) ----
+  const scoredByExam={};
+  att.forEach(r=>{ const k=examLabel(r); const s=scoreOf(r); if(k&&s!=null){ (scoredByExam[k]=scoredByExam[k]||[]).push({id:r.id,s}); } });
+  Object.keys(scoredByExam).forEach(k=>scoredByExam[k].sort((a,b)=>b.s-a.s));
+  const rankOf=r=>{ const k=examLabel(r); const s=scoreOf(r); if(!k||s==null) return null; const arr=scoredByExam[k]||[]; const i=arr.findIndex(x=>x.id===r.id); return i<0?null:{rank:i+1,total:arr.length}; };
+  const anGrade=wonmuState.anGrade||'all';
+  const gradeOpts=[...new Set(att.map(r=>gradeTxt(r.grade)).filter(Boolean))].sort(gradeSort);
+  const listRows=att.slice()
+    .filter(r=> anGrade==='all' || gradeTxt(r.grade)===anGrade)
+    .sort((a,b)=> (String(a.reserved_date)+String(a.reserved_time||'')).localeCompare(String(b.reserved_date)+String(b.reserved_time||'')));
+  anLastRows=listRows;
+
+  h+=`<div class="lt-card"><div class="lt-ch"><div class="t">응시자 상세 <span class="hint">${listRows.length}명 · 시험지 내 등수</span></div><div class="lt-ch-r">
+    <div class="pick"><span>학년</span><select onchange="anSetGrade(this.value)"><option value="all" ${anGrade==='all'?'selected':''}>전체 학년</option>${gradeOpts.map(g=>`<option value="${esc(g)}" ${g===anGrade?'selected':''}>${esc(g)}</option>`).join('')}</select></div>
+    <button class="lt-xlsxbtn" onclick="anExportCsv()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>엑셀(CSV)</button></div></div>`;
+  if(!listRows.length){ h+=`<div class="empty-msg">해당 학년 응시자가 없어요.</div>`; }
+  else{
+    const LST_PER=15; const lstPages=Math.max(1,Math.ceil(listRows.length/LST_PER)); let lstPg=Math.min(Math.max(0,wonmuState.anListPage||0),lstPages-1);
+    const lstSlice=listRows.slice(lstPg*LST_PER,(lstPg+1)*LST_PER);
+    h+=`<div class="apptbl-wrap"><table class="apptbl"><thead><tr><th>날짜</th><th>학생</th><th>학교·학년</th><th>시험지</th><th>배정레벨</th><th class="r">총점</th><th class="r">시험지 내 등수</th><th>합격</th><th>등록</th></tr></thead><tbody>`;
+    lstSlice.forEach(r=>{
+      const dstr=String(r.reserved_date||'').slice(5).replace('-','/').replace(/^0/,'');
+      const t=examTypeOf(r); const el=examLabel(r); const s=scoreOf(r); const lv=levelOf(r); const rk=rankOf(r);
+      const meta=[esc(r.school||''),gradeTxt(r.grade)].filter(Boolean).join(' · ')||'·';
+      const passTag = r.enrolled==='failed' ? '<span class="st fail">불합격</span>' : '<span class="st pass">합격</span>';
+      const enrTag = r.enrolled==='enrolled'?'<span class="st enroll">등록</span>':r.enrolled==='not_enrolled'?'<span class="st noenr">미등록</span>':r.enrolled==='waiting_next'?'<span class="st waitn">다음학기대기</span>':r.enrolled==='failed'?'<span class="mut">–</span>':'<span class="mut">대기</span>';
+      h+=`<tr><td class="dt">${dstr}</td><td class="stu">${esc(r.student_name||'')}${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}</td>
+        <td class="subc">${meta}</td>
+        <td>${el?`<span class="typetag ${t||'ace'}">${esc(el)}</span>`:'<span class="mut">·</span>'}</td>
+        <td class="subc">${lv?esc(lv):'<span class="mut">·</span>'}</td>
+        <td class="r">${s!=null?s:'<span class="mut">·</span>'}</td>
+        <td class="r">${rk?`<span class="rankpill">${rk.rank} / ${rk.total}</span>`:'<span class="mut">·</span>'}</td>
+        <td>${passTag}</td><td>${enrTag}</td></tr>`;
+    });
+    h+=`</tbody></table></div>${anPager(lstPg,listRows.length,LST_PER,'anListPg')}`;
+  }
+  h+=`</div>`;
+  return h;
+}
+function anExportCsv(){
+  const head=['날짜','학생','학생코드','학교','학년','시험지','배정레벨','총점','시험지내등수','합격여부','등록여부'];
+  const enrK={enrolled:'등록',not_enrolled:'미등록',waiting_next:'다음학기대기',failed:'불합격',pending:'대기'};
+  const scoredByExam={};
+  anLastRows.forEach(r=>{ const k=examLabel(r); const s=scoreOf(r); if(k&&s!=null){ (scoredByExam[k]=scoredByExam[k]||[]).push({id:r.id,s}); } });
+  Object.keys(scoredByExam).forEach(k=>scoredByExam[k].sort((a,b)=>b.s-a.s));
+  const rows=anLastRows.map(r=>{ const k=examLabel(r); const s=scoreOf(r); let rk=''; if(k&&s!=null){ const arr=scoredByExam[k]; const i=arr.findIndex(x=>x.id===r.id); if(i>=0) rk=`${i+1}/${arr.length}`; }
+    return [String(r.reserved_date||'').slice(0,10), r.student_name||'', r.student_code||'', r.school||'', gradeTxt(r.grade), k||'', levelOf(r), s!=null?s:'', rk, r.enrolled==='failed'?'불합격':'합격', enrK[r.enrolled||'pending']||''];
+  });
+  const csv=[head,...rows].map(row=>row.map(c=>{ c=String(c==null?'':c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }).join(',')).join('\r\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download='레벨테스트_응시자.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('응시자 명단을 내려받았어요 ✓');
+}
+
+/* 인원현황(renderInwon 등) → inwon.js 로 분리됨 */
+
+let ltResults={};   // reservation_id → { id, assigned_level, total_score }
+async function loadLtResults(){
+  try{
+    initSupabase();
+    const { data, error } = await sb.from('level_test_results').select('id,reservation_id,assigned_level,total_score,report_type,exam_key,created_at').order('created_at',{ascending:true});
+    if(error) throw error;
+    ltResults={};
+    (data||[]).forEach(r=>{ if(r.reservation_id) ltResults[r.reservation_id]=r; });  // 같은 예약 여러개면 최신 유지
+  }catch(e){ console.error('성적 로드 실패', e); }
+}
+async function ensureReservations(){
+  try{
+    initSupabase();
+    const { data, error } = await sb.from('level_test_reservations').select('*');
+    if(error) throw error;
+    reservations = data||[];
+  }catch(e){ console.error('예약 로드 실패', e); toast('예약을 불러오지 못했어요','err'); reservations=[]; }
+  await loadLtResults();
+  await loadDelLogs();
+  bookState.loaded=true;
+}
+let delLogs=[];   // 예약 삭제 기록 (감사용)
+async function loadDelLogs(){
+  try{
+    initSupabase();
+    const { data, error } = await sb.from('level_test_deletion_logs').select('*').order('deleted_at',{ascending:false}).limit(300);
+    if(error) throw error;
+    delLogs = data||[];
+  }catch(e){ console.error('삭제기록 로드 실패', e); delLogs=[]; }  // 테이블 없거나 실패해도 앱은 계속
+}
+
+/* ---------- 레벨테스트 채점/열람 오버레이 (leveltest/ 미니앱을 iframe으로) ---------- */
+function ltOverlay(src){
+  let ov=document.getElementById('ltOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='ltOverlay'; document.body.appendChild(ov); }
+  ov.className='lt-overlay';
+  ov.innerHTML=`<div class="lt-ov-bar"><button class="lt-ov-close" onclick="closeLevelTest()">‹ 닫기</button><span class="lt-ov-title">레벨테스트</span></div><iframe class="lt-ov-frame" src="${src}"></iframe>`;
+  document.body.style.overflow='hidden';
+}
+function closeLevelTest(){ const ov=document.getElementById('ltOverlay'); if(ov) ov.remove(); document.body.style.overflow=''; }
+function openScoreTest(rid){
+  const r=reservations.find(x=>x.id===rid); if(!r){ toast('예약을 찾을 수 없어요','err'); return; }
+  const q=new URLSearchParams({ rid:r.id, code:r.student_code||'', name:r.student_name||'', school:r.school||'', grade:r.grade||'', date:String(r.reserved_date||'').slice(0,10), branch:r.branch_id||'' });
+  ltOverlay('leveltest/index.html?'+q.toString());
+}
+function openScoreView(resultId){ ltOverlay('leveltest/index.html?view='+encodeURIComponent(resultId)); }
+
+/* ---------- 학부모 예약 안내 문자 양식 (복사용) ---------- */
+const SMS_BRANCH = {
+  '서수원': { addr:'금곡로 102번길 56 스카이빌딩 2층 (지하주차장 이용가능)' },
+  '장안':   { addr:'대평로 80 정연메이저빌딩 10층' },
+  '수원':   { elem:'권선로908번길 47 드림타워 5층 (초등관)', mid:'권선로908번길 50 TGE빌딩 3층 (중등관)' },
+  '운정1':  { addr:'교하로 83 동광위너스프라자 5층' },
+  '운정2':  { addr:'경의로1240번길 37-1 명품프라자3차 8층' },
+  '남동탄': { addr:'동탄순환대로14길 77 트램프라자 5층' },
+};
+function branchSmsKey(bid){ return String(bName(bid)||'').replace(/\s/g,'').replace(/분원$/,''); }
+function smsDateStr(r){
+  const d=String(r.reserved_date||'').slice(0,10); if(!d) return '';
+  const dt=new Date(d+'T00:00:00'); const dow=['일','월','화','수','목','금','토'][dt.getDay()];
+  const t=String(r.reserved_time||'').slice(0,5);
+  return `${dt.getMonth()+1}월 ${dt.getDate()}일(${dow})${t?' '+t:''}`;
+}
+function buildSmsText(r, exam, free){
+  const key=branchSmsKey(r.branch_id); const info=SMS_BRANCH[key]||{};
+  const header=`[${key||''}JLS-레벨테스트 예약 안내]`;
+  let addr=info.addr||'';
+  if(info.elem){ // 수원: 학년으로 초등관/중등관 자동 선택
+    const g=String(r.grade||'');
+    addr = /중/.test(g) ? info.mid : /초/.test(g) ? info.elem : (info.elem+'\n           '+info.mid);
+  }
+  const feeLine = free ? '*상담료: 무료'
+    : `*상담료: ${exam==='ace'?'2만원':'1만원'}(카드결제만 가능합니다)\n-등록시 수강료에서 차감`;
+  return [
+    header,
+    '안녕하세요. 학부모님.',
+    '정상어학원 입니다.',
+    '테스트 예약 안내 드립니다.',
+    `*이름: ${r.student_name||''}`,
+    `*테스트 날짜: ${smsDateStr(r)}`,
+    feeLine,
+    `*주소: ${addr}`,
+    '테스트 일정 변경시 학원으로 연락주세요.',
+    '감사합니다.'
+  ].join('\n');
+}
+let smsState={ rid:null, exam:'chess', free:false };
+function openSms(rid){ const r=reservations.find(x=>x.id===rid); if(!r){ toast('예약을 찾을 수 없어요','err'); return; } smsState={rid, exam:'chess', free:false}; renderSms(); }
+function smsSetExam(e){ smsState.exam=e; renderSms(); }
+function smsToggleFree(v){ smsState.free=v; renderSms(); }
+function closeSms(){ const m=document.getElementById('smsModal'); if(m) m.remove(); }
+async function copySms(){
+  const t=document.getElementById('smsText'); if(!t) return;
+  try{ await navigator.clipboard.writeText(t.value); toast('문자 양식이 복사됐어요 ✓'); }
+  catch(e){ t.focus(); t.select(); try{ document.execCommand('copy'); toast('복사됐어요 ✓'); }catch(_){ toast('복사 실패 — 글상자를 직접 선택해 복사하세요','err'); } }
+}
+function renderSms(){
+  const r=reservations.find(x=>x.id===smsState.rid); if(!r) return;
+  let m=document.getElementById('smsModal'); if(!m){ m=document.createElement('div'); m.id='smsModal'; document.body.appendChild(m); }
+  const msg=buildSmsText(r, smsState.exam, smsState.free);
+  m.className='sms-modal';
+  m.innerHTML=`<div class="sms-back" onclick="closeSms()"></div>
+   <div class="sms-panel">
+     <div class="sms-head"><div class="sms-t">학부모 예약 안내 문자</div><button class="sms-x" onclick="closeSms()">✕</button></div>
+     <div class="sms-sub">${esc(r.student_name||'')} · ${esc(smsDateStr(r))} · ${esc(bName(r.branch_id))}</div>
+     <div class="sms-ctrls">
+       <div class="sms-seg">
+         <button class="${smsState.exam==='chess'&&!smsState.free?'on':''}" ${smsState.free?'disabled':''} onclick="smsSetExam('chess')">체스 1만원</button>
+         <button class="${smsState.exam==='ace'&&!smsState.free?'on':''}" ${smsState.free?'disabled':''} onclick="smsSetExam('ace')">에이스 2만원</button>
+       </div>
+       <label class="sms-free"><input type="checkbox" ${smsState.free?'checked':''} onchange="smsToggleFree(this.checked)"> 무료 상담 (상담료 면제)</label>
+     </div>
+     <textarea id="smsText" class="sms-text" rows="12">${esc(msg)}</textarea>
+     <div class="sms-act"><button class="sms-copy" onclick="copySms()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="13" height="13" x="9" y="9" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>복사하기</button></div>
+   </div>`;
+}
+
+function resBranchScope(){ return session.role==='admin' ? reservations : reservations.filter(r=>r.branch_id===session.branchId); }
+function resBadge(r){
+  if(r.status==='parent_only')    return '<span class="st parent">학부모만 참석</span>';
+  if(r.enrolled==='enrolled')     return '<span class="st enroll">등록완료</span>';
+  if(r.enrolled==='not_enrolled') return '<span class="st noenr">미등록</span>';
+  if(r.enrolled==='failed')       return '<span class="st fail">미통과</span>';
+  if(r.enrolled==='waiting_next') return '<span class="st waitn">다음학기 대기</span>';
+  if(r.status==='noshow')         return '<span class="st noshow">노쇼</span>';
+  if(r.status==='canceled')       return '<span class="st cancel">취소</span>';
+  if(r.status==='attended')       return '<span class="st done">참석</span>';
+  return '<span class="st booked">예약</span>';
+}
+function gradeTxt(g){ g=String(g||'').trim(); if(!g) return ''; let m;
+  if(m=g.match(/^초\s*등?\s*(\d)/)) return '초등'+m[1];
+  if(m=g.match(/^중\s*등?\s*(\d)/)) return '중등'+m[1];
+  if(m=g.match(/^고\s*등?\s*(\d)/)) return '고등'+m[1];
+  return /^\d+$/.test(g)?g+'학년':g; }
+
+function renderBooking(c){
+  const today=new Date();
+  if(bookState.y==null){ bookState.y=today.getFullYear(); bookState.m=today.getMonth(); }
+  if(bookState.branchId==null){ bookState.branchId = session.role==='admin' ? 'all' : session.branchId; }
+  if(!bookState.loaded){
+    c.innerHTML='<div class="book-loading">예약 불러오는 중…</div>';
+    ensureReservations().then(()=>{ if(state.view==='wonmu' && wonmuState.view==='booking') renderWonmuBody(); });
+    return;
+  }
+  const ym=`${bookState.y}-${_pad(bookState.m+1)}`;
+  const scoped = resBranchScope().filter(r=> bookState.branchId==='all' ? true : r.branch_id===bookState.branchId );
+  // 날짜별 건수
+  const cnt={}; scoped.forEach(r=>{ if(r.reserved_date){ const d=String(r.reserved_date).slice(0,10); cnt[d]=(cnt[d]||0)+1; } });
+  // 선택일 기본값
+  if(!bookState.sel || !String(bookState.sel).startsWith(ym)){
+    const todayStr=`${today.getFullYear()}-${_pad(today.getMonth()+1)}-${_pad(today.getDate())}`;
+    if(todayStr.startsWith(ym)) bookState.sel=todayStr;
+    else { const withRes=Object.keys(cnt).filter(k=>k.startsWith(ym)).sort(); bookState.sel=withRes[0]||`${ym}-01`; }
+  }
+  const daysIn=new Date(bookState.y, bookState.m+1, 0).getDate();
+  const firstDow=new Date(bookState.y, bookState.m, 1).getDay();
+
+  // 좌: 달력
+  let cal=`<div class="card">
+    <div class="cal-top"><div class="m">${bookState.y}년 ${bookState.m+1}월</div>
+    <div class="cal-nav"><button onclick="calMove(-1)">‹</button><button onclick="calMove(1)">›</button></div></div>
+    <div class="cal">
+      <div class="dow sun">일</div><div class="dow">월</div><div class="dow">화</div><div class="dow">수</div><div class="dow">목</div><div class="dow">금</div><div class="dow sat">토</div>`;
+  for(let i=0;i<firstDow;i++) cal+=`<div class="day empty"></div>`;
+  for(let d=1; d<=daysIn; d++){
+    const ds=`${ym}-${_pad(d)}`;
+    const dow=new Date(bookState.y, bookState.m, d).getDay();
+    const cls=[ 'day', dow===0?'sun':'', dow===6?'sat':'', ds===bookState.sel?'sel':'' ].filter(Boolean).join(' ');
+    const n=cnt[ds];
+    cal+=`<div class="${cls}" onclick="selDay('${ds}')"><div class="dn">${d}</div>${n?`<div class="cnt">${n}건</div>`:''}</div>`;
+  }
+  cal+=`</div></div>`;
+
+  // 우: 그날 목록
+  const dayRes = scoped.filter(r=> String(r.reserved_date).slice(0,10)===bookState.sel )
+                       .sort((a,b)=> String(a.reserved_time||'').localeCompare(String(b.reserved_time||'')) );
+  const sd=new Date(bookState.sel+'T00:00:00');
+  const dowKo=['일','월','화','수','목','금','토'][sd.getDay()];
+  let list=`<div class="card"><div class="dl-top">
+    <div class="d">${sd.getMonth()+1}월 ${sd.getDate()}일 <span>${dowKo}요일 · ${dayRes.length}건</span></div>
+    <button class="addbtn" onclick="openAddForm()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>새 예약</button>
+  </div>`;
+
+  // 추가 폼
+  if(bookState.adding){
+    const brOpts = db.branches.map(b=>`<option value="${b.id}" ${b.id===(bookState.branchId!=='all'?bookState.branchId:'')?'selected':''}>${esc(b.name)}</option>`).join('');
+    list+=`<div class="add-form">
+      <div class="af-grid">
+        ${session.role==='admin'?`<label class="af-f af-2"><span>분원</span><select id="bk_branch">${brOpts}</select></label>`:''}
+        <label class="af-f"><span>시간</span><input id="bk_time" type="time" value="16:00"></label>
+        <label class="af-f"><span>학생코드</span><input id="bk_code"></label>
+        <label class="af-f"><span>학생 이름 *</span><input id="bk_name" placeholder="이름"></label>
+        <label class="af-f"><span>학부모 연락처</span><input id="bk_phone" placeholder="010-0000-0000"></label>
+        <label class="af-f"><span>학교</span><input id="bk_school" placeholder="○○중"></label>
+        <label class="af-f"><span>학년</span><input id="bk_grade" placeholder="초등2"></label>
+        <label class="af-f af-2"><span>메모</span><input id="bk_memo" placeholder="선택"></label>
+      </div>
+      <div class="af-act"><button class="af-cancel" onclick="openAddForm()">취소</button><button class="af-save" onclick="submitReservation()">예약 등록</button></div>
+    </div>`;
+  }
+
+  if(!dayRes.length && !bookState.adding){
+    list+=`<div class="empty-msg">이 날짜에는 예약이 없어요.<br>‘새 예약’으로 추가해 보세요.</div>`;
+  }
+  dayRes.forEach(r=>{
+    const meta=[ r.school, gradeTxt(r.grade) ].filter(Boolean).join(' · ');
+    list+=`<div class="slot-wrap"><div class="slot" onclick="editRes('${r.id}')">
+      <div class="time">${esc(String(r.reserved_time||'').slice(0,5))}</div>
+      <div class="info"><div class="nm">${esc(r.student_name||'')}${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}</div>
+      <div class="meta">${esc(meta)||'<span class="mut">정보 미입력</span>'}</div></div>
+      ${resBadge(r)}</div>`;
+    if(bookState.editId===r.id){
+      const st=r.status||'booked', en=r.enrolled||'pending';
+      list+=`<div class="res-edit">
+        <div class="re-row re-stu"><span class="re-l">학생 정보</span>
+          <input id="bk_en_${r.id}" class="re-in" value="${esc(r.student_name||'')}" placeholder="이름">
+          <input id="bk_es_${r.id}" class="re-in" value="${esc(r.school||'')}" placeholder="학교">
+          <input id="bk_eg_${r.id}" class="re-in" value="${esc(r.grade||'')}" placeholder="학년">
+          <input id="bk_ep_${r.id}" class="re-in" value="${esc(r.parent_phone||'')}" placeholder="연락처">
+          <button class="re-save" onclick="saveResInfo('${r.id}')">저장</button>
+        </div>
+        <div class="re-row"><span class="re-l">참석 상태</span><div class="seg2 seg2-wrap">
+          <button class="${st==='booked'?'on':''}" onclick="setResStatus('${r.id}','booked')">예약</button>
+          <button class="${st==='attended'?'on b-pos':''}" onclick="setResStatus('${r.id}','attended')">참석</button>
+          <button class="${st==='parent_only'?'on b-parent':''}" onclick="setResStatus('${r.id}','parent_only')">학부모만</button>
+          <button class="${st==='noshow'?'on b-neg':''}" onclick="setResStatus('${r.id}','noshow')">노쇼</button>
+          <button class="${st==='canceled'?'on':''}" onclick="setResStatus('${r.id}','canceled')">취소</button>
+        </div></div>
+        <div class="re-row"><span class="re-l">등록 여부</span><div class="seg2 seg2-wrap">
+          <button class="${en==='pending'?'on':''}" onclick="setResEnrolled('${r.id}','pending')">대기</button>
+          <button class="${en==='enrolled'?'on b-blue':''}" onclick="setResEnrolled('${r.id}','enrolled')">등록</button>
+          <button class="${en==='not_enrolled'?'on b-neg':''}" onclick="setResEnrolled('${r.id}','not_enrolled')">미등록</button>
+          <button class="${en==='failed'?'on b-fail':''}" onclick="setResEnrolled('${r.id}','failed')">미통과</button>
+          <button class="${en==='waiting_next'?'on b-wait':''}" onclick="setResEnrolled('${r.id}','waiting_next')">다음학기 대기</button>
+        </div></div>
+        ${en==='failed'?`<div class="re-hint">성적 미달로 등록 불가 — 등록률 계산에서 제외돼요. 점수는 채점 결과가 자동 표시됩니다.</div>`:''}
+        ${en==='waiting_next'?`<div class="re-row"><span class="re-l">대기 학기</span><select id="bk_wait_${r.id}" class="re-in" onchange="setWaitSemester('${r.id}',this.value)">${waitSemList().map(s=>`<option value="${s.id}" ${s.id===(r.wait_semester||nextSemId())?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div class="re-hint wait">시험은 통과, 다음 학기 등록 예정 — 해당 학기가 되면 로그인 시 상단에 연락 대상으로 떠요. (이번 학기 등록률엔 미등록으로 포함)</div>`:''}
+        ${en==='not_enrolled'?`<div class="re-row"><span class="re-l">미등록 사유</span><input id="bk_reason_${r.id}" class="re-in" value="${esc(r.not_enrolled_reason||'')}" placeholder="예: 거리·시간·비용"><button class="re-save" onclick="saveResReason('${r.id}')">저장</button></div>`:''}
+        <div class="re-row"><span class="re-l">날짜 이동</span><input id="bk_date_${r.id}" class="re-in re-date" type="date" value="${esc(String(r.reserved_date||'').slice(0,10))}"><input id="bk_time_${r.id}" class="re-in re-time" type="time" value="${esc(String(r.reserved_time||'').slice(0,5))}"><button class="re-save" onclick="moveReservation('${r.id}')">이동</button></div>
+        <div class="re-row"><span class="re-l">레벨테스트</span><button class="re-score" onclick="openScoreTest('${r.id}')">채점하기</button>${ltResults[r.id]?`<button class="re-score-view" onclick="openScoreView('${ltResults[r.id].id}')">성적표 보기</button>`:''}</div>
+        <div class="re-row"><span class="re-l">학부모 문자</span><button class="re-sms" onclick="openSms('${r.id}')">예약 안내 문자 복사</button></div>
+        ${r.parent_phone?`<div class="re-info">학부모 연락처 · ${esc(r.parent_phone)}</div>`:''}
+        ${bookState.delConfirm===r.id
+          ? `<div class="re-del-confirm"><span class="re-l">삭제 사유</span><input id="del_reason_${r.id}" class="re-in" placeholder="예: 중복 입력 / 오입력"><button class="re-del-yes" onclick="confirmDelete('${r.id}')">삭제 확정</button><button class="re-del-no" onclick="cancelDelete()">취소</button></div>`
+          : `<div class="re-del"><button onclick="askDelete('${r.id}')">예약 삭제</button></div>`}
+      </div>`;
+    }
+  });
+  list+=`</div>`;
+
+  // 상단 분원 필터(본사만)
+  let head='';
+  if(session.role==='admin'){
+    const opts=`<option value="all" ${bookState.branchId==='all'?'selected':''}>전체 분원</option>`+db.branches.map(b=>`<option value="${b.id}" ${b.id===bookState.branchId?'selected':''}>${esc(b.name)}</option>`).join('');
+    head=`<div class="book-bar"><div class="pick"><span>분원</span><select onchange="branchFilterChange(this.value)">${opts}</select></div>
+      <div class="book-hint">날짜를 고르면 그날 예약이 시간순으로 보여요</div></div>`;
+  }else{
+    const br=db.branches.find(b=>b.id===session.branchId);
+    head=`<div class="book-bar"><div class="book-scope">${esc(br?br.name:'우리 분원')}</div><div class="book-hint">날짜를 고르면 그날 예약이 시간순으로 보여요</div></div>`;
+  }
+
+  c.innerHTML=head+`<div class="grid2 book-grid">${cal}${list}</div>`;
+}
+
+/* ---- 달력/목록 조작 ---- */
+function calMove(delta){ let m=bookState.m+delta, y=bookState.y; if(m<0){m=11;y--;} if(m>11){m=0;y++;} bookState.m=m; bookState.y=y; bookState.sel=null; bookState.adding=false; bookState.editId=null; renderWonmuBody(); }
+function selDay(ds){ bookState.sel=ds; bookState.adding=false; bookState.editId=null; renderWonmuBody(); }
+function openAddForm(){ bookState.adding=!bookState.adding; bookState.editId=null; renderWonmuBody(); }
+function editRes(id){ bookState.editId = bookState.editId===id?null:id; bookState.adding=false; renderWonmuBody(); }
+function branchFilterChange(v){ bookState.branchId=v; bookState.sel=null; bookState.editId=null; bookState.adding=false; renderWonmuBody(); }
+
+/* ---- Supabase 쓰기 ---- */
+async function addReservation(obj){
+  try{
+    const { data, error } = await sb.from('level_test_reservations').insert(obj).select();
+    if(error) throw error;
+    if(data && data[0]){ reservations.push(data[0]); return data[0]; }
+    return true;
+  }catch(e){ console.error('예약 저장 실패', e); toast('저장 실패: '+(e.message||e),'err'); return false; }
+}
+async function updateReservation(id,patch){
+  try{
+    const { data, error } = await sb.from('level_test_reservations').update(patch).eq('id',id).select();
+    if(error) throw error;
+    const i=reservations.findIndex(r=>r.id===id); if(i>=0 && data && data[0]) reservations[i]=data[0];
+    return true;
+  }catch(e){ console.error('예약 수정 실패', e); toast('수정 실패: '+(e.message||e),'err'); return false; }
+}
+async function submitReservation(){
+  const g=id=>{ const el=$('bk_'+id); return el?el.value.trim():''; };
+  const branchId = session.role==='admin' ? ($('bk_branch')?$('bk_branch').value:null) : session.branchId;
+  const time=g('time'), name=g('name');
+  if(!branchId){ toast('분원을 선택하세요','err'); return; }
+  if(!time){ toast('시간을 입력하세요','err'); return; }
+  if(!name){ toast('학생 이름을 입력하세요','err'); return; }
+  const obj={
+    branch_id: branchId,
+    student_code: g('code')||null,
+    student_name: name,
+    parent_phone: g('phone')||null,
+    school: g('school')||null,
+    grade: g('grade')||null,
+    reserved_date: bookState.sel,
+    reserved_time: time,
+    manager: null,
+    memo: g('memo')||null,
+    status:'booked', enrolled:'pending'
+  };
+  const created=await addReservation(obj);
+  if(created){ bookState.adding=false; toast('예약이 등록됐어요 ✓'); renderWonmuBody(); if(created.id) openSms(created.id); }
+}
+async function setResStatus(id,st){ const ok=await updateReservation(id,{status:st}); if(ok){ toast('상태 변경됨 ✓'); renderWonmuBody(); } }
+async function setResEnrolled(id,en){
+  const patch={enrolled:en};
+  if(en!=='not_enrolled') patch.not_enrolled_reason=null;
+  if(en!=='waiting_next') patch.wait_semester=null;
+  else { const r=reservations.find(x=>x.id===id); if(!r||!r.wait_semester) patch.wait_semester=nextSemId(); }  // 다음학기대기 기본값 = 다음 학기
+  const ok=await updateReservation(id,patch); if(ok){ toast('등록 여부 변경됨 ✓'); renderWonmuBody(); }
+}
+async function setWaitSemester(id,sem){ const ok=await updateReservation(id,{wait_semester:sem||null}); if(ok) toast('대기 학기 저장됨 ✓'); }
+async function saveResReason(id){ const el=$('bk_reason_'+id); const v=el?el.value.trim():''; const ok=await updateReservation(id,{not_enrolled_reason:v||null}); if(ok) toast('사유 저장됨 ✓'); }
+async function saveResInfo(id){
+  const g=k=>{ const e=$(k+id); return e?e.value.trim():''; };
+  const name=g('bk_en_');
+  if(!name){ toast('이름을 입력하세요','err'); return; }
+  const ok=await updateReservation(id,{ student_name:name, school:g('bk_es_')||null, grade:g('bk_eg_')||null, parent_phone:g('bk_ep_')||null });
+  if(ok){ toast('학생 정보 수정됨 ✓'); renderWonmuBody(); }
+}
+async function moveReservation(id){
+  const d=$('bk_date_'+id), t=$('bk_time_'+id);
+  const nd=d?d.value:''; const nt=t?t.value:'';
+  if(!nd){ toast('옮길 날짜를 선택하세요','err'); return; }
+  const ok=await updateReservation(id,{reserved_date:nd, reserved_time:nt||null});
+  if(ok){ bookState.sel=nd; bookState.editId=null; bookState.adding=false; toast(`${(+nd.slice(5,7))}월 ${(+nd.slice(8,10))}일로 옮겼어요 ✓`); renderWonmuBody(); }
+}
+function askDelete(id){ bookState.delConfirm=id; renderWonmuBody(); }
+function cancelDelete(){ bookState.delConfirm=null; renderWonmuBody(); }
+async function confirmDelete(id){
+  const el=$('del_reason_'+id); const reason=el?el.value.trim():'';
+  await deleteReservation(id, reason);
+}
+async function deleteReservation(id, reason){
+  const r=reservations.find(x=>x.id===id);
+  try{
+    // 1) 삭제 전에 로그부터 기록 (로그 실패 시 삭제 중단 — 기록 없는 삭제 방지)
+    if(r){
+      const log={ reservation_id:id, branch_id:r.branch_id||null, student_code:r.student_code||null,
+        student_name:r.student_name||null, school:r.school||null, grade:r.grade||null,
+        reserved_date:r.reserved_date||null, reserved_time:r.reserved_time||null,
+        status_at_delete:r.status||null, enrolled_at_delete:r.enrolled||null,
+        reason:reason||null, deleted_by:(session&&(session.teacherName||session.username))||'알수없음' };
+      const { error:logErr } = await sb.from('level_test_deletion_logs').insert(log);
+      if(logErr) throw logErr;
+    }
+    // 2) 실제 삭제
+    const { error } = await sb.from('level_test_reservations').delete().eq('id',id);
+    if(error) throw error;
+    reservations = reservations.filter(r=>r.id!==id);
+    bookState.editId=null; bookState.delConfirm=null; toast('예약이 삭제됐어요 (기록 남김)'); renderWonmuBody();
+  }catch(e){ console.error('예약 삭제 실패', e); toast('삭제 실패: '+(e.message||e),'err'); }
+}
+
+/* ---------- IMS 엑셀 업로드 → 레벨테스트 자동 등록 ---------- */
+function triggerExcelUpload(){ const inp=$('ltXlsx'); if(inp){ inp.value=''; inp.click(); } }
+function xlDate(s){ const m=String(s==null?'':s).match(/(\d{4})[.\-/\s]+(\d{1,2})[.\-/\s]+(\d{1,2})/); return m?`${m[1]}-${_pad(+m[2])}-${_pad(+m[3])}`:null; }
+function xlPhone(s){ const d=String(s==null?'':s).replace(/[^0-9]/g,''); return d.length===11?`${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7)}`:(d||null); }
+function matchBranch(place){
+  const p=String(place||'').replace(/\s/g,'');
+  if(!p) return null;
+  let hit=(db.branches||[]).find(b=>b.name.replace(/\s/g,'')===p);
+  if(!hit) hit=(db.branches||[]).find(b=>{ const n=b.name.replace(/\s/g,''); return p.includes(n)||n.includes(p); });
+  return hit?hit.id:null;
+}
+async function handleExcelFile(ev){
+  const file=ev.target && ev.target.files && ev.target.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ toast('엑셀 라이브러리를 불러오지 못했어요','err'); return; }
+  toast('엑셀 읽는 중…');
+  try{
+    if(!bookState.loaded) await ensureReservations();
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    let hi=rows.findIndex(r=>Array.isArray(r)&&r.map(x=>String(x).trim()).includes('이름')&&r.map(x=>String(x).trim()).includes('예약일'));
+    if(hi<0){ toast('예약 명단 형식이 아니에요 (헤더 못 찾음)','err'); return; }
+    const H=rows[hi].map(x=>String(x==null?'':x).trim());
+    const col=n=>H.indexOf(n);
+    const cB=col('장소')>=0?col('장소'):col('분원명'), cD=col('예약일'), cT=col('예약시간'),
+      cN=col('이름'), cC=col('회원코드')>=0?col('회원코드'):col('아이디'),
+      cS=col('학교'), cG=col('학년'), cP=col('학부모 연락처'), cM=col('공지'), cR=col('접수자');
+    if(cN<0||cD<0){ toast('이름·예약일 칸을 못 찾았어요','err'); return; }
+    const seen=new Set(reservations.map(r=>`${r.branch_id}|${(r.student_code||r.student_name||'').trim()}|${String(r.reserved_date).slice(0,10)}|${String(r.reserved_time||'').slice(0,5)}`));
+    const toInsert=[]; let dup=0, noBr=0, bad=0;
+    for(let i=hi+1;i<rows.length;i++){
+      const r=rows[i]; if(!r) continue;
+      const name=String(r[cN]==null?'':r[cN]).trim(); if(!name) continue;
+      const branchId=matchBranch(r[cB]);
+      if(!branchId){ noBr++; continue; }
+      const date=xlDate(r[cD]); if(!date){ bad++; continue; }
+      const time=String(r[cT]==null?'':r[cT]).trim().slice(0,5);
+      const code=String(r[cC]==null?'':r[cC]).trim();
+      const memo=String(r[cM]==null?'':r[cM]).trim();
+      const canceled=memo.includes('[취소]')||/^취소/.test(memo);
+      const key=`${branchId}|${(code||name).trim()}|${date}|${time}`;
+      if(seen.has(key)){ dup++; continue; }
+      seen.add(key);
+      toInsert.push({ branch_id:branchId, student_code:code||null, student_name:name,
+        parent_phone:xlPhone(r[cP]), school:String(r[cS]==null?'':r[cS]).trim()||null,
+        grade:String(r[cG]==null?'':r[cG]).trim()||null, reserved_date:date, reserved_time:time,
+        manager:null, memo:memo||null,
+        status:canceled?'canceled':'booked', enrolled:'pending' });
+    }
+    if(!toInsert.length){ toast(`추가할 새 예약 없음${dup?` · 중복 ${dup}건`:''}${noBr?` · 분원매칭실패 ${noBr}건`:''}`); return; }
+    const { data, error } = await sb.from('level_test_reservations').insert(toInsert).select();
+    if(error){ console.error(error); toast('등록 실패: '+error.message,'err'); return; }
+    if(data) reservations.push(...data);
+    let msg=`${(data?data.length:toInsert.length)}건 등록됨`;
+    if(dup) msg+=` · 중복 ${dup} 건너뜀`;
+    if(noBr) msg+=` · 분원매칭 실패 ${noBr}`;
+    if(bad) msg+=` · 날짜오류 ${bad}`;
+    toast(msg+' ✓');
+    renderWonmuBody();
+  }catch(e){ console.error('엑셀 처리 실패', e); toast('엑셀을 읽지 못했어요 — 형식을 확인해주세요','err'); }
 }
 
 /* ---------- 업무 모듈 stub ---------- */
 function renderStub(c,m){
-  c.innerHTML=`<div class="page-h"><div><h2>${m.ic} <span class="em">${m.name}</span></h2><p>${m.sub}</p></div></div>
-  <div class="stub"><div class="big">${m.ic}</div><h3>${m.name} 모듈</h3>
+  c.innerHTML=`<div class="page-h"><div><h2><span class="h-ic">${icon(m.ic,24)}</span><span class="em">${m.name}</span></h2><p>${m.sub}</p></div></div>
+  <div class="stub"><div class="big">${icon(m.ic,46)}</div><h3>${m.name} 모듈</h3>
   <p>이 영역은 곧 실제 기능으로 채워집니다.<br>아래 세부 메뉴들이 여기에 들어올 예정이에요.</p>
   <div class="chips">${m.items.map(i=>`<span class="chip">${i[0]}</span>`).join('')}</div></div>`;
 }
@@ -306,7 +1438,7 @@ let permEditRole='branch', permOpened={wonmu:true};
 function renderPerm(c){
   const roles=[['admin','관리자 (본사)'],['branch','분원 관리자'],['teacher','선생님'],['assistant','보조']];
   const saved=loadPerms(); const cur=saved[permEditRole]||ROLE_PRESET[permEditRole];
-  let h=`<div class="page-h"><div><h2>🔐 권한 설정</h2><p>역할을 고르고 메뉴별 권한을 지정하세요. (v1은 모듈 단위로 적용 — 세부 항목은 기능 완성 시 연결)</p></div></div>`;
+  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('perm',24)}</span><span class="em">권한 설정</span></h2><p>역할을 고르고 메뉴별 권한을 지정하세요. (v1은 모듈 단위로 적용 — 세부 항목은 기능 완성 시 연결)</p></div></div>`;
   h+=`<div class="bar-ctl"><span class="lbl">설정 역할</span>
     <select onchange="permEditRole=this.value;renderPerm(document.getElementById('content'))">${roles.map(r=>`<option value="${r[0]}" ${r[0]===permEditRole?'selected':''}>${r[1]}</option>`).join('')}</select>
     <div class="presets"><span class="pl">프리셋:</span>
@@ -316,11 +1448,11 @@ function renderPerm(c){
       <button class="save-btn" onclick="doSavePerm()">저장</button></div></div>`;
   h+=`<div class="legend2"><span><span class="kdot" style="background:var(--neg)"></span>안보임</span><span><span class="kdot" style="background:var(--warn)"></span>보기</span><span><span class="kdot" style="background:var(--brand)"></span>수정</span><span><span class="kdot" style="background:#6d4fd0"></span>삭제</span></div>`;
   h+='<div class="tree">';
-  const allMods=MODULES.concat([{key:'perm',ic:'🔐',name:'권한 설정',sub:'이 화면 접근 권한 (메타)',items:[]}]);
+  const allMods=MODULES.concat([{key:'perm',ic:'perm',name:'권한 설정',sub:'이 화면 접근 권한 (메타)',items:[]}]);
   allMods.forEach(m=>{
     const lv=(cur[m.key]!=null)?cur[m.key]:0;
     h+=`<div class="cat"><div class="cat-head">
-      <div class="cat-ic">${m.ic}</div><div><div class="cat-nm">${m.name}</div><div class="cat-sub">${m.sub}</div></div>
+      <div class="cat-ic">${icon(m.ic)}</div><div><div class="cat-nm">${m.name}</div><div class="cat-sub">${m.sub}</div></div>
       <div class="cat-right"><div class="seg">${LEVELS.map((L,l)=>`<button data-l="${l}" class="${lv===l?'on':''}" onclick="setPermLv('${m.key}',${l})">${L}</button>`).join('')}</div></div>
     </div></div>`;
   });
@@ -331,6 +1463,120 @@ function curPermObj(){ const saved=loadPerms(); if(!saved[permEditRole]) saved[p
 function setPermLv(mod,l){ const s=curPermObj(); s[permEditRole][mod]=l; savePerms(s); renderPerm($('content')); }
 function applyPreset(p){ const s=loadPerms(); s[permEditRole]=Object.assign({},ROLE_PRESET[p]); savePerms(s); renderPerm($('content')); toast('"'+p+'" 프리셋 적용됨'); }
 function doSavePerm(){ toast('저장됐어요 ✓'); if(session.role) buildSidebar(); }
+
+/* ================= 계정 관리 (관리자 전용) ================= */
+function reloadUsers(){
+  return sb.from('users').select('*').then(({data,error})=>{
+    if(error){ console.error(error); return; }
+    const t=TABLES.find(x=>x.key==='users'); db.users=(data||[]).map(t.fromRow);
+  });
+}
+function tierLabelOf(u){
+  if(u.role==='admin') return u.isManager?'본사 관리자':'본사 일반';
+  if(u.role==='branch') return u.isManager?'분원 관리자':'분원 일반';
+  if(u.role==='teacher') return '담임';
+  return u.role||'-';
+}
+function menusTextOf(u){
+  if(u.isManager) return '전체';
+  if(u.role==='teacher') return '담임 화면';
+  try{ const a=JSON.parse(u.menus||'[]'); return a.length? a.map(k=>MENU_LABEL[k]||k).join(', ') : '지정 없음'; }catch(e){ return '지정 없음'; }
+}
+let accFilterBranch='all';
+function setAccBranch(v){ accFilterBranch=v; renderAccounts($('content')); }
+function tierClass(u){ if(u.isManager) return 'mgr'; if(u.role==='teacher') return 'tea'; return 'mem'; }
+function renderAccounts(c){
+  const isHQ = session.role==='admin';
+  const brs = db.branches||[];
+  const tiers = isHQ
+    ? [['hq_member','본사 일반'],['branch_mgr','분원 관리자']]
+    : [['branch_member','분원 일반'],['teacher','담임']];
+
+  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('perm',24)}</span><span class="em">계정 관리</span></h2><p>개인 아이디를 만들고, 그 계정이 볼 메뉴를 지정하세요.</p></div></div>`;
+
+  h+=`<div class="acc-card"><div class="acc-h">새 계정 만들기</div>
+    <div class="acc-form">
+      <div class="af"><label>아이디</label><input id="acUser" autocomplete="off"></div>
+      <div class="af"><label>비밀번호</label><input id="acPw" autocomplete="off"></div>
+      <div class="af"><label>이름</label><input id="acName" placeholder="직원/선생님 이름"></div>
+      <div class="af"><label>등급</label><select id="acTier" onchange="accTierChange()">${tiers.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select></div>
+      ${isHQ?`<div class="af" id="acBranchWrap"><label>분원</label><select id="acBranch">${brs.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div>`:''}
+    </div>
+    <div class="acc-menus" id="acMenus"><div class="aml">이 계정이 볼 메뉴</div><div class="amrow">${ALL_MENUS.map(m=>`<label class="amchk"><input type="checkbox" value="${m}" checked>${MENU_LABEL[m]}</label>`).join('')}</div></div>
+    <button class="acc-btn" onclick="createAccount()">＋ 계정 생성</button>
+  </div>`;
+
+  // 관리 대상 스코프: admin=본사급+분원관리자만 / 분원관리자=자기 분원 일반+담임만
+  let groups=[], total=0;
+  if(isHQ){
+    const hq=(db.users||[]).filter(u=>u.role==='admin');
+    const mgrs=(db.users||[]).filter(u=>u.role==='branch' && u.isManager);
+    if(hq.length) groups.push({name:'본사', users:hq});
+    if(mgrs.length) groups.push({name:'분원 관리자', users:mgrs});
+  } else {
+    const my=session.branchId;
+    const staff=(db.users||[]).filter(u=>u.branchId===my && u.role==='branch' && !u.isManager);
+    const teas=(db.users||[]).filter(u=>u.branchId===my && u.role==='teacher');
+    if(staff.length) groups.push({name:'분원 직원', users:staff});
+    if(teas.length) groups.push({name:'담임', users:teas});
+  }
+  const ord=u=> u.isManager?0 : u.role==='teacher'?2 : 1;
+  groups.forEach(g=>{ g.users.sort((a,b2)=> ord(a)-ord(b2) || String(a.username||'').localeCompare(b2.username||'')); total+=g.users.length; });
+
+  h+=`<div class="acc-card"><div class="acc-h">계정 목록 <span class="acc-cnt">${total}</span></div>`;
+  if(!total){ h+=`<div class="empty-msg">아직 만든 계정이 없어요.</div>`; }
+  else groups.forEach(g=>{
+    h+=`<div class="acc-grp"><div class="acc-grp-h">${esc(g.name)} <span>${g.users.length}</span></div>`;
+    g.users.forEach(u=>{
+      const isMe=u.id===session.userId;
+      h+=`<div class="acc-row">
+        <div class="acc-u"><b>${esc(u.username)}</b>${u.teacherName?`<span class="acc-nm">${esc(u.teacherName)}</span>`:''}</div>
+        <div><span class="acc-badge ${tierClass(u)}">${tierLabelOf(u)}</span></div>
+        <div class="acc-mn">${esc(menusTextOf(u))}</div>
+        <div class="acc-act">${isMe?'<span class="acc-me">본인</span>':`<button onclick="resetAccountPw('${u.id}')">비번</button><button class="del" onclick="delAccount('${u.id}')">삭제</button>`}</div>
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+  c.innerHTML=h; accTierChange();
+}
+function accTierChange(){
+  const t=$('acTier')?$('acTier').value:''; const menus=$('acMenus'), bw=$('acBranchWrap');
+  if(menus) menus.style.display=(t==='hq_member'||t==='branch_member')?'block':'none';
+  if(bw) bw.style.display=(t==='hq_member')?'none':'block';
+}
+function readAccMenus(){ const arr=[]; document.querySelectorAll('#acMenus input[type=checkbox]').forEach(b=>{ if(b.checked) arr.push(b.value); }); return arr; }
+async function createAccount(){
+  const user=($('acUser').value||'').trim(), pw=($('acPw').value||'').trim(), name=($('acName').value||'').trim();
+  const tier=$('acTier').value, isHQ=session.role==='admin';
+  if(!user||!pw){ toast('아이디와 비밀번호를 입력하세요','err'); return; }
+  if((db.users||[]).some(u=>u.username===user)){ toast('이미 존재하는 아이디입니다','err'); return; }
+  let role,isMgr,branchId,menus=null;
+  if(tier==='branch_mgr'){ role='branch'; isMgr=true; branchId=$('acBranch').value; }
+  else if(tier==='hq_member'){ role='admin'; isMgr=false; branchId=null; menus=JSON.stringify(readAccMenus()); }
+  else if(tier==='branch_member'){ role='branch'; isMgr=false; branchId=isHQ?$('acBranch').value:session.branchId; menus=JSON.stringify(readAccMenus()); }
+  else { role='teacher'; isMgr=false; branchId=isHQ?$('acBranch').value:session.branchId; menus=JSON.stringify(['inwon']); }
+  const row={ id:uid('u'), username:user, password:pw, role, teacher_name:name||null, branch_id:branchId||null, is_manager:isMgr, menus:menus };
+  try{
+    const { error }=await sb.from('users').insert(row); if(error) throw error;
+    await reloadUsers(); toast('계정 생성 완료 ✓'); renderAccounts($('content'));
+  }catch(e){ console.error(e); toast('생성 실패: '+(e.message||''),'err'); }
+}
+async function resetAccountPw(id){
+  const u=(db.users||[]).find(x=>x.id===id); if(!u) return;
+  const np=prompt(`${u.username} 계정의 새 비밀번호를 입력하세요:`); if(np==null) return;
+  if(!np.trim()){ toast('비밀번호를 입력하세요','err'); return; }
+  try{ const { error }=await sb.from('users').update({password:np.trim()}).eq('id',id); if(error) throw error; await reloadUsers(); toast('비밀번호 변경됨 ✓'); }
+  catch(e){ toast('변경 실패','err'); }
+}
+async function delAccount(id){
+  const u=(db.users||[]).find(x=>x.id===id); if(!u) return;
+  if(!confirm(`${u.username} 계정을 삭제할까요? 되돌릴 수 없어요.`)) return;
+  try{ const { error }=await sb.from('users').delete().eq('id',id); if(error) throw error; await reloadUsers(); toast('삭제됨'); renderAccounts($('content')); }
+  catch(e){ toast('삭제 실패','err'); }
+}
+window.accTierChange=accTierChange; window.createAccount=createAccount; window.resetAccountPw=resetAccountPw; window.delAccount=delAccount; window.setAccBranch=setAccBranch;
 
 /* ---------- 토스트 ---------- */
 let tt; function toast(m,kind){ const t=$('toast'); t.textContent=m; t.className=(kind==='err'?'err ':'')+'show'; clearTimeout(tt); tt=setTimeout(()=>t.className='',1800); }
@@ -349,7 +1595,23 @@ async function boot(){
   else showLogin();
 }
 window.nav=nav; window.setPermLv=setPermLv; window.applyPreset=applyPreset; window.doSavePerm=doSavePerm; window.state=state; window.render=render;
+window.wonmuGo=wonmuGo; window.ltSetPeriod=ltSetPeriod; window.ltSetFilter=ltSetFilter; window.ltSetListBranch=ltSetListBranch; window.ltSetPage=ltSetPage; window.ltSetSearch=ltSetSearch; window.toggleDelLog=toggleDelLog; window.openBranchCalendar=openBranchCalendar; window.triggerExcelUpload=triggerExcelUpload;
+window.ltSetTab=ltSetTab; window.anSetBranch=anSetBranch; window.anSetType=anSetType; window.anSetPeriod=anSetPeriod; window.anSetGrade=anSetGrade; window.anExportCsv=anExportCsv; window.anExamPg=anExamPg; window.anLevelPg=anLevelPg; window.anListPg=anListPg;
+window.ltSetGrade=ltSetGrade; window.ltTip=ltTip; window.ltTipHide=ltTipHide; window.ltTipPage=ltTipPage;
+window.openScoreTest=openScoreTest; window.openScoreView=openScoreView; window.closeLevelTest=closeLevelTest; window.openResInCalendar=openResInCalendar;
+window.openSms=openSms; window.smsSetExam=smsSetExam; window.smsToggleFree=smsToggleFree; window.closeSms=closeSms; window.copySms=copySms;
+window.addEventListener('message', async (e)=>{
+  if(e.data && e.data.type==='lt-saved'){
+    closeLevelTest();
+    await ensureReservations();
+    if(state.view==='wonmu') renderWonmuBody();
+    toast('레벨테스트 결과가 저장됐어요 ✓');
+  }
+});
+window.calMove=calMove; window.selDay=selDay; window.openAddForm=openAddForm; window.editRes=editRes; window.branchFilterChange=branchFilterChange;
+window.submitReservation=submitReservation; window.setResStatus=setResStatus; window.setResEnrolled=setResEnrolled; window.setWaitSemester=setWaitSemester; window.saveResReason=saveResReason; window.saveResInfo=saveResInfo; window.deleteReservation=deleteReservation; window.askDelete=askDelete; window.confirmDelete=confirmDelete; window.cancelDelete=cancelDelete; window.toggleDelLog=toggleDelLog; window.moveReservation=moveReservation;
 $('loginBtn').addEventListener('click', doLogin);
 $('loginPw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 $('logoutBtn').addEventListener('click', logout);
+{ const _x=$('ltXlsx'); if(_x) _x.addEventListener('change', handleExcelFile); }
 boot();

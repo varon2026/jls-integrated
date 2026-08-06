@@ -1,0 +1,84 @@
+/* books.css — 총무 › 교재 재고관리 (임베드 전체화면 + 총무 허브) */
+
+/* 전체화면 오버레이 (통합 사이드바까지 덮음) */
+.bk-fs{position:fixed;inset:0;z-index:9000;background:#fff;display:flex;flex-direction:column}
+.bk-fs-bar{flex:0 0 46px;height:46px;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid #ece8f5;background:#faf8fe}
+.bk-fs-back{border:1px solid #e3ddf2;background:#fff;color:#6b6385;font-weight:800;font-size:13px;padding:7px 14px;border-radius:9px;cursor:pointer;font-family:inherit}
+.bk-fs-back:hover{color:#8b6ee8;border-color:#8b6ee8}
+.bk-fs-title{font-size:13px;font-weight:800;color:#2a2440}
+.bk-fs-open{margin-left:auto;font-size:12px;font-weight:700;color:#8b6ee8;text-decoration:none}
+.bk-fs-open:hover{text-decoration:underline}
+.bk-fs-frame{flex:1;width:100%;border:0;background:#fff}
+
+/* ===== 교재비 입금현황 카드 (컴팩트) ===== */
+.cm-wrap{max-width:920px}
+.bkpay-card{background:#fff;border:1px solid #ece8f5;border-radius:18px;box-shadow:0 4px 16px rgba(120,105,160,.06);padding:18px 20px 14px;margin-bottom:18px}
+.bkpay-card.clickable{cursor:pointer;transition:transform .13s ease,box-shadow .13s ease,border-color .13s ease}
+.bkpay-card.clickable:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(139,110,232,.16);border-color:#c9b9f5}
+.bkpay-open{font-size:11px;font-weight:800;color:#8b6ee8;background:#f1ecfb;border-radius:20px;padding:2px 10px;margin-left:8px;vertical-align:middle;white-space:nowrap}
+.bkpay-card.clickable:hover .bkpay-open{background:#8b6ee8;color:#fff}
+.bkpay-hd{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.bkpay-ic{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#a58bee,#c3b2f4)}
+.bkpay-tt{flex:1}
+.bkpay-tt h3{font-size:16px;font-weight:800;color:#2a2440;letter-spacing:-.3px}
+.bkpay-tt p{font-size:11.5px;color:#8b8398;margin-top:2px}
+.bkpay-refresh{border:1px solid #e3ddf2;background:#fff;color:#7a6f95;font-weight:700;font-size:12px;padding:6px 12px;border-radius:9px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.bkpay-refresh:hover{color:#8b6ee8;border-color:#c9b9f5}
+.bkpay-loading{display:flex;align-items:center;gap:9px;color:#8b8398;font-size:13px;padding:18px 2px}
+.spin-sm{width:15px;height:15px;border:2px solid #e3ddf2;border-top-color:#8b6ee8;border-radius:50%;display:inline-block;animation:bkspin .8s linear infinite}
+@keyframes bkspin{to{transform:rotate(360deg)}}
+.bkpay-err{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#c0455a;background:#fdf2f4;border:1px solid #f6d3da;border-radius:10px;padding:12px 14px;font-size:13px}
+.bkpay-err .e{color:#a4899a;font-size:11.5px}
+.bkpay-err button{margin-left:auto;border:1px solid #e6a6b2;background:#fff;color:#c0455a;font-weight:700;padding:5px 11px;border-radius:8px;cursor:pointer;font-family:inherit}
+
+/* 범례 */
+.bkpay-legend{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.bkpay-legend .lg{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:#8b8398}
+.bkpay-legend .lg i{width:11px;height:11px;border-radius:4px;display:inline-block}
+.bkpay-mo{margin-left:auto;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;color:#8b6ee8;background:#f1ecfb}
+
+/* 분원별 컴팩트 행 */
+.bkpay-list{display:flex;flex-direction:column}
+.bp-row{display:grid;grid-template-columns:82px 1fr 210px;align-items:center;gap:13px;padding:9px 0;border-bottom:1px solid #f1eef8}
+.bp-row:last-child{border-bottom:none}
+.bp-row.empty{opacity:.5}
+.bp-nm{font-size:13px;font-weight:800;color:#2a2440;display:flex;flex-direction:column;gap:2px}
+.bp-sem{font-size:9.5px;font-weight:700;color:#9a8fc0;background:#f1ecfb;border-radius:5px;padding:1px 5px;width:fit-content}
+.bp-track{position:relative;height:21px;border-radius:7px;background:#f1edf9;overflow:hidden}
+.bp-fill{position:absolute;left:0;top:0;bottom:0;border-radius:7px;transition:width .5s ease;min-width:2px}
+.bp-rate{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:800;color:#4a4460;text-shadow:0 1px 2px rgba(255,255,255,.75)}
+.bp-right{display:flex;flex-direction:column;gap:1px;text-align:right}
+.bp-unpaid{font-size:12px;font-weight:800;color:#9a92a8}
+.bp-unpaid.hot{color:#cf7d97}
+/* 운영비: 시재(파랑) / 지출(웜) */
+.bp-bal{font-size:12px;font-weight:800;color:#6f93cf}
+.bp-bal.neg{color:#cf7d97}
+.bkpay-ic.exp{background:linear-gradient(135deg,#c3a0e0,#d9b8ee)}
+.bp-unpaid b{font-weight:800}
+.bp-sub{font-size:10.5px;font-weight:700;color:#a49cb8}
+
+/* 합계 푸터 */
+.bkpay-foot{margin-top:11px;padding-top:11px;border-top:1.5px solid #ece8f5;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;font-weight:700;color:#8b8398}
+.bkpay-foot b{color:#2a2440;font-weight:800}
+.bkpay-foot b.pos{color:#6f93cf}
+.bkpay-foot b.neg{color:#cf7d97}
+.bkpay-foot b.exp{color:#cf8a6e}
+.bkpay-foot b.bal{color:#6f93cf}
+.bkpay-foot .bf-cnt{font-size:10.5px;color:#b8809a;background:#f7eef3;border-radius:20px;padding:1px 7px;font-weight:700}
+
+@media(max-width:720px){
+  .bp-row{grid-template-columns:70px 1fr;grid-template-areas:'nm track' 'right right';gap:8px 11px}
+  .bp-nm{grid-area:nm}.bp-track{grid-area:track}.bp-right{grid-area:right;text-align:left;flex-flow:row wrap;gap:4px 12px}
+}
+
+/* 총무 허브 카드 그리드 */
+.cm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:6px}
+.cm-card{position:relative;border:1px solid #ece8f5;border-radius:16px;padding:20px 18px;background:#fff;box-shadow:0 1px 2px rgba(30,20,60,.04)}
+.cm-card.on{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease}
+.cm-card.on:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(139,110,232,.16);border-color:#c9b9f5}
+.cm-card.off{opacity:.55}
+.cm-ic{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#efe9fd,#e6ddfb);color:#7a5be0;margin-bottom:12px}
+.cm-card.off .cm-ic{background:#f2f0f7;color:#a49cb8}
+.cm-tt{font-size:15.5px;font-weight:800;color:#2a2440;margin-bottom:4px}
+.cm-sub{font-size:12.5px;color:#8b8398;line-height:1.5}
+.cm-go{margin-top:14px;font-size:13px;font-weight:800;color:#8b6ee8}
