@@ -212,6 +212,7 @@ function renderInwon(b){
         <iframe class="iw-fs-frame" id="inwonFrame" src="${INWON_APP_URL}?embed=1" title="인원현황 · 학사관리" allow="clipboard-write"></iframe>
       </div>`;
   inwonHookSso();
+
 }
 /* 백업 경로 — iframe이 'ready' 보내면 세션을 postMessage로도 넘겨줌(세션 심기 실패 대비) */
 function inwonHookSso(){
