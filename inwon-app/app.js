@@ -2035,6 +2035,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
   const caCol = showCA || showCAFoot;   // 구분 열을 만들지 여부
   const monthNames = months.map(m=>m+'월');
   const COLSPAN_MONTH = 6;
+  const activeCnt = rr => rr.filter(x=>x.status==='active').length;   // 현재 재원(재원중) 수
  
   // 한 그룹의 특정 레코드셋으로 월별 셀 HTML 생성 (split 없이 단순 — CHESS/ACE 행용)
   function cellsHtmlSimple(recs, extraCls){
@@ -2079,8 +2080,9 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
       <td class="num cc" style="font-weight:700">${r.totWithdraw||'-'}</td>
       <td class="num cc" style="font-weight:700;color:${r.totTransfer?'var(--warn)':'inherit'}">${r.totTransfer||'-'}</td>
       <td class="num cc"><span style="font-weight:700;color:${r.avgRate>=10?'var(--neg)':r.avgRate>=5?'var(--warn)':'var(--brand)'}">${r.avgRate?r.avgRate.toFixed(1)+'%':'-'}</span></td>
+      <td class="num cc" style="font-weight:800;color:#7a5be0;background:#faf8ff">${activeCnt(g.recs)}</td>
     </tr>`;
- 
+
     if(!showCA) return totalRow;
  
     // CHESS / ACE 행 — 합계 줄과 동일하게 담임 변경(활성월·날짜쪼갬) 반영
@@ -2099,7 +2101,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
         <td class="num cc clos-ca-cell">${trCell}</td>
         <td class="num cc clos-ca-cell"><span style="color:var(--ink-3)">${c.baseNew?c.rate.toFixed(1)+'%':'-'}</span></td>`;
     }).join('');
-    const caRow = (label, tagCls, mc)=>`<tr class="clos-ca">
+    const caRow = (label, tagCls, mc, curCnt)=>`<tr class="clos-ca">
       <td class="cc clos-catag ${tagCls}">${label}</td>
      ${caCellsHtml(mc)}
       <td class="num cc clos-ca-cell">${mc.totNew||'-'}</td>
@@ -2107,11 +2109,12 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
       <td class="num cc clos-ca-cell">${mc.totWithdraw||'-'}</td>
       <td class="num cc clos-ca-cell">${mc.totTransfer||'-'}</td>
       <td class="num cc clos-ca-cell">${mc.avgRate?mc.avgRate.toFixed(1)+'%':'-'}</td>
+      <td class="num cc clos-ca-cell" style="background:#faf8ff;color:#7a5be0;font-weight:700">${curCnt||'-'}</td>
     </tr>`;
 
     return totalRow
-      + caRow('CHESS','clos-chess', cR)
-      + caRow('ACE','clos-ace', aR);
+      + caRow('CHESS','clos-chess', cR, activeCnt(chessRecs))
+      + caRow('ACE','clos-ace', aR, activeCnt(aceRecs));
   }).join('');
  
   // 합계(맨 아래)
@@ -2151,8 +2154,8 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
     <table class="rank-table closing-table${showCA?' closing-ca':''}">
       <thead>
         <tr><th class="cc" rowspan="2">#</th><th class="cc" rowspan="2">${firstColLabel}</th>${caHead}${monthHeads}
-          <th class="cc" colspan="5">학기 계</th></tr>
-        <tr>${subHeads}<th class="cc">총신규</th><th class="cc">총전입</th><th class="cc">총퇴원</th><th class="cc">총전출</th><th class="cc">평균퇴원율</th></tr>
+          <th class="cc" colspan="6">학기 계</th></tr>
+        <tr>${subHeads}<th class="cc">총신규</th><th class="cc">총전입</th><th class="cc">총퇴원</th><th class="cc">총전출</th><th class="cc">평균퇴원율</th><th class="cc" style="background:#efeafb;color:#7a5be0">현재</th></tr>
       </thead>
       <tbody>${bodyRows}</tbody>
 <tr class="closing-total">
@@ -2165,6 +2168,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc" style="font-weight:800">${totR.totWithdraw}</td>
           <td class="num cc" style="font-weight:800;color:${totR.totTransfer?'var(--warn)':'inherit'}">${totR.totTransfer}</td>
           <td class="num cc" style="font-weight:800">${totR.avgRate.toFixed(1)}%</td>
+          <td class="num cc" style="font-weight:900;color:#7a5be0;background:#f3f0fb">${activeCnt(baseForTotal)}</td>
         </tr>
         ${showCAFoot?`
         <tr class="closing-total clos-ca">
@@ -2175,6 +2179,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc">${cTot.totWithdraw||'-'}</td>
           <td class="num cc">${cTot.totTransfer||'-'}</td>
           <td class="num cc">${cTot.avgRate?cTot.avgRate.toFixed(1)+'%':'-'}</td>
+          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${activeCnt(chessTotRecs)}</td>
         </tr>
         <tr class="closing-total clos-ca">
           <td class="cc clos-catag clos-ace">ACE</td>
@@ -2184,6 +2189,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc">${aTot.totWithdraw||'-'}</td>
           <td class="num cc">${aTot.totTransfer||'-'}</td>
           <td class="num cc">${aTot.avgRate?aTot.avgRate.toFixed(1)+'%':'-'}</td>
+          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${activeCnt(aceTotRecs)}</td>
         </tr>
         `:''}
       </tfoot>
@@ -2235,18 +2241,7 @@ function renderClosing(branchId){
     firstCol = '학년';
   }
 
-  // 현재 재원 요약 (마감표는 월초만 보여줘서, 지금 현재 인원을 위에 크게 표시)
-  const curActive = recs.filter(r=>r.status==='active');
-  const curChess = curActive.filter(r=>isChess(r.className)).length;
-  const curAce = curActive.length - curChess;
-  const curBar = `<div class="closing-current" style="display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;margin:0 0 14px;padding:12px 16px;background:#f3f0fb;border:1px solid #e6dff7;border-radius:12px">
-      <span style="font-size:13px;color:#6b6385;font-weight:800">현재 재원</span>
-      <span style="font-size:22px;font-weight:900;color:#7a5be0">${curActive.length}<span style="font-size:13px;font-weight:700;color:#8b83a3;margin-left:2px">명</span></span>
-      <span style="font-size:12.5px;color:#6b6385">CHESS <b style="color:#0C447C">${curChess}</b> · ACE <b style="color:#085041">${curAce}</b></span>
-      <span style="margin-left:auto;font-size:11.5px;color:#a49cb8">${esc(db.semesters.find(s=>s.id===semId).name)} · 오늘 기준</span>
-    </div>`;
-
-  let html = headHtml + curBar + `
+  let html = headHtml + `
     ${closingTable(groups, months, firstCol, recs, {showCA: tab==='teacher'})}
     ${note?`<div class="closing-note">${esc(note)}</div>`:''}
     <div style="margin-top:12px;font-size:12px;color:var(--ink-3)">
