@@ -5,7 +5,7 @@
 // 필요한 시크릿: GEMINI_API_KEY (Google AI Studio에서 발급)
 // ============================================================================
 
-const GEMINI_MODEL = "gemini-2.5-flash"; // 무료 모델. 나중에 바꾸려면 여기만 수정.
+const GEMINI_MODEL = "gemini-flash-latest"; // 항상 최신 무료 flash 모델로 자동 연결. 특정 버전 고정하려면 예: "gemini-3.6-flash"
 const GEMINI_URL = (key: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
 

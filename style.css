@@ -743,3 +743,36 @@ tr.sum .col-now{background:#f5f1fc}
 /* 다음학기 대기 — 큰 라인에 합류. 등록과 구분하는 세로 구분선 */
 .wscope .sdiv{display:flex;align-items:center;font-size:20px;color:var(--wline);font-weight:400}
 .wscope .an-fdiv{display:flex;align-items:center;justify-content:center;font-size:18px;color:#d8cff0;padding:0 2px}
+
+/* ============================================================================
+   모바일(폰) 보정 — 달력·퍼널·표가 화면 밖으로 넘치지 않도록
+   (grid 1fr 는 내용보다 작게 못 줄어듦 → minmax(0,1fr) 로 교체)
+   ============================================================================ */
+@media(max-width:720px){
+  .content{overflow-x:hidden}
+
+  /* 예약 달력: 2단→1단, 7칸이 화면 폭에 딱 맞게 */
+  .grid2,.book-grid{grid-template-columns:minmax(0,1fr)}
+  .book-grid .card{padding:14px 12px}
+  .cal{grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+  .cal .dow{font-size:9.5px;padding-bottom:3px}
+  .day{padding:4px 2px;border-radius:8px}
+  .day .dn{font-size:11px}
+  .day .cnt{font-size:8px;padding:1px 3px;margin-top:2px}
+
+  /* 대시보드 퍼널: 화살표 숨기고 2줄로 감싸기 */
+  .wscope .summary,.summary{padding:16px 13px}
+  .wscope .sfunnel,.sfunnel{flex-wrap:wrap;gap:8px}
+  .wscope .sstep,.sstep{min-width:calc(50% - 6px)}
+  .wscope .sarrow,.wscope .sdiv,.sarrow,.sdiv{display:none}
+  .lt-funnel{gap:8px}.lt-step{min-width:calc(50% - 8px)}
+  .lt-side{min-width:0}
+
+  /* 넓은 표는 카드 안에서 좌우 스크롤 (페이지 자체는 안 넘치게) */
+  .apptbl-wrap,.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .wscope .apptbl{min-width:600px}
+  table.grid{min-width:720px}
+
+  /* 분원별 막대: 이름칸 축소 */
+  .wscope .frow{grid-template-columns:66px 1fr 78px;gap:8px}
+}
