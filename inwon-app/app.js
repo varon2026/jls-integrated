@@ -2235,7 +2235,18 @@ function renderClosing(branchId){
     firstCol = '학년';
   }
 
-  let html = headHtml + `
+  // 현재 재원 요약 (마감표는 월초만 보여줘서, 지금 현재 인원을 위에 크게 표시)
+  const curActive = recs.filter(r=>r.status==='active');
+  const curChess = curActive.filter(r=>isChess(r.className)).length;
+  const curAce = curActive.length - curChess;
+  const curBar = `<div class="closing-current" style="display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;margin:0 0 14px;padding:12px 16px;background:#f3f0fb;border:1px solid #e6dff7;border-radius:12px">
+      <span style="font-size:13px;color:#6b6385;font-weight:800">현재 재원</span>
+      <span style="font-size:22px;font-weight:900;color:#7a5be0">${curActive.length}<span style="font-size:13px;font-weight:700;color:#8b83a3;margin-left:2px">명</span></span>
+      <span style="font-size:12.5px;color:#6b6385">CHESS <b style="color:#0C447C">${curChess}</b> · ACE <b style="color:#085041">${curAce}</b></span>
+      <span style="margin-left:auto;font-size:11.5px;color:#a49cb8">${esc(db.semesters.find(s=>s.id===semId).name)} · 오늘 기준</span>
+    </div>`;
+
+  let html = headHtml + curBar + `
     ${closingTable(groups, months, firstCol, recs, {showCA: tab==='teacher'})}
     ${note?`<div class="closing-note">${esc(note)}</div>`:''}
     <div style="margin-top:12px;font-size:12px;color:var(--ink-3)">
