@@ -518,7 +518,7 @@ const baseNew = monthStart + newThis + tiThis;
   const totNew = cells.reduce((a,c)=>a+(c.blank?0:c.newThis),0);
   const totTransferIn = cells.reduce((a,c)=>a+(c.blank?0:c.transferIn),0);
   const avgRate = rates.length ? rates.reduce((a,c)=>a+c,0)/rates.length : 0;
-  return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate };
+  return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate, current: carry };  // current = 마지막 달 이후 인원(흐름 기준 현재 재원)
 }
 /* 일별 집계 — 한 달의 날짜별 인원 추적 (퇴원율 집계표용).
    월초인원 = 이 달 전부터 다니고 이 달엔 아직 안 나간 학생.
@@ -2035,7 +2035,6 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
   const caCol = showCA || showCAFoot;   // 구분 열을 만들지 여부
   const monthNames = months.map(m=>m+'월');
   const COLSPAN_MONTH = 6;
-  const activeCnt = rr => rr.filter(x=>x.status==='active').length;   // 현재 재원(재원중) 수
  
   // 한 그룹의 특정 레코드셋으로 월별 셀 HTML 생성 (split 없이 단순 — CHESS/ACE 행용)
   function cellsHtmlSimple(recs, extraCls){
@@ -2080,7 +2079,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
       <td class="num cc" style="font-weight:700">${r.totWithdraw||'-'}</td>
       <td class="num cc" style="font-weight:700;color:${r.totTransfer?'var(--warn)':'inherit'}">${r.totTransfer||'-'}</td>
       <td class="num cc"><span style="font-weight:700;color:${r.avgRate>=10?'var(--neg)':r.avgRate>=5?'var(--warn)':'var(--brand)'}">${r.avgRate?r.avgRate.toFixed(1)+'%':'-'}</span></td>
-      <td class="num cc" style="font-weight:800;color:#7a5be0;background:#faf8ff">${activeCnt(g.recs)}</td>
+      <td class="num cc" style="font-weight:800;color:#7a5be0;background:#faf8ff">${r.current}</td>
     </tr>`;
 
     if(!showCA) return totalRow;
@@ -2113,8 +2112,8 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
     </tr>`;
 
     return totalRow
-      + caRow('CHESS','clos-chess', cR, activeCnt(chessRecs))
-      + caRow('ACE','clos-ace', aR, activeCnt(aceRecs));
+      + caRow('CHESS','clos-chess', cR, cR.current)
+      + caRow('ACE','clos-ace', aR, aR.current);
   }).join('');
  
   // 합계(맨 아래)
@@ -2168,7 +2167,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc" style="font-weight:800">${totR.totWithdraw}</td>
           <td class="num cc" style="font-weight:800;color:${totR.totTransfer?'var(--warn)':'inherit'}">${totR.totTransfer}</td>
           <td class="num cc" style="font-weight:800">${totR.avgRate.toFixed(1)}%</td>
-          <td class="num cc" style="font-weight:900;color:#7a5be0;background:#f3f0fb">${activeCnt(baseForTotal)}</td>
+          <td class="num cc" style="font-weight:900;color:#7a5be0;background:#f3f0fb">${totR.current}</td>
         </tr>
         ${showCAFoot?`
         <tr class="closing-total clos-ca">
@@ -2179,7 +2178,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc">${cTot.totWithdraw||'-'}</td>
           <td class="num cc">${cTot.totTransfer||'-'}</td>
           <td class="num cc">${cTot.avgRate?cTot.avgRate.toFixed(1)+'%':'-'}</td>
-          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${activeCnt(chessTotRecs)}</td>
+          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${cTot.current}</td>
         </tr>
         <tr class="closing-total clos-ca">
           <td class="cc clos-catag clos-ace">ACE</td>
@@ -2189,7 +2188,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc">${aTot.totWithdraw||'-'}</td>
           <td class="num cc">${aTot.totTransfer||'-'}</td>
           <td class="num cc">${aTot.avgRate?aTot.avgRate.toFixed(1)+'%':'-'}</td>
-          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${activeCnt(aceTotRecs)}</td>
+          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${aTot.current}</td>
         </tr>
         `:''}
       </tfoot>
