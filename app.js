@@ -959,16 +959,17 @@ function renderLtAnalysis(){
     <button class="lt-xlsxbtn" onclick="anExportCsv()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>엑셀(CSV)</button></div></div>`;
   if(!listRows.length){ h+=`<div class="empty-msg">해당 학년 응시자가 없어요.</div>`; }
   else{
-    const LST_PER=15; const lstPages=Math.max(1,Math.ceil(listRows.length/LST_PER)); let lstPg=Math.min(Math.max(0,wonmuState.anListPage||0),lstPages-1);
+    const isAdmin=session.role==='admin';
+    const LST_PER=10; const lstPages=Math.max(1,Math.ceil(listRows.length/LST_PER)); let lstPg=Math.min(Math.max(0,wonmuState.anListPage||0),lstPages-1);
     const lstSlice=listRows.slice(lstPg*LST_PER,(lstPg+1)*LST_PER);
-    h+=`<div class="apptbl-wrap"><table class="apptbl"><thead><tr><th>날짜</th><th>학생</th><th>학교·학년</th><th>시험지</th><th>배정레벨</th><th class="r">총점</th><th class="r">시험지 내 등수</th><th>합격</th><th>등록</th></tr></thead><tbody>`;
+    h+=`<div class="apptbl-wrap"><table class="apptbl"><thead><tr><th>날짜</th>${isAdmin?'<th>분원</th>':''}<th>학생</th><th>학교·학년</th><th>시험지</th><th>배정레벨</th><th class="r">총점</th><th class="r">시험지 내 등수</th><th>합격</th><th>등록</th></tr></thead><tbody>`;
     lstSlice.forEach(r=>{
       const dstr=String(r.reserved_date||'').slice(5).replace('-','/').replace(/^0/,'');
       const t=examTypeOf(r); const el=examLabel(r); const s=scoreOf(r); const lv=levelOf(r); const rk=rankOf(r);
       const meta=[esc(r.school||''),gradeTxt(r.grade)].filter(Boolean).join(' · ')||'·';
       const passTag = r.enrolled==='failed' ? '<span class="st fail">불합격</span>' : '<span class="st pass">합격</span>';
       const enrTag = r.enrolled==='enrolled'?'<span class="st enroll">등록</span>':r.enrolled==='not_enrolled'?'<span class="st noenr">미등록</span>':r.enrolled==='waiting_next'?'<span class="st waitn">다음학기대기</span>':r.enrolled==='failed'?'<span class="mut">–</span>':'<span class="mut">대기</span>';
-      h+=`<tr><td class="dt">${dstr}</td><td class="stu">${esc(r.student_name||'')}${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}</td>
+      h+=`<tr><td class="dt">${dstr}</td>${isAdmin?`<td class="subc">${esc(bName(r.branch_id))}</td>`:''}<td class="stu">${esc(r.student_name||'')}${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}</td>
         <td class="subc">${meta}</td>
         <td>${el?`<span class="typetag ${t||'ace'}">${esc(el)}</span>`:'<span class="mut">·</span>'}</td>
         <td class="subc">${lv?esc(lv):'<span class="mut">·</span>'}</td>
