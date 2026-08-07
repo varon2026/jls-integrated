@@ -463,14 +463,14 @@ table.rank-table tbody tr:last-child td{border-bottom:none}
 .saving-warn{font-size:12px;color:var(--neg);font-weight:500;line-height:1.5}
 
 /* 인원마감표 */
-.closing-table{font-size:12.5px}
-.closing-table th{font-size:10.5px;padding:7px 8px}
-.closing-table td{padding:8px 8px}
+.closing-table{font-size:12px}
+.closing-table th{font-size:10px;padding:6px 3px}
+.closing-table td{padding:7px 3px}
 .closing-table thead tr:first-child th{border-bottom:1px solid var(--line)}
 .closing-table th[colspan]{background:var(--brand-soft);color:var(--brand);border-left:2px solid var(--surface)}
 .closing-table tbody tr:hover{background:var(--brand-soft)}
 .closing-table .closing-total{background:var(--surface-2);border-top:2px solid var(--line)}
-.closing-table .closing-total td{padding:10px 8px}
+.closing-table .closing-total td{padding:8px 3px}
 /* 월 블록 구분선 — 3칸마다 왼쪽 경계 */
 .closing-table td:nth-child(3n+3),.closing-table th.cc[colspan="3"]{border-left:1px solid var(--line-2)}
 
