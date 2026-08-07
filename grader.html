@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시험채점 (DT·AT·내신모의고사)</title>
+<style>
+:root{--brand:#8b6ee8;--brand2:#a385f0;--soft:#f0ebfe;--ink:#2f3138;--ink2:#6b6385;--ink3:#9a93b0;
+--line:#ece8f5;--line2:#f4f1fb;--bg:#f7f5fb;--card:#fff;--pos:#22a06b;--pos-s:#e4f6ee;--neg:#e5484d;--neg-s:#fdecec;--warn:#d9822b}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+.wrap{max-width:1200px;margin:0 auto;padding:16px 14px 80px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.top h1{font-size:18px;margin:0}
+.status{font-size:12px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--line2);color:var(--ink2)}
+.status.ok{background:var(--pos-s);color:var(--pos)}.status.err{background:var(--neg-s);color:var(--neg)}
+/* 시험 종류 탭 (큰 탭) */
+.examtabs{display:flex;gap:8px;margin-bottom:12px}
+.examtabs button{flex:1;border:1px solid var(--line);background:#fff;font:inherit;font-weight:800;color:var(--ink2);padding:12px;border-radius:12px;cursor:pointer;font-size:15px}
+.examtabs button.on{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border-color:transparent;box-shadow:0 4px 14px rgba(139,110,232,.3)}
+/* 서브 탭 */
+.subtabs{display:flex;gap:6px;background:#efeafb;border-radius:11px;padding:5px;margin-bottom:16px}
+.subtabs button{flex:1;border:none;background:none;font:inherit;font-weight:800;color:#8a83a0;padding:9px;border-radius:8px;cursor:pointer;font-size:13px}
+.subtabs button.on{background:#fff;color:var(--brand);box-shadow:0 2px 8px rgba(120,105,160,.14)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:16px;margin-bottom:14px;box-shadow:0 4px 16px rgba(80,70,120,.05)}
+.card h3{margin:0 0 12px;font-size:15px}
+label{font-size:12px;font-weight:700;color:var(--ink3);display:block;margin-bottom:5px}
+input,select,textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:8px 10px;color:var(--ink);background:#fff;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--soft)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.row>div{flex:1;min-width:110px}
+button.btn{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border:none;border-radius:10px;padding:9px 16px;font:inherit;font-weight:800;cursor:pointer}
+button.ghost{background:#fff;border:1px solid var(--line);color:var(--ink2);border-radius:10px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer}
+button.mini{padding:5px 10px;font-size:12px;border-radius:8px}
+button.danger{color:var(--neg);border-color:#f3cdcf;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px;border-bottom:1px solid var(--line2);text-align:left}
+th{font-size:11.5px;color:var(--ink3);background:var(--line2)}
+.q-tbl td{padding:5px 6px}.q-tbl input,.q-tbl select{padding:6px 8px}
+.tag{display:inline-block;font-size:11px;font-weight:800;border-radius:20px;padding:2px 9px}
+.tag.chess{background:#efe9fc;color:#7a5ce0}.tag.ace{background:#e9f0fb;color:#4e7ca6}
+.hint{font-size:11.5px;color:var(--ink3)}
+.grid-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.gtbl td,.gtbl th{white-space:nowrap;text-align:center;padding:4px;border:1px solid var(--line2)}
+.gtbl th.stu,.gtbl td.stu{text-align:left;position:sticky;left:0;background:#fff;z-index:2;min-width:120px}
+.gtbl th{position:sticky;top:0;background:var(--line2);z-index:1}
+.gtbl input{width:38px;padding:5px 2px;text-align:center;border-radius:6px}
+.qcell.ok input{background:var(--pos-s);border-color:#b6e2cd}
+.qcell.no input{background:var(--neg-s);border-color:#f3c5c7}
+.scorecell{font-weight:800;color:var(--brand)}
+.keylist-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line2)}
+.keylist-item .nm{font-weight:700}
+/* 진행률 바 */
+.pbar{position:relative;height:22px;background:var(--line2);border-radius:20px;overflow:hidden;min-width:120px}
+.pbar>div{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand2));border-radius:20px}
+.pbar span{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:800;color:var(--ink2)}
+.cfg-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:20px;padding:6px 12px;margin:4px 6px 0 0;font-weight:800;font-size:12px;cursor:pointer;background:#fff}
+.cfg-chip.on{background:var(--pos-s);color:var(--pos);border-color:#b6e2cd}
+.cfg-chip.off{background:#f4f1fb;color:var(--ink3);text-decoration:line-through}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#2f2b3a;color:#fff;padding:11px 18px;border-radius:10px;font-weight:700;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:99}
+.toast.show{opacity:1}.toast.err{background:#b23a55}
+@media(max-width:640px){.row>div{min-width:calc(50% - 5px)}.examtabs button{font-size:13px;padding:10px 6px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>시험채점</h1><span id="conn" class="status">연결 중…</span>
+    <span class="hint" style="margin-left:auto">정답키 넣고 → 반별로 답 입력 → 즉시 O/X·점수 → 엑셀 다운(큐앱용)</span></div>
+
+  <div class="examtabs">
+    <button id="ex-DT" class="on" onclick="setExam('DT')">DT</button>
+    <button id="ex-AT" onclick="setExam('AT')">AT</button>
+    <button id="ex-내신모의고사" onclick="setExam('내신모의고사')">내신모의고사</button>
+  </div>
+
+  <div class="subtabs">
+    <button id="sub-key" class="on" onclick="showTab('key')">① 정답키</button>
+    <button id="sub-grade" onclick="showTab('grade')">② 채점하기</button>
+    <button id="sub-prog" onclick="showTab('prog')">③ 분원별 진행률</button>
+    <button id="sub-result" onclick="showTab('result')">④ 결과·다운로드</button>
+  </div>
+
+  <!-- ① 정답키 -->
+  <div id="pane-key">
+    <div class="card">
+      <h3><span id="key-title">DT</span> 정답키 만들기 / 수정</h3>
+      <input type="hidden" id="k-id">
+      <div class="row">
+        <div><label>학기</label><input id="k-sem" placeholder="예: 2026 2학기"></div>
+        <div><label>트랙</label><select id="k-track" onchange="onTrackChange()"><option value="CHESS">CHESS (고정)</option><option value="ACE">ACE (레벨별)</option></select></div>
+        <div id="k-level-wrap" style="display:none"><label>ACE 레벨</label><input id="k-level" placeholder="예: Lv3 / A2"></div>
+        <div style="max-width:110px"><label>문항 수</label><input id="k-num" type="number" min="1" value="20"></div>
+        <div style="flex:0 0 auto"><button class="btn" onclick="buildQRows()">문항 만들기</button></div>
+      </div>
+      <div style="margin-top:12px">
+        <label>빠른 입력 (선택) — 객관식 정답 이어서. 예: <span class="hint">3,1,4,2,5 또는 1:3 2:1 3:4</span></label>
+        <div class="row"><div style="flex:1"><textarea id="k-quick" rows="2"></textarea></div>
+        <div style="flex:0 0 auto"><button class="ghost" onclick="quickFill()">적용</button></div></div>
+      </div>
+      <div id="q-rows" style="margin-top:12px"></div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn" onclick="saveKey()">정답키 저장</button>
+        <button class="ghost" onclick="resetKeyForm()">새로 작성</button>
+      </div>
+    </div>
+    <div class="card"><h3>저장된 정답키 (<span id="key-exam">DT</span>)</h3><div id="key-list"><div class="hint">불러오는 중…</div></div></div>
+  </div>
+
+  <!-- ② 채점 -->
+  <div id="pane-grade" style="display:none">
+    <div class="card">
+      <h3>전체 학생 명단 (한 번 올려두면 진행률 계산에 쓰여요)</h3>
+      <div class="row">
+        <div style="flex:0 0 auto"><label>엑셀 업로드</label><input type="file" id="g-xlsx" accept=".xlsx,.xls" onchange="rosterFromXlsx(event)"></div>
+        <div style="flex:1"><label>또는 붙여넣기 (분원, 반, 이름, 회원코드)</label><textarea id="g-paste" rows="2" placeholder="서수원 분원	ACE-3반	김아윤	U003256610"></textarea></div>
+        <div style="flex:0 0 auto"><button class="ghost" onclick="rosterFromPaste()">명단 적용</button></div>
+        <div style="flex:0 0 auto"><button class="btn" onclick="saveRoster()">명단 서버 저장</button></div>
+      </div>
+      <div id="roster-info" class="hint" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <h3>채점</h3>
+      <div class="row">
+        <div><label>정답키</label><select id="g-key" onchange="onGradeKeyChange()"></select></div>
+        <div style="max-width:180px"><label>분원</label><select id="g-branch" onchange="fillClassPicker()"></select></div>
+        <div style="max-width:200px"><label>반</label><select id="g-class" onchange="buildGrid()"></select></div>
+        <div style="flex:0 0 auto"><label>&nbsp;</label><button class="ghost" onclick="addStudentRow()">+ 학생</button></div>
+        <div style="flex:0 0 auto"><label>&nbsp;</label><button class="btn" onclick="saveScores()">채점결과 저장</button></div>
+      </div>
+      <div id="grid-host" style="margin-top:12px"><div class="hint">정답키·명단을 준비하고 분원/반을 고르세요.</div></div>
+    </div>
+  </div>
+
+  <!-- ③ 진행률 -->
+  <div id="pane-prog" style="display:none">
+    <div class="card">
+      <h3>시험 대상 설정 — <span id="cfg-exam">DT</span> · 반/레벨별 시험 유무</h3>
+      <div class="hint" style="margin-bottom:10px">이 시험을 <b>안 보는 반/레벨</b>은 '시험없음'으로 꺼주세요. 끄면 아래 진행률 %의 <b>분모(전체)에서 빠집니다.</b> (예: AT는 수능레벨 끄기, 내신모의고사는 초6·중1만 켜기)</div>
+      <div id="cfg-host"><div class="hint">명단을 올리면 반/레벨 목록이 여기 나와요.</div></div>
+    </div>
+    <div class="card">
+      <h3>분원별 진행률 — <span id="prog-exam">DT</span> 답안 입력 현황</h3>
+      <div class="hint" style="margin-bottom:10px">전체 명단 인원 대비, 답안이 입력(채점 저장)된 인원 비율이에요.</div>
+      <div id="prog-host"><div class="hint">불러오는 중…</div></div>
+      <div style="margin-top:10px"><button class="ghost" onclick="loadProgress()">새로고침</button></div>
+    </div>
+  </div>
+
+  <!-- ④ 결과 -->
+  <div id="pane-result" style="display:none">
+    <div class="card">
+      <h3>채점 결과 (<span id="result-exam">DT</span>)</h3>
+      <div class="row">
+        <div style="max-width:200px"><label>분원 필터</label><select id="r-branch" onchange="renderResults()"><option value="">전체</option></select></div>
+        <div style="flex:0 0 auto"><label>&nbsp;</label><button class="btn" onclick="exportXlsx()">엑셀 다운로드 (큐앱용)</button></div>
+        <div style="flex:0 0 auto"><label>&nbsp;</label><button class="ghost" onclick="loadResults()">새로고침</button></div>
+      </div>
+      <div id="result-host" style="margin-top:12px"><div class="hint">불러오는 중…</div></div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+const SUPA_URL='https://hplndiuoohantbalixwu.supabase.co';
+const SUPA_KEY='sb_publishable_xO8KB46SzMx8KeuEE-OVSw_su22mv9X';
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+const BRANCHES=['남동탄 분원','수원 분원','장안 분원','서수원 분원','운정 1분원','운정 2분원'];
+
+let EXAM='DT';        // 현재 시험 종류 탭
+let KEYS=[];          // 전체 정답키
+let ROSTER=[];        // 전체 명단 [{branch,cls,name,code}]
+let CURKEY=null;
+let RESULTS=[];       // 현재 EXAM 결과
+let CONFIG={};        // 시험별 '시험없음' 반 목록 {test_type: Set(반명)}
+
+const $=id=>document.getElementById(id);
+function toast(m,ok){const t=$('toast');t.textContent=m;t.className='toast show'+(ok===false?' err':'');setTimeout(()=>t.className='toast',2600);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function norm(s,type){s=String(s==null?'':s).trim();return type==='sa'?s.toLowerCase().replace(/\s+/g,''):s.toUpperCase();}
+function matchBranch(x){const p=String(x||'').replace(/\s/g,'');if(!p)return '';let h=BRANCHES.find(b=>b.replace(/\s/g,'')===p);if(!h)h=BRANCHES.find(b=>{const n=b.replace(/\s/g,'');return p.includes(n)||n.includes(p);});return h||String(x||'').trim();}
+function keysOfExam(){return KEYS.filter(k=>k.test_type===EXAM);}
+
+function setExam(t){EXAM=t;['DT','AT','내신모의고사'].forEach(x=>$('ex-'+x).className=x===t?'on':'');
+  ['key-title','key-exam','prog-exam','result-exam','cfg-exam'].forEach(id=>{if($(id))$(id).textContent=t;});
+  resetKeyForm();renderKeyList();fillGradeKeys();CURKEY=null;$('grid-host').innerHTML='<div class="hint">정답키·명단을 준비하고 분원/반을 고르세요.</div>';
+  renderCfg();loadProgress();loadResults();}
+function showTab(t){['key','grade','prog','result'].forEach(x=>{$('pane-'+x).style.display=x===t?'':'none';$('sub-'+x).className=x===t?'on':'';});
+  if(t==='grade')fillGradeKeys();if(t==='prog'){renderCfg();loadProgress();}if(t==='result')loadResults();}
+function disabledSet(){return CONFIG[EXAM]||new Set();}
+async function loadConfig(){const{data,error}=await sb.from('exam_config').select('*');CONFIG={};if(!error&&data)data.forEach(r=>CONFIG[r.test_type]=new Set(r.disabled||[]));}
+function renderCfg(){const host=$('cfg-host');if(!host)return;const cls=[...new Set(ROSTER.map(r=>r.cls))].sort();
+  if(!cls.length){host.innerHTML='<div class="hint">명단을 올리면 반/레벨 목록이 여기 나와요.</div>';return;}
+  const off=disabledSet();
+  host.innerHTML=cls.map(c=>`<span class="cfg-chip ${off.has(c)?'off':'on'}" onclick="toggleCfg('${esc(c).replace(/'/g,"\\'")}')">${off.has(c)?'✕ 시험없음':'✓ 대상'} · ${esc(c)}</span>`).join('');}
+async function toggleCfg(cls){const off=CONFIG[EXAM]||(CONFIG[EXAM]=new Set());if(off.has(cls))off.delete(cls);else off.add(cls);
+  const{error}=await sb.from('exam_config').upsert({test_type:EXAM,disabled:[...off],updated_at:new Date().toISOString()},{onConflict:'test_type'});
+  if(error){toast('설정 저장 실패: '+error.message,false);}renderCfg();loadProgress();}
+
+(async()=>{try{const{error}=await sb.from('exam_keys').select('id').limit(1);
+  if(error){$('conn').textContent='연결 오류 (테이블 확인)';$('conn').className='status err';}
+  else{$('conn').textContent='연결됨';$('conn').className='status ok';await loadKeys();await loadRoster();await loadConfig();fillBranchPickers();setExam('DT');}
+}catch(e){$('conn').textContent='연결 실패';$('conn').className='status err';}})();
+
+function fillBranchPickers(){
+  const opts=BRANCHES.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');
+  $('g-branch').innerHTML=opts;
+  $('r-branch').innerHTML='<option value="">전체</option>'+opts;
+}
+
+/* ===== 정답키 ===== */
+function onTrackChange(){$('k-level-wrap').style.display=$('k-track').value==='ACE'?'':'none';}
+function buildQRows(){
+  const n=Math.max(1,Math.min(200,parseInt($('k-num').value||'0',10)));
+  const prev=readQRows();let h=`<table class="q-tbl"><thead><tr><th style="width:50px">번호</th><th style="width:120px">유형</th><th>정답 <span class="hint">(주관식 복수정답은 | 로: apple|사과)</span></th><th style="width:80px">배점</th></tr></thead><tbody>`;
+  for(let i=1;i<=n;i++){const p=prev.find(x=>x.n===i)||{};
+    h+=`<tr><td>${i}</td><td><select class="q-type"><option value="mc"${p.type!=='sa'?' selected':''}>객관식</option><option value="sa"${p.type==='sa'?' selected':''}>주관식</option></select></td>
+      <td><input class="q-ans" value="${esc(p.ans||'')}"></td><td><input class="q-pt" type="number" min="0" step="0.5" value="${p.pt!=null?p.pt:1}"></td></tr>`;}
+  h+=`</tbody></table>`;$('q-rows').innerHTML=h;
+}
+function readQRows(){return [...document.querySelectorAll('#q-rows tbody tr')].map((tr,i)=>({n:i+1,type:tr.querySelector('.q-type').value,ans:tr.querySelector('.q-ans').value.trim(),pt:parseFloat(tr.querySelector('.q-pt').value||'1')||0}));}
+function quickFill(){const raw=$('k-quick').value.trim();if(!raw){toast('빠른 입력이 비었어요',false);return;}
+  let map={};if(/[:：]/.test(raw)){raw.split(/[\s,]+/).forEach(t=>{const m=t.match(/(\d+)[:：](.+)/);if(m)map[+m[1]]=m[2];});}
+  else{raw.split(/[\s,]+/).filter(Boolean).forEach((v,i)=>map[i+1]=v);}
+  const cnt=Object.keys(map).length;if(!cnt){toast('정답을 못 읽었어요',false);return;}
+  if(!document.querySelector('#q-rows tbody tr')){$('k-num').value=cnt;buildQRows();}
+  [...document.querySelectorAll('#q-rows tbody tr')].forEach((tr,i)=>{if(map[i+1]!=null)tr.querySelector('.q-ans').value=map[i+1];});
+  toast(cnt+'개 정답 채움 ✓');}
+async function saveKey(){
+  const track=$('k-track').value,level=track==='ACE'?$('k-level').value.trim():'';const answers=readQRows();
+  if(!answers.length){toast('문항을 먼저 만들어 주세요',false);return;}
+  const sem=$('k-sem').value.trim();
+  const name=`${sem?sem+' ':''}${EXAM} · ${track}${level?' '+level:''}`.trim();
+  const rec={name,semester:sem,test_type:EXAM,track,level,num_q:answers.length,answers,updated_at:new Date().toISOString()};
+  const id=$('k-id').value;let res;
+  if(id)res=await sb.from('exam_keys').update(rec).eq('id',id).select();
+  else res=await sb.from('exam_keys').insert(rec).select();
+  if(res.error){toast('저장 실패: '+res.error.message,false);return;}
+  toast('정답키 저장됨 ✓');resetKeyForm();await loadKeys();renderKeyList();fillGradeKeys();
+}
+function resetKeyForm(){$('k-id').value='';$('k-sem').value='';$('k-level').value='';$('k-num').value=20;$('k-quick').value='';$('q-rows').innerHTML='';$('k-track').value='CHESS';onTrackChange();}
+async function loadKeys(){const{data,error}=await sb.from('exam_keys').select('*').order('created_at',{ascending:false});if(!error)KEYS=data||[];return KEYS;}
+function renderKeyList(){const host=$('key-list');const list=keysOfExam();
+  if(!list.length){host.innerHTML='<div class="hint">이 시험의 정답키가 아직 없어요.</div>';return;}
+  host.innerHTML=list.map(k=>`<div class="keylist-item"><span class="tag ${k.track==='ACE'?'ace':'chess'}">${esc(k.track||'')}${k.level?' '+esc(k.level):''}</span>
+    <span class="nm">${esc(k.name)}</span><span class="hint">· ${k.num_q}문항</span>
+    <span style="margin-left:auto;display:flex;gap:6px"><button class="ghost mini" onclick="editKey('${k.id}')">수정</button><button class="ghost mini danger" onclick="delKey('${k.id}')">삭제</button></span></div>`).join('');}
+function editKey(id){const k=KEYS.find(x=>x.id===id);if(!k)return;
+  $('k-id').value=k.id;$('k-sem').value=k.semester||'';$('k-track').value=k.track||'CHESS';onTrackChange();$('k-level').value=k.level||'';$('k-num').value=k.num_q||(k.answers||[]).length;buildQRows();
+  (k.answers||[]).forEach((a,i)=>{const tr=document.querySelectorAll('#q-rows tbody tr')[i];if(tr){tr.querySelector('.q-type').value=a.type||'mc';tr.querySelector('.q-ans').value=a.ans||'';tr.querySelector('.q-pt').value=a.pt!=null?a.pt:1;}});
+  window.scrollTo(0,0);toast('수정 모드');}
+async function delKey(id){if(!confirm('이 정답키를 삭제할까요?'))return;const{error}=await sb.from('exam_keys').delete().eq('id',id);if(error){toast('삭제 실패',false);return;}toast('삭제됨');await loadKeys();renderKeyList();fillGradeKeys();}
+
+/* ===== 명단 ===== */
+function detectCol(H,c){for(const x of c){const i=H.findIndex(h=>h.replace(/\s/g,'')===x);if(i>=0)return i;}for(const x of c){const i=H.findIndex(h=>h.replace(/\s/g,'').includes(x));if(i>=0)return i;}return -1;}
+async function rosterFromXlsx(ev){const f=ev.target.files&&ev.target.files[0];if(!f)return;
+  const buf=await f.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  let hi=rows.findIndex(r=>Array.isArray(r)&&r.map(x=>String(x).trim()).some(v=>v==='이름'||v==='성명'||v==='학생명'));
+  if(hi<0){toast('이름 열을 못 찾았어요',false);return;}
+  const H=rows[hi].map(x=>String(x==null?'':x).trim());
+  const cN=detectCol(H,['이름','성명','학생명','학생']),cC=detectCol(H,['회원코드','학생코드','코드','아이디']),cCls=detectCol(H,['반명','반','클래스','class']),cB=detectCol(H,['분원','장소','분원명','캠퍼스']);
+  const out=[];for(let i=hi+1;i<rows.length;i++){const r=rows[i];if(!r)continue;const name=String(r[cN]==null?'':r[cN]).trim();if(!name)continue;
+    out.push({branch:cB>=0?matchBranch(r[cB]):'',cls:(cCls>=0?String(r[cCls]||'').trim():'')||'(반 미지정)',name,code:cC>=0?String(r[cC]||'').trim():''});}
+  setRoster(out,'엑셀');}
+function rosterFromPaste(){const raw=$('g-paste').value.trim();if(!raw){toast('붙여넣기 내용이 없어요',false);return;}
+  const out=raw.split(/\n/).map(l=>l.split(/\t|,/).map(x=>x.trim())).filter(a=>a.some(Boolean)).map(a=>({branch:matchBranch(a[0]),cls:a[1]||'(반 미지정)',name:a[2]||a[1],code:a[3]||''}));
+  setRoster(out,'붙여넣기');}
+function setRoster(list,src){ROSTER=list;const bs=[...new Set(list.map(r=>r.branch).filter(Boolean))];
+  $('roster-info').innerHTML=`${src}에서 <b>${list.length}명</b> · 분원 ${bs.length}개 · 반 ${new Set(list.map(r=>r.cls)).size}개 불러옴 <b>(아직 서버 저장 전 — '명단 서버 저장' 눌러야 유지)</b>`;
+  fillClassPicker();}
+async function saveRoster(){if(!ROSTER.length){toast('먼저 명단을 올리세요',false);return;}
+  await sb.from('exam_roster').delete().neq('id','00000000-0000-0000-0000-000000000000');
+  const recs=ROSTER.map(r=>({branch:r.branch||null,class_name:r.cls,student_name:r.name,student_code:r.code||null,updated_at:new Date().toISOString()}));
+  const{error}=await sb.from('exam_roster').insert(recs);
+  if(error){toast('저장 실패: '+error.message,false);return;}toast(recs.length+'명 명단 저장됨 ✓');loadProgress();}
+async function loadRoster(){const{data,error}=await sb.from('exam_roster').select('*').limit(5000);
+  if(!error&&data){ROSTER=data.map(r=>({branch:r.branch||'',cls:r.class_name||'(반 미지정)',name:r.student_name||'',code:r.student_code||''}));
+    if(ROSTER.length)$('roster-info').innerHTML=`서버에 저장된 명단 <b>${ROSTER.length}명</b>`;fillClassPicker();}}
+
+/* ===== 채점 ===== */
+function fillGradeKeys(){const sel=$('g-key');const cur=sel.value;const list=keysOfExam();
+  sel.innerHTML='<option value="">— 정답키 선택 —</option>'+list.map(k=>`<option value="${k.id}">${esc(k.name)} (${k.num_q}문항)</option>`).join('');
+  if(cur&&list.find(k=>k.id===cur))sel.value=cur;onGradeKeyChange();}
+function onGradeKeyChange(){CURKEY=KEYS.find(k=>k.id===$('g-key').value)||null;buildGrid();}
+function fillClassPicker(){const br=$('g-branch').value;const cls=[...new Set(ROSTER.filter(r=>!br||r.branch===br).map(r=>r.cls))];
+  $('g-class').innerHTML=cls.length?cls.map(c=>`<option value="${esc(c)}">${esc(c)} (${ROSTER.filter(r=>(!br||r.branch===br)&&r.cls===c).length}명)</option>`).join(''):'<option value="">(명단 없음)</option>';
+  buildGrid();}
+function curStuds(){const br=$('g-branch').value,cls=$('g-class').value;return ROSTER.filter(r=>(!br||r.branch===br)&&r.cls===cls);}
+function addStudentRow(){if(!$('g-class').value){toast('반을 먼저 선택',false);return;}ROSTER.push({branch:$('g-branch').value,cls:$('g-class').value,name:'새 학생',code:''});buildGrid();}
+function buildGrid(){const host=$('grid-host');
+  if(!CURKEY){host.innerHTML='<div class="hint">정답키를 선택하세요.</div>';return;}
+  const studs=curStuds();if(!studs.length){host.innerHTML='<div class="hint">이 분원/반에 학생이 없어요. 명단을 확인하세요.</div>';return;}
+  const N=CURKEY.num_q;let h=`<div class="grid-scroll"><table class="gtbl"><thead><tr><th class="stu">학생</th>`;
+  for(let i=1;i<=N;i++)h+=`<th>${i}</th>`;h+=`<th>정답</th><th>점수</th></tr></thead><tbody>`;
+  studs.forEach(s=>{h+=`<tr><td class="stu"><input value="${esc(s.name)}" data-code="${esc(s.code||'')}" style="width:110px"><div class="hint">${esc(s.code||'')}</div></td>`;
+    for(let i=1;i<=N;i++)h+=`<td class="qcell" data-q="${i}"><input oninput="gradeRow(this)"></td>`;
+    h+=`<td class="corr">-</td><td class="scorecell">-</td></tr>`;});
+  h+=`</tbody></table></div><div class="hint" style="margin-top:6px">답을 입력하면 즉시 O(초록)/X(빨강)·점수가 나와요.</div>`;host.innerHTML=h;}
+function gradeRow(inp){const tr=inp.closest('tr');const ans=CURKEY.answers;let got=0,tot=0,corr=0;
+  tr.querySelectorAll('td.qcell').forEach(td=>{const q=+td.dataset.q;const key=ans.find(a=>a.n===q)||{};const pt=key.pt!=null?key.pt:1;tot+=pt;
+    const val=td.querySelector('input').value.trim();td.classList.remove('ok','no');if(val==='')return;
+    const acc=String(key.ans||'').split('|').map(x=>norm(x,key.type)).filter(x=>x!=='');const ok=acc.includes(norm(val,key.type));
+    td.classList.add(ok?'ok':'no');if(ok){got+=pt;corr++;}});
+  tr.querySelector('.corr').textContent=`${corr}/${ans.length}`;tr.querySelector('.scorecell').textContent=tot>0?Math.round(got/tot*100):0;}
+async function saveScores(){if(!CURKEY){toast('정답키를 선택하세요',false);return;}
+  const br=$('g-branch').value,cls=$('g-class').value,ans=CURKEY.answers;const trs=[...document.querySelectorAll('#grid-host tbody tr')];const recs=[];
+  trs.forEach(tr=>{const nmInp=tr.querySelector('.stu input');const name=nmInp.value.trim();if(!name)return;const code=nmInp.dataset.code||'';
+    const responses=[];let got=0,tot=0,corr=0;
+    tr.querySelectorAll('td.qcell').forEach(td=>{const q=+td.dataset.q;const key=ans.find(a=>a.n===q)||{};const pt=key.pt!=null?key.pt:1;tot+=pt;
+      const val=td.querySelector('input').value.trim();const acc=String(key.ans||'').split('|').map(x=>norm(x,key.type)).filter(x=>x!=='');
+      const ok=val!==''&&acc.includes(norm(val,key.type));if(ok){got+=pt;corr++;}responses.push({n:q,ans:val,ok});});
+    recs.push({key_id:CURKEY.id,key_name:CURKEY.name,semester:CURKEY.semester,test_type:EXAM,branch:br,class_name:cls,student_name:name,student_code:code||null,
+      responses,correct:corr,num_q:ans.length,got_pt:got,total_pt:tot,score:tot>0?Math.round(got/tot*100):0,graded_at:new Date().toISOString()});});
+  if(!recs.length){toast('저장할 내용이 없어요',false);return;}
+  const{error}=await sb.from('exam_scores').insert(recs);
+  if(error){toast('저장 실패: '+error.message,false);return;}toast(recs.length+'명 저장됨 ✓');loadProgress();}
+
+/* ===== 진행률 ===== */
+async function loadProgress(){const host=$('prog-host');const off=disabledSet();
+  const{data,error}=await sb.from('exam_scores').select('branch,class_name,student_code,student_name,test_type').eq('test_type',EXAM).limit(5000);
+  if(error){host.innerHTML='<div class="hint">불러오기 실패</div>';return;}
+  const doneByBr={};(data||[]).forEach(r=>{if(off.has(r.class_name))return;const b=r.branch||'(미지정)';(doneByBr[b]=doneByBr[b]||new Set()).add(r.student_code||r.student_name);});
+  const totByBr={};ROSTER.forEach(r=>{if(off.has(r.cls))return;const b=r.branch||'(미지정)';totByBr[b]=(totByBr[b]||0)+1;});
+  const brs=[...new Set([...BRANCHES,...Object.keys(totByBr),...Object.keys(doneByBr)])].filter(b=>totByBr[b]||doneByBr[b]);
+  if(!brs.length){host.innerHTML='<div class="hint">명단을 올리고 저장하면 여기 진행률이 나와요.</div>';return;}
+  let h=`<table><thead><tr><th>분원</th><th style="width:90px">입력/전체</th><th>진행률</th></tr></thead><tbody>`;
+  brs.forEach(b=>{const done=doneByBr[b]?doneByBr[b].size:0;const tot=totByBr[b]||0;const pct=tot?Math.round(done/tot*100):(done?100:0);
+    h+=`<tr><td>${esc(b)}</td><td>${done} / ${tot||'-'}</td><td><div class="pbar"><div style="width:${Math.min(100,pct)}%"></div><span>${pct}%</span></div></td></tr>`;});
+  h+=`</tbody></table>`;host.innerHTML=h;}
+
+/* ===== 결과 ===== */
+async function loadResults(){const{data,error}=await sb.from('exam_scores').select('*').eq('test_type',EXAM).order('graded_at',{ascending:false}).limit(3000);
+  if(error){$('result-host').innerHTML='<div class="hint">불러오기 실패</div>';return;}RESULTS=data||[];renderResults();}
+function renderResults(){const host=$('result-host');const bf=$('r-branch').value;const list=RESULTS.filter(r=>!bf||r.branch===bf);
+  if(!list.length){host.innerHTML='<div class="hint">저장된 결과가 없어요.</div>';return;}
+  let h=`<div class="hint" style="margin-bottom:6px">${list.length}건</div><div class="grid-scroll"><table><thead><tr><th>분원</th><th>반</th><th>이름</th><th>회원코드</th><th>정답수</th><th>점수</th><th>채점일</th><th></th></tr></thead><tbody>`;
+  list.forEach(r=>{h+=`<tr><td>${esc(r.branch||'')}</td><td>${esc(r.class_name||'')}</td><td>${esc(r.student_name||'')}</td><td>${esc(r.student_code||'')}</td>
+    <td>${r.correct}/${r.num_q}</td><td class="scorecell">${r.score!=null?r.score:'-'}</td><td class="hint">${esc(String(r.graded_at||'').slice(0,16).replace('T',' '))}</td>
+    <td><button class="ghost mini danger" onclick="delResult('${r.id}')">삭제</button></td></tr>`;});
+  h+=`</tbody></table></div>`;host.innerHTML=h;}
+async function delResult(id){if(!confirm('삭제할까요?'))return;const{error}=await sb.from('exam_scores').delete().eq('id',id);if(error){toast('삭제 실패',false);return;}toast('삭제됨');loadResults();loadProgress();}
+function exportXlsx(){const bf=$('r-branch').value;const list=RESULTS.filter(r=>!bf||r.branch===bf);
+  if(!list.length){toast('내려받을 결과가 없어요',false);return;}
+  const maxQ=Math.max(0,...list.map(r=>r.num_q||0));
+  const head=['학기','시험','분원','반','이름','회원코드','정답키','정답수','문항수','점수'];
+  for(let i=1;i<=maxQ;i++)head.push('문'+i);for(let i=1;i<=maxQ;i++)head.push('문'+i+'_OX');
+  const aoa=[head];list.forEach(r=>{const row=[r.semester||'',r.test_type||'',r.branch||'',r.class_name||'',r.student_name||'',r.student_code||'',r.key_name||'',r.correct,r.num_q,r.score];
+    const byN={};(r.responses||[]).forEach(x=>byN[x.n]=x);for(let i=1;i<=maxQ;i++)row.push(byN[i]?byN[i].ans:'');for(let i=1;i<=maxQ;i++)row.push(byN[i]?(byN[i].ok?'O':'X'):'');aoa.push(row);});
+  const ws=XLSX.utils.aoa_to_sheet(aoa);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,EXAM);XLSX.writeFile(wb,'채점결과_'+EXAM+'.xlsx');toast('엑셀 다운로드 ✓');}
+</script>
+</body>
+</html>

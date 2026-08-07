@@ -431,6 +431,7 @@ function renderWonmuBody(){
   if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
   else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
   else if(v==='booking'){ if(cr) cr.innerHTML=`${home} › <span class="cl" onclick="wonmuGo('leveltest')">레벨테스트</span> › <b>예약 입력</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'leveltest\')">‹ 레벨테스트로</div><div id="bkInner"></div>'; renderBooking($('bkInner')); }
+  else if(v==='exam'){ if(cr) cr.innerHTML=`${home} › <b>시험채점</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'hub\')">‹ 원무 홈</div><iframe src="grader.html" title="시험채점" style="width:100%;height:calc(100vh - 175px);min-height:560px;border:1px solid var(--line);border-radius:14px;background:#fff"></iframe>'; }
   else { if(cr) cr.innerHTML='<b>원무</b>'; renderWonmuHub(body); }
 }
 
@@ -507,6 +508,13 @@ function renderWonmuHub(b){
       <div class="fr-pct"><div class="h-in">신규 +${r.nw}</div><div class="h-out">${r.wd?('퇴원 -'+r.wd):'퇴원 0'}</div></div></div>`;
   }); } else h+=`<div class="empty-msg">표시할 분원이 없어요.</div>`;
   h+=`<div class="hc-foot"><span class="l">현재 재원 ${fmt(hcTot.active)}명</span><span class="r"><span class="g">신규 +${hcTot.nw}</span> · 퇴원율 ${wdRate.toFixed(1)}%</span></div></div>`;
+  }
+
+  // 시험채점 카드 (DT · AT · 내신모의고사)
+  if(hasMenu('leveltest')){
+  h+=`<div class="hub-card" onclick="wonmuGo('exam')">
+    <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>시험채점 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT · AT · 내신모의고사</span></h3><p>정답키로 반별 즉시 채점 · 분원별 진행률 · 엑셀 다운(큐앱)</p></div><div class="hc-go">들어가기 ›</div></div>
+    <div class="hc-foot"><span class="l">답안 입력하면 즉시 O/X·점수</span><span class="r"><span class="b">분원별 진행률</span></span></div></div>`;
   }
 
   h+=`</div>`;
