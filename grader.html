@@ -42,6 +42,9 @@ input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--soft)}
 .chip{background:var(--line2);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--ink2)}
 .chip b{color:var(--brand)}
 .chip .x{color:var(--neg);cursor:pointer;margin-left:6px}
+.modetog{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.modetog button{border:none;background:#fff;font:inherit;font-weight:700;font-size:13px;padding:9px 14px;cursor:pointer;color:var(--ink2)}
+.modetog button.on{background:var(--soft);color:var(--brand)}
 /* 검색 드롭다운 */
 .dd{position:relative;max-width:520px}
 .ddbox{border:1.5px solid var(--brand);border-radius:10px;padding:11px 14px;font-size:14.5px;font-weight:700;display:flex;align-items:center;justify-content:space-between;box-shadow:0 0 0 3px var(--soft);cursor:pointer}
@@ -97,13 +100,21 @@ td.qcell input{width:34px;height:26px;border-radius:6px;text-align:center;paddin
   <!-- ===== 채점 뷰 ===== -->
   <div id="view-grade">
     <div class="card">
-      <span class="step">① 정답지 업로드 <span class="sub">— 파일만 올리면 문항수·배점·정답 자동 인식</span></span>
+      <span class="step">① 정답지 등록 <span class="sub" id="key-mode-note">— AT는 파일 업로드 / 체스는 붙여넣기</span></span>
       <div class="up">
-        <div><div class="lbl">레벨 이름 (예: A1(1-3개월))</div><input id="k-level" placeholder="레벨 이름"></div>
+        <div style="max-width:260px"><div class="lbl">레벨 (명단에서 선택)</div><select id="k-level"></select></div>
+        <div style="flex:0 0 auto"><div class="lbl">방식</div><div class="modetog"><button id="mode-file" class="on" onclick="setKeyMode('file')">파일 업로드</button><button id="mode-paste" onclick="setKeyMode('paste')">붙여넣기</button></div></div>
+      </div>
+      <div id="mode-file-box" class="up" style="margin-top:10px">
         <div><div class="lbl" id="lbl-read">독해 문항속성</div><div class="filebox" id="fb-read">📄 파일 선택<input type="file" id="k-read" accept=".xlsx,.xls" onchange="fbName('read')"></div></div>
         <div id="wrap-gram"><div class="lbl">문법 문항속성</div><div class="filebox" id="fb-gram">📄 파일 선택<input type="file" id="k-gram" accept=".xlsx,.xls" onchange="fbName('gram')"></div></div>
-        <div style="flex:0 0 auto"><div class="lbl">&nbsp;</div><button class="btn" onclick="parseAndSaveKey()">정답키 저장</button></div>
       </div>
+      <div id="mode-paste-box" class="up" style="margin-top:10px;display:none">
+        <div style="flex:2;min-width:220px"><div class="lbl">정답 붙여넣기 (문항 순서대로 · 예: 2,3,1,4,2,5…)</div><input id="k-paste" placeholder="2,3,1,4,2,5,3,1,…"></div>
+        <div><div class="lbl">선긋기·수동 문항번호 (선택)</div><input id="k-manual" placeholder="예: 22, 30"></div>
+        <div style="max-width:100px"><div class="lbl">총점</div><input id="k-total" type="number" value="100"></div>
+      </div>
+      <div style="margin-top:12px"><button class="btn" onclick="parseAndSaveKey()">정답키 저장</button></div>
       <div class="chips" id="key-chips"></div>
     </div>
 
@@ -158,17 +169,17 @@ td.qcell input{width:34px;height:26px;border-radius:6px;text-align:center;paddin
 const SUPA_URL='https://hplndiuoohantbalixwu.supabase.co';
 const SUPA_KEY='sb_publishable_xO8KB46SzMx8KeuEE-OVSw_su22mv9X';
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
-const CHESS_LEVELS=['C','CE','CH','CHESS'];
+// 체스 레벨코드: IS·DS·LS·MS 로 시작 (IS1~MSB2). 그 외(A/B/HB/PA…)는 에이스.
 
 let EXAM='DT', SEMID=null, SEMNAME='', ROLE='admin', MYBRANCH=null;
 let STUDENTS={}, BRANCHES={}, ROSTER=[], KEYS=[], CONFIG={}, RESULTS=[];
-let CURCLASS=null, CURKEY=null;
+let CURCLASS=null, CURKEY=null, KEYMODE='file';
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(m,ok){const t=$('toast');t.textContent=m;t.className='toast show'+(ok===false?' err':'');setTimeout(()=>t.className='toast',2800);}
 function levelAlpha(cn){const m=String(cn||'').match(/^\s*\[([A-Za-z]+)/);return m?m[1].toUpperCase():'';}
-function isChess(cn){const a=levelAlpha(cn);return a?CHESS_LEVELS.includes(a):false;}
+function isChess(cn){const a=levelAlpha(cn);return /^(IS|DS|LS|MS)/.test(a);}
 function gradeKey(g){g=String(g||'').trim();let m;if(m=g.match(/중\s*등?\s*(\d)/))return '중'+m[1];if(m=g.match(/초\s*등?\s*(\d)/))return '초'+m[1];if(m=g.match(/고\s*(\d)/))return '고'+m[1];if(m=g.match(/^(\d)$/))return '초'+m[1];return g;}
 function disabledSet(){return CONFIG[EXAM]||new Set();}
 function classKey(r){return (r.classLabel||r.className)+' · '+r.branchName;}
@@ -201,8 +212,14 @@ function classesForExam(){const m=new Map();ROSTER.filter(classInScope).forEach(
 function setExam(t){EXAM=t;['DT','AT','내신모의고사'].forEach(x=>$('ex-'+x).className=x===t?'on':'');
   $('scope-note').textContent = t==='DT'?'— DT라서 CHESS 레벨만 떠요':t==='AT'?'— AT라서 ACE 레벨만 떠요':'— 내신이라 초6·중1 반만 떠요';
   const at=(t==='AT');$('wrap-gram').style.display=at?'':'none';$('lbl-read').textContent=at?'독해 문항속성':'문항속성';
+  setKeyMode(at?'file':'paste');fillKeyLevels();
   CURCLASS=null;CURKEY=null;$('dd-label').textContent='— 레벨/반 선택 —';$('dd-label').className='ph';$('grid-card').style.display='none';
   renderKeyChips();renderCfg();loadProgress();loadResults();renderDDOpts();}
+function setKeyMode(m){KEYMODE=m;$('mode-file').className=m==='file'?'on':'';$('mode-paste').className=m==='paste'?'on':'';
+  $('mode-file-box').style.display=m==='file'?'':'none';$('mode-paste-box').style.display=m==='paste'?'':'none';
+  $('key-mode-note').textContent=m==='paste'?'— 레벨 고르고 정답을 순서대로 붙여넣기 (체스용)':'— 문항속성 엑셀 올리면 자동 인식 (AT용)';}
+function fillKeyLevels(){const sel=$('k-level');if(!sel)return;const cur=sel.value;const lv=[...new Set(ROSTER.filter(classInScope).map(r=>r.classLabel||r.className))].sort();
+  sel.innerHTML='<option value="">— 레벨 선택 —</option>'+lv.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('');if(cur)sel.value=cur;}
 function showView(v){['grade','prog','result'].forEach(x=>{$('view-'+x).style.display=x===v?'':'none';$('nv-'+x).className=x===v?'on':'';});
   if(v==='prog'){renderCfg();loadProgress();}if(v==='result')loadResults();}
 
@@ -219,7 +236,20 @@ function parseGrammar(rows){const hi=rows.findIndex(r=>r.map(x=>String(x).trim()
 function parseReading(rows){let anscol=-1;for(let i=0;i<Math.min(3,rows.length);i++)rows[i].forEach((c,j)=>{if(String(c).trim().toLowerCase()==='answer')anscol=j;});if(anscol<0)anscol=rows[0].length-1;
   const out=[],seen=new Set();for(const r of rows){const no=num(r[1]);if(no==null||no<1||no>300)continue;const a=String(r[anscol]==null?'':r[anscol]).trim();if(a===''||seen.has(no))continue;seen.add(no);out.push({n:no,type:/^\d+$/.test(a)?'mc':'sa',ans:a,pt:2});}
   return out.length?out.sort((a,b)=>a.n-b.n):null;}
-async function parseAndSaveKey(){const level=$('k-level').value.trim();if(!level){toast('레벨 이름을 입력하세요',false);return;}
+async function saveKeyRec(level,answers,track){
+  const num_q=answers.length;const rec={name:`${SEMNAME?SEMNAME+' ':''}${EXAM} · ${level}`,semester:SEMNAME,test_type:EXAM,track,level,num_q,answers,updated_at:new Date().toISOString()};
+  const{error}=await sb.from('exam_keys').insert(rec);if(error){toast('저장 실패: '+error.message,false);return false;}
+  await loadKeys();renderKeyChips();buildGrid();return true;}
+async function parseAndSaveKey(){const level=$('k-level').value;if(!level){toast('레벨을 고르세요',false);return;}
+  if(KEYMODE==='paste'){
+    const raw=$('k-paste').value.trim();if(!raw){toast('정답을 붙여넣으세요',false);return;}
+    const arr=raw.split(/[\s,]+/).filter(Boolean);if(!arr.length){toast('정답을 못 읽었어요',false);return;}
+    const manual=new Set(($('k-manual').value||'').split(/[\s,]+/).filter(Boolean).map(x=>parseInt(x,10)));
+    const total=parseFloat($('k-total').value||'100')||100;const pt=Math.round(total/arr.length*100)/100;
+    const answers=arr.map((a,i)=>{const n=i+1;return manual.has(n)?{part:'main',n,type:'sa',ans:'',pt}:{part:'main',n,type:'mc',ans:String(a).toUpperCase(),pt};});
+    if(await saveKeyRec(level,answers,EXAM==='DT'?'CHESS':'ACE')){toast(`정답키 저장됨 ✓ (${arr.length}문항)`);$('k-paste').value='';$('k-manual').value='';}
+    return;
+  }
   const readF=$('k-read').files[0],gramF=$('k-gram').files[0];if(!readF){toast('문항속성 파일을 올리세요',false);return;}
   try{const parts=[];const rRows=readCells(XLSX.read(await readF.arrayBuffer(),{type:'array'}));const rKey=parseReading(rRows)||parseGrammar(rRows);
     if(!rKey){toast('파일을 못 읽었어요 (형식 확인)',false);return;}parts.push({part:EXAM==='AT'?'독해':'main',items:rKey});
