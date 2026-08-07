@@ -1954,7 +1954,7 @@ async function analyzeReceipt(mode='single'){
   try{
     const base64=await getBase64();
     const body={image:base64,mimeType:pendingFile.type==='application/pdf'?'application/pdf':pendingFile.type,mode};
-    const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const res=await fetch(SUPA_URL+'/functions/v1/chat',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify(body)});
     const data=await res.json();
     if(data.error){toast('분석 오류: '+data.error);return}
     if(mode==='single'){
