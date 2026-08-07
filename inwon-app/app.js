@@ -518,7 +518,9 @@ const baseNew = monthStart + newThis + tiThis;
   const totNew = cells.reduce((a,c)=>a+(c.blank?0:c.newThis),0);
   const totTransferIn = cells.reduce((a,c)=>a+(c.blank?0:c.transferIn),0);
   const avgRate = rates.length ? rates.reduce((a,c)=>a+c,0)/rates.length : 0;
-  return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate, current: carry };  // current = 마지막 달 이후 인원(흐름 기준 현재 재원)
+  // current = 현재 재원 — 대시보드 '현 재원생'과 동일하게 재원 상태(status==='active') 기준으로 카운트
+  const current = recs.filter(r=>r.status==='active').length;
+  return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate, current };
 }
 /* 일별 집계 — 한 달의 날짜별 인원 추적 (퇴원율 집계표용).
    월초인원 = 이 달 전부터 다니고 이 달엔 아직 안 나간 학생.
