@@ -189,8 +189,8 @@ let CURCLASS=null, CURKEY=null, KEYMODE='file';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(m,ok){const t=$('toast');t.textContent=m;t.className='toast show'+(ok===false?' err':'');setTimeout(()=>t.className='toast',2800);}
-function levelAlpha(cn){const m=String(cn||'').match(/^\s*\[([A-Za-z]+)/);return m?m[1].toUpperCase():'';}
-function levelCode(cn){const m=String(cn||'').match(/^\s*\[([A-Za-z0-9]+)/);return m?m[1].toUpperCase():'';}
+function levelAlpha(cn){const m=String(cn||'').match(/^\s*\[?\s*([A-Za-z]+)/);return m?m[1].toUpperCase():'';}
+function levelCode(cn){const m=String(cn||'').match(/^\s*\[?\s*([A-Za-z0-9]+)/);return m?m[1].toUpperCase():'';}
 function isChess(cn){return /^(IS|DS|LS|MS)/.test(levelAlpha(cn));}
 function gradeKey(g){g=String(g||'').trim();let m;if(m=g.match(/중\s*등?\s*(\d)/))return '중'+m[1];if(m=g.match(/초\s*등?\s*(\d)/))return '초'+m[1];if(m=g.match(/고\s*(\d)/))return '고'+m[1];if(m=g.match(/^(\d)$/))return '초'+m[1];return g;}
 // 답 표기 통일: A/B/C/D→1/2/3/4, ①②③④⑤→숫자, 나머지 숫자 그대로
