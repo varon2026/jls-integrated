@@ -518,9 +518,7 @@ const baseNew = monthStart + newThis + tiThis;
   const totNew = cells.reduce((a,c)=>a+(c.blank?0:c.newThis),0);
   const totTransferIn = cells.reduce((a,c)=>a+(c.blank?0:c.transferIn),0);
   const avgRate = rates.length ? rates.reduce((a,c)=>a+c,0)/rates.length : 0;
-  // current = 현재 재원 — 대시보드 '현 재원생'과 동일하게 재원 상태(status==='active') 기준으로 카운트
-  const current = recs.filter(r=>r.status==='active').length;
-  return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate, current };
+  return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate };
 }
 /* 일별 집계 — 한 달의 날짜별 인원 추적 (퇴원율 집계표용).
    월초인원 = 이 달 전부터 다니고 이 달엔 아직 안 나간 학생.
@@ -2037,6 +2035,9 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
   const caCol = showCA || showCAFoot;   // 구분 열을 만들지 여부
   const monthNames = months.map(m=>m+'월');
   const COLSPAN_MONTH = 6;
+  const curCnt = rr => rr.filter(x=>x.status==='active').length;   // 현재 재원(재원 상태) 수 — 대시보드와 동일 기준
+  // 강사탭: 그 강사가 "현재 담임"인 학생만(= 학생 기록의 teacher가 이 강사). 다른 탭(레벨/학년): 그 그룹 전체.
+  const curOf = g => showCA ? g.recs.filter(r=>r.teacher===g.name) : g.recs;
  
   // 한 그룹의 특정 레코드셋으로 월별 셀 HTML 생성 (split 없이 단순 — CHESS/ACE 행용)
   function cellsHtmlSimple(recs, extraCls){
@@ -2081,7 +2082,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
       <td class="num cc" style="font-weight:700">${r.totWithdraw||'-'}</td>
       <td class="num cc" style="font-weight:700;color:${r.totTransfer?'var(--warn)':'inherit'}">${r.totTransfer||'-'}</td>
       <td class="num cc"><span style="font-weight:700;color:${r.avgRate>=10?'var(--neg)':r.avgRate>=5?'var(--warn)':'var(--brand)'}">${r.avgRate?r.avgRate.toFixed(1)+'%':'-'}</span></td>
-      <td class="num cc" style="font-weight:800;color:#7a5be0;background:#faf8ff">${r.current}</td>
+      <td class="num cc" style="font-weight:800;color:#7a5be0;background:#faf8ff">${curCnt(curOf(g))}</td>
     </tr>`;
 
     if(!showCA) return totalRow;
@@ -2114,8 +2115,8 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
     </tr>`;
 
     return totalRow
-      + caRow('CHESS','clos-chess', cR, cR.current)
-      + caRow('ACE','clos-ace', aR, aR.current);
+      + caRow('CHESS','clos-chess', cR, curCnt(curOf(g).filter(x=>isChess(x.className))))
+      + caRow('ACE','clos-ace', aR, curCnt(curOf(g).filter(x=>!isChess(x.className))));
   }).join('');
  
   // 합계(맨 아래)
@@ -2169,7 +2170,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc" style="font-weight:800">${totR.totWithdraw}</td>
           <td class="num cc" style="font-weight:800;color:${totR.totTransfer?'var(--warn)':'inherit'}">${totR.totTransfer}</td>
           <td class="num cc" style="font-weight:800">${totR.avgRate.toFixed(1)}%</td>
-          <td class="num cc" style="font-weight:900;color:#7a5be0;background:#f3f0fb">${totR.current}</td>
+          <td class="num cc" style="font-weight:900;color:#7a5be0;background:#f3f0fb">${curCnt(baseForTotal)}</td>
         </tr>
         ${showCAFoot?`
         <tr class="closing-total clos-ca">
@@ -2180,7 +2181,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc">${cTot.totWithdraw||'-'}</td>
           <td class="num cc">${cTot.totTransfer||'-'}</td>
           <td class="num cc">${cTot.avgRate?cTot.avgRate.toFixed(1)+'%':'-'}</td>
-          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${cTot.current}</td>
+          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${curCnt(chessTotRecs)}</td>
         </tr>
         <tr class="closing-total clos-ca">
           <td class="cc clos-catag clos-ace">ACE</td>
@@ -2190,7 +2191,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc">${aTot.totWithdraw||'-'}</td>
           <td class="num cc">${aTot.totTransfer||'-'}</td>
           <td class="num cc">${aTot.avgRate?aTot.avgRate.toFixed(1)+'%':'-'}</td>
-          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${aTot.current}</td>
+          <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${curCnt(aceTotRecs)}</td>
         </tr>
         `:''}
       </tfoot>
@@ -2263,7 +2264,7 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
   changes.forEach(c=>{ changeByClass.set(c.className, c); });
 
   const groupMap = new Map();
-  const ensure = (t)=>{ if(!groupMap.has(t)) groupMap.set(t, { name:t, recs:[], months:new Set(), splits:[] }); return groupMap.get(t); };
+  const ensure = (t)=>{ if(!groupMap.has(t)) groupMap.set(t, { name:t, recs:[], months:new Set(), splits:[], currentRecs:[] }); return groupMap.get(t); };
 
   const byClass = new Map();
   recs.forEach(r=>{ const k=r.className||'(미배정)'; if(!byClass.has(k)) byClass.set(k,[]); byClass.get(k).push(r); });
@@ -2273,7 +2274,7 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
     if(!ch){
       const t = classRecs[0].teacher || '미배정';
       const g = ensure(t);
-      classRecs.forEach(r=> g.recs.push(r));
+      classRecs.forEach(r=>{ g.recs.push(r); g.currentRecs.push(r); });   // 변경 없는 반 → 현재 담당도 이 강사
       months.forEach(m=> g.months.add(m));
       return;
     }
@@ -2292,9 +2293,9 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
       gBefore.splits.push({ className, month:chMonth, cutDay:chDay, side:'before' });
     }
 
-    // 변경 후 담임: 변경월 뒷부분(날짜 쪼갬) + 이후 달들(통째)
+    // 변경 후 담임: 변경월 뒷부분(날짜 쪼갬) + 이후 달들(통째). 현재 담당 = 이 강사(변경 후)
     const gAfter = ensure(ch.toTeacher||'미배정');
-    classRecs.forEach(r=> gAfter.recs.push(r));
+    classRecs.forEach(r=>{ gAfter.recs.push(r); gAfter.currentRecs.push(r); });
     afterMonths.forEach(m=> gAfter.months.add(m));
     if(hasChMonth){
       gAfter.months.add(chMonth);
@@ -2304,7 +2305,7 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
 
   const allMonthsCount = months.length;
   return [...groupMap.values()].map(g=>{
-    return { name:g.name, recs:g.recs, activeMonths:g.months, splits:g.splits };
+    return { name:g.name, recs:g.recs, activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs };
   }).sort((a,b)=> b.recs.length - a.recs.length);
 }
 
