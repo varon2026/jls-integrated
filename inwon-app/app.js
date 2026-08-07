@@ -2248,7 +2248,7 @@ function renderClosing(branchId){
       월초+신규 = 그 달 시작 인원 + 그 달 신규 · 퇴원율 = 퇴원 ÷ (월초+신규) · 평균퇴원율 = 월별 퇴원율의 평균 · 전출은 퇴원에서 제외됩니다.
     </div>`;
   el('content').innerHTML = html;
-  el('content').style.maxWidth = '1450px';
+  el('content').style.maxWidth = 'none';   // 인원마감표는 화면 폭 전체 사용 (현재 열까지 스크롤 없이)
 }
 
 /* 담임 변경을 반영한 강사별 그룹 생성 (날짜 정확히 쪼개기).
