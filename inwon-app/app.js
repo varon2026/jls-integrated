@@ -2451,21 +2451,32 @@ function renderDataManagement(){
           <div class="dz-s">.xlsx · .xls · .csv</div>
         </div>
         <input type="file" id="rosterFile" accept=".xlsx,.xls,.csv" hidden>
+      </div>
 
-        <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line-2)">
-          <div style="font-size:13px;font-weight:800;margin-bottom:4px">＋ 신규생 일괄업로드 <span style="font-weight:600;color:var(--ink-3)">— 학기 중 새로 온 학생만 추가</span></div>
-          <div class="pd" style="margin-bottom:8px">신규생만 담은 엑셀을 올리면, <b>기존 명단은 그대로 두고 이 학생들만 '신규(HC 대상)'로 현재 학기에 추가</b>돼요. 특이사항에 '신규생'이라고 안 적혀 있어도 전부 신규로 처리합니다. (이름·회원코드·반·담임 열 필요 · 등록일 없으면 오늘 날짜)</div>
-          <div class="dropzone" id="newStuZone"><div class="dz-i">＋</div><div class="dz-t">신규생 엑셀을 끌어다 놓거나 클릭</div><div class="dz-s">.xlsx · .xls · .csv</div></div>
-          <input type="file" id="newStuFile" accept=".xlsx,.xls,.csv" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="pi" style="background:var(--pos-soft);color:var(--pos)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+          </div>
+          <div><h3>신규생 일괄업로드</h3></div>
         </div>
+        <div class="pd">학기 중 새로 온 학생만 추가합니다. <b>기존 명단은 그대로 두고 이 학생들만 '신규(HC 대상)'로 현재 학기에 추가</b>돼요. 전입생은 '전입여부' 열에 O 표시하면 전입으로 처리됩니다. 등록일이 비어 있으면 오늘 날짜로 넣습니다.</div>
+        <div style="margin-bottom:10px"><button class="btn" onclick="downloadNewTemplate()" style="height:34px;font-size:12.5px">엑셀 양식 다운로드</button></div>
+        <div class="dropzone" id="newStuZone"><div class="dz-i">＋</div><div class="dz-t">신규생 엑셀을 끌어다 놓거나 클릭</div><div class="dz-s">.xlsx · .xls · .csv</div></div>
+        <input type="file" id="newStuFile" accept=".xlsx,.xls,.csv" hidden>
+      </div>
 
-        <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line-2)">
-          <div style="font-size:13px;font-weight:800;margin-bottom:4px">－ 퇴원생 일괄업로드 <span style="font-weight:600;color:var(--ink-3)">— 여러 명 한 번에 퇴원 처리</span></div>
-          <div class="pd" style="margin-bottom:8px">퇴원생만 담은 엑셀을 올리면, <b>회원코드(없으면 이름)로 이 분원·학기 명단에서 찾아 퇴원 처리</b>합니다. 이미 퇴원 상태면 건너뛰고, 단건 퇴원과 똑같이 이력도 남겨 통계·되돌리기가 보존돼요. (열: 이름·회원코드·퇴원일·퇴원사유·메모·전출분원)</div>
-          <div style="margin-bottom:8px"><button class="btn" onclick="downloadWithdrawTemplate()" style="height:34px;font-size:12.5px">엑셀 양식 다운로드</button></div>
-          <div class="dropzone" id="wdZone"><div class="dz-i">－</div><div class="dz-t">퇴원생 엑셀을 끌어다 놓거나 클릭</div><div class="dz-s">.xlsx · .xls · .csv</div></div>
-          <input type="file" id="wdFile" accept=".xlsx,.xls,.csv" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="pi" style="background:var(--neg-soft);color:var(--neg)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>
+          </div>
+          <div><h3>퇴원생 일괄업로드</h3></div>
         </div>
+        <div class="pd">여러 명을 한 번에 퇴원 처리합니다. <b>회원코드(없으면 이름)로 이 분원·학기 명단에서 찾아 퇴원 처리</b>해요. 이미 퇴원 상태면 건너뛰고, 단건 퇴원과 똑같이 이력도 남겨 통계·되돌리기가 보존됩니다.</div>
+        <div style="margin-bottom:10px"><button class="btn" onclick="downloadWithdrawTemplate()" style="height:34px;font-size:12.5px">엑셀 양식 다운로드</button></div>
+        <div class="dropzone" id="wdZone"><div class="dz-i">－</div><div class="dz-t">퇴원생 엑셀을 끌어다 놓거나 클릭</div><div class="dz-s">.xlsx · .xls · .csv</div></div>
+        <input type="file" id="wdFile" accept=".xlsx,.xls,.csv" hidden>
       </div>
 
       <div class="panel">
@@ -3179,7 +3190,8 @@ function importRoster(file, branchId, semId, opts){
       cls:['반 이름','반이름','반명','반','클래스'],
       teacher:['담임선생님','담임명','담임','선생님'],
       note:['특이사항','비고','메모','신규생'],
-      startdate:['반 시작일','반시작일','시작일'],
+      startdate:['등록일','등록일자','반 시작일','반시작일','시작일'],
+      transferin:['전입여부','전입'],
       withdraw:['퇴원생','퇴원','퇴원여부'],
       withdrawdate:['퇴원일'],
       withdrawreason:['퇴원사유','사유']
@@ -3199,6 +3211,7 @@ function importRoster(file, branchId, semId, opts){
       const name=String(r[idx.name]||'').trim();
       const code=String(r[idx.code]||'').trim();
       if(!name||!code) return;
+      if(/\(예시\)|\(지우세요\)|지우세요|←|예시행/.test(name)) return;  // 양식 예시/안내행 건너뜀
       const rawClass = idx.cls>=0 ? String(r[idx.cls]||'').trim() : '';
       const kind = classKind(rawClass);     // 'regular' | 'exam' | null
       if(!kind){ excluded++; return; }       // 대괄호도 '내신'도 아니면 제외
@@ -3213,7 +3226,8 @@ function importRoster(file, branchId, semId, opts){
       const wdRaw = isAceMove ? '' : wdRawFull;            // 이관은 퇴원처리 제외
       const hasWd = !!wdRaw;
       const isTransferOut = /전출/.test(wdRaw) || /전출/.test(note);
-      const isTransferIn  = /전입/.test(note);
+      const tiCol = idx.transferin>=0 ? String(r[idx.transferin]||'').trim() : '';
+      const isTransferIn  = /전입/.test(note) || /^(전입|O|o|Y|y|예|1|✓|V|v)$/.test(tiCol) || /전입/.test(tiCol);
       const transferBranch = (isTransferOut||isTransferIn) ? (branchIdFromNote(wdRaw)||branchIdFromNote(note)) : null;
      let wdDate = '';
       if(hasWd){
@@ -3395,6 +3409,22 @@ function downloadWithdrawTemplate(){
       toast('양식을 다운로드했습니다','ok');
     })
     .catch(err=>{ console.error(err); toast('양식 파일을 찾지 못했습니다','err'); });
+}
+
+/* 신규생 일괄 업로드용 엑셀 양식 — 즉석 생성(XLSX). 열: 학생명·회원코드·학교·학년·반이름·담임·등록일·전입여부
+   전입여부: 전입생이면 O(또는 전입/Y), 아니면 비움 */
+function downloadNewTemplate(){
+  try{
+    const headers = ['학생명','회원코드','학교','학년','반이름','담임','등록일','전입여부'];
+    const example = ['홍길동(예시)','','정상중','중2','[DSA1] 김선생반','김선생', today(), ''];
+    const guide   = ['← 예시행: 실제 입력 시 지우세요','회원코드 있으면 정확','','','반 이름 그대로','','비우면 오늘 날짜','전입생만 O'];
+    const ws = XLSX.utils.aoa_to_sheet([headers, example, guide]);
+    ws['!cols'] = [{wch:16},{wch:14},{wch:10},{wch:8},{wch:20},{wch:12},{wch:12},{wch:10}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '신규생');
+    XLSX.writeFile(wb, '신규생_일괄업로드_양식.xlsx');
+    toast('양식을 다운로드했습니다','ok');
+  }catch(e){ console.error(e); toast('양식 생성 실패 — 새로고침 후 다시 시도','err'); }
 }
 
 function importHistory(file, branchId, semId){
