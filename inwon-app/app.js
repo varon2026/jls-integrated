@@ -2458,6 +2458,14 @@ function renderDataManagement(){
           <div class="dropzone" id="newStuZone"><div class="dz-i">＋</div><div class="dz-t">신규생 엑셀을 끌어다 놓거나 클릭</div><div class="dz-s">.xlsx · .xls · .csv</div></div>
           <input type="file" id="newStuFile" accept=".xlsx,.xls,.csv" hidden>
         </div>
+
+        <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line-2)">
+          <div style="font-size:13px;font-weight:800;margin-bottom:4px">－ 퇴원생 일괄업로드 <span style="font-weight:600;color:var(--ink-3)">— 여러 명 한 번에 퇴원 처리</span></div>
+          <div class="pd" style="margin-bottom:8px">퇴원생만 담은 엑셀을 올리면, <b>회원코드(없으면 이름)로 이 분원·학기 명단에서 찾아 퇴원 처리</b>합니다. 이미 퇴원 상태면 건너뛰고, 단건 퇴원과 똑같이 이력도 남겨 통계·되돌리기가 보존돼요. (열: 이름·회원코드·퇴원일·퇴원사유·메모·전출분원)</div>
+          <div style="margin-bottom:8px"><button class="btn" onclick="downloadWithdrawTemplate()" style="height:34px;font-size:12.5px">엑셀 양식 다운로드</button></div>
+          <div class="dropzone" id="wdZone"><div class="dz-i">－</div><div class="dz-t">퇴원생 엑셀을 끌어다 놓거나 클릭</div><div class="dz-s">.xlsx · .xls · .csv</div></div>
+          <input type="file" id="wdFile" accept=".xlsx,.xls,.csv" hidden>
+        </div>
       </div>
 
       <div class="panel">
@@ -2504,6 +2512,7 @@ function renderDataManagement(){
 
   wireDropzone('rosterZone','rosterFile', f=> importRoster(f, branchId, semId));
   wireDropzone('newStuZone','newStuFile', f=> importRoster(f, branchId, semId, {forceNew:true}));
+  wireDropzone('wdZone','wdFile', f=> importWithdrawals(f, branchId, semId));
   wireDropzone('historyZone','historyFile', f=> importHistory(f, branchId, semId));
 }
 
