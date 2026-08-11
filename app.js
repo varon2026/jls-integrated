@@ -511,11 +511,15 @@ function renderWonmuHub(b){
   }
 
   // 시험채점 카드 (DT · AT · 내신모의고사)
+  // ★ 새 채점 페이지 완성 전까지 임시 숨김 — 미완성 버튼을 다른 분원 사람들에게 노출하지 않기 위함.
+  //   (새 채점 기능 완성되면 아래 블록 주석만 풀면 다시 보임)
+  /*
   if(hasMenu('leveltest')){
   h+=`<div class="hub-card" onclick="wonmuGo('exam')">
     <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>시험채점 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT · AT · 내신모의고사</span></h3><p>정답키로 반별 즉시 채점 · 분원별 진행률 · 엑셀 다운(큐앱)</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="hc-foot"><span class="l">답안 입력하면 즉시 O/X·점수</span><span class="r"><span class="b">분원별 진행률</span></span></div></div>`;
   }
+  */
 
   h+=`</div>`;
   b.innerHTML=h;
