@@ -3025,11 +3025,17 @@ function readTable(file, cb){
     if(typeof XLSX==='undefined'){ toast('엑셀 모듈 로드 실패 — 인터넷 연결을 확인하세요','err'); return; }
     r.onload = ()=>{
       try{
-        const wb = XLSX.read(new Uint8Array(r.result), {type:'array'});
+        // cellDates:true + raw:true → 날짜 셀을 실제 Date로 받음(형식이 '05월 15일'처럼 연도가 없어도 정확)
+        const wb = XLSX.read(new Uint8Array(r.result), {type:'array', cellDates:true});
         const ws = wb.Sheets[wb.SheetNames[0]];
         // 빈 셀도 ''로 채워서 열 위치 보존
-        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false, blankrows:false});
-        cb(rows.map(row=> row.map(c=> c==null?'':String(c))));
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true, blankrows:false});
+        cb(rows.map(row=> row.map(c=>{
+          if(c==null) return '';
+          // 날짜 셀은 시간대 오차 없이 UTC 기준 YYYY-MM-DD로 통일
+          if(c instanceof Date && !isNaN(c)) return `${c.getUTCFullYear()}-${String(c.getUTCMonth()+1).padStart(2,'0')}-${String(c.getUTCDate()).padStart(2,'0')}`;
+          return String(c);
+        })));
       }catch(e){ console.error(e); toast('엑셀을 해석하지 못했습니다','err'); }
     };
     r.readAsArrayBuffer(file);
@@ -3160,10 +3166,12 @@ function semDefaultDate(semId){
 // AD열 퇴원일 파싱 — Date객체/문자열/엑셀날짜 처리
 function parseWithdrawDate(v){
   if(!v) return '';
-  if(v instanceof Date && !isNaN(v)) return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
-  const s=String(v).trim();
-  const dm=s.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if(v instanceof Date && !isNaN(v)) return `${v.getUTCFullYear()}-${String(v.getUTCMonth()+1).padStart(2,'0')}-${String(v.getUTCDate()).padStart(2,'0')}`;
+  const s=String(v).trim().replace(/\s+/g,'');
+  let dm=s.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);       // YYYY-M-D
   if(dm) return `${dm[1]}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}`;
+  dm=s.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})$/);        // M/D/YY(YY)
+  if(dm){ let y=dm[3]; if(y.length===2) y='20'+y; return `${y}-${dm[1].padStart(2,'0')}-${dm[2].padStart(2,'0')}`; }
   return '';
 }
 // "5월말일퇴원"→2026-05-31, "3월중도퇴원"→2026-03-15. 월 못 찾으면 학기기준일.
@@ -3338,7 +3346,7 @@ function importWithdrawals(file, branchId, semId){
     if(!idx){ toast('이름 또는 회원코드 열을 찾지 못했습니다','err'); return; }
 
     const recs = recordsOf(branchId, semId);
-    let done=0, skip=0, notfound=0, ambiguous=0;
+    let done=0, updated=0, notfound=0, ambiguous=0;
     const notFoundList=[], ambiguousList=[];
 
     rows.slice(1).forEach(r=>{
@@ -3358,7 +3366,7 @@ function importWithdrawals(file, branchId, semId){
       if(cands.length===0){ notfound++; notFoundList.push(name||code); return; }
       if(cands.length>1){ ambiguous++; ambiguousList.push(name||code); return; } // 동명이인 → 코드 필요
       const rec = cands[0];
-      if(rec.status==='withdraw'){ skip++; return; }
+      const wasWithdraw = (rec.status==='withdraw');   // 이미 퇴원 → 날짜·사유만 갱신(재업로드 정정)
 
       // 사유: 라벨('개인 사유')·코드('personal') 모두 허용, 없으면 개인 사유
       const reasonRaw = idx.reason>=0 ? String(r[idx.reason]||'').trim() : '';
@@ -3378,10 +3386,12 @@ function importWithdrawals(file, branchId, semId){
       rec.withdrawReason = isTransfer ? null : reasonCode;
       rec.withdrawMemo = memo;
       const toName = toBranch ? (getBranch(toBranch)?.name||'') : '';
-      db.studentMovements.push({id:uid('mv'),studentId:rec.studentId,branchId:rec.branchId,semesterId:rec.semesterId,
-        type:'withdraw', date:wdDate,
-        memo:(isTransfer?`[전출→${toName}] `:`[${wdReasonLabel(reasonCode)}] `)+(memo||'퇴원 처리')});
-      done++;
+      const mvMemo = (isTransfer?`[전출→${toName}] `:`[${wdReasonLabel(reasonCode)}] `)+(memo||'퇴원 처리');
+      // 이미 있던 퇴원 이력이면 새로 쌓지 말고 날짜·메모만 갱신(정정), 없으면 새로 추가
+      const mvOld = db.studentMovements.find(m=> m.studentId===rec.studentId && m.branchId===rec.branchId && m.semesterId===rec.semesterId && m.type==='withdraw');
+      if(mvOld){ mvOld.date=wdDate; mvOld.memo=mvMemo; }
+      else db.studentMovements.push({id:uid('mv'),studentId:rec.studentId,branchId:rec.branchId,semesterId:rec.semesterId,type:'withdraw',date:wdDate,memo:mvMemo});
+      if(wasWithdraw) updated++; else done++;
     });
 
     showSaving('퇴원 일괄 처리 저장 중… (잠시만요)');
@@ -3389,7 +3399,7 @@ function importWithdrawals(file, branchId, semId){
     hideSaving();
     if(ok){
       let msg = `✅ 퇴원 처리 ${done}명`;
-      if(skip) msg += ` · 이미퇴원 ${skip}`;
+      if(updated) msg += ` · 날짜·사유 갱신 ${updated}`;
       if(notfound) msg += ` · 못찾음 ${notfound}`;
       if(ambiguous) msg += ` · 동명이인 ${ambiguous}(회원코드 필요)`;
       toast(msg,'ok');
