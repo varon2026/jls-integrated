@@ -3284,6 +3284,110 @@ function importRoster(file, branchId, semId, opts){
   });
 }
 
+/* ── 퇴원생 엑셀 일괄 업로드 ─────────────────────────────────────────────
+   열: 이름 / 회원코드(권장) / 퇴원일 / 퇴원사유 / 메모 / 전출분원
+   - 회원코드가 있으면 그것으로, 없으면 이름으로 이 분원·학기 명단에서 매칭
+   - 이미 퇴원 상태면 건너뜀, 동명이인(코드 없음)은 안전하게 건너뜀
+   - 단건 '퇴원 처리'와 동일하게 studentMovements 이력도 남김 (되돌리기·통계 보존) */
+function importWithdrawals(file, branchId, semId){
+  readTable(file, async rows=>{
+    if(rows.length<2){ toast('데이터가 없습니다','err'); return; }
+    const HDR = {
+      name:['이름','학생명','성명'],
+      code:['회원코드','코드','학생코드'],
+      date:['퇴원일','날짜'],
+      reason:['퇴원사유','사유'],
+      memo:['메모','비고','상세'],
+      transfer:['전출분원','전출','전출대상']
+    };
+    let idx=null;
+    for(let i=0;i<Math.min(3,rows.length-1);i++){
+      const cand = mapHeader(rows[i].map(h=>String(h).trim()), HDR);
+      if(cand.name>=0 || cand.code>=0){ idx=cand; rows=rows.slice(i); break; }
+    }
+    if(!idx){ toast('이름 또는 회원코드 열을 찾지 못했습니다','err'); return; }
+
+    const recs = recordsOf(branchId, semId);
+    let done=0, skip=0, notfound=0, ambiguous=0;
+    const notFoundList=[], ambiguousList=[];
+
+    rows.slice(1).forEach(r=>{
+      const name = idx.name>=0 ? String(r[idx.name]||'').trim() : '';
+      const code = idx.code>=0 ? String(r[idx.code]||'').trim() : '';
+      if(!name && !code) return;
+
+      // 매칭: 회원코드 우선(정확), 없으면 이름
+      let cands = code
+        ? recs.filter(x=>{ const s=getStudent(x.studentId); return s && (s.code||'')===code; })
+        : recs.filter(x=>{ const s=getStudent(x.studentId); return s && s.name===name; });
+      // 같은 학생의 정규/내신 레코드가 함께 잡히면 정규·재원 우선
+      if(cands.length>1){
+        const pref = cands.filter(x=> x.status==='active' && (x.kind||'regular')==='regular');
+        if(pref.length) cands = pref;
+      }
+      if(cands.length===0){ notfound++; notFoundList.push(name||code); return; }
+      if(cands.length>1){ ambiguous++; ambiguousList.push(name||code); return; } // 동명이인 → 코드 필요
+      const rec = cands[0];
+      if(rec.status==='withdraw'){ skip++; return; }
+
+      // 사유: 라벨('개인 사유')·코드('personal') 모두 허용, 없으면 개인 사유
+      const reasonRaw = idx.reason>=0 ? String(r[idx.reason]||'').trim() : '';
+      const rf = WITHDRAW_REASONS.find(w=> w.code===reasonRaw || w.label===reasonRaw);
+      const reasonCode = rf ? rf.code : (reasonRaw ? 'other' : 'personal');
+      // 전출분원 값이 있으면 전출로 처리
+      const transRaw = idx.transfer>=0 ? String(r[idx.transfer]||'').trim() : '';
+      const toBranch = transRaw ? branchIdFromNote(transRaw) : null;
+      const isTransfer = !!toBranch;
+      const wdDate = parseWithdrawDate(idx.date>=0 ? r[idx.date] : '') || today();
+      const memo = idx.memo>=0 ? String(r[idx.memo]||'').trim() : '';
+
+      rec.status='withdraw';
+      rec.withdrawDate=wdDate;
+      rec.transfer=isTransfer;
+      rec.transferTo=toBranch||null;
+      rec.withdrawReason = isTransfer ? null : reasonCode;
+      rec.withdrawMemo = memo;
+      const toName = toBranch ? (getBranch(toBranch)?.name||'') : '';
+      db.studentMovements.push({id:uid('mv'),studentId:rec.studentId,branchId:rec.branchId,semesterId:rec.semesterId,
+        type:'withdraw', date:wdDate,
+        memo:(isTransfer?`[전출→${toName}] `:`[${wdReasonLabel(reasonCode)}] `)+(memo||'퇴원 처리')});
+      done++;
+    });
+
+    showSaving('퇴원 일괄 처리 저장 중… (잠시만요)');
+    const ok = await saveDB();
+    hideSaving();
+    if(ok){
+      let msg = `✅ 퇴원 처리 ${done}명`;
+      if(skip) msg += ` · 이미퇴원 ${skip}`;
+      if(notfound) msg += ` · 못찾음 ${notfound}`;
+      if(ambiguous) msg += ` · 동명이인 ${ambiguous}(회원코드 필요)`;
+      toast(msg,'ok');
+      if(notFoundList.length) console.warn('[퇴원 일괄] 명단에서 못 찾음:', notFoundList.join(', '));
+      if(ambiguousList.length) console.warn('[퇴원 일괄] 동명이인 — 회원코드로 다시 올려주세요:', ambiguousList.join(', '));
+    } else {
+      toast('❌ 저장 실패 — 다시 시도해 주세요','err');
+    }
+    render();
+  });
+}
+
+/* 퇴원생 일괄 업로드용 엑셀 양식 다운로드
+   (퇴원사유·전출분원 드롭다운이 들어간 정적 파일을 내려줌 — SheetJS 무료판은 드롭다운 생성 불가) */
+function downloadWithdrawTemplate(){
+  fetch('withdraw_template.xlsx')
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); })
+    .then(blob=>{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = '퇴원생_일괄업로드_양식.xlsx';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 1500);
+      toast('양식을 다운로드했습니다','ok');
+    })
+    .catch(err=>{ console.error(err); toast('양식 파일을 찾지 못했습니다','err'); });
+}
+
 function importHistory(file, branchId, semId){
   readTable(file, async rows=>{
     if(rows.length<2){ toast('데이터가 없습니다','err'); return; }
