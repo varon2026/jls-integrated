@@ -2460,7 +2460,7 @@ function renderDataManagement(){
           </div>
           <div><h3>신규생 일괄업로드</h3></div>
         </div>
-        <div class="pd">학기 중 새로 온 학생만 추가합니다. <b>기존 명단은 그대로 두고 이 학생들만 '신규(HC 대상)'로 현재 학기에 추가</b>돼요. 전입생은 '전입여부' 열에 O 표시하면 전입으로 처리됩니다. 등록일이 비어 있으면 오늘 날짜로 넣습니다.</div>
+        <div class="pd">학기 중 새로 온 학생만 추가합니다. <b>기존 명단은 그대로 두고 이 학생들만 '신규(HC 대상)'로 현재 학기에 추가</b>돼요. <b>전입생은 '전입여부' 열에 온 분원명(예: 서수원)만 적으면</b> 전입으로 처리되고 그 분원이 출신분원으로 자동 매칭됩니다. 일반 신규생은 그 칸을 비워두세요. 반시작일이 비어 있으면 오늘 날짜로 넣습니다.</div>
         <div style="margin-bottom:10px"><button class="btn" onclick="downloadNewTemplate()" style="height:34px;font-size:12.5px">엑셀 양식 다운로드</button></div>
         <div class="dropzone" id="newStuZone"><div class="dz-i">＋</div><div class="dz-t">신규생 엑셀을 끌어다 놓거나 클릭</div><div class="dz-s">.xlsx · .xls · .csv</div></div>
         <input type="file" id="newStuFile" accept=".xlsx,.xls,.csv" hidden>
@@ -3192,6 +3192,7 @@ function importRoster(file, branchId, semId, opts){
       note:['특이사항','비고','메모','신규생'],
       startdate:['등록일','등록일자','반 시작일','반시작일','시작일'],
       transferin:['전입여부','전입'],
+      transfersrc:['전입출신분원','전입분원','전입전분원','출신분원','이전분원','전입출신'],
       withdraw:['퇴원생','퇴원','퇴원여부'],
       withdrawdate:['퇴원일'],
       withdrawreason:['퇴원사유','사유']
@@ -3227,8 +3228,14 @@ function importRoster(file, branchId, semId, opts){
       const hasWd = !!wdRaw;
       const isTransferOut = /전출/.test(wdRaw) || /전출/.test(note);
       const tiCol = idx.transferin>=0 ? String(r[idx.transferin]||'').trim() : '';
-      const isTransferIn  = /전입/.test(note) || /^(전입|O|o|Y|y|예|1|✓|V|v)$/.test(tiCol) || /전입/.test(tiCol);
-      const transferBranch = (isTransferOut||isTransferIn) ? (branchIdFromNote(wdRaw)||branchIdFromNote(note)) : null;
+      // 전입여부 칸: 비어있지 않으면 전입(단, X/N/없음/0 등 '아님' 표기는 제외).
+      // 칸에 분원명(예: 서수원)을 적으면 그게 곧 출신분원이 됨.
+      const tiIsNo = /^(x|n|없음|없|아니오|아님|no|false|0|-|\.)$/i.test(tiCol);
+      const isTransferIn  = /전입/.test(note) || (!!tiCol && !tiIsNo);
+      const srcCol = idx.transfersrc>=0 ? String(r[idx.transfersrc]||'').trim() : '';
+      const transferBranch = (isTransferOut||isTransferIn)
+        ? (branchIdFromNote(tiCol)||branchIdFromNote(srcCol)||branchIdFromNote(wdRaw)||branchIdFromNote(note))
+        : null;
      let wdDate = '';
       if(hasWd){
         if(/졸업/.test(wdRaw)){
@@ -3415,11 +3422,11 @@ function downloadWithdrawTemplate(){
    전입여부: 전입생이면 O(또는 전입/Y), 아니면 비움 */
 function downloadNewTemplate(){
   try{
-    const headers = ['학생명','회원코드','학교','학년','반이름','담임','등록일','전입여부'];
+    const headers = ['학생명','회원코드','학교','학년','반 이름','담임선생님','반시작일','전입여부'];
     const example = ['홍길동(예시)','','정상중','중2','[DSA1] 김선생반','김선생', today(), ''];
-    const guide   = ['← 예시행: 실제 입력 시 지우세요','회원코드 있으면 정확','','','반 이름 그대로','','비우면 오늘 날짜','전입생만 O'];
+    const guide   = ['← 예시행: 실제 입력 시 지우세요','회원코드 있으면 정확','','','반 이름 그대로','','비우면 오늘 날짜','전입생만 · 온 분원명(예:서수원)'];
     const ws = XLSX.utils.aoa_to_sheet([headers, example, guide]);
-    ws['!cols'] = [{wch:16},{wch:14},{wch:10},{wch:8},{wch:20},{wch:12},{wch:12},{wch:10}];
+    ws['!cols'] = [{wch:16},{wch:14},{wch:10},{wch:8},{wch:22},{wch:14},{wch:12},{wch:20}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '신규생');
     XLSX.writeFile(wb, '신규생_일괄업로드_양식.xlsx');
