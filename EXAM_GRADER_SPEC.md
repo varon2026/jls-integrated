@@ -88,3 +88,18 @@
 2. 로컬에서 열어 테스트 → 피드백 반영 반복.
 3. 사용자가 시험지 보고 레벨별 정답·영역 입력. ACE 레벨 체계 확정 후 반영.
 4. 완성 + GitHub 정상화 시 배포 + 원무 채점 버튼 연결(숨김 해제).
+
+---
+
+## 부록 — 내일 기타 할 일 (채점기 외에도 잊지 말 것)
+
+1. **★ 인원 맞추기** — 목표 숫자: **장안분원 = 449**, **서수원분원 = 343**.
+   - 배포 성공 후 홈페이지에서 이 숫자로 맞는지 확인.
+   - 참고: 이전 분석에선 서수원 "여름 시작"이 344로 계산됐었음(오윤진 st_2b2h7cg 포함). 목표가 343이라면 오윤진 처리/영역을 내일 다시 확인해 344 vs 343 어느 쪽이 맞는지 확정할 것.
+   - 장안 449는 신희우(st_ci5hkqu, 복귀·재원·퇴원일 2026-03-30) 포함이 맞음(확인됨).
+
+2. **교재(books) 데이터 복구** — Supabase를 이전 사람 계정 → 회사 계정으로 옮길 때 **교재 테이블·데이터가 안 넘어옴**(현재 프로젝트 hplndiuoohantbalixwu 엔 인원·상담 데이터만 있음, books/sales_history 등 없음). books-app 코드는 정상.
+   - 할 일: 예전 계정의 Supabase 접근 가능한지 확인 → `books`(및 sales_history·stock_by_branch·vendors) 데이터 Export → 현재 프로젝트에 테이블 재생성 + 데이터 이관. (엑셀 백업 있으면 그걸로도 가능.)
+   - books 테이블 컬럼(코드 기준): barcode, name, subject, publisher, vendor, price, purchase_price, note, level, level_namdongtanjls.
+
+3. **GitHub Pages 배포 성공시키기** — 홈페이지 계산식 수정(`050fc5f`) + 채점 버튼 숨김(`5e06ef7`)이 아직 라이브 반영 안 됨(현재 Pages 배포 실패 중). **다른 분원 오픈 전 배포 1회 성공 필수.** GitHub Actions 에서 실패한 "pages build and deployment" #41 **Re-run** 또는 재배포.
