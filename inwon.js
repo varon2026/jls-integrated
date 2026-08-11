@@ -19,13 +19,19 @@ function headcountClean(branchId, semId){
   const transferR   = recs.filter(r=>r.status==='withdraw' && r.transfer);
   const activeR     = recs.filter(r=>r.status==='active');
   const newCnt=newRecs.length, transferIn=transferInR.length, withdraw=withdrawR.length, transfer=transferR.length, active=activeR.length;
-  const startCount = total - newCnt - transferIn;
-  const startR = recs.filter(r=> !((r.origin==='new'||r.origin==='return') && !r.transferIn) && !r.transferIn );
+  // 학기초 = 재원 + 퇴원 + 전출 − 신규 − 전입 (복귀생처럼 학기초에 있다가 중간에 퇴원·복귀한 학생도 정확히 포함 → 항상 재원과 아귀 맞음)
+  const startCount = active + withdraw + transfer - newCnt - transferIn;
   const ca = rr => countChessAce(rr);
+  const caNew=ca(newRecs), caTI=ca(transferInR), caWd=ca(withdrawR), caTr=ca(transferR), caAc=ca(activeR);
+  const caStart = {
+    chess: caAc.chess + caWd.chess + caTr.chess - caNew.chess - caTI.chess,
+    ace:   caAc.ace   + caWd.ace   + caTr.ace   - caNew.ace   - caTI.ace,
+    total: caAc.total + caWd.total + caTr.total - caNew.total - caTI.total,
+  };
   return {
     start:startCount, newCnt, transferIn, withdraw, transfer, active,
     net:newCnt+transferIn-withdraw-transfer,
-    ca:{ start:ca(startR), newCnt:ca(newRecs), transferIn:ca(transferInR), withdraw:ca(withdrawR), transfer:ca(transferR), active:ca(activeR) }
+    ca:{ start:caStart, newCnt:caNew, transferIn:caTI, withdraw:caWd, transfer:caTr, active:caAc }
   };
 }
 
