@@ -667,7 +667,7 @@ function headcountClean(branchId, semId){
   const total = recs.length;
   const newRecs      = recs.filter(r=>(r.origin==='new' || r.origin==='return') && !r.transferIn);
   const transferInR  = recs.filter(r=>r.transferIn);
-  const withdrawR    = recs.filter(r=>!r.transfer && (r.status==='withdraw'));
+  const withdrawR    = recs.filter(r=>!r.transfer && (r.status==='withdraw' || (r.status==='active' && r.withdrawDate)));
   const transferR    = recs.filter(r=>r.status==='withdraw' && r.transfer);
   const activeR      = recs.filter(r=>r.status==='active');
  
@@ -676,24 +676,30 @@ function headcountClean(branchId, semId){
   const withdraw = withdrawR.length;
   const transfer = transferR.length;
   const active = activeR.length;
-  const startCount = total - newCnt - transferIn;
- 
-  // 학기초 = 재원 + 퇴원 + 전출 - (학기중 들어온 신규/전입)  → 레코드로 직접 계산
-  const startR = recs.filter(r=> !((r.origin==='new'||r.origin==='return') && !r.transferIn) && !r.transferIn );
- 
+  // 학기초 = 재원 + 퇴원 + 전출 − 신규 − 전입.
+  // (복귀생처럼 학기 시작엔 있다가 중간에 퇴원·복귀한 학생도 학기초에 정확히 포함됨. 항상 재원과 아귀가 맞음)
+  const startCount = active + withdraw + transfer - newCnt - transferIn;
+
   const ca = recs => countChessAce(recs);   // {chess, ace, total}
- 
+  const caNew=ca(newRecs), caTI=ca(transferInR), caWd=ca(withdrawR), caTr=ca(transferR), caAc=ca(activeR);
+  // 학기초 CHESS/ACE 분리도 같은 식으로 계산 → 합계가 학기초 총원과 항상 일치
+  const caStart = {
+    chess: caAc.chess + caWd.chess + caTr.chess - caNew.chess - caTI.chess,
+    ace:   caAc.ace   + caWd.ace   + caTr.ace   - caNew.ace   - caTI.ace,
+    total: caAc.total + caWd.total + caTr.total - caNew.total - caTI.total,
+  };
+
   return {
     start:startCount, newCnt, transferIn, withdraw, transfer, active,
     net:newCnt + transferIn - withdraw - transfer,
     // CHESS/ACE 분리 (각 카드별)
     ca: {
-      start:     ca(startR),
-      newCnt:    ca(newRecs),
-      transferIn:ca(transferInR),
-      withdraw:  ca(withdrawR),
-      transfer:  ca(transferR),
-      active:    ca(activeR),
+      start:     caStart,
+      newCnt:    caNew,
+      transferIn:caTI,
+      withdraw:  caWd,
+      transfer:  caTr,
+      active:    caAc,
     }
   };
 }
@@ -1802,7 +1808,7 @@ function rosterCount(branchId, semId){
   recordsOf(branchId, semId).forEach(r=>{
     if((r.origin==='new' || r.origin==='return') && !r.transferIn) newCnt++;
     if(r.transferIn) transferInCnt++;
-    if(!r.transfer && (r.status==='withdraw')) wdCnt++;
+    if(!r.transfer && (r.status==='withdraw' || (r.status==='active' && r.withdrawDate))) wdCnt++;
     if(r.status==='withdraw' && r.transfer) transferOutCnt++;
   });
   return { newCnt, transferInCnt, wdCnt, transferOutCnt };
@@ -1816,7 +1822,7 @@ function rosterRows(branchId, semId, tab){
     // 4분류: new(순수신규)/transferIn(전입)/withdraw(순수퇴원)/transferOut(전출)
    if(tab==='new' && !((r.origin==='new' || r.origin==='return') && !r.transferIn)) return;
     if(tab==='transferIn' && !r.transferIn) return;
-    if(tab==='withdraw' && !(!r.transfer && (r.status==='withdraw'))) return;
+    if(tab==='withdraw' && !(!r.transfer && (r.status==='withdraw' || (r.status==='active' && r.withdrawDate)))) return;
     if(tab==='transferOut' && !(r.status==='withdraw' && r.transfer)) return;
     const isIn = (tab==='new' || tab==='transferIn');
     const mvType = isIn ? 'new' : 'withdraw';
