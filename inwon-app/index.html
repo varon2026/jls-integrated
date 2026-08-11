@@ -81,6 +81,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js"></script>
+<script>
+  /* 캐시 무효화: 배포할 때마다 최신 app.js를 강제로 불러옴 (브라우저·CDN 캐시로 옛 코드가 도는 문제 방지) */
+  document.write('<scr' + 'ipt src="app.js?v=' + Date.now() + '"></scr' + 'ipt>');
+</script>
 </body>
 </html>
