@@ -3355,20 +3355,20 @@ function importWithdrawals(file, branchId, semId){
   });
 }
 
-/* 퇴원생 일괄 업로드용 엑셀 양식 다운로드 */
+/* 퇴원생 일괄 업로드용 엑셀 양식 다운로드
+   (퇴원사유·전출분원 드롭다운이 들어간 정적 파일을 내려줌 — SheetJS 무료판은 드롭다운 생성 불가) */
 function downloadWithdrawTemplate(){
-  if(typeof XLSX==='undefined'){ toast('엑셀 모듈 로드 실패 — 인터넷 연결을 확인하세요','err'); return; }
-  const data = [
-    ['이름','회원코드','퇴원일','퇴원사유','메모','전출분원'],
-    ['김태양','2010123','2026-03-15','개인 사유','← 예시 행입니다. 지우고 입력하세요',''],
-    ['이보름','2010456','2026-03-31','전출','수원분원으로 이동','수원분원'],
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:10},{wch:12},{wch:12},{wch:12},{wch:26},{wch:12}];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '퇴원생');
-  XLSX.writeFile(wb, '퇴원생_일괄업로드_양식.xlsx');
-  toast('양식을 다운로드했습니다','ok');
+  fetch('withdraw_template.xlsx')
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); })
+    .then(blob=>{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = '퇴원생_일괄업로드_양식.xlsx';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 1500);
+      toast('양식을 다운로드했습니다','ok');
+    })
+    .catch(err=>{ console.error(err); toast('양식 파일을 찾지 못했습니다','err'); });
 }
 
 function importHistory(file, branchId, semId){
