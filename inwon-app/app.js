@@ -348,12 +348,20 @@ function isPastSemester(semId){
   const cur = currentSemester();
   return semRank(semId) < semRank(cur.id);
 }
-/* 지난 학기 보호 안내 팝업 */
+/* 지난 학기 보호 안내 팝업 — 잠금 해제 안내 포함 */
 function lockedPastToast(){
   openConfirm('지난 학기는 잠겨 있습니다',
-    '이미 마감된 지난 학기 데이터입니다.\n\n삭제와 전체명단 업로드는 막아두었습니다. (실수로 지난 장부가 날아가는 걸 방지)\n\n퇴원 처리·상담이력 추가 업로드는 현재 학기로 전환하지 않아도 가능합니다.',
+    '이미 마감된 지난 학기 데이터입니다.\n\n삭제와 전체명단 덮어쓰기는 막아두었습니다. (실수로 지난 장부가 날아가는 걸 방지)\n\n정말 수정해야 하면, 데이터관리 화면 위쪽의 "🔓 지난 학기 잠금 해제"를 눌러 푸신 뒤 진행하세요.',
     ()=>{ closeModal(); }, {yesLabel:'확인', danger:false});
 }
+/* 지난 학기 잠금 해제 / 다시 잠그기 (이 세션 한정 — 새로고침하면 자동 재잠금) */
+function unlockPast(){
+  openConfirm('지난 학기 잠금을 풀까요?',
+    '지난 학기 데이터를 삭제·덮어쓸 수 있게 됩니다.\n실수로 지난 명단이 바뀔 수 있으니 주의하세요.\n\n(새로고침하면 자동으로 다시 잠깁니다.)',
+    ()=>{ state.migrationMode=true; closeModal(); toast('잠금 해제됨 — 이제 명단을 다시 올릴 수 있어요','ok'); render(); },
+    {yesLabel:'잠금 해제', danger:true});
+}
+function relockPast(){ state.migrationMode=false; toast('다시 잠갔어요','ok'); render(); }
 
 /* 한 학기 한 분원의 학기레코드 — 정규반(regular)만. 내신반(exam)은 인원 집계 전부 제외 */
 function recordsOf(branchId, semId){
@@ -2404,8 +2412,26 @@ function renderDataManagement(){
       </div>
     </div>` : '';
 
+  const lockBanner = state.migrationMode ? `
+    <div class="panel" style="margin-bottom:14px;border-color:#f4c4a0;background:#fff6ee">
+      <div style="display:flex;align-items:center;gap:10px;padding:2px 4px;flex-wrap:wrap">
+        <div style="font-size:20px">🔓</div>
+        <div style="flex:1;min-width:200px"><div style="font-weight:800;color:#c26a1f">지난 학기 잠금 해제됨</div>
+          <div style="font-size:13px;color:var(--ink-2);margin-top:2px">이 세션 동안 지난 학기도 삭제·명단 덮어쓰기가 가능해요. <b>새로고침하면 다시 잠깁니다.</b></div></div>
+        <button class="btn" onclick="relockPast()">다시 잠그기</button>
+      </div>
+    </div>` : (isPastSemester(semId) ? `
+    <div class="panel" style="margin-bottom:14px;border-color:var(--line);background:var(--surface-2)">
+      <div style="display:flex;align-items:center;gap:10px;padding:2px 4px;flex-wrap:wrap">
+        <div style="font-size:20px">🔒</div>
+        <div style="flex:1;min-width:200px"><div style="font-weight:800">지난 학기 (마감됨)</div>
+          <div style="font-size:13px;color:var(--ink-2);margin-top:2px">실수 방지를 위해 <b>삭제·전체명단 덮어쓰기</b>가 잠겨 있어요. 명단을 다시 올리려면 잠금을 풀어주세요.</div></div>
+        <button class="btn" style="background:#fff;color:#c26a1f;border:1px solid #f4c4a0" onclick="unlockPast()">🔓 지난 학기 잠금 해제</button>
+      </div>
+    </div>` : '');
+
   el('content').innerHTML = `
-    ${addBanner}
+    ${addBanner}${lockBanner}
     <div class="page-head">
       <h2>데이터관리</h2>
       <div class="sub">${esc(b.name)} · ${esc(db.semesters.find(s=>s.id===semId).name)} · 전체명단 ${recs.length}명 · 상담이력 ${histCount}건</div>
