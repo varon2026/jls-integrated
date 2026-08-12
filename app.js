@@ -439,7 +439,7 @@ function renderWonmuBody(){
   if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
   else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
   else if(v==='booking'){ if(cr) cr.innerHTML=`${home} › <span class="cl" onclick="wonmuGo('leveltest')">레벨테스트</span> › <b>예약 입력</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'leveltest\')">‹ 레벨테스트로</div><div id="bkInner"></div>'; renderBooking($('bkInner')); }
-  else if(v==='exam'){ if(cr) cr.innerHTML=`${home} › <b>시험채점</b>`; const _gq='sem='+encodeURIComponent(state.semId||'')+'&role='+encodeURIComponent(session.role||'')+'&branch='+encodeURIComponent(session.branchId||'')+'&v='+Date.now(); body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'hub\')">‹ 원무 홈</div><iframe src="grader.html?'+_gq+'" title="시험채점" style="width:100%;height:calc(100vh - 175px);min-height:560px;border:1px solid var(--line);border-radius:14px;background:#fff"></iframe>'; }
+  else if(v==='exam'){ if(cr) cr.innerHTML=`${home} › <b>시험채점</b>`; const _gq='sem='+encodeURIComponent(state.semId||'')+'&role='+encodeURIComponent(session.role||'')+'&branch='+encodeURIComponent(session.branchId||'')+'&user='+encodeURIComponent(session.teacherName||session.username||'')+'&v='+Date.now(); body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'hub\')">‹ 원무 홈</div><iframe src="grader.html?'+_gq+'" title="시험채점" style="width:100%;height:calc(100vh - 175px);min-height:560px;border:1px solid var(--line);border-radius:14px;background:#fff"></iframe>'; }
   else { if(cr) cr.innerHTML='<b>원무</b>'; renderWonmuHub(body); }
 }
 
