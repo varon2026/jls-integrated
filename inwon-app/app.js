@@ -2796,7 +2796,17 @@ function renderStudentManagement(){
           </div>
           <div><h3>퇴원생 상태 변경</h3></div>
         </div>
-        <div class="pd">이미 퇴원·전출 처리한 학생의 상태를 바꿉니다. <b>전출했다가 실제론 타학원 퇴원</b>이면 일반 퇴원으로, <b>잘못 퇴원시켰으면</b> 재원 복귀(퇴원 취소)로 되돌립니다. <b>실제로 나갔다가 다시 온 경우</b>엔 재입회(복귀) — 퇴원 기록은 남고 복귀 배지로 표시되며 마감표에 퇴원·복귀가 모두 잡힙니다.</div>
+        <div class="pd" style="margin-bottom:10px">이미 퇴원·전출 처리한 학생의 상태를 바꿉니다. 아래 두 버튼은 <b>쓰는 상황이 다르니</b> 헷갈리지 않게 골라주세요.</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+          <div style="display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border:1px solid var(--pos);border-radius:9px;background:var(--pos-soft)">
+            <span style="flex-shrink:0;font-size:11.5px;font-weight:700;color:var(--pos);border:1px solid var(--pos);border-radius:6px;padding:2px 8px;background:var(--surface);white-space:nowrap">재원 복귀</span>
+            <span style="font-size:12.5px;color:var(--ink-2);line-height:1.5"><b>잘못 퇴원시켰을 때</b> — 원래 안 나갔는데 실수로 처리한 경우. 퇴원 기록을 <b>삭제</b>하고 없던 일로 되돌립니다. <span style="color:var(--ink-3)">(통계에 퇴원·복귀 안 잡힘)</span></span>
+          </div>
+          <div style="display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border:1px solid var(--warn);border-radius:9px;background:var(--warn-soft)">
+            <span style="flex-shrink:0;font-size:11.5px;font-weight:700;color:var(--warn);border:1px solid var(--warn);border-radius:6px;padding:2px 8px;background:var(--surface);white-space:nowrap">재입회(복귀)</span>
+            <span style="font-size:12.5px;color:var(--ink-2);line-height:1.5"><b>진짜 나갔다 다시 왔을 때</b> — 실제 퇴원 후 재등원한 경우. 퇴원 기록은 <b>남기고</b> 복귀를 추가합니다. <span style="color:var(--ink-3)">(마감표에 퇴원·복귀 둘 다 잡힘)</span></span>
+          </div>
+        </div>
         <div class="field full" style="margin-bottom:8px">
           <label>퇴원·전출 학생 검색 (이름 또는 회원코드)</label>
           <input id="wcSearch" placeholder="예: 김태양" autocomplete="off" oninput="renderWcResults()">
