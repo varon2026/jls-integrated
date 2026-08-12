@@ -3229,10 +3229,16 @@ function importRoster(file, branchId, semId, opts){
       if(/\(예시\)|\(지우세요\)|지우세요|←|예시행/.test(name)) return;  // 양식 예시/안내행 건너뜀
       let rawClass = idx.cls>=0 ? String(r[idx.cls]||'').trim() : '';
       rawClass = rawClass.replace(/^[★☆*※•·∘◦‣▪○●#@♡♥◆■□▶▷◀◁\s]+(?=\[)/,'');  // 반 이름 앞 별표(★)·샵(#) 등 장식문자 제거 → 정상 [반]으로 인식·병합
-      const kind = classKind(rawClass);     // 'regular' | 'exam' | null
-      if(!kind){ excluded++; return; }       // 대괄호도 '내신'도 아니면 제외
+      let kind = classKind(rawClass);     // 'regular' | 'exam' | null
+      let unassigned = false;
+      if(!kind){
+        // 셔틀비/차량비 등 '반이 아닌' 항목은 계속 제외
+        if(/셔틀|차량비|교재비|회비|입회비|테스트비|납부/.test(rawClass)){ excluded++; return; }
+        // 반 배정만 안 된 학생(반 이름 빈칸 등) → 제외하지 말고 '미배정'으로 편입 (인원수 우선)
+        kind='regular'; rawClass='미배정'; unassigned=true;
+      }
       const classFull = rawClass;
-      const classLbl = kind==='exam' ? rawClass : classLabel(rawClass);  // 내신반은 이름 그대로 표시
+      const classLbl = kind==='exam' ? rawClass : (unassigned ? '미배정' : classLabel(rawClass));  // 내신반/미배정은 이름 그대로 표시
       const note = idx.note>=0 ? String(r[idx.note]||'').trim() : '';
       // '복귀' 글자 있으면 복귀, 없고 '신규'만 있으면 신규. 둘 다 섞여 있어도 복귀 우선.
       // (복귀생도 신규로 카운트되지만, 특이사항/배지엔 '복귀'로 구분 표시됨)
