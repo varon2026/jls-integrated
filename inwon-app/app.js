@@ -834,19 +834,25 @@ function parseRoute(){
 function go(path){ location.hash = '#/'+path; }
 window.addEventListener('hashchange', render);
 /* ===== 비밀번호 변경 / 초기화 ===== */
-function openPrompt(title, msg, placeholder, onOk){
-  const html = `
-    <div class="modal-box" style="max-width:420px">
-      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">${esc(title)}</h3>
-      <div class="pd" style="margin-bottom:14px">${esc(msg)}</div>
-      <input id="promptInput" placeholder="${esc(placeholder||'')}"
-        style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:16px">
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button class="btn" onclick="closeModal()">취소</button>
-        <button class="btn primary" id="promptOk">확인</button>
-      </div>
-    </div>`;
-  openModal(html);
+function openPrompt(title, msg, placeholder, onOk, opts={}){
+  const type  = opts.inputType || 'text';
+  const dval  = opts.defaultValue!=null ? String(opts.defaultValue) : '';
+  const label = opts.label ? `<label style="display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:7px">${esc(opts.label)}</label>` : '';
+  const hint  = opts.hint  ? `<div style="font-size:12px;color:var(--ink-3);margin-top:9px;line-height:1.5">${esc(opts.hint)}</div>` : '';
+  openModal(`
+    <div class="modal-head"><div><h3>${esc(title)}</h3></div>
+      <button class="modal-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <p style="font-size:13.5px;color:var(--ink-2);line-height:1.65;white-space:pre-line;margin-bottom:16px">${esc(msg)}</p>
+      ${label}
+      <input id="promptInput" type="${type}" value="${esc(dval)}" placeholder="${esc(placeholder||'')}"
+        style="width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-size:14px;background:var(--surface-2);box-sizing:border-box;outline:none">
+      ${hint}
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">취소</button>
+      <button class="btn primary" id="promptOk">${esc(opts.okLabel||'확인')}</button>
+    </div>`);
   const inp = el('promptInput');
   if(inp){ inp.focus(); inp.onkeydown = e=>{ if(e.key==='Enter') el('promptOk').click(); }; }
   el('promptOk').onclick = ()=> onOk(el('promptInput').value);
@@ -3827,11 +3833,11 @@ function reEnrollStudent(recId){
   const s=getStudent(rec.studentId);
   const wd = rec.withdrawDate || '(기록 없음)';
   openPrompt('재입회(복귀) 처리',
-    `${s.name} (${s.code}) — ${wd} 퇴원은 그대로 남기고, 복귀로 처리합니다.\n복귀(재입회) 날짜를 입력하세요. (예: 2026-08-01)`,
-    today(),
+    `${s.name} (${s.code})\n${wd} 퇴원 기록은 그대로 남기고, 복귀(재입회)로 처리합니다.`,
+    '',
     (val)=>{
       const m=String(val||'').match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
-      if(!m){ toast('날짜 형식이 올바르지 않습니다 (예: 2026-08-01)','err'); return; }
+      if(!m){ toast('복귀 날짜를 선택하세요','err'); return; }
       const enrollDate=`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
       if(rec.withdrawDate && enrollDate <= rec.withdrawDate){ toast('복귀일은 퇴원일보다 뒤여야 합니다','err'); return; }
       rec.status='active';           // 현재 재원생으로
@@ -3845,7 +3851,8 @@ function reEnrollStudent(recId){
       showSaving('재입회 처리 중…');
       saveDB().then(ok=>{ hideSaving(); closeModal();
         toast(ok?`${s.name} 재입회(복귀) 처리 완료`:'저장 실패','ok'); render(); });
-    });
+    },
+    { inputType:'date', label:'복귀(재입회) 날짜', hint:'실제로 다시 등원한 날짜를 선택하세요. 퇴원일보다 뒤여야 합니다.', okLabel:'복귀 처리' });
 }
 /* 퇴원/전출 사유 수정 — 이동이력 메모에서 [전출→분원] 표시는 보존하고 사유 부분만 교체 */
 function openEditWithdrawReason(recId){
