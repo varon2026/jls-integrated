@@ -346,7 +346,7 @@ function renderDashboard(c){
     const rate=(b2+nw+ti)>0?wd/(b2+nw+ti)*100:0; const isBest=rate===best&&data.length>1;
     const ca=countCA(d.actRecs);
     const notes=[];
-    d.tiRecs.forEach(r=>notes.push(`<span class="n-in">↘ 전입 ${esc(sName(r))}</span>`));
+    d.tiRecs.forEach(r=>notes.push(`<span class="n-in">↘ 전입 ${esc(sName(r))}${r.transferTo?' ←'+esc(bName(r.transferTo)):''}</span>`));
     d.trRecs.forEach(r=>notes.push(`<span class="n-out">↗ 전출 ${esc(sName(r))}${r.transferTo?'→'+esc(bName(r.transferTo)):''}</span>`));
     h+=`<tr><td class="col-b">${esc(d.b.name)}</td><td class="num">${b2}</td>
       <td class="num in sep-l">${nw?'+'+nw:'·'}</td><td class="num jin">${ti?'+'+ti:'·'}</td>

@@ -1956,13 +1956,13 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
         <thead><tr>
           <th>학생명</th><th>회원코드</th><th>반</th><th>담임</th>
           <th>학교/학년</th><th>${(tab==='new'||tab==='transferIn')?'입학일':'퇴원일'}</th>
-          ${isInTab?'<th>메모</th>':'<th style="width:130px">사유</th><th style="min-width:200px">메모</th>'}
+          ${isInTab?`<th>메모</th>${tab==='transferIn'?'<th style="width:120px">전입 취소</th>':''}`:'<th style="width:130px">사유</th><th style="min-width:200px">메모</th>'}
         </tr></thead>
         <tbody>
         ${rows.map(r=>{
           const memoShown = (r.memo && r.memo!=='수동 등록' && r.memo!=='퇴원 처리') ? r.memo : '';
           const tail = isInTab
-            ? `<td style="color:var(--ink-3);font-size:12px">${esc(memoShown)}</td>`
+            ? `<td style="color:var(--ink-3);font-size:12px">${esc(memoShown)}</td>${tab==='transferIn'?`<td><button class="btn sm" style="border-color:var(--brand);color:var(--brand)" onclick="convertTransferInToNew('${r.recId}')">일반 신규로 →</button></td>`:''}`
             : `<td>
                  <select class="wd-inline-sel" onchange="setWdReason('${r.recId}', this.value)">
                    <option value="">미분류</option>
@@ -3863,6 +3863,27 @@ function reEnrollStudent(recId){
         toast(ok?`${s.name} 재입회(복귀) 처리 완료`:'저장 실패','ok'); render(); });
     },
     { inputType:'date', label:'복귀(재입회) 날짜', hint:'실제로 다시 등원한 날짜를 선택하세요. 퇴원일보다 뒤여야 합니다.', okLabel:'복귀 처리' });
+}
+/* 전입 → 일반 신규 전환 — '전입' 표시를 취소하고 순수 신규로. 출발분원 정보 제거, 집계도 전입→신규로 이동 */
+function convertTransferInToNew(recId){
+  const rec=db.semesterRecords.find(r=>r.id===recId);
+  if(!rec) return;
+  const s=getStudent(rec.studentId);
+  const from = rec.transferTo ? (getBranch(rec.transferTo)?.name||'') : '';
+  openConfirm('일반 신규로 전환',
+    `${s.name} (${s.code})\n\n'전입${from?` (${from}에서)`:''}' 표시를 취소하고 일반 신규생으로 바꿉니다.\n출발분원 정보가 지워지고, 전입 집계에서 신규 집계로 옮겨집니다.`,
+    ()=>{
+      rec.transferIn=false;
+      rec.transferTo=null;
+      if(rec.origin!=='return') rec.origin='new';   // 신규 유지
+      if(rec.note==='전입') rec.note='신규생';
+      // 이동이력 메모의 '전입' 흔적 정리
+      const mv=db.studentMovements.find(m=>m.studentId===rec.studentId && m.branchId===rec.branchId && m.semesterId===rec.semesterId && m.type==='new');
+      if(mv && /전입/.test(mv.memo||'')) mv.memo='신규 등록';
+      showSaving('전환 중…');
+      saveDB().then(ok=>{ hideSaving(); closeModal();
+        toast(ok?`${s.name} 일반 신규로 전환 완료`:'저장 실패','ok'); render(); });
+    }, {yesLabel:'일반 신규로 전환', danger:false});
 }
 /* 퇴원/전출 사유 수정 — 이동이력 메모에서 [전출→분원] 표시는 보존하고 사유 부분만 교체 */
 function openEditWithdrawReason(recId){
