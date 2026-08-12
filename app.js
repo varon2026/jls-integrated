@@ -296,12 +296,17 @@ function renderDashboard(c){
         return !(wm!=null && prior.includes(wm));                   // 이전 달에 이미 나간 학생 제외
       });
     }
-    const nwRecs = recs.filter(r=>scope(enrollMonth(r))&&!r.transferIn);
-    const tiRecs = recs.filter(r=>scope(enrollMonth(r))&&r.transferIn);
-    const wdRecs = recs.filter(r=>scope(withdrawMonth(r))&&!r.transfer);
-    const trRecs = recs.filter(r=>scope(withdrawMonth(r))&&r.transfer);
+    // 학기 전체: 원무(인원현황)와 동일하게 origin·상태 기준 집계(입학일/퇴원일 날짜 오류에 영향 안 받음). 월별: 날짜 기준 유지.
+    const nwRecs = whole ? recs.filter(r=>(r.origin==='new'||r.origin==='return')&&!r.transferIn)
+                         : recs.filter(r=>scope(enrollMonth(r))&&!r.transferIn);
+    const tiRecs = whole ? recs.filter(r=>r.transferIn)
+                         : recs.filter(r=>scope(enrollMonth(r))&&r.transferIn);
+    const wdRecs = whole ? recs.filter(r=>!r.transfer&&(r.status==='withdraw'||(r.status==='active'&&r.withdrawDate)))
+                         : recs.filter(r=>scope(withdrawMonth(r))&&!r.transfer);
+    const trRecs = whole ? recs.filter(r=>r.status==='withdraw'&&r.transfer)
+                         : recs.filter(r=>scope(withdrawMonth(r))&&r.transfer);
     const actRecs = recs.filter(r=>r.status==='active');
-    // 학기 전체 학기초 = 재원+퇴원+전출−신규−전입 (원무와 동일 공식, 항상 재원과 정합). 월별은 기존 날짜기준 유지.
+    // 학기 전체 학기초 = 재원+퇴원+전출−신규−전입 (원무와 동일 공식, 항상 재원과 정합). 월별은 기존 날짜기준(startRecs) 유지.
     const baseNum = whole ? (actRecs.length + wdRecs.length + trRecs.length - nwRecs.length - tiRecs.length) : startRecs.length;
     return {b, mc, startRecs, nwRecs, tiRecs, wdRecs, trRecs, actRecs, baseNum};
   });
