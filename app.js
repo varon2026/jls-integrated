@@ -285,7 +285,13 @@ function renderDashboard(c){
     const mc=monthlyClosing(recs,months);
     // 기준(학기초 or 그 달 시작) 인원 레코드 — 월 선택 시에도 CHESS/ACE 세도록 실제 레코드로 계산
     let startRecs;
-    if(whole){ startRecs = recs.filter(r=>enrollMonth(r)==null); }
+    if(whole){
+      startRecs = recs.filter(r=>{
+        if(enrollMonth(r)==null) return true;   // 등록월 없음 = 학기초부터 재원
+        // 이번 학기에 퇴원했다가 다시 등록한 복귀생도 학기 시작엔 재원이었음 (퇴원일 ≤ 재등록일)
+        return !r.transferIn && r.withdrawDate && r.enrollDate && r.withdrawDate <= r.enrollDate;
+      });
+    }
     else {
       const prior = months.slice(0, mi);   // 그 달보다 앞선 달들
       startRecs = recs.filter(r=>{
