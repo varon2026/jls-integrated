@@ -301,12 +301,18 @@ function renderDashboard(c){
     const wdRecs = recs.filter(r=>scope(withdrawMonth(r))&&!r.transfer);
     const trRecs = recs.filter(r=>scope(withdrawMonth(r))&&r.transfer);
     const actRecs = recs.filter(r=>r.status==='active');
-    const baseNum = startRecs.length;
+    // 학기 전체 학기초 = 재원+퇴원+전출−신규−전입 (원무와 동일 공식, 항상 재원과 정합). 월별은 기존 날짜기준 유지.
+    const baseNum = whole ? (actRecs.length + wdRecs.length + trRecs.length - nwRecs.length - tiRecs.length) : startRecs.length;
     return {b, mc, startRecs, nwRecs, tiRecs, wdRecs, trRecs, actRecs, baseNum};
   });
   const flat=(g)=>{ const a=[]; data.forEach(d=>a.push(...g(d))); return a; };
-  const caStart = countCA(flat(d=>d.startRecs));
   const caNew=countCA(flat(d=>d.nwRecs)), caTi=countCA(flat(d=>d.tiRecs)), caWd=countCA(flat(d=>d.wdRecs)), caTr=countCA(flat(d=>d.trRecs)), caAct=countCA(flat(d=>d.actRecs));
+  // 학기초 CHESS/ACE도 같은 공식(학기 전체) → 카드/표가 재원과 정합. 월별은 날짜기준 유지.
+  const caStart = whole
+    ? { chess: caAct.chess+caWd.chess+caTr.chess-caNew.chess-caTi.chess,
+        ace:   caAct.ace  +caWd.ace  +caTr.ace  -caNew.ace  -caTi.ace,
+        total: caAct.total+caWd.total+caTr.total-caNew.total-caTi.total }
+    : countCA(flat(d=>d.startRecs));
   const baseTot=caStart.total;
   const sumRate=(baseTot+caNew.total+caTi.total)>0 ? caWd.total/(baseTot+caNew.total+caTi.total)*100 : 0;
   const net=caNew.total+caTi.total-caWd.total-caTr.total;
