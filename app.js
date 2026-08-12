@@ -285,13 +285,7 @@ function renderDashboard(c){
     const mc=monthlyClosing(recs,months);
     // 기준(학기초 or 그 달 시작) 인원 레코드 — 월 선택 시에도 CHESS/ACE 세도록 실제 레코드로 계산
     let startRecs;
-    if(whole){
-      startRecs = recs.filter(r=>{
-        if(enrollMonth(r)==null) return true;   // 등록월 없음 = 학기초부터 재원
-        // 이번 학기에 퇴원했다가 다시 등록한 복귀생도 학기 시작엔 재원이었음 (퇴원일 ≤ 재등록일)
-        return !r.transferIn && r.withdrawDate && r.enrollDate && r.withdrawDate <= r.enrollDate;
-      });
-    }
+    if(whole){ startRecs = recs.filter(r=>enrollMonth(r)==null); }   // CHESS/ACE 근사용(월별 표시). 학기초 총원은 아래서 항등식으로 계산
     else {
       const prior = months.slice(0, mi);   // 그 달보다 앞선 달들
       startRecs = recs.filter(r=>{
@@ -307,12 +301,20 @@ function renderDashboard(c){
     const wdRecs = recs.filter(r=>scope(withdrawMonth(r))&&!r.transfer);
     const trRecs = recs.filter(r=>scope(withdrawMonth(r))&&r.transfer);
     const actRecs = recs.filter(r=>r.status==='active');
-    const baseNum = startRecs.length;
+    // 학기 전체: 학기초 = 재원 + 퇴원 + 전출 − 신입 − 전입 (복귀생 포함해 항상 재원과 일치)
+    const baseNum = whole
+      ? (actRecs.length + wdRecs.length + trRecs.length - nwRecs.length - tiRecs.length)
+      : startRecs.length;
     return {b, mc, startRecs, nwRecs, tiRecs, wdRecs, trRecs, actRecs, baseNum};
   });
   const flat=(g)=>{ const a=[]; data.forEach(d=>a.push(...g(d))); return a; };
-  const caStart = countCA(flat(d=>d.startRecs));
   const caNew=countCA(flat(d=>d.nwRecs)), caTi=countCA(flat(d=>d.tiRecs)), caWd=countCA(flat(d=>d.wdRecs)), caTr=countCA(flat(d=>d.trRecs)), caAct=countCA(flat(d=>d.actRecs));
+  // 학기초 CHESS/ACE도 같은 항등식으로 → 합계·분원 숫자와 항상 일치
+  const caStart = whole
+    ? { chess: caAct.chess + caWd.chess + caTr.chess - caNew.chess - caTi.chess,
+        ace:   caAct.ace   + caWd.ace   + caTr.ace   - caNew.ace   - caTi.ace,
+        total: caAct.total + caWd.total + caTr.total - caNew.total - caTi.total }
+    : countCA(flat(d=>d.startRecs));
   const baseTot=caStart.total;
   const sumRate=(baseTot+caNew.total+caTi.total)>0 ? caWd.total/(baseTot+caNew.total+caTi.total)*100 : 0;
   const net=caNew.total+caTi.total-caWd.total-caTr.total;
