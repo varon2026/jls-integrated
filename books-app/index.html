@@ -1379,6 +1379,8 @@ var returnQueue=[];
 
 // Supabase REST API 헬퍼
 function sbGet(table,params){return fetch(SB_URL+'/'+table+'?'+params,{headers:Object.assign({},SB_HEADERS,{'Range-Unit':'items','Range':'0-49999'})}).then(function(r){return r.json();});}
+/* Supabase 기본 1000행 제한 회피: 1000개 단위 페이지로 전량 조회 (교재 2000개+ 누락 방지) */
+async function sbGetAll(table,params){var all=[],from=0,size=1000;while(true){var page=await fetch(SB_URL+'/'+table+'?'+params,{headers:Object.assign({},SB_HEADERS,{'Range-Unit':'items','Range':from+'-'+(from+size-1)})}).then(function(r){return r.json();});if(!Array.isArray(page)){return page;}all=all.concat(page);if(page.length<size)break;from+=size;}return all;}
 function sbPost(table,body){return fetch(SB_URL+'/'+table,{method:'POST',headers:SB_HEADERS,body:JSON.stringify(body)}).then(function(r){return r.json();});}
 function sbPatch(table,params,body){var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});return fetch(SB_URL+'/'+table+'?'+params,{method:'PATCH',headers:h,body:JSON.stringify(body)}).then(function(r){if(!r.ok) return r.text().then(function(t){throw new Error(r.status+': '+t);});return {ok:true};});}
 
@@ -1409,7 +1411,7 @@ async function call(action,payload){
       await fetch(SB_URL+'/semesters?name=eq.'+encodeURIComponent(payload.name)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'DELETE',headers:h2});
       return {ok:true,msg:'삭제 완료'};
     }
-    if(action==='getBooks'){var d=await sbGet('books','select=*,level_namdongtanjls&order=name&limit=5000');return {ok:true,data:d.map(function(b){return {'바코드':b.barcode,'교재명':b.name,'과목':b.subject||'','출판사':b.publisher||'','업체':b.vendor||'','정가':b.price||0,'매입단가':b.purchase_price||0,'비고':b.note||'','레벨':b.level||'','레벨_남동탄':b.level_namdongtanjls||''};})};}
+    if(action==='getBooks'){var d=await sbGetAll('books','select=*,level_namdongtanjls&order=name');return {ok:true,data:d.map(function(b){return {'바코드':b.barcode,'교재명':b.name,'과목':b.subject||'','출판사':b.publisher||'','업체':b.vendor||'','정가':b.price||0,'매입단가':b.purchase_price||0,'비고':b.note||'','레벨':b.level||'','레벨_남동탄':b.level_namdongtanjls||''};})};}
     if(action==='getStudents'){var d=await sbGet('students','select=*&order=name&branch=eq.'+encodeURIComponent(currentBranch));return {ok:true,data:d.map(function(s){return {'학생ID':s.student_id,'이름':s.name,'학부모연락처':s.contact||'','학기':s.semester||'','학년':s.grade||'','반':s.class_name||'','학교':s.school||'','비고':s.note||'','구분':s.division||'CHESS','상태':s.status||'재원'};})};}
     if(action==='getSemesters'){var _semBr=payload.branch||currentBranch;var d1=await sbGet('students','select=semester&order=semester.desc&branch=eq.'+encodeURIComponent(_semBr));var d2=await sbGet('sales_history','select=semester&order=semester.desc&branch=eq.'+encodeURIComponent(_semBr)+'&type=eq.출고');var d3=await sbGet('semesters','select=name&branch=eq.'+encodeURIComponent(_semBr)+'&order=created_at.desc');var sems=[...new Set([...d1,...d2].map(function(r){return r.semester;}).concat(d3.map(function(r){return r.name;})).filter(Boolean))].sort(function(a,b){return b.localeCompare(a,'ko');});return {ok:true,data:sems};}
     if(action==='getStudentsBySemester'){
@@ -5524,7 +5526,7 @@ async function loadFinanceSummary(){
     if(selectedSem) salesParams+='&semester=eq.'+encodeURIComponent(selectedSem);
     var sales=await sbGet('sales_history',salesParams);
     // books vendor 맵
-    var booksData=await sbGet('books','select=barcode,name,vendor');
+    var booksData=await sbGetAll('books','select=barcode,name,vendor&order=barcode');
     var vendorMap={};var bookNameMap={};
     booksData.forEach(function(b){vendorMap[b.barcode]=b.vendor||'미등록';bookNameMap[b.barcode]=b.name||b.barcode;});
 
