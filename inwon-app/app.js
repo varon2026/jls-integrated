@@ -2678,13 +2678,13 @@ function renderStudentManagement(){
         </div>
         <div class="pd">학기 중 입학한 학생을 수동 등록합니다. 신규생은 HC1·HC2 대상이며, MC는 입학일 기준으로 그 달부터의 회차만 대상이 됩니다. (예: 여름학기 7월 입학 → MC1 제외, MC2·MC3 대상)</div>
         <div class="form-row">
-          <div class="field"><label>학생명</label><input id="nsName" placeholder="이름" oninput="refreshMsg()"></div>
+          <div class="field"><label>학생명</label><input id="nsName" placeholder="이름" oninput="onNsInput()"></div>
           <div class="field"><label>회원코드</label><input id="nsCode" placeholder="코드"></div>
         </div>
         <div class="form-row">
-          <div class="field"><label>학교</label><input id="nsSchool" placeholder="학교" oninput="refreshMsg()"></div>
+          <div class="field"><label>학교</label><input id="nsSchool" placeholder="학교" oninput="onNsInput()"></div>
           <div class="field"><label>학년</label>
-            <select id="nsGrade" onchange="refreshMsg()">
+            <select id="nsGrade" onchange="onNsInput()">
               <option value="">학년 선택…</option>
               <option value="초등1">초등1</option>
               <option value="초등2">초등2</option>
@@ -2712,11 +2712,11 @@ function renderStudentManagement(){
           </div>
         </div>
         <div class="form-row" id="nsNewClassRow" style="display:none">
-          <div class="field"><label>새 반명 (엑셀과 동일하게)</label><input id="nsClass" placeholder="예: [DSC2]SU1/MWF/DSC2/H" oninput="refreshMsg()"></div>
-          <div class="field"><label>담임명</label><input id="nsTeacher" placeholder="담임" oninput="refreshMsg()"></div>
+          <div class="field"><label>새 반명 (엑셀과 동일하게)</label><input id="nsClass" placeholder="예: [DSC2]SU1/MWF/DSC2/H" oninput="onNsInput()"></div>
+          <div class="field"><label>담임명</label><input id="nsTeacher" placeholder="담임" oninput="onNsInput()"></div>
         </div>
         <div class="form-row">
-          <div class="field"><label>입학일 (등원일)</label><input id="nsDate" type="date" oninput="refreshMsg()"></div>
+          <div class="field"><label>입학일 (등원일)</label><input id="nsDate" type="date" oninput="onNsInput()"></div>
           <div class="field"><label>메모 (선택)</label><input id="nsMemo" placeholder="예: 운정1에서 전입"></div>
         </div>
         <label class="wd-transfer" style="margin-bottom:10px"><input type="checkbox" id="nsTransferIn" onchange="document.getElementById('nsTransferFromRow').style.display=this.checked?'flex':'none'"> <span>전입 (다른 분원에서 옴) — 신규생과 분리 집계</span></label>
@@ -3227,7 +3227,8 @@ function importRoster(file, branchId, semId, opts){
       const code=String(r[idx.code]||'').trim();
       if(!name||!code) return;
       if(/\(예시\)|\(지우세요\)|지우세요|←|예시행/.test(name)) return;  // 양식 예시/안내행 건너뜀
-      const rawClass = idx.cls>=0 ? String(r[idx.cls]||'').trim() : '';
+      let rawClass = idx.cls>=0 ? String(r[idx.cls]||'').trim() : '';
+      rawClass = rawClass.replace(/^[★☆*※•·∘◦‣▪○●#@♡♥◆■□▶▷◀◁\s]+(?=\[)/,'');  // 반 이름 앞 별표(★)·샵(#) 등 장식문자 제거 → 정상 [반]으로 인식·병합
       const kind = classKind(rawClass);     // 'regular' | 'exam' | null
       if(!kind){ excluded++; return; }       // 대괄호도 '내신'도 아니면 제외
       const classFull = rawClass;
@@ -4841,10 +4842,14 @@ function renderMsgCard(){
 function setMsgTab(k){ msgState.tab=k; renderMsgCard(); }
 /* 미리보기만 갱신 (부가입력 칸 포커스 유지 — 전체 리렌더 안 함) */
 function refreshMsg(){
-  // 폼에 새로 입력하기 시작하면 잠금 해제 (다음 학생 문자로 전환)
-  msgState.locked = null;
+  // 미리보기만 갱신 — 잠금(방금 등록한 학생)은 유지. 오른쪽 문자카드 컨트롤이 호출해도 학생정보 안 날아감.
   const pv = el('msgPreview');
   if(pv) pv.value = buildCurrentMsg();
+}
+/* 왼쪽 신규생 폼에 새로 입력 시작하면 잠금 해제(다음 학생 문자로 전환) 후 갱신 */
+function onNsInput(){
+  msgState.locked = null;
+  refreshMsg();
 }
 function copyMsg(){
   const txt = buildCurrentMsg();
