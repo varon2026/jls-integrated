@@ -285,7 +285,7 @@ function renderDashboard(c){
     const mc=monthlyClosing(recs,months);
     // 기준(학기초 or 그 달 시작) 인원 레코드 — 월 선택 시에도 CHESS/ACE 세도록 실제 레코드로 계산
     let startRecs;
-    if(whole){ startRecs = recs.filter(r=>enrollMonth(r)==null); }   // CHESS/ACE 근사용(월별 표시). 학기초 총원은 아래서 항등식으로 계산
+    if(whole){ startRecs = recs.filter(r=>enrollMonth(r)==null); }
     else {
       const prior = months.slice(0, mi);   // 그 달보다 앞선 달들
       startRecs = recs.filter(r=>{
@@ -301,20 +301,12 @@ function renderDashboard(c){
     const wdRecs = recs.filter(r=>scope(withdrawMonth(r))&&!r.transfer);
     const trRecs = recs.filter(r=>scope(withdrawMonth(r))&&r.transfer);
     const actRecs = recs.filter(r=>r.status==='active');
-    // 학기 전체: 학기초 = 재원 + 퇴원 + 전출 − 신입 − 전입 (복귀생 포함해 항상 재원과 일치)
-    const baseNum = whole
-      ? (actRecs.length + wdRecs.length + trRecs.length - nwRecs.length - tiRecs.length)
-      : startRecs.length;
+    const baseNum = startRecs.length;
     return {b, mc, startRecs, nwRecs, tiRecs, wdRecs, trRecs, actRecs, baseNum};
   });
   const flat=(g)=>{ const a=[]; data.forEach(d=>a.push(...g(d))); return a; };
+  const caStart = countCA(flat(d=>d.startRecs));
   const caNew=countCA(flat(d=>d.nwRecs)), caTi=countCA(flat(d=>d.tiRecs)), caWd=countCA(flat(d=>d.wdRecs)), caTr=countCA(flat(d=>d.trRecs)), caAct=countCA(flat(d=>d.actRecs));
-  // 학기초 CHESS/ACE도 같은 항등식으로 → 합계·분원 숫자와 항상 일치
-  const caStart = whole
-    ? { chess: caAct.chess + caWd.chess + caTr.chess - caNew.chess - caTi.chess,
-        ace:   caAct.ace   + caWd.ace   + caTr.ace   - caNew.ace   - caTi.ace,
-        total: caAct.total + caWd.total + caTr.total - caNew.total - caTi.total }
-    : countCA(flat(d=>d.startRecs));
   const baseTot=caStart.total;
   const sumRate=(baseTot+caNew.total+caTi.total)>0 ? caWd.total/(baseTot+caNew.total+caTi.total)*100 : 0;
   const net=caNew.total+caTi.total-caWd.total-caTr.total;
@@ -439,7 +431,7 @@ function renderWonmuBody(){
   if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
   else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
   else if(v==='booking'){ if(cr) cr.innerHTML=`${home} › <span class="cl" onclick="wonmuGo('leveltest')">레벨테스트</span> › <b>예약 입력</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'leveltest\')">‹ 레벨테스트로</div><div id="bkInner"></div>'; renderBooking($('bkInner')); }
-  else if(v==='exam'){ if(cr) cr.innerHTML=`${home} › <b>시험채점</b>`; const _gq='sem='+encodeURIComponent(state.semId||'')+'&role='+encodeURIComponent(session.role||'')+'&branch='+encodeURIComponent(session.branchId||'')+'&v='+Date.now(); body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'hub\')">‹ 원무 홈</div><iframe src="grader.html?'+_gq+'" title="시험채점" style="width:100%;height:calc(100vh - 175px);min-height:560px;border:1px solid var(--line);border-radius:14px;background:#fff"></iframe>'; }
+  else if(v==='exam'){ if(cr) cr.innerHTML='<b>원무</b>'; wonmuState.view='hub'; renderWonmuHub(body); openExam(); }
   else { if(cr) cr.innerHTML='<b>원무</b>'; renderWonmuHub(body); }
 }
 
@@ -519,10 +511,8 @@ function renderWonmuHub(b){
   }
 
   // 시험채점 카드 (DT · AT · 내신모의고사)
-  // ★ 새 채점 페이지 완성 전까지 임시 숨김 — 미완성 버튼을 다른 분원 사람들에게 노출하지 않기 위함.
-  //   (새 채점 기능 완성되면 아래 블록 주석만 풀면 다시 보임)
   if(hasMenu('leveltest')){
-  h+=`<div class="hub-card" onclick="wonmuGo('exam')">
+  h+=`<div class="hub-card" onclick="openExam()">
     <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>시험채점 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT · AT · 내신모의고사</span></h3><p>정답키로 반별 즉시 채점 · 분원별 진행률 · 엑셀 다운(큐앱)</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="hc-foot"><span class="l">답안 입력하면 즉시 O/X·점수</span><span class="r"><span class="b">분원별 진행률</span></span></div></div>`;
   }
@@ -1048,6 +1038,17 @@ async function loadDelLogs(){
     delLogs = data||[];
   }catch(e){ console.error('삭제기록 로드 실패', e); delLogs=[]; }  // 테이블 없거나 실패해도 앱은 계속
 }
+
+/* ---------- 시험채점 전체화면 오버레이 (grader.html을 iframe으로 꽉 차게) ---------- */
+function openExam(){
+  const _gq='sem='+encodeURIComponent(state.semId||'')+'&role='+encodeURIComponent(session.role||'')+'&branch='+encodeURIComponent(session.branchId||'')+'&user='+encodeURIComponent(session.teacherName||session.username||'')+'&v='+Date.now();
+  let ov=document.getElementById('examOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='examOverlay'; document.body.appendChild(ov); }
+  ov.className='lt-overlay';
+  ov.innerHTML='<div class="lt-ov-bar"><button class="lt-ov-close" onclick="closeExam()">‹ 닫기</button><span class="lt-ov-title">시험채점</span></div><iframe class="lt-ov-frame" src="grader.html?'+_gq+'" title="시험채점"></iframe>';
+  document.body.style.overflow='hidden';
+}
+function closeExam(){ const ov=document.getElementById('examOverlay'); if(ov) ov.remove(); document.body.style.overflow=''; }
 
 /* ---------- 레벨테스트 채점/열람 오버레이 (leveltest/ 미니앱을 iframe으로) ---------- */
 function ltOverlay(src){
@@ -1618,6 +1619,7 @@ window.wonmuGo=wonmuGo; window.ltSetPeriod=ltSetPeriod; window.ltSetFilter=ltSet
 window.ltSetTab=ltSetTab; window.anSetBranch=anSetBranch; window.anSetType=anSetType; window.anSetPeriod=anSetPeriod; window.anSetGrade=anSetGrade; window.anExportCsv=anExportCsv; window.anExamPg=anExamPg; window.anLevelPg=anLevelPg; window.anListPg=anListPg;
 window.ltSetGrade=ltSetGrade; window.ltTip=ltTip; window.ltTipHide=ltTipHide; window.ltTipPage=ltTipPage;
 window.openScoreTest=openScoreTest; window.openScoreView=openScoreView; window.closeLevelTest=closeLevelTest; window.openResInCalendar=openResInCalendar;
+window.openExam=openExam; window.closeExam=closeExam;
 window.openSms=openSms; window.smsSetExam=smsSetExam; window.smsToggleFree=smsToggleFree; window.closeSms=closeSms; window.copySms=copySms;
 window.addEventListener('message', async (e)=>{
   if(e.data && e.data.type==='lt-saved'){
