@@ -56,7 +56,7 @@ function waitSemList(){
 /* ---------- 데이터 레이어 (기존 포팅, 읽기 전용) ---------- */
 const TABLES = [
   { key:'branches', table:'branches', fromRow:r=>({id:r.id,name:r.name}) },
-  { key:'users', table:'users', fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,isManager:!!r.is_manager,menus:r.menus}) },
+  { key:'users', table:'users', fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,isManager:!!r.is_manager,menus:r.menus,title:r.title||null,active:r.active!==false,canManage:!!r.can_manage,canEdit:!!r.can_edit}) },
   { key:'semesters', table:'semesters', fromRow:r=>({id:r.id,name:r.name}) },
   { key:'students', table:'students', fromRow:r=>({id:r.id,code:r.code,name:r.name,school:r.school,grade:r.grade}) },
   { key:'semesterRecords', table:'semester_records', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,classLabel:r.class_label,teacher:r.teacher,targetType:r.target_type,status:r.status,origin:r.origin,enrollDate:r.enroll_date,withdrawDate:r.withdraw_date,transfer:!!r.transfer,transferIn:!!r.transfer_in,transferTo:r.transfer_to,kind:r.kind||'regular'}) },
@@ -164,6 +164,38 @@ function permOf(role){ const saved=loadPerms(); return saved[role] || ROLE_PRESE
 /* ===== 계정별 메뉴 권한 (users.is_manager / users.menus) ===== */
 const ALL_MENUS=['dashboard','leveltest','inwon','chongmu','insa','unyoung'];
 const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황',chongmu:'총무',insa:'인사·서류',unyoung:'운영비'};
+/* ===== 직급(title) & 권한 프리셋 (계정 시스템 v2) ===== */
+// 메뉴 트리: 원무=레벨테스트/인원현황/시험채점, 인원현황 세부=현황/학생/상담/설정. 총무·인사·운영비는 통으로.
+const MENU_TREE=[
+  {k:'dashboard',label:'대시보드'},
+  {k:'leveltest',label:'레벨테스트'},
+  {k:'inwon',label:'인원현황',sub:[{k:'inwon.hyeon',label:'현황'},{k:'inwon.stu',label:'학생'},{k:'inwon.counsel',label:'상담'},{k:'inwon.set',label:'설정'}]},
+  {k:'grading',label:'시험채점'},
+  {k:'chongmu',label:'총무'},
+  {k:'insa',label:'인사·서류'},
+  {k:'unyoung',label:'운영비'},
+];
+const VIEW_ALL=['dashboard','leveltest','inwon','inwon.hyeon','inwon.stu','inwon.counsel','inwon.set','grading','chongmu','insa','unyoung'];
+// 직급 목록 (tier: hq본사/branch분원/teacher담임)
+const TITLES=[
+  {k:'admin',       label:'본사 admin', tier:'hq',      edit:true,  manage:true},
+  {k:'hq_staff',    label:'본사직원',   tier:'hq',      edit:false, manage:false},
+  {k:'admin_staff', label:'행정직원',   tier:'branch',  edit:true,  manage:true},
+  {k:'counsel_head',label:'상담실장',   tier:'branch',  edit:true,  manage:true},
+  {k:'bm',          label:'원장(BM)',   tier:'branch',  edit:false, manage:false, editToggle:true},
+  {k:'vice',        label:'부원장',     tier:'branch',  edit:false, manage:false},
+  {k:'team',        label:'팀장',       tier:'branch',  edit:false, manage:false},
+  {k:'junior',      label:'주임',       tier:'branch',  edit:false, manage:false},
+  {k:'gwajang',     label:'과장',       tier:'branch',  edit:false, manage:false},
+  {k:'teacher',     label:'담임',       tier:'teacher', edit:false, manage:false, teacherView:true},
+];
+const TITLE_MAP={}; TITLES.forEach(t=>TITLE_MAP[t.k]=t);
+// 직급 → 기본 메뉴 프리셋 (담임=자기반 인원+시험채점 / 그 외=전체 뷰, 행정직원이 세부 조정)
+function titlePresetMenus(tk){ return tk==='teacher' ? ['inwon','grading'] : VIEW_ALL.slice(); }
+// 현재 로그인 계정의 능력치 (하위호환: 기존 isManager도 인정)
+function curCanManage(){ const u=curUser(); return !!(u.canManage||u.isManager); }
+function curCanEdit(){ const u=curUser(); return !!(u.canEdit||u.isManager); }
+function curIsActive(){ const u=curUser(); return u.active!==false; }
 function uid(p){ return (p||'id')+'_'+Math.random().toString(36).slice(2,9); }
 function curUser(){ return ((db&&db.users)||[]).find(u=>u.id===session.userId) || {}; }
 function isManagerUser(){ return !!curUser().isManager; }
@@ -182,7 +214,7 @@ function userMenus(){
 }
 function hasMenu(k){ return userMenus().includes(k); }
 function canModule(moduleKey){
-  if(moduleKey==='perm'||moduleKey==='accounts') return isManagerUser();
+  if(moduleKey==='perm'||moduleKey==='accounts') return curCanManage();
   if(moduleKey==='wonmu') return hasMenu('leveltest')||hasMenu('inwon');
   if(moduleKey==='chongmu') return hasMenu('chongmu')||hasMenu('unyoung');  // 운영비가 총무 안으로 흡수됨
   return hasMenu(moduleKey);
@@ -191,7 +223,7 @@ function firstView(){
   if(hasMenu('dashboard')) return 'dashboard';
   if(canModule('wonmu')) return 'wonmu';
   for(const m of MODULES){ if(m.key!=='dashboard'&&m.key!=='wonmu'&&canModule(m.key)) return m.key; }
-  return isManagerUser()?'accounts':'dashboard';
+  return curCanManage()?'accounts':'dashboard';
 }
 
 /* ---------- UI: 로그인 ---------- */
@@ -238,7 +270,7 @@ function buildSidebar(){
     if(!canModule(m.key)) return;
     h+=`<div class="sb-item ${state.view===m.key?'active':''}" onclick="nav('${m.key}')"><span class="ic">${icon(m.ic)}</span>${m.name}</div>`;
   });
-  if(isManagerUser()){
+  if(curCanManage()){
     h+='<div class="sb-sect">설정</div>';
     h+=`<div class="sb-item ${state.view==='accounts'?'active':''}" onclick="nav('accounts')"><span class="ic">${icon('perm')}</span>계정 관리</div>`;
   }
@@ -1513,101 +1545,140 @@ function menusTextOf(u){
   if(u.role==='teacher') return '담임 화면';
   try{ const a=JSON.parse(u.menus||'[]'); return a.length? a.map(k=>MENU_LABEL[k]||k).join(', ') : '지정 없음'; }catch(e){ return '지정 없음'; }
 }
-let accFilterBranch='all';
-function setAccBranch(v){ accFilterBranch=v; renderAccounts($('content')); }
-function tierClass(u){ if(u.isManager) return 'mgr'; if(u.role==='teacher') return 'tea'; return 'mem'; }
+/* ---- 계정관리 v2 상태/헬퍼 ---- */
+let accView={ mode:'roster', editId:null, branch:null };
+function accSetMode(m){ accView.mode=m; renderAccounts($('content')); }
+function accScopeIsHQ(){ return session.role==='admin'; }
+function titleLabel(tk){ return (TITLE_MAP[tk]&&TITLE_MAP[tk].label)||''; }
+function tierClass(u){ if(u.canManage) return 'mgr'; if(u.title==='teacher'||u.role==='teacher') return 'tea'; return 'mem'; }
+function capText(u){ const p=[]; if(u.canManage)p.push('계정관리'); p.push(u.canEdit?'수정':'뷰어'); if(u.active===false)p.push('비활성'); return p.join(' · '); }
+function titleOptionsFor(){ const isHQ=accScopeIsHQ(); return TITLES.filter(t=> isHQ ? true : t.tier!=='hq'); }
+// 로스터 선생님 이름(해당 분원, 계정 미보유자만)
+function rosterTeacherNames(branchId){
+  const set=new Set();
+  (db.semesterRecords||[]).forEach(r=>{ if(branchId && r.branchId!==branchId) return; const t=(r.teacher||'').trim(); if(t&&t!=='미배정') set.add(t); });
+  const used=new Set((db.users||[]).filter(u=>u.teacherName).map(u=>u.teacherName));
+  return [...set].filter(n=>!used.has(n)).sort((a,b)=>a.localeCompare(b));
+}
+// 메뉴 체크박스 트리
+function menuChkHtml(sel){
+  const S=new Set(sel||[]);
+  return MENU_TREE.map(m=>{
+    let row=`<label class="amchk"><input type="checkbox" value="${m.k}" ${S.has(m.k)?'checked':''}>${m.label}</label>`;
+    if(m.sub) row+=`<span style="display:inline-flex;gap:6px;margin-left:6px;padding-left:8px;border-left:2px solid var(--line)">${m.sub.map(s=>`<label class="amchk" style="opacity:.9"><input type="checkbox" value="${s.k}" ${S.has(s.k)?'checked':''}>${s.label}</label>`).join('')}</span>`;
+    return row;
+  }).join('');
+}
+function readMenuChk(){ const a=[]; document.querySelectorAll('#acMenus input[type=checkbox]').forEach(b=>{ if(b.checked) a.push(b.value); }); return a; }
+// 직급 바꾸면 프리셋 반영 + BM 수정토글 표시
+function onTitleChange(){
+  const tk=$('acTitle')?$('acTitle').value:''; const T=TITLE_MAP[tk]||{};
+  const S=new Set(titlePresetMenus(tk));
+  document.querySelectorAll('#acMenus input[type=checkbox]').forEach(b=>{ b.checked=S.has(b.value); });
+  const et=$('acEditWrap'); if(et) et.style.display=T.editToggle?'flex':'none';
+}
 function renderAccounts(c){
-  const isHQ = session.role==='admin';
-  const brs = db.branches||[];
-  const tiers = isHQ
-    ? [['hq_member','본사 일반'],['branch_mgr','분원 관리자']]
-    : [['branch_member','분원 일반'],['teacher','담임']];
-
-  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('perm',24)}</span><span class="em">계정 관리</span></h2><p>개인 아이디를 만들고, 그 계정이 볼 메뉴를 지정하세요.</p></div></div>`;
-
-  h+=`<div class="acc-card"><div class="acc-h">새 계정 만들기</div>
-    <div class="acc-form">
-      <div class="af"><label>아이디</label><input id="acUser" autocomplete="off"></div>
-      <div class="af"><label>비밀번호</label><input id="acPw" autocomplete="off"></div>
-      <div class="af"><label>이름</label><input id="acName" placeholder="직원/선생님 이름"></div>
-      <div class="af"><label>등급</label><select id="acTier" onchange="accTierChange()">${tiers.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select></div>
-      ${isHQ?`<div class="af" id="acBranchWrap"><label>분원</label><select id="acBranch">${brs.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div>`:''}
-    </div>
-    <div class="acc-menus" id="acMenus"><div class="aml">이 계정이 볼 메뉴</div><div class="amrow">${ALL_MENUS.map(m=>`<label class="amchk"><input type="checkbox" value="${m}" checked>${MENU_LABEL[m]}</label>`).join('')}</div></div>
-    <button class="acc-btn" onclick="createAccount()">＋ 계정 생성</button>
-  </div>`;
-
-  // 관리 대상 스코프: admin=본사급+분원관리자만 / 분원관리자=자기 분원 일반+담임만
-  let groups=[], total=0;
-  if(isHQ){
-    const hq=(db.users||[]).filter(u=>u.role==='admin');
-    const mgrs=(db.users||[]).filter(u=>u.role==='branch' && u.isManager);
-    if(hq.length) groups.push({name:'본사', users:hq});
-    if(mgrs.length) groups.push({name:'분원 관리자', users:mgrs});
-  } else {
-    const my=session.branchId;
-    const staff=(db.users||[]).filter(u=>u.branchId===my && u.role==='branch' && !u.isManager);
-    const teas=(db.users||[]).filter(u=>u.branchId===my && u.role==='teacher');
-    if(staff.length) groups.push({name:'분원 직원', users:staff});
-    if(teas.length) groups.push({name:'담임', users:teas});
-  }
-  const ord=u=> u.isManager?0 : u.role==='teacher'?2 : 1;
-  groups.forEach(g=>{ g.users.sort((a,b2)=> ord(a)-ord(b2) || String(a.username||'').localeCompare(b2.username||'')); total+=g.users.length; });
-
-  h+=`<div class="acc-card"><div class="acc-h">계정 목록 <span class="acc-cnt">${total}</span></div>`;
-  if(!total){ h+=`<div class="empty-msg">아직 만든 계정이 없어요.</div>`; }
-  else groups.forEach(g=>{
-    h+=`<div class="acc-grp"><div class="acc-grp-h">${esc(g.name)} <span>${g.users.length}</span></div>`;
-    g.users.forEach(u=>{
-      const isMe=u.id===session.userId;
-      h+=`<div class="acc-row">
-        <div class="acc-u"><b>${esc(u.username)}</b>${u.teacherName?`<span class="acc-nm">${esc(u.teacherName)}</span>`:''}</div>
-        <div><span class="acc-badge ${tierClass(u)}">${tierLabelOf(u)}</span></div>
-        <div class="acc-mn">${esc(menusTextOf(u))}</div>
-        <div class="acc-act">${isMe?'<span class="acc-me">본인</span>':`<button onclick="resetAccountPw('${u.id}')">비번</button><button class="del" onclick="delAccount('${u.id}')">삭제</button>`}</div>
-      </div>`;
-    });
-    h+=`</div>`;
+  const isHQ=accScopeIsHQ();
+  const editing = accView.editId ? (db.users||[]).find(u=>u.id===accView.editId) : null;
+  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('perm',24)}</span><span class="em">계정 관리</span></h2><p>아이디를 만들고 직급·권한을 지정하세요.</p></div></div>`;
+  h += editing ? accEditCard(editing) : accCreateCard(isHQ);
+  h += accListCard();
+  c.innerHTML=h;
+  if(!editing) onTitleChange();   // 생성카드 초기 프리셋
+}
+function accCreateCard(isHQ){
+  const mode=accView.mode||'roster';
+  const brId = isHQ ? (accView.branch||'') : session.branchId;
+  const names = rosterTeacherNames(brId||session.branchId);
+  const titles = titleOptionsFor();
+  const btn=(m,l)=>`<button type="button" onclick="accSetMode('${m}')" style="padding:5px 12px;border-radius:7px;border:1px solid var(--line);background:${mode===m?'var(--brand)':'var(--surface-2)'};color:${mode===m?'#fff':'var(--ink-2)'};font-size:12.5px;cursor:pointer">${l}</button>`;
+  let h=`<div class="acc-card"><div class="acc-h">새 계정 만들기</div>`;
+  h+=`<div style="display:flex;gap:6px;margin-bottom:12px">${btn('roster','선생님 목록에서')}${btn('manual','직접 입력')}</div>`;
+  h+=`<div class="acc-form">`;
+  if(isHQ) h+=`<div class="af"><label>분원</label><select id="acBranch" onchange="accView.branch=this.value;renderAccounts($('content'))"><option value="">본사</option>${(db.branches||[]).map(b=>`<option value="${b.id}" ${b.id===brId?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div>`;
+  if(mode==='roster') h+=`<div class="af"><label>선생님</label><select id="acName">${names.length?names.map(n=>`<option>${esc(n)}</option>`).join(''):'<option value="">등록 가능한 선생님 없음</option>'}</select></div>`;
+  else h+=`<div class="af"><label>이름</label><input id="acName" placeholder="이름"></div>`;
+  h+=`<div class="af"><label>아이디</label><input id="acUser" autocomplete="off"></div>`;
+  h+=`<div class="af"><label>비밀번호</label><input id="acPw" autocomplete="off"></div>`;
+  h+=`<div class="af"><label>직급</label><select id="acTitle" onchange="onTitleChange()">${titles.map(t=>`<option value="${t.k}">${t.label}</option>`).join('')}</select></div>`;
+  h+=`<div class="af" id="acEditWrap" style="display:none;align-items:center"><label>수정 권한</label><label class="amchk"><input type="checkbox" id="acEdit"> 허용</label></div>`;
+  h+=`</div>`;
+  h+=`<div class="acc-menus" id="acMenus"><div class="aml">이 계정이 볼 메뉴</div><div class="amrow">${menuChkHtml([])}</div></div>`;
+  h+=`<button class="acc-btn" onclick="createAccount()">＋ 계정 생성</button></div>`;
+  return h;
+}
+function accEditCard(u){
+  const titles=titleOptionsFor(); let sel=[]; try{sel=JSON.parse(u.menus||'[]');}catch(e){}
+  const T=TITLE_MAP[u.title]||{};
+  let h=`<div class="acc-card"><div class="acc-h">계정 편집 — ${esc(u.username)}${u.teacherName?' ('+esc(u.teacherName)+')':''} <button type="button" onclick="accView.editId=null;renderAccounts($('content'))" style="float:right;border:none;background:var(--surface-2);border-radius:6px;padding:2px 9px;cursor:pointer">닫기</button></div>`;
+  h+=`<div class="acc-form">`;
+  h+=`<div class="af"><label>직급</label><select id="acTitle" onchange="onTitleChange()">${titles.map(t=>`<option value="${t.k}" ${t.k===u.title?'selected':''}>${t.label}</option>`).join('')}</select></div>`;
+  h+=`<div class="af" id="acEditWrap" style="display:${T.editToggle?'flex':'none'};align-items:center"><label>수정 권한</label><label class="amchk"><input type="checkbox" id="acEdit" ${u.canEdit?'checked':''}> 허용</label></div>`;
+  h+=`<div class="af" style="align-items:center"><label>상태</label><label class="amchk"><input type="checkbox" id="acActive" ${u.active!==false?'checked':''}> 재직(해제 시 비활성)</label></div>`;
+  h+=`<div class="af"><label>새 비밀번호</label><input id="acPw" placeholder="바꿀 때만 입력"></div>`;
+  h+=`</div>`;
+  h+=`<div class="acc-menus" id="acMenus"><div class="aml">이 계정이 볼 메뉴</div><div class="amrow">${menuChkHtml(sel)}</div></div>`;
+  h+=`<button class="acc-btn" onclick="saveAccountEdit('${u.id}')">저장</button></div>`;
+  return h;
+}
+function accListCard(){
+  const isHQ=accScopeIsHQ();
+  const users=(db.users||[]).filter(u=> isHQ ? true : (u.branchId===session.branchId || u.id===session.userId));
+  const rank=u=> u.title==='admin'?0 : u.canManage?1 : (u.title==='teacher'||u.role==='teacher')?4 : 2;
+  users.sort((a,b)=> rank(a)-rank(b) || String(a.username||'').localeCompare(b.username||''));
+  let h=`<div class="acc-card"><div class="acc-h">계정 목록 <span class="acc-cnt">${users.length}</span></div>`;
+  if(!users.length) h+=`<div class="empty-msg">계정이 없어요.</div>`;
+  users.forEach(u=>{
+    const isMe=u.id===session.userId;
+    const brName=(db.branches.find(b=>b.id===u.branchId)||{}).name||((u.role==='admin')?'본사':'');
+    const lbl=u.title?titleLabel(u.title):tierLabelOf(u);
+    h+=`<div class="acc-row" style="${u.active===false?'opacity:.5':''}">
+      <div class="acc-u"><b>${esc(u.username)}</b>${u.teacherName?`<span class="acc-nm">${esc(u.teacherName)}</span>`:''}${brName?`<span class="acc-nm">${esc(brName)}</span>`:''}</div>
+      <div><span class="acc-badge ${tierClass(u)}">${esc(lbl)}</span></div>
+      <div class="acc-mn">${esc(capText(u))}</div>
+      <div class="acc-act">${isMe?`<button onclick="resetAccountPw('${u.id}')">내 비번</button>`:`<button onclick="accView.editId='${u.id}';renderAccounts($('content'))">편집</button>`}</div>
+    </div>`;
   });
   h+=`</div>`;
-  c.innerHTML=h; accTierChange();
+  return h;
 }
-function accTierChange(){
-  const t=$('acTier')?$('acTier').value:''; const menus=$('acMenus'), bw=$('acBranchWrap');
-  if(menus) menus.style.display=(t==='hq_member'||t==='branch_member')?'block':'none';
-  if(bw) bw.style.display=(t==='hq_member')?'none':'block';
-}
-function readAccMenus(){ const arr=[]; document.querySelectorAll('#acMenus input[type=checkbox]').forEach(b=>{ if(b.checked) arr.push(b.value); }); return arr; }
 async function createAccount(){
-  const user=($('acUser').value||'').trim(), pw=($('acPw').value||'').trim(), name=($('acName').value||'').trim();
-  const tier=$('acTier').value, isHQ=session.role==='admin';
+  const isHQ=accScopeIsHQ();
+  const name=($('acName')?$('acName').value:'').trim();
+  const user=($('acUser')?$('acUser').value:'').trim();
+  const pw=($('acPw')?$('acPw').value:'').trim();
+  const tk=$('acTitle').value; const T=TITLE_MAP[tk]||{};
   if(!user||!pw){ toast('아이디와 비밀번호를 입력하세요','err'); return; }
   if((db.users||[]).some(u=>u.username===user)){ toast('이미 존재하는 아이디입니다','err'); return; }
-  let role,isMgr,branchId,menus=null;
-  if(tier==='branch_mgr'){ role='branch'; isMgr=true; branchId=$('acBranch').value; }
-  else if(tier==='hq_member'){ role='admin'; isMgr=false; branchId=null; menus=JSON.stringify(readAccMenus()); }
-  else if(tier==='branch_member'){ role='branch'; isMgr=false; branchId=isHQ?$('acBranch').value:session.branchId; menus=JSON.stringify(readAccMenus()); }
-  else { role='teacher'; isMgr=false; branchId=isHQ?$('acBranch').value:session.branchId; menus=JSON.stringify(['inwon']); }
-  const row={ id:uid('u'), username:user, password:pw, role, teacher_name:name||null, branch_id:branchId||null, is_manager:isMgr, menus:menus };
-  try{
-    const { error }=await sb.from('users').insert(row); if(error) throw error;
-    await reloadUsers(); toast('계정 생성 완료 ✓'); renderAccounts($('content'));
+  const branchId = T.tier==='hq' ? null : (isHQ ? (accView.branch||null) : session.branchId);
+  const role = T.tier==='hq' ? 'admin' : (tk==='teacher'?'teacher':'branch');
+  const canEdit = T.editToggle ? !!($('acEdit')&&$('acEdit').checked) : !!T.edit;
+  const row={ id:uid('u'), username:user, password:pw, role, teacher_name:name||null, branch_id:branchId,
+    is_manager:!!T.manage, menus:JSON.stringify(readMenuChk()), title:tk, active:true, can_manage:!!T.manage, can_edit:canEdit };
+  try{ const { error }=await sb.from('users').insert(row); if(error) throw error;
+    await reloadUsers(); toast('계정 생성 완료 ✓'); accView.editId=null; renderAccounts($('content'));
   }catch(e){ console.error(e); toast('생성 실패: '+(e.message||''),'err'); }
+}
+async function saveAccountEdit(id){
+  const u=(db.users||[]).find(x=>x.id===id); if(!u) return;
+  const tk=$('acTitle').value; const T=TITLE_MAP[tk]||{};
+  const canEdit = T.editToggle ? !!($('acEdit')&&$('acEdit').checked) : !!T.edit;
+  const patch={ title:tk, menus:JSON.stringify(readMenuChk()), can_manage:!!T.manage, can_edit:canEdit,
+    active:!!($('acActive')&&$('acActive').checked), is_manager:!!T.manage,
+    role: T.tier==='hq'?'admin':(tk==='teacher'?'teacher':'branch') };
+  const np=($('acPw')?$('acPw').value:'').trim(); if(np) patch.password=np;
+  try{ const { error }=await sb.from('users').update(patch).eq('id',id); if(error) throw error;
+    await reloadUsers(); toast('저장됨 ✓'); accView.editId=null; renderAccounts($('content'));
+  }catch(e){ console.error(e); toast('저장 실패: '+(e.message||''),'err'); }
 }
 async function resetAccountPw(id){
   const u=(db.users||[]).find(x=>x.id===id); if(!u) return;
-  const np=prompt(`${u.username} 계정의 새 비밀번호를 입력하세요:`); if(np==null) return;
+  const np=prompt(`${u.username} 계정의 새 비밀번호:`); if(np==null) return;
   if(!np.trim()){ toast('비밀번호를 입력하세요','err'); return; }
   try{ const { error }=await sb.from('users').update({password:np.trim()}).eq('id',id); if(error) throw error; await reloadUsers(); toast('비밀번호 변경됨 ✓'); }
   catch(e){ toast('변경 실패','err'); }
 }
-async function delAccount(id){
-  const u=(db.users||[]).find(x=>x.id===id); if(!u) return;
-  if(!confirm(`${u.username} 계정을 삭제할까요? 되돌릴 수 없어요.`)) return;
-  try{ const { error }=await sb.from('users').delete().eq('id',id); if(error) throw error; await reloadUsers(); toast('삭제됨'); renderAccounts($('content')); }
-  catch(e){ toast('삭제 실패','err'); }
-}
-window.accTierChange=accTierChange; window.createAccount=createAccount; window.resetAccountPw=resetAccountPw; window.delAccount=delAccount; window.setAccBranch=setAccBranch;
+window.accSetMode=accSetMode; window.onTitleChange=onTitleChange; window.createAccount=createAccount; window.saveAccountEdit=saveAccountEdit; window.resetAccountPw=resetAccountPw;
 
 /* ---------- 토스트 ---------- */
 let tt; function toast(m,kind){ const t=$('toast'); t.textContent=m; t.className=(kind==='err'?'err ':'')+'show'; clearTimeout(tt); tt=setTimeout(()=>t.className='',1800); }
