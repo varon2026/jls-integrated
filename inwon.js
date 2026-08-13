@@ -202,7 +202,8 @@ function renderInwon(b){
   try{
     if(session) sessionStorage.setItem('jls_session_v1', JSON.stringify({
       userId:session.userId, username:session.username, role:session.role,
-      branchId:session.branchId, teacherName:session.teacherName||null
+      branchId:session.branchId, teacherName:session.teacherName||null,
+      canEdit:(typeof curCanEdit==='function'?curCanEdit():true)   // 뷰어면 false → inwon-app 읽기전용
     }));
   }catch(e){}
   // ② 전체화면 오버레이 (바깥 통합 사이드바를 덮고 상담앱이 화면 전체)

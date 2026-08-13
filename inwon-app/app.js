@@ -267,6 +267,7 @@ async function loadDB(){
 /* 메모리 db를 서버에 동기화 — 직전 스냅샷과 비교해 바뀐 행만 upsert + 삭제된 행 delete.
    대량 데이터는 Supabase 요청 한도를 넘지 않게 잘게 나눠서 보냄(배치). */
 async function saveDB(){
+  if(session && session.canEdit===false){ toast('뷰어 계정은 수정 권한이 없습니다',false); return false; }  // 읽기전용 게이트
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
   const CHUNK = 200;  // 한 번에 보낼 최대 행 수
   let failed = false;
@@ -927,9 +928,20 @@ function logout(){
 }
 
 function showLogin(){ el('appView').style.display='none'; el('loginView').style.display='flex'; }
+function applyReadOnlyBanner(){
+  const ro = session && session.canEdit===false;
+  let b=el('roBanner');
+  if(ro && !b){
+    b=document.createElement('div'); b.id='roBanner';
+    b.style.cssText='position:sticky;top:0;z-index:60;background:#fff4e5;color:#8a5a00;border-bottom:1px solid #f0d9a8;padding:7px 14px;font-size:12.5px;font-weight:700;text-align:center';
+    b.textContent='👁 읽기 전용 계정 — 조회만 가능해요. 수정·업로드·삭제는 되지 않습니다.';
+    const av=el('appView'); av.insertBefore(b, av.firstChild);
+  } else if(!ro && b){ b.remove(); }
+}
 function enterApp(){
   el('loginView').style.display='none';
   el('appView').style.display='block';
+  applyReadOnlyBanner();
   const cur = currentSemester();
   state.semId = db.semesters.some(s=>s.id===cur.id) ? cur.id : (db.semesters[0] ? db.semesters[0].id : null);
   buildShell();
