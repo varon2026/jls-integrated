@@ -178,7 +178,7 @@ const MENU_TREE=[
 const VIEW_ALL=['dashboard','leveltest','inwon','inwon.hyeon','inwon.stu','inwon.counsel','inwon.set','grading','chongmu','insa','unyoung'];
 // 직급 목록 (tier: hq본사/branch분원/teacher담임)
 const TITLES=[
-  {k:'branch_acct', label:'분원계정',        tier:'branch',  edit:true,  manage:true},
+  {k:'branch_acct', label:'분원관리자',      tier:'branch',  edit:true,  manage:true},
   {k:'admin',       label:'본사관리자',      tier:'hq',      edit:false, manage:true},   // 데이터는 뷰어 + 계정관리 가능
   {k:'hq_staff',    label:'본사직원',        tier:'hq',      edit:false, manage:false},
   {k:'admin_staff', label:'행정직원',        tier:'branch',  edit:true,  manage:true},
@@ -1541,6 +1541,32 @@ function reloadUsers(){
     const t=TABLES.find(x=>x.key==='users'); db.users=(data||[]).map(t.fromRow);
   });
 }
+function reloadBranches(){
+  return sb.from('branches').select('*').then(({data,error})=>{
+    if(error){ console.error(error); return; }
+    const t=TABLES.find(x=>x.key==='branches'); db.branches=(data||[]).map(t.fromRow);
+  });
+}
+/* 계정관리 분원 드롭다운: 일반 선택 or "＋ 새 분원 추가…" */
+function onAcBranchChange(v){
+  if(v==='__add__'){ addBranchPrompt(); return; }
+  accView.branch=v; renderAccounts($('content'));
+}
+async function addBranchPrompt(){
+  const name=(prompt('추가할 분원 이름을 입력하세요 (예: 아산탕정분원)')||'').trim();
+  if(!name){ renderAccounts($('content')); return; }                 // 취소 → 드롭다운 원상복구
+  const dup=(db.branches||[]).find(b=>b.name===name);
+  if(dup){ toast('이미 있는 분원이에요'); accView.branch=dup.id; renderAccounts($('content')); return; }
+  try{
+    const id=uid('br');
+    const { error }=await sb.from('branches').insert({id, name});
+    if(error) throw error;
+    await reloadBranches();
+    accView.branch=id;
+    toast('분원 추가됨: '+name+' ✓');
+  }catch(e){ console.error(e); toast('분원 추가 실패 — '+(e.message||''),'err'); }
+  renderAccounts($('content'));
+}
 function tierLabelOf(u){
   if(u.role==='admin') return u.isManager?'본사 관리자':'본사 일반';
   if(u.role==='branch') return u.isManager?'분원 관리자':'분원 일반';
@@ -1610,7 +1636,7 @@ function accCreateCard(isHQ){
     h+=`<div style="display:flex;gap:6px;margin-bottom:12px">${btn('roster','선생님 목록에서')}${btn('manual','직접 입력')}</div>`;
   }
   h+=`<div class="acc-form">`;
-  if(isHQ) h+=`<div class="af"><label>분원</label><select id="acBranch" onchange="accView.branch=this.value;renderAccounts($('content'))"><option value="">본사</option>${(db.branches||[]).map(b=>`<option value="${b.id}" ${b.id===brId?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div>`;
+  if(isHQ) h+=`<div class="af"><label>분원</label><select id="acBranch" onchange="onAcBranchChange(this.value)"><option value="">본사</option>${(db.branches||[]).map(b=>`<option value="${b.id}" ${b.id===brId?'selected':''}>${esc(b.name)}</option>`).join('')}<option value="__add__">＋ 새 분원 추가…</option></select></div>`;
   if(mode==='roster') h+=`<div class="af"><label>선생님</label><select id="acName">${names.length?names.map(n=>`<option>${esc(n)}</option>`).join(''):'<option value="">등록 가능한 선생님 없음</option>'}</select></div>`;
   else h+=`<div class="af"><label>이름</label><input id="acName" placeholder="이름"></div>`;
   h+=`<div class="af"><label>아이디</label><input id="acUser" autocomplete="off"></div>`;

@@ -1977,7 +1977,7 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
         <thead><tr>
           <th>학생명</th><th>회원코드</th><th>반</th><th>담임</th>
           <th>학교/학년</th><th>${(tab==='new'||tab==='transferIn')?'입학일':'퇴원일'}</th>
-          ${isInTab?`<th>메모</th>${tab==='transferIn'?'<th style="min-width:240px">전입 관리</th>':''}${tab==='transferOut'?'<th style="min-width:240px">전출 관리</th>':''}`:'<th style="width:130px">사유</th><th style="min-width:200px">메모</th>'}
+          ${isInTab?`<th>메모</th>${tab==='transferIn'?'<th style="width:180px">전입 관리</th>':''}${tab==='transferOut'?'<th style="width:180px">전출 관리</th>':''}`:'<th style="width:130px">사유</th><th style="min-width:200px">메모</th>'}
         </tr></thead>
         <tbody>
         ${rows.map(r=>{
@@ -1986,10 +1986,10 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
           const _brOpts = (sel)=>(db.branches||[]).map(b=>`<option value="${b.id}" ${b.id===sel?'selected':''}>${esc(b.name)}</option>`).join('');
           let _act='';
           if(tab==='transferIn') _act = _canW
-            ? `<td style="white-space:nowrap"><button class="btn sm" style="border-color:var(--brand);color:var(--brand)" onclick="convertTransferInToNew('${r.recId}')">일반 신규로</button> <select class="wd-inline-sel" onchange="setTransferBranch('${r.recId}',this.value)"><option value="">출발분원…</option>${_brOpts(r.transferTo)}</select></td>`
+            ? `<td><div style="display:flex;gap:6px;align-items:center"><button class="btn sm" style="border-color:var(--brand);color:var(--brand);flex:none;white-space:nowrap;padding:0 8px" onclick="convertTransferInToNew('${r.recId}')">일반 신규로</button> <select class="wd-inline-sel" style="width:auto;flex:1;min-width:78px" onchange="setTransferBranch('${r.recId}',this.value)"><option value="">출발분원…</option>${_brOpts(r.transferTo)}</select></div></td>`
             : `<td style="color:var(--ink-3);font-size:12px">${r.transferTo?esc((getBranch(r.transferTo)||{}).name||''):''}</td>`;
           else if(tab==='transferOut') _act = _canW
-            ? `<td style="white-space:nowrap"><button class="btn sm" style="border-color:var(--warn);color:var(--warn)" onclick="cancelTransferOut('${r.recId}')">전출 취소</button> <select class="wd-inline-sel" onchange="setTransferBranch('${r.recId}',this.value)"><option value="">도착분원…</option>${_brOpts(r.transferTo)}</select></td>`
+            ? `<td><div style="display:flex;gap:6px;align-items:center"><button class="btn sm" style="border-color:var(--warn);color:var(--warn);flex:none;white-space:nowrap;padding:0 8px" onclick="cancelTransferOut('${r.recId}')">전출 취소</button> <select class="wd-inline-sel" style="width:auto;flex:1;min-width:78px" onchange="setTransferBranch('${r.recId}',this.value)"><option value="">도착분원…</option>${_brOpts(r.transferTo)}</select></div></td>`
             : `<td style="color:var(--ink-3);font-size:12px">${r.transferTo?esc((getBranch(r.transferTo)||{}).name||''):''}</td>`;
           const tail = isInTab
             ? `<td style="color:var(--ink-3);font-size:12px">${esc(memoShown)}</td>${_act}`
