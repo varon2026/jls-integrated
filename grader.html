@@ -152,7 +152,7 @@ function canEditKeys(){ return !CURUSER ? true : KEY_EDITORS.includes(CURUSER); 
 
 const EXAMS=['DT','AT','내신모의고사'];
 let EXAM='DT', VIEW='answer';
-let SEM=null, BRANCH='', ROLE='admin';
+let SEM=null, BRANCH='', ROLE='admin', TEACHER='';   // TEACHER 지정 시 담임모드(자기반만·읽기전용)
 let OPEN={DT:true,AT:false,'내신모의고사':false};
 let BRANCHES={}, STUDENTS={}, SEMS=[], SEM_IDS=[], ROSTER=[], KEYS=[], CONFIG={}, CURLEVEL='', CURCLASS='';
 let CURVARIANT='', CURTAB='독해';   // ACE: 선택한 기간·버전(전체레벨명) / 탭(독해·문법·총점)
@@ -210,7 +210,8 @@ async function fetchAll(table, cols, filt){
   }
   return out;
 }
-function readParams(){const p=new URLSearchParams(location.search);if(p.get('role'))ROLE=p.get('role');if(p.get('branch'))BRANCH=p.get('branch');if(p.get('sem'))SEM=p.get('sem');if(p.get('user'))CURUSER=p.get('user');}
+function readParams(){const p=new URLSearchParams(location.search);if(p.get('role'))ROLE=p.get('role');if(p.get('branch'))BRANCH=p.get('branch');if(p.get('sem'))SEM=p.get('sem');if(p.get('user'))CURUSER=p.get('user');if(p.get('teacher'))TEACHER=p.get('teacher');}
+function isTeacherRO(){ return !!TEACHER; }   // 담임모드 = 읽기전용
 async function loadAll(){
   initSb(); readParams();
   const [b,st,se]=await Promise.all([sb.from('branches').select('*'),fetchAll('students','id,code,name,school,grade'),sb.from('semesters').select('*')]);
@@ -226,10 +227,10 @@ async function loadAll(){
 }
 async function loadRoster(){
   let data;
-  try{ data=await fetchAll('semester_records','student_id,branch_id,semester_id,class_name,class_label,status,kind',q=>q.eq('semester_id',SEM)); }
+  try{ data=await fetchAll('semester_records','student_id,branch_id,semester_id,class_name,class_label,status,kind,teacher',q=>q.eq('semester_id',SEM)); }
   catch(e){ toast('명단 로드 실패: '+e.message,false); ROSTER=[]; return; }
   ROSTER=(data||[]).filter(r=>r.status==='active'&&(r.kind||'regular')!=='exam').map(r=>{const s=STUDENTS[r.student_id]||{};return{
-    studentId:r.student_id,name:s.name||'',code:s.code||'',school:s.school||'',grade:s.grade||'',
+    studentId:r.student_id,name:s.name||'',code:s.code||'',school:s.school||'',grade:s.grade||'',teacher:r.teacher||'',
     className:r.class_name||'',classLabel:r.class_label||r.class_name||'',branchId:r.branch_id,branchName:BRANCHES[r.branch_id]||'',chess:isChess(r.class_name)};});
 }
 async function loadKeys(){const{data,error}=await sb.from('exam_keys').select('*').order('created_at',{ascending:false});if(!error)KEYS=data||[];}
@@ -243,7 +244,7 @@ function gradedOf(cls){return cls.recs.filter(r=>SCOREDCODES.has(r.code)).length
 function prettySem(id){const m=String(id).match(/(\d{4})[_-]?(spring|summer|fall|autumn|winter)/i);if(m){const t={spring:'봄',summer:'여름',fall:'가을',autumn:'가을',winter:'겨울'}[m[2].toLowerCase()];return `${m[1]}년 ${t}학기`;}return id;}
 function semName(id){const s=SEMS.find(x=>x.id===id);return s&&s.name?s.name:prettySem(id);}
 function disabledSet(){return CONFIG[EXAM]||new Set();}
-function scopedRoster(){return ROSTER.filter(r=>(!BRANCH||r.branchId===BRANCH)&&inScopeFor(EXAM,r));}
+function scopedRoster(){return ROSTER.filter(r=>(!BRANCH||r.branchId===BRANCH)&&(!TEACHER||String(r.teacher||'').split(',').some(t=>t.trim()===TEACHER))&&inScopeFor(EXAM,r));}
 function levelsForExam(){
   const m=new Map();
   scopedRoster().forEach(r=>{const code=EXAM==='내신모의고사'?(r.classLabel||r.className):levelCode(r.className);if(!code)return;
@@ -459,10 +460,10 @@ function buildGrid(){
       <div style="font-size:16px;font-weight:800">${esc(noDays(code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
       <div class="hint">응시 ${studs.length}명 · <b style="color:var(--pos)">채점 ${gradedOf(cls)}/${studs.length}명</b> · ${key?`정답키 ${key.num_q}문항`:'<b style="color:var(--warn)">정답키 없음</b>'}</div>
       <div style="flex:1"></div>
-      <button class="ghost mini ${isOff?'':'danger'}" onclick="toggleOff('${esc(code)}')">${isOff?'✓ 미응시 해제':'✕ 이 레벨 시험없음(미응시)'}</button>
+      ${isTeacherRO()?'':`<button class="ghost mini ${isOff?'':'danger'}" onclick="toggleOff('${esc(code)}')">${isOff?'✓ 미응시 해제':'✕ 이 레벨 시험없음(미응시)'}</button>
       ${key&&!isOff?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
       <label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">답안 엑셀↑<input type="file" accept=".xlsx,.xls" hidden onchange="uploadAns(this)"></label>
-      <button class="btn mini" onclick="saveScores()">채점 결과 저장</button>`:''}</div>`;
+      <button class="btn mini" onclick="saveScores()">채점 결과 저장</button>`:''}`}</div>`;
   if(isOff){area.innerHTML=head+`<div class="card"><div class="hint">이 레벨은 <b>미응시</b>로 표시돼 있어요.</div></div>`;return;}
   if(!studs.length){area.innerHTML=head+`<div class="card"><div class="hint">이 레벨에 학생이 없어요.</div></div>`;return;}
   // 정답키 없어도 명단은 보여줌
@@ -483,7 +484,7 @@ function buildGrid(){
   studs.forEach((r,ri)=>{
     let cells=`<td class="stu"><b>${esc(r.name)}</b><div class="c">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
     ans.forEach((a,ci)=>{const sa=a.type==='sa';
-      cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="numeric" maxlength="1" ${sa?'placeholder="1/0"':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?'주관식: 맞으면 1, 틀리면 0 입력':'객관식: 1~5'}" oninput="onCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
+      cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="numeric" maxlength="1" ${sa?'placeholder="1/0"':''} ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?'주관식: 맞으면 1, 틀리면 0 입력':'객관식: 1~5'}" oninput="onCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
     parts.forEach(p=>{cells+=`<td class="sc" data-part="${esc(p)}">0</td>`;});
     cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini" onclick="retest(this)">재시험</button></td>`;
     body+=`<tr data-sid="${r.studentId}" data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;

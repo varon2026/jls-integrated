@@ -977,6 +977,17 @@ function closeSidebar(){
 /* ============================================================================
    6. 앱 셸 (사이드바, 학기 선택)
    ============================================================================ */
+// 담임: 자기반 시험채점 열기 (grader 담임모드 · 자기반만 · 읽기전용)
+function openMyGrading(){
+  const name = session.teacherName || '';
+  if(!name){ toast('선생님 이름 정보가 없어 시험채점을 열 수 없어요','err'); return; }
+  const url = '../grader.html?role=teacher'
+    + '&branch=' + encodeURIComponent(session.branchId||'')
+    + '&sem='    + encodeURIComponent(state.semId||'')
+    + '&teacher='+ encodeURIComponent(name)
+    + '&user='   + encodeURIComponent(session.username||'');
+  window.open(url, '_blank');
+}
 function buildShell(){
   const isAdmin = session.role==='admin';
   const isTeacher = session.role==='teacher';
@@ -1027,6 +1038,7 @@ function buildShell(){
       <div class="sb-sect">선생님</div>
       <div class="sb-item" data-nav="myclasses">${I.dash}<span>내 반 현황</span></div>
       <div class="sb-item" data-nav="segments">${I.seg}<span>세그먼트</span></div>
+      <div class="sb-item" onclick="openMyGrading()">${I.closing}<span>시험채점</span></div>
       <div class="sb-item" data-nav="myaccount">${I.acct}<span>계정 관리</span></div>`;
   } else if(session.role==='assistant'){
     nav.innerHTML = `
