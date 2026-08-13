@@ -2010,9 +2010,9 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
          <td>${esc(r.classLabel)}</td>
           <td>${esc(r.teacher)}</td>
           <td style="color:var(--ink-3);font-size:12px">${esc(r.school)} ${esc(r.grade)}${r.grade?'학년':''}</td>
-          ${((tab==='withdraw'||tab==='transferOut') && !(session&&session.canEdit===false))
-            ? `<td><input type="date" class="wd-inline-date" value="${/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')?r.date:''}" onchange="setWdDate('${r.recId}',this.value)" style="font-size:12px;padding:2px 5px;border:1px solid var(--line);border-radius:6px"></td>`
-            : `<td class="num">${esc(r.date)}</td>`}
+          ${(session&&session.canEdit===false)
+            ? `<td class="num">${esc(r.date)}</td>`
+            : `<td><input type="date" class="wd-inline-date" value="${/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')?r.date:''}" onchange="${(tab==='new'||tab==='transferIn')?'setEnrollDate':'setWdDate'}('${r.recId}',this.value)" style="font-size:12px;padding:2px 5px;border:1px solid var(--line);border-radius:6px"></td>`}
           ${tail}
         </tr>`;}).join('')}
         </tbody>
@@ -2050,6 +2050,19 @@ function setWdDate(recId, val){
   const mv = db.studentMovements.find(x=>x.studentId===rec.studentId && x.branchId===rec.branchId && x.semesterId===rec.semesterId && x.type==='withdraw');
   if(mv) mv.date = d;   // 이동이력 날짜도 맞춤
   saveDB().then(ok=>{ toast(ok?'퇴원일 저장됨 ✓':'저장 실패', ok?'ok':'err'); });
+}
+/* 명단에서 입학일(신규·전입) 인라인 수정 (수정권한 계정) */
+function setEnrollDate(recId, val){
+  const rec = db.semesterRecords.find(r=>r.id===recId);
+  if(!rec) return;
+  const m = String(val||'').match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if(!m){ toast('날짜 형식을 확인하세요','err'); return; }
+  const d = `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  if((rec.enrollDate||'') === d) return;
+  rec.enrollDate = d;
+  const mv = db.studentMovements.find(x=>x.studentId===rec.studentId && x.branchId===rec.branchId && x.semesterId===rec.semesterId && (x.type==='new'||x.type==='return'));
+  if(mv) mv.date = d;   // 신규/복귀 이동이력 날짜도 맞춤
+  saveDB().then(ok=>{ toast(ok?'입학일 저장됨 ✓':'저장 실패', ok?'ok':'err'); });
 }
 function setRosterTab(tab){ state.rosterTab=tab; state.rosterTeacher=''; state.rosterQuery=''; render(); }
 function setRosterTeacher(v){ state.rosterTeacher=v; render(); }
