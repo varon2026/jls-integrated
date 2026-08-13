@@ -178,17 +178,20 @@ const MENU_TREE=[
 const VIEW_ALL=['dashboard','leveltest','inwon','inwon.hyeon','inwon.stu','inwon.counsel','inwon.set','grading','chongmu','insa','unyoung'];
 // 직급 목록 (tier: hq본사/branch분원/teacher담임)
 const TITLES=[
-  {k:'admin',       label:'본사 admin', tier:'hq',      edit:true,  manage:true},
-  {k:'hq_staff',    label:'본사직원',   tier:'hq',      edit:false, manage:false},
-  {k:'admin_staff', label:'행정직원',   tier:'branch',  edit:true,  manage:true},
-  {k:'counsel_head',label:'상담실장',   tier:'branch',  edit:true,  manage:true},
-  {k:'bm',          label:'원장(BM)',   tier:'branch',  edit:false, manage:false, editToggle:true},
-  {k:'vice',        label:'부원장',     tier:'branch',  edit:false, manage:false},
-  {k:'team',        label:'팀장',       tier:'branch',  edit:false, manage:false},
-  {k:'junior',      label:'주임',       tier:'branch',  edit:false, manage:false},
-  {k:'gwajang',     label:'과장',       tier:'branch',  edit:false, manage:false},
-  {k:'teacher',     label:'담임',       tier:'teacher', edit:false, manage:false, teacherView:true},
+  {k:'branch_acct', label:'분원계정',        tier:'branch',  edit:true,  manage:true},
+  {k:'admin',       label:'본사관리자',      tier:'hq',      edit:true,  manage:true},
+  {k:'hq_staff',    label:'본사직원',        tier:'hq',      edit:false, manage:false},
+  {k:'admin_staff', label:'행정직원',        tier:'branch',  edit:true,  manage:true},
+  {k:'counsel_head',label:'상담실장',        tier:'branch',  edit:true,  manage:true},
+  {k:'bm',          label:'원장/부원장(BM)', tier:'branch',  edit:false, manage:false, editToggle:true},
+  {k:'team',        label:'팀장',            tier:'branch',  edit:false, manage:false},
+  {k:'junior',      label:'주임',            tier:'branch',  edit:false, manage:false},
+  {k:'gwajang',     label:'과장',            tier:'branch',  edit:false, manage:false},
+  {k:'teacher',     label:'담임',            tier:'teacher', edit:false, manage:false, teacherView:true},
 ];
+// 계정관리 컨텍스트별 만들 수 있는 직급
+const HQ_TITLES=['branch_acct','admin','hq_staff','admin_staff','counsel_head']; // 본사(admin)가 만드는 것
+const BR_TITLES=['teacher','team','junior','gwajang','bm','counsel_head'];        // 분원(행정직원)이 만드는 것
 const TITLE_MAP={}; TITLES.forEach(t=>TITLE_MAP[t.k]=t);
 // 직급 → 기본 메뉴 프리셋 (담임=자기반 인원+시험채점 / 그 외=전체 뷰, 행정직원이 세부 조정)
 function titlePresetMenus(tk){ return tk==='teacher' ? ['inwon','grading'] : VIEW_ALL.slice(); }
@@ -1548,15 +1551,21 @@ function menusTextOf(u){
 /* ---- 계정관리 v2 상태/헬퍼 ---- */
 let accView={ mode:'roster', editId:null, branch:null };
 function accSetMode(m){ accView.mode=m; renderAccounts($('content')); }
+function openAccEdit(id){ accView.editId=id; renderAccounts($('content')); try{ window.scrollTo({top:0,behavior:'smooth'}); const el=$('content'); if(el&&el.scrollIntoView) el.scrollIntoView({block:'start',behavior:'smooth'}); }catch(e){} }
 function accScopeIsHQ(){ return session.role==='admin'; }
 function titleLabel(tk){ return (TITLE_MAP[tk]&&TITLE_MAP[tk].label)||''; }
 function tierClass(u){ if(u.canManage) return 'mgr'; if(u.title==='teacher'||u.role==='teacher') return 'tea'; return 'mem'; }
 function capText(u){ const p=[]; if(u.canManage)p.push('계정관리'); p.push(u.canEdit?'수정':'뷰어'); if(u.active===false)p.push('비활성'); return p.join(' · '); }
-function titleOptionsFor(){ const isHQ=accScopeIsHQ(); return TITLES.filter(t=> isHQ ? true : t.tier!=='hq'); }
+function titleOptionsFor(){ const keys=accScopeIsHQ()?HQ_TITLES:BR_TITLES; return TITLES.filter(t=>keys.includes(t.k)); }
 // 로스터 선생님 이름(해당 분원, 계정 미보유자만)
 function rosterTeacherNames(branchId){
+  const semId=state.semId;                                   // 현재 선택 학기 기준
   const set=new Set();
-  (db.semesterRecords||[]).forEach(r=>{ if(branchId && r.branchId!==branchId) return; const t=(r.teacher||'').trim(); if(t&&t!=='미배정') set.add(t); });
+  (db.semesterRecords||[]).forEach(r=>{
+    if(semId && r.semesterId!==semId) return;
+    if(branchId && r.branchId!==branchId) return;
+    String(r.teacher||'').split(',').forEach(t=>{ t=t.trim(); if(t&&t!=='미배정') set.add(t); });  // 담임 2명(콤마) 분리
+  });
   const used=new Set((db.users||[]).filter(u=>u.teacherName).map(u=>u.teacherName));
   return [...set].filter(n=>!used.has(n)).sort((a,b)=>a.localeCompare(b));
 }
@@ -1587,13 +1596,15 @@ function renderAccounts(c){
   if(!editing) onTitleChange();   // 생성카드 초기 프리셋
 }
 function accCreateCard(isHQ){
-  const mode=accView.mode||'roster';
+  const mode = isHQ ? 'manual' : (accView.mode||'roster');   // 본사(admin)는 항상 직접입력
   const brId = isHQ ? (accView.branch||'') : session.branchId;
   const names = rosterTeacherNames(brId||session.branchId);
   const titles = titleOptionsFor();
-  const btn=(m,l)=>`<button type="button" onclick="accSetMode('${m}')" style="padding:5px 12px;border-radius:7px;border:1px solid var(--line);background:${mode===m?'var(--brand)':'var(--surface-2)'};color:${mode===m?'#fff':'var(--ink-2)'};font-size:12.5px;cursor:pointer">${l}</button>`;
   let h=`<div class="acc-card"><div class="acc-h">새 계정 만들기</div>`;
-  h+=`<div style="display:flex;gap:6px;margin-bottom:12px">${btn('roster','선생님 목록에서')}${btn('manual','직접 입력')}</div>`;
+  if(!isHQ){   // 분원 계정관리에서만 모드 토글(선생님 드롭다운/직접입력)
+    const btn=(m,l)=>`<button type="button" onclick="accSetMode('${m}')" style="padding:5px 12px;border-radius:7px;border:1px solid var(--line);background:${mode===m?'var(--brand)':'var(--surface-2)'};color:${mode===m?'#fff':'var(--ink-2)'};font-size:12.5px;cursor:pointer">${l}</button>`;
+    h+=`<div style="display:flex;gap:6px;margin-bottom:12px">${btn('roster','선생님 목록에서')}${btn('manual','직접 입력')}</div>`;
+  }
   h+=`<div class="acc-form">`;
   if(isHQ) h+=`<div class="af"><label>분원</label><select id="acBranch" onchange="accView.branch=this.value;renderAccounts($('content'))"><option value="">본사</option>${(db.branches||[]).map(b=>`<option value="${b.id}" ${b.id===brId?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div>`;
   if(mode==='roster') h+=`<div class="af"><label>선생님</label><select id="acName">${names.length?names.map(n=>`<option>${esc(n)}</option>`).join(''):'<option value="">등록 가능한 선생님 없음</option>'}</select></div>`;
@@ -1623,7 +1634,9 @@ function accEditCard(u){
 }
 function accListCard(){
   const isHQ=accScopeIsHQ();
-  const users=(db.users||[]).filter(u=> isHQ ? true : (u.branchId===session.branchId || u.id===session.userId));
+  let users;
+  if(isHQ) users=(db.users||[]).filter(u=> HQ_TITLES.includes(u.title) || (!u.title && (u.role==='admin' || (u.role==='branch'&&u.canManage))) );
+  else users=(db.users||[]).filter(u=> u.branchId===session.branchId || u.id===session.userId);
   const rank=u=> u.title==='admin'?0 : u.canManage?1 : (u.title==='teacher'||u.role==='teacher')?4 : 2;
   users.sort((a,b)=> rank(a)-rank(b) || String(a.username||'').localeCompare(b.username||''));
   let h=`<div class="acc-card"><div class="acc-h">계정 목록 <span class="acc-cnt">${users.length}</span></div>`;
@@ -1636,7 +1649,7 @@ function accListCard(){
       <div class="acc-u"><b>${esc(u.username)}</b>${u.teacherName?`<span class="acc-nm">${esc(u.teacherName)}</span>`:''}${brName?`<span class="acc-nm">${esc(brName)}</span>`:''}</div>
       <div><span class="acc-badge ${tierClass(u)}">${esc(lbl)}</span></div>
       <div class="acc-mn">${esc(capText(u))}</div>
-      <div class="acc-act">${isMe?`<button onclick="resetAccountPw('${u.id}')">내 비번</button>`:`<button onclick="accView.editId='${u.id}';renderAccounts($('content'))">편집</button>`}</div>
+      <div class="acc-act">${isMe?`<button onclick="resetAccountPw('${u.id}')">내 비번</button>`:`<button onclick="openAccEdit('${u.id}')">편집</button>`}</div>
     </div>`;
   });
   h+=`</div>`;
@@ -1651,6 +1664,7 @@ async function createAccount(){
   if(!user||!pw){ toast('아이디와 비밀번호를 입력하세요','err'); return; }
   if((db.users||[]).some(u=>u.username===user)){ toast('이미 존재하는 아이디입니다','err'); return; }
   const branchId = T.tier==='hq' ? null : (isHQ ? (accView.branch||null) : session.branchId);
+  if(T.tier!=='hq' && !branchId){ toast('분원을 선택하세요','err'); return; }
   const role = T.tier==='hq' ? 'admin' : (tk==='teacher'?'teacher':'branch');
   const canEdit = T.editToggle ? !!($('acEdit')&&$('acEdit').checked) : !!T.edit;
   const row={ id:uid('u'), username:user, password:pw, role, teacher_name:name||null, branch_id:branchId,
@@ -1678,7 +1692,7 @@ async function resetAccountPw(id){
   try{ const { error }=await sb.from('users').update({password:np.trim()}).eq('id',id); if(error) throw error; await reloadUsers(); toast('비밀번호 변경됨 ✓'); }
   catch(e){ toast('변경 실패','err'); }
 }
-window.accSetMode=accSetMode; window.onTitleChange=onTitleChange; window.createAccount=createAccount; window.saveAccountEdit=saveAccountEdit; window.resetAccountPw=resetAccountPw;
+window.accSetMode=accSetMode; window.openAccEdit=openAccEdit; window.onTitleChange=onTitleChange; window.createAccount=createAccount; window.saveAccountEdit=saveAccountEdit; window.resetAccountPw=resetAccountPw;
 
 /* ---------- 토스트 ---------- */
 let tt; function toast(m,kind){ const t=$('toast'); t.textContent=m; t.className=(kind==='err'?'err ':'')+'show'; clearTimeout(tt); tt=setTimeout(()=>t.className='',1800); }
