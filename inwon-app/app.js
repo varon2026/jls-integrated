@@ -1860,7 +1860,7 @@ rows.push({
       name:s.name, code:s.code, school:s.school||'', grade:s.grade||'',
       classLabel:r.classLabel||r.className||'-', className:r.className||'', teacher:r.teacher||'-',
 date, memo:(mv&&mv.memo)||'',
-      recId:r.id, withdrawReason:r.withdrawReason||'', withdrawMemo:r.withdrawMemo||'',
+      recId:r.id, withdrawReason:r.withdrawReason||'', withdrawMemo:r.withdrawMemo||'', transferTo:r.transferTo||'',
     });
   });
   rows.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
@@ -1977,13 +1977,22 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
         <thead><tr>
           <th>학생명</th><th>회원코드</th><th>반</th><th>담임</th>
           <th>학교/학년</th><th>${(tab==='new'||tab==='transferIn')?'입학일':'퇴원일'}</th>
-          ${isInTab?`<th>메모</th>${tab==='transferIn'?'<th style="width:120px">전입 취소</th>':''}`:'<th style="width:130px">사유</th><th style="min-width:200px">메모</th>'}
+          ${isInTab?`<th>메모</th>${tab==='transferIn'?'<th style="min-width:240px">전입 관리</th>':''}${tab==='transferOut'?'<th style="min-width:240px">전출 관리</th>':''}`:'<th style="width:130px">사유</th><th style="min-width:200px">메모</th>'}
         </tr></thead>
         <tbody>
         ${rows.map(r=>{
           const memoShown = (r.memo && r.memo!=='수동 등록' && r.memo!=='퇴원 처리') ? r.memo : '';
+          const _canW = !(session&&session.canEdit===false);
+          const _brOpts = (sel)=>(db.branches||[]).map(b=>`<option value="${b.id}" ${b.id===sel?'selected':''}>${esc(b.name)}</option>`).join('');
+          let _act='';
+          if(tab==='transferIn') _act = _canW
+            ? `<td style="white-space:nowrap"><button class="btn sm" style="border-color:var(--brand);color:var(--brand)" onclick="convertTransferInToNew('${r.recId}')">일반 신규로</button> <select class="wd-inline-sel" onchange="setTransferBranch('${r.recId}',this.value)"><option value="">출발분원…</option>${_brOpts(r.transferTo)}</select></td>`
+            : `<td style="color:var(--ink-3);font-size:12px">${r.transferTo?esc((getBranch(r.transferTo)||{}).name||''):''}</td>`;
+          else if(tab==='transferOut') _act = _canW
+            ? `<td style="white-space:nowrap"><button class="btn sm" style="border-color:var(--warn);color:var(--warn)" onclick="cancelTransferOut('${r.recId}')">전출 취소</button> <select class="wd-inline-sel" onchange="setTransferBranch('${r.recId}',this.value)"><option value="">도착분원…</option>${_brOpts(r.transferTo)}</select></td>`
+            : `<td style="color:var(--ink-3);font-size:12px">${r.transferTo?esc((getBranch(r.transferTo)||{}).name||''):''}</td>`;
           const tail = isInTab
-            ? `<td style="color:var(--ink-3);font-size:12px">${esc(memoShown)}</td>${tab==='transferIn'?`<td><button class="btn sm" style="border-color:var(--brand);color:var(--brand)" onclick="convertTransferInToNew('${r.recId}')">일반 신규로 →</button></td>`:''}`
+            ? `<td style="color:var(--ink-3);font-size:12px">${esc(memoShown)}</td>${_act}`
             : `<td>
                  <select class="wd-inline-sel" onchange="setWdReason('${r.recId}', this.value)">
                    <option value="">미분류</option>
@@ -3920,6 +3929,26 @@ function convertTransferInToNew(recId){
       saveDB().then(ok=>{ hideSaving(); closeModal();
         toast(ok?`${s.name} 일반 신규로 전환 완료`:'저장 실패','ok'); render(); });
     }, {yesLabel:'일반 신규로 전환', danger:false});
+}
+/* 전입 출발분원 / 전출 도착분원 변경 */
+function setTransferBranch(recId, bid){
+  const rec=db.semesterRecords.find(r=>r.id===recId); if(!rec) return;
+  rec.transferTo = bid || null;
+  showSaving('분원 저장…');
+  saveDB().then(ok=>{ hideSaving(); toast(ok?'분원 변경됨 ✓':'저장 실패', ok?'ok':'err'); render(); });
+}
+/* 전출 취소 → 일반 퇴원 (전출 표시 제거, 퇴원율에 반영) */
+function cancelTransferOut(recId){
+  const rec=db.semesterRecords.find(r=>r.id===recId); if(!rec) return;
+  const s=getStudent(rec.studentId);
+  openConfirm('전출 취소 → 일반 퇴원',
+    `${s.name} (${s.code})\n\n전출 표시를 취소하고 일반 퇴원으로 바꿉니다. 도착분원 정보가 지워지고, 퇴원율에 반영됩니다.`,
+    ()=>{
+      rec.transfer=false; rec.transferTo=null;
+      showSaving('변경 중…');
+      saveDB().then(ok=>{ hideSaving(); closeModal();
+        toast(ok?`${s.name} 일반 퇴원으로 변경`:'저장 실패','ok'); render(); });
+    }, {yesLabel:'일반 퇴원으로', danger:false});
 }
 /* 퇴원/전출 사유 수정 — 이동이력 메모에서 [전출→분원] 표시는 보존하고 사유 부분만 교체 */
 function openEditWithdrawReason(recId){
