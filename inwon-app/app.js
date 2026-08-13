@@ -3543,11 +3543,12 @@ function importHistory(file, branchId, semId){
       status:['상태'],
       counselor:['상담자','담임','작성자']
     };
-    // 첫 행이 병합 제목("상담이력")이면 다음 행을 헤더로 사용 — 최대 3행까지 탐색
+    // 병합 제목행("상담이력")·빈 행을 건너뛰고 진짜 헤더행 찾기 — 최대 6행까지 탐색.
+    // 진짜 헤더 = '내용' 열 + (회원코드/이름/날짜 중 하나) 이상. 제목행은 셀 하나("상담이력")뿐이라 자동 배제됨.
     let headRow = -1, idx = null;
-    for(let i=0; i<Math.min(3, rows.length-1); i++){
+    for(let i=0; i<Math.min(6, rows.length-1); i++){
       const cand = mapHeader(rows[i].map(h=>String(h).trim()), HDR_MAP);
-      if(cand.content>=0){ headRow = i; idx = cand; break; }
+      if(cand.content>=0 && (cand.code>=0 || cand.name>=0 || cand.date>=0)){ headRow = i; idx = cand; break; }
     }
     if(headRow<0){ toast('내용 열을 찾지 못했습니다','err'); return; }
     rows = rows.slice(headRow);
