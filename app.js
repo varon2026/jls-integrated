@@ -179,11 +179,12 @@ const VIEW_ALL=['dashboard','leveltest','inwon','inwon.hyeon','inwon.stu','inwon
 // 직급 목록 (tier: hq본사/branch분원/teacher담임)
 const TITLES=[
   {k:'branch_acct', label:'분원계정',        tier:'branch',  edit:true,  manage:true},
-  {k:'admin',       label:'본사관리자',      tier:'hq',      edit:true,  manage:true},
+  {k:'admin',       label:'본사관리자',      tier:'hq',      edit:false, manage:true},   // 데이터는 뷰어 + 계정관리 가능
   {k:'hq_staff',    label:'본사직원',        tier:'hq',      edit:false, manage:false},
   {k:'admin_staff', label:'행정직원',        tier:'branch',  edit:true,  manage:true},
   {k:'counsel_head',label:'상담실장',        tier:'branch',  edit:true,  manage:true},
   {k:'bm',          label:'원장/부원장(BM)', tier:'branch',  edit:false, manage:false, editToggle:true},
+  {k:'daeri',       label:'대리',            tier:'branch',  edit:true,  manage:false},
   {k:'team',        label:'팀장',            tier:'branch',  edit:false, manage:false},
   {k:'junior',      label:'주임',            tier:'branch',  edit:false, manage:false},
   {k:'gwajang',     label:'과장',            tier:'branch',  edit:false, manage:false},
@@ -191,7 +192,7 @@ const TITLES=[
 ];
 // 계정관리 컨텍스트별 만들 수 있는 직급
 const HQ_TITLES=['branch_acct','admin','hq_staff','admin_staff','counsel_head']; // 본사(admin)가 만드는 것
-const BR_TITLES=['teacher','team','junior','gwajang','bm','counsel_head'];        // 분원(행정직원)이 만드는 것
+const BR_TITLES=['teacher','daeri','team','junior','gwajang','bm','counsel_head'];// 분원(행정직원)이 만드는 것
 const TITLE_MAP={}; TITLES.forEach(t=>TITLE_MAP[t.k]=t);
 // 직급 → 기본 메뉴 프리셋 (담임=자기반 인원+시험채점 / 그 외=전체 뷰, 행정직원이 세부 조정)
 function titlePresetMenus(tk){ return tk==='teacher' ? ['inwon','grading'] : VIEW_ALL.slice(); }
@@ -273,10 +274,9 @@ function buildSidebar(){
     if(!canModule(m.key)) return;
     h+=`<div class="sb-item ${state.view===m.key?'active':''}" onclick="nav('${m.key}')"><span class="ic">${icon(m.ic)}</span>${m.name}</div>`;
   });
-  if(curCanManage()){
-    h+='<div class="sb-sect">설정</div>';
-    h+=`<div class="sb-item ${state.view==='accounts'?'active':''}" onclick="nav('accounts')"><span class="ic">${icon('perm')}</span>계정 관리</div>`;
-  }
+  h+='<div class="sb-sect">설정</div>';
+  if(curCanManage()) h+=`<div class="sb-item ${state.view==='accounts'?'active':''}" onclick="nav('accounts')"><span class="ic">${icon('perm')}</span>계정 관리</div>`;
+  h+=`<div class="sb-item" onclick="changeMyPw()"><span class="ic">${icon('perm')}</span>비밀번호 변경</div>`;
   $('sbNav').innerHTML=h;
 }
 function nav(v){ if(v==='wonmu') wonmuState.view='hub'; if(v==='chongmu' && typeof chongmuView!=='undefined') chongmuView='hub'; state.view=v; buildSidebar(); render(); window.scrollTo(0,0); closeSidebar(); }
@@ -1338,6 +1338,7 @@ function branchFilterChange(v){ bookState.branchId=v; bookState.sel=null; bookSt
 
 /* ---- Supabase 쓰기 ---- */
 async function addReservation(obj){
+  if(!curCanEdit()){ toast('뷰어 계정은 수정 권한이 없습니다','err'); return false; }
   try{
     const { data, error } = await sb.from('level_test_reservations').insert(obj).select();
     if(error) throw error;
@@ -1346,6 +1347,7 @@ async function addReservation(obj){
   }catch(e){ console.error('예약 저장 실패', e); toast('저장 실패: '+(e.message||e),'err'); return false; }
 }
 async function updateReservation(id,patch){
+  if(!curCanEdit()){ toast('뷰어 계정은 수정 권한이 없습니다','err'); return false; }
   try{
     const { data, error } = await sb.from('level_test_reservations').update(patch).eq('id',id).select();
     if(error) throw error;
@@ -1407,6 +1409,7 @@ async function confirmDelete(id){
   await deleteReservation(id, reason);
 }
 async function deleteReservation(id, reason){
+  if(!curCanEdit()){ toast('뷰어 계정은 삭제 권한이 없습니다','err'); return false; }
   const r=reservations.find(x=>x.id===id);
   try{
     // 1) 삭제 전에 로그부터 기록 (로그 실패 시 삭제 중단 — 기록 없는 삭제 방지)
@@ -1439,6 +1442,7 @@ function matchBranch(place){
   return hit?hit.id:null;
 }
 async function handleExcelFile(ev){
+  if(!curCanEdit()){ toast('뷰어 계정은 업로드 권한이 없습니다','err'); return; }
   const file=ev.target && ev.target.files && ev.target.files[0]; if(!file) return;
   if(typeof XLSX==='undefined'){ toast('엑셀 라이브러리를 불러오지 못했어요','err'); return; }
   toast('엑셀 읽는 중…');
@@ -1649,7 +1653,7 @@ function accListCard(){
       <div class="acc-u"><b>${esc(u.username)}</b>${u.teacherName?`<span class="acc-nm">${esc(u.teacherName)}</span>`:''}${brName?`<span class="acc-nm">${esc(brName)}</span>`:''}</div>
       <div><span class="acc-badge ${tierClass(u)}">${esc(lbl)}</span></div>
       <div class="acc-mn">${esc(capText(u))}</div>
-      <div class="acc-act">${isMe?`<button onclick="resetAccountPw('${u.id}')">내 비번</button>`:`<button onclick="openAccEdit('${u.id}')">편집</button>`}</div>
+      <div class="acc-act">${isMe?`<button onclick="resetAccountPw('${u.id}')">내 비번</button>`:`<button onclick="openAccEdit('${u.id}')">편집</button> <button onclick="delAccount('${u.id}')" style="color:var(--neg)">삭제</button>`}</div>
     </div>`;
   });
   h+=`</div>`;
@@ -1692,7 +1696,20 @@ async function resetAccountPw(id){
   try{ const { error }=await sb.from('users').update({password:np.trim()}).eq('id',id); if(error) throw error; await reloadUsers(); toast('비밀번호 변경됨 ✓'); }
   catch(e){ toast('변경 실패','err'); }
 }
-window.accSetMode=accSetMode; window.openAccEdit=openAccEdit; window.onTitleChange=onTitleChange; window.createAccount=createAccount; window.saveAccountEdit=saveAccountEdit; window.resetAccountPw=resetAccountPw;
+async function delAccount(id){
+  const u=(db.users||[]).find(x=>x.id===id); if(!u) return;
+  if(!confirm(`${u.username} 계정을 완전히 삭제할까요?\n되돌릴 수 없습니다. (임시 정지는 편집→재직 해제를 쓰세요)`)) return;
+  try{ const { error }=await sb.from('users').delete().eq('id',id); if(error) throw error; await reloadUsers(); toast('삭제됨'); renderAccounts($('content')); }
+  catch(e){ console.error(e); toast('삭제 실패: '+(e.message||''),'err'); }
+}
+async function changeMyPw(){
+  const u=curUser(); if(!u||!u.id){ toast('세션 확인 필요','err'); return; }
+  const np=prompt('새 비밀번호를 입력하세요:'); if(np==null) return;
+  if(!np.trim()){ toast('비밀번호를 입력하세요','err'); return; }
+  try{ const { error }=await sb.from('users').update({password:np.trim()}).eq('id',u.id); if(error) throw error; await reloadUsers(); toast('비밀번호가 변경되었습니다 ✓'); }
+  catch(e){ toast('변경 실패','err'); }
+}
+window.accSetMode=accSetMode; window.openAccEdit=openAccEdit; window.onTitleChange=onTitleChange; window.createAccount=createAccount; window.saveAccountEdit=saveAccountEdit; window.resetAccountPw=resetAccountPw; window.delAccount=delAccount; window.changeMyPw=changeMyPw;
 
 /* ---------- 토스트 ---------- */
 let tt; function toast(m,kind){ const t=$('toast'); t.textContent=m; t.className=(kind==='err'?'err ':'')+'show'; clearTimeout(tt); tt=setTimeout(()=>t.className='',1800); }
