@@ -945,10 +945,12 @@ function enterApp(){
   const cur = currentSemester();
   state.semId = db.semesters.some(s=>s.id===cur.id) ? cur.id : (db.semesters[0] ? db.semesters[0].id : null);
   buildShell();
- const home = session.role==='admin' ? '#/admin'
+ const _P=(session&&session.inwon)||{hyeon:1,stu:1,counsel:1,set:1};
+  const branchHome = _P.hyeon?'#/branch' : _P.stu?'#/students' : _P.counsel?'#/segments-edit' : _P.set?'#/data' : '#/branch';
+  const home = session.role==='admin' ? '#/admin'
     : session.role==='teacher' ? '#/myclasses'
     : session.role==='assistant' ? '#/start'
-    : '#/branch';
+    : branchHome;
   if(!location.hash || location.hash==='#' || location.hash==='#/'){
     location.hash = home;
   } else {
@@ -1031,23 +1033,18 @@ function buildShell(){
       <div class="sb-sect">조교</div>
       <div class="sb-item" data-nav="start">${I.stu}<span>STaRT 관리</span></div>`;
  } else {
-    nav.innerHTML = `
-      <div class="sb-sect">분원</div>
-      <div class="sb-item" data-nav="branch">${I.dash}<span>Dashboard</span></div>
-
+    const P = (session && session.inwon) || {hyeon:true,stu:true,counsel:true,set:true};   // 세부메뉴 권한
+    let nv='<div class="sb-sect">분원</div>';
+    if(P.hyeon){
+      nv+=`<div class="sb-item" data-nav="branch">${I.dash}<span>Dashboard</span></div>
       <div class="sb-sect">현황</div>
       <div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>
-      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>
-
-      <div class="sb-sect">학생</div>
-      <div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>
-
-      <div class="sb-sect">상담</div>
-      <div class="sb-item" data-nav="segments-edit">${I.seg}<span>세그먼트 공지</span></div>
-
-      <div class="sb-sect">설정</div>
-      <div class="sb-item" data-nav="teachers">${I.teach}<span>계정 관리</span></div>
-<div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;
+      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
+    }
+    if(P.stu) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
+    if(P.counsel) nv+=`<div class="sb-sect">상담</div><div class="sb-item" data-nav="segments-edit">${I.seg}<span>세그먼트 공지</span></div>`;
+    if(P.set) nv+=`<div class="sb-sect">설정</div><div class="sb-item" data-nav="teachers">${I.teach}<span>계정 관리</span></div><div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;
+    nav.innerHTML = nv;
   }
   nav.querySelectorAll('[data-nav]').forEach(it=>{
     it.onclick = ()=>{ closeSidebar(); go(it.dataset.nav); };

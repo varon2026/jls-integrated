@@ -197,13 +197,23 @@ function renderInwonNative(b){
 /* ---- 메인 렌더 (임베드·전체화면) — 인원현황 = 상담앱(로컬 사본)을 화면 꽉 채워 그대로 ---- */
 /* 같은 폴더 안 사본이라 같은 origin → 로그인 세션이 그대로 공유됨(자동 로그인, push 불필요) */
 const INWON_APP_URL = 'inwon-app/index.html';
+// 인원현황 세부메뉴(현황/학생/상담/설정) 권한 계산 → inwon-app에 전달
+function inwonSubPerms(){
+  const m = (typeof userMenus==='function'?userMenus():[]) || [];
+  const subs=['inwon.hyeon','inwon.stu','inwon.counsel','inwon.set'];
+  const hasAnySub = subs.some(s=>m.includes(s));
+  const full = (typeof isManagerUser==='function' && isManagerUser()) || (m.includes('inwon') && !hasAnySub);  // 관리자/미세지정없음 → 전체
+  const on = k => full || m.includes('inwon.'+k);
+  return { hyeon:on('hyeon'), stu:on('stu'), counsel:on('counsel'), set:on('set') };
+}
 function renderInwon(b){
   // ① 같은 origin이라 세션 공유 — 통합앱 로그인 정보를 상담앱 세션키에 심어두면 자동 로그인
   try{
     if(session) sessionStorage.setItem('jls_session_v1', JSON.stringify({
       userId:session.userId, username:session.username, role:session.role,
       branchId:session.branchId, teacherName:session.teacherName||null,
-      canEdit:(typeof curCanEdit==='function'?curCanEdit():true)   // 뷰어면 false → inwon-app 읽기전용
+      canEdit:(typeof curCanEdit==='function'?curCanEdit():true),   // 뷰어면 false → inwon-app 읽기전용
+      inwon: inwonSubPerms()                                        // 현황/학생/상담/설정 세부 권한
     }));
   }catch(e){}
   // ② 전체화면 오버레이 (바깥 통합 사이드바를 덮고 상담앱이 화면 전체)

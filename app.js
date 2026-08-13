@@ -162,7 +162,7 @@ function savePerms(p){ localStorage.setItem(PKEY,JSON.stringify(p)); }
 // 특정 역할의 모듈 레벨 (개별 저장 없으면 프리셋)
 function permOf(role){ const saved=loadPerms(); return saved[role] || ROLE_PRESET[role] || ROLE_PRESET.teacher; }
 /* ===== 계정별 메뉴 권한 (users.is_manager / users.menus) ===== */
-const ALL_MENUS=['dashboard','leveltest','inwon','chongmu','insa','unyoung'];
+const ALL_MENUS=['dashboard','leveltest','inwon','grading','chongmu','insa','unyoung'];
 const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황',chongmu:'총무',insa:'인사·서류',unyoung:'운영비'};
 /* ===== 직급(title) & 권한 프리셋 (계정 시스템 v2) ===== */
 // 메뉴 트리: 원무=레벨테스트/인원현황/시험채점, 인원현황 세부=현황/학생/상담/설정. 총무·인사·운영비는 통으로.
@@ -209,7 +209,7 @@ function userMenus(){
   // 명시 menus 없으면 기존 역할 프리셋에서 유도(하위호환)
   const p=ROLE_PRESET[session.role]||ROLE_PRESET.teacher; const out=[];
   if((p.dashboard||0)>0) out.push('dashboard');
-  if((p.wonmu||0)>0) out.push('leveltest','inwon');
+  if((p.wonmu||0)>0) out.push('leveltest','inwon','grading');
   if((p.chongmu||0)>0) out.push('chongmu');
   if((p.insa||0)>0) out.push('insa');
   if((p.unyoung||0)>0) out.push('unyoung');
@@ -218,7 +218,7 @@ function userMenus(){
 function hasMenu(k){ return userMenus().includes(k); }
 function canModule(moduleKey){
   if(moduleKey==='perm'||moduleKey==='accounts') return curCanManage();
-  if(moduleKey==='wonmu') return hasMenu('leveltest')||hasMenu('inwon');
+  if(moduleKey==='wonmu') return hasMenu('leveltest')||hasMenu('inwon')||hasMenu('grading');
   if(moduleKey==='chongmu') return hasMenu('chongmu')||hasMenu('unyoung');  // 운영비가 총무 안으로 흡수됨
   return hasMenu(moduleKey);
 }
@@ -556,8 +556,8 @@ function renderWonmuHub(b){
   h+=`<div class="hc-foot"><span class="l">현재 재원 ${fmt(hcTot.active)}명</span><span class="r"><span class="g">신규 +${hcTot.nw}</span> · 퇴원율 ${wdRate.toFixed(1)}%</span></div></div>`;
   }
 
-  // 시험채점 카드 (DT · AT · 내신모의고사)
-  if(hasMenu('leveltest')){
+  // 시험채점 카드 (DT · AT · 내신모의고사) — 레벨테스트/인원현황과 독립
+  if(hasMenu('grading')){
   h+=`<div class="hub-card" onclick="openExam()">
     <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>시험채점 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT · AT · 내신모의고사</span></h3><p>정답키로 반별 즉시 채점 · 분원별 진행률 · 엑셀 다운(큐앱)</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="hc-foot"><span class="l">답안 입력하면 즉시 O/X·점수</span><span class="r"><span class="b">분원별 진행률</span></span></div></div>`;
