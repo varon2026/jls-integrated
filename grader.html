@@ -165,7 +165,17 @@ const _L2N={A:'1',B:'2',C:'3',D:'4',E:'5','①':'1','②':'2','③':'3','④':'4
 const SANOTE='<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px solid var(--neg);background:var(--neg-s);border-radius:10px;font-weight:800;color:var(--neg);font-size:13px">🟥 빨간 네모칸(주관식)은 학생 답을 보고 <b>맞으면 1, 틀리면 0</b>을 입력하세요.</div>';
 function normA(v){v=String(v==null?'':v).trim().toUpperCase();return _L2N[v]||v;}
 function levelAlpha(cn){const m=String(cn||'').match(/^\s*\[?\s*([A-Za-z]+)/);return m?m[1].toUpperCase():'';}
-function levelCode(cn){const m=String(cn||'').match(/^\s*\[?\s*([A-Za-z0-9]+)/);return m?m[1].toUpperCase():'';}
+function levelCode(cn){
+  cn=String(cn||'');
+  const m=cn.match(/^\s*\[?\s*([A-Za-z]+)([0-9]*)/);
+  if(!m)return '';
+  const prefix=m[1].toUpperCase(), digit=m[2];
+  if(digit)return prefix+digit;                      // 대괄호에 숫자 있음(표준: [DSA1]) → 그대로
+  // 수원 케이스: 대괄호엔 숫자 없음([DSD]) → 본문(대괄호 밖)에서 '접두어+숫자' 찾기 (예: DSD2(1) → DSD2)
+  const body=cn.replace(/^\s*\[[^\]]*\]/,'');
+  const bm=body.match(new RegExp(prefix+'([0-9])','i'));
+  return bm?prefix+bm[1]:prefix;                     // 못 찾으면 접두어만(예: HB)
+}
 function isChess(cn){return /^(IS|DS|LS|MS)/.test(levelAlpha(cn));}
 function gradeKey(g){g=String(g||'').trim();let m;if(m=g.match(/중\s*등?\s*(\d)/))return '중'+m[1];if(m=g.match(/초\s*등?\s*(\d)/))return '초'+m[1];if(m=g.match(/고\s*(\d)/))return '고'+m[1];if(m=g.match(/^(\d)$/))return '초'+m[1];return g;}
 /* 내신모의고사 반 판정 — 반이름 기준(강한 표식만; 초6/중1은 일반 ACE반 이름에도 들어가 제외) */
