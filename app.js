@@ -1612,48 +1612,54 @@ function rosterTeacherNames(branchId){
   return [...set].filter(n=>!used.has(n)).sort((a,b)=>a.localeCompare(b));
 }
 // 메뉴 체크박스 트리
-/* 메뉴 체크박스(계층) — 상위만 보이고, 체크하면 하위가 펼쳐짐 */
-function menuHasChecked(node,S){ return node.sub && node.sub.some(c=>(c.k&&S.has(c.k))||menuHasChecked(c,S)); }
-function menuNodeHtml(node,S,depth){
-  const isGroup=!node.k;                          // 원무·총무 = 묶음(권한 아님)
-  const checked = node.k ? S.has(node.k) : false;
-  const kids=node.sub||[];
-  const expanded = checked || menuHasChecked(node,S);   // 하위에 체크된 게 있으면 펼침(편집 복원)
-  const box=`<input type="checkbox" ${node.k?`value="${node.k}"`:'data-group="1"'} ${(checked||(isGroup&&expanded))?'checked':''} onchange="mtoggle(this)">`;
-  const indent = depth? `margin-left:${depth*18}px;border-left:2px solid var(--line);padding-left:10px` : '';
-  let h=`<div class="mnode" style="${indent}${depth?';margin-top:2px':''}">`;
-  h+=`<label class="amchk" style="${depth?'':'font-weight:800'}">${box} ${esc(node.label)}${kids.length?' <span style="color:var(--ink-3);font-size:11px">▾</span>':''}</label>`;
-  if(kids.length){
-    h+=`<div class="mchildren" style="display:${expanded?'block':'none'};margin-top:2px">${kids.map(c=>menuNodeHtml(c,S,depth+1)).join('')}</div>`;
-  }
-  h+=`</div>`;
-  return h;
+/* 메뉴 권한(계층·가로) — 처음엔 상위 4개만, 누르면 그 아래가 가로로 펼쳐짐. 원무·총무는 묶음(권한 아님). */
+const MTREE_CSS=`<style>
+.mtree .mrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mtree .chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line,#e7e3f2);border-radius:10px;padding:7px 12px;font-size:13.5px;font-weight:700;color:var(--ink-1,#2f2b3a);background:#fff;cursor:pointer;user-select:none}
+.mtree .chip .bx{width:15px;height:15px;border:1.6px solid #cfc7e6;border-radius:4px;flex:none;position:relative}
+.mtree .chip.on{background:var(--soft,#f3f0fc);border-color:var(--brand,#7C5CFF);color:var(--brand,#7C5CFF)}
+.mtree .chip.on .bx{background:var(--brand,#7C5CFF);border-color:var(--brand,#7C5CFF)}
+.mtree .chip.on .bx::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.mtree .chip .arw{color:var(--ink-3,#9a94ad);font-size:11px;margin-left:1px}
+.mtree .mpanel{margin:8px 0 0 14px;padding:10px 12px;border-left:2.5px solid #e0d8f5;background:var(--surface-2,#faf9ff);border-radius:0 10px 10px 0}
+.mtree .mpanel .mpt{font-size:11.5px;font-weight:800;color:var(--brand,#7C5CFF);margin-bottom:8px}
+</style>`;
+function nodeExpanded(node,S){ return (node.k&&S.has(node.k)) || (node.sub&&node.sub.some(c=>nodeExpanded(c,S))); }
+function menuChip(node,S){
+  const isGroup=!node.k, hasKids=node.sub&&node.sub.length;
+  const checked = node.k?S.has(node.k):false;
+  const exp = hasKids && nodeExpanded(node,S);
+  const on = checked || (isGroup&&exp);
+  const pid = hasKids ? 'mp_'+(node.k||node.label) : '';
+  return `<label class="chip ${on?'on':''}"><input type="checkbox" ${node.k?`value="${node.k}"`:'data-group="1"'} ${on?'checked':''} ${pid?`data-panel="${pid}"`:''} onchange="mtoggle(this)" style="position:absolute;opacity:0;width:0;height:0"><span class="bx"></span>${esc(node.label)}${hasKids?' <span class="arw">▾</span>':''}</label>`;
 }
-function menuChkHtml(sel){
-  const S=new Set(sel||[]);
-  return `<div class="mtree" style="display:flex;flex-direction:column;gap:4px">${MENU_TREE.map(n=>menuNodeHtml(n,S,0)).join('')}</div>`;
+function menuRow(nodes,S){
+  const chips = nodes.map(n=>menuChip(n,S)).join('');
+  const panels = nodes.filter(n=>n.sub&&n.sub.length).map(n=>{
+    const pid='mp_'+(n.k||n.label);
+    return `<div class="mpanel" id="${pid}" style="display:${nodeExpanded(n,S)?'block':'none'}"><div class="mpt">${esc(n.label)}</div>${menuRow(n.sub,S)}</div>`;
+  }).join('');
+  return `<div class="mrow">${chips}</div>${panels}`;
 }
+function menuChkHtml(sel){ const S=new Set(sel||[]); return `${MTREE_CSS}<div class="mtree">${menuRow(MENU_TREE,S)}</div>`; }
 function mtoggle(cb){
-  const node=cb.closest('.mnode'); if(!node) return;
-  const kids=node.querySelector(':scope > .mchildren');
-  if(cb.checked){
-    if(kids) kids.style.display='block';   // 펼침
-    // 상위 부모도 자동 체크(접근권한 보장) + 펼침
-    let p=node.parentElement && node.parentElement.closest('.mnode');
-    while(p){ const pc=p.querySelector(':scope > label input[type=checkbox]'); if(pc){ if(!pc.checked)pc.checked=true; } const pk=p.querySelector(':scope > .mchildren'); if(pk)pk.style.display='block'; p=p.parentElement && p.parentElement.closest('.mnode'); }
-  } else if(kids){
-    kids.style.display='none';              // 접힘 + 하위 권한 해제
-    kids.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false);
+  const chip=cb.closest('.chip'); if(chip) chip.classList.toggle('on', cb.checked);
+  const pid=cb.dataset.panel;
+  if(pid){ const panel=document.getElementById(pid);
+    if(panel){ panel.style.display=cb.checked?'block':'none';
+      if(!cb.checked){ panel.querySelectorAll('input[type=checkbox]').forEach(c=>{ c.checked=false; const cl=c.closest('.chip'); if(cl)cl.classList.remove('on'); if(c.dataset.panel){ const pp=document.getElementById(c.dataset.panel); if(pp)pp.style.display='none'; } }); }
+    }
+  }
+  if(cb.checked){ let panel=cb.closest('.mpanel');   // 하위 체크 시 상위(원무·인원현황) 자동 켜기
+    while(panel){ const op=document.querySelector('input[data-panel="'+panel.id+'"]'); if(op&&!op.checked){ op.checked=true; const ol=op.closest('.chip'); if(ol)ol.classList.add('on'); } panel=panel.parentElement&&panel.parentElement.closest('.mpanel'); }
   }
 }
 function readMenuChk(){ const a=[]; document.querySelectorAll('#acMenus input[type=checkbox]').forEach(b=>{ if(b.checked && !b.dataset.group && b.value) a.push(b.value); });
   if(a.some(k=>k.indexOf('inwon.')===0) && a.indexOf('inwon')<0) a.push('inwon');   // 세부 있으면 인원현황 접근권한 보장
   return a; }
-// 직급 바꾸면 프리셋 반영(트리 다시 그림 → 펼침 상태도 자동) + BM 수정토글 표시
+// 직급 바꿔도 메뉴는 자동 체크 안 함(사람이 직접 선택) — 수정토글만 반영
 function onTitleChange(){
   const tk=$('acTitle')?$('acTitle').value:''; const T=TITLE_MAP[tk]||{};
-  const host=$('acMenus'); const row=host?host.querySelector('.amrow'):null;
-  if(row) row.innerHTML=menuChkHtml(titlePresetMenus(tk));
   const et=$('acEditWrap'); if(et) et.style.display=T.editToggle?'flex':'none';
 }
 function renderAccounts(c){
