@@ -15,8 +15,20 @@ const SEASONS = [
 function seasonOfMonth(m){ return SEASONS.find(s=> s.months.includes(m)); }
 /* 특정 날짜(Date)가 속한 학기 → {id, name, year, key} */
 function semesterOfDate(d){
-  let year = d.getFullYear();
   const month = d.getMonth()+1;
+  const day = d.getDate();
+  // 학사일정이 밀려 학기 마지막 달의 마지막 주(약 7일)에 다음 학기 수업이 시작하는 경우:
+  // 그 날짜는 다음 학기로 귀속시킨다. (예: 반시작일 8/28 → 여름 아닌 가을)
+  const SEASON_LAST_MONTH = { winter:2, spring:5, summer:8, fall:11 };
+  const season0 = seasonOfMonth(month);
+  if(SEASON_LAST_MONTH[season0.key] === month){
+    const lastDay = new Date(d.getFullYear(), month, 0).getDate(); // 해당 달 말일
+    if(day >= lastDay - 6){ // 마지막 7일
+      // 다음 달 1일로 이동시켜 다음 학기로 재판별 (month는 1-based → new Date의 0-based로 넣으면 다음 달)
+      return semesterOfDate(new Date(d.getFullYear(), month, 1));
+    }
+  }
+  let year = d.getFullYear();
   const season = seasonOfMonth(month);
   if(season.key==='winter' && (month===1 || month===2)) year -= 1; // 1~2월은 직전 해 겨울(2026.01 → 25-26겨울 = sem_2025_winter)
   return { id:`sem_${year}_${season.key}`, name:winterAwareName(year, season), year, key:season.key };
