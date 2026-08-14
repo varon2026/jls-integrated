@@ -1103,10 +1103,23 @@ function openExam(){
   let ov=document.getElementById('examOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='examOverlay'; document.body.appendChild(ov); }
   ov.className='lt-overlay';
-  ov.innerHTML='<div class="lt-ov-bar"><button class="lt-ov-close" onclick="closeExam()">‹ 닫기</button><span class="lt-ov-title">시험채점</span></div><iframe class="lt-ov-frame" src="grader.html?'+_gq+'" title="시험채점"></iframe>';
+  // 인원현황·교재관리와 동일한 형태의 상단바: ‹ 원무 홈 (이전페이지로) · 제목 · 새 탭으로 열기
+  ov.innerHTML='<div class="lt-ov-bar">'
+    +'<button class="lt-ov-close" onclick="examBack()">‹ 원무 홈</button>'
+    +'<span class="lt-ov-title">시험채점</span>'
+    +'<a class="lt-ov-open" href="grader.html?'+_gq+'" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px;font-weight:700;color:#8b6ee8;text-decoration:none">새 탭으로 열기 ↗</a>'
+    +'</div>'
+    +'<iframe class="lt-ov-frame" src="grader.html?'+_gq+'" title="시험채점" allow="clipboard-write"></iframe>';
   document.body.style.overflow='hidden';
 }
 function closeExam(){ const ov=document.getElementById('examOverlay'); if(ov) ov.remove(); document.body.style.overflow=''; }
+/* 시험채점 상단바 '‹ 원무 홈' — 오버레이 닫고 원무 홈(허브)으로 복귀 (인원현황/교재관리와 동일한 동작) */
+function examBack(){
+  closeExam();
+  state.view='wonmu'; wonmuState.view='hub';
+  if(typeof buildSidebar==='function') buildSidebar();
+  render(); window.scrollTo(0,0);
+}
 
 /* ---------- 레벨테스트 채점/열람 오버레이 (leveltest/ 미니앱을 iframe으로) ---------- */
 function ltOverlay(src){
@@ -1805,7 +1818,7 @@ window.wonmuGo=wonmuGo; window.ltSetPeriod=ltSetPeriod; window.ltSetFilter=ltSet
 window.ltSetTab=ltSetTab; window.anSetBranch=anSetBranch; window.anSetType=anSetType; window.anSetPeriod=anSetPeriod; window.anSetGrade=anSetGrade; window.anExportCsv=anExportCsv; window.anExamPg=anExamPg; window.anLevelPg=anLevelPg; window.anListPg=anListPg;
 window.ltSetGrade=ltSetGrade; window.ltTip=ltTip; window.ltTipHide=ltTipHide; window.ltTipPage=ltTipPage;
 window.openScoreTest=openScoreTest; window.openScoreView=openScoreView; window.closeLevelTest=closeLevelTest; window.openResInCalendar=openResInCalendar;
-window.openExam=openExam; window.closeExam=closeExam;
+window.openExam=openExam; window.closeExam=closeExam; window.examBack=examBack;
 window.openSms=openSms; window.smsSetExam=smsSetExam; window.smsToggleFree=smsToggleFree; window.closeSms=closeSms; window.copySms=copySms;
 window.addEventListener('message', async (e)=>{
   if(e.data && e.data.type==='lt-saved'){
