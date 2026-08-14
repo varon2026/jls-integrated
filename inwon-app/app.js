@@ -329,7 +329,7 @@ function clearSession(){ session=null; sessionStorage.removeItem(SESSION_KEY); }
    구버전 키(inwon.hyeon/stu/counsel/set)도 새 6종으로 매핑(하위호환). */
 function inwonPermsFromMenus(menusArr){
   let s; try{ s=new Set(Array.isArray(menusArr)?menusArr:JSON.parse(menusArr||'[]')); }catch(e){ s=new Set(); }
-  const NEW=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.accounts','inwon.data'];
+  const NEW=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.data'];
   const OLD=['inwon.hyeon','inwon.stu','inwon.counsel','inwon.set'];
   if(!NEW.some(k=>s.has(k)) && !OLD.some(k=>s.has(k))) return null;   // 세부지정 없음 → 전체 허용
   return {
@@ -337,7 +337,6 @@ function inwonPermsFromMenus(menusArr){
     closing:  s.has('inwon.closing')  || s.has('inwon.hyeon'),
     students: s.has('inwon.students') || s.has('inwon.stu'),
     segments: s.has('inwon.segments') || s.has('inwon.counsel'),
-    accounts: s.has('inwon.accounts') || s.has('inwon.set'),
     data:     s.has('inwon.data')     || s.has('inwon.set'),
   };
 }
@@ -346,7 +345,7 @@ function curInwonPerms(){
   const u=(db.users||[]).find(x=> session && (x.id===session.userId || x.username===session.username));
   return inwonPermsFromMenus(u && u.menus);
 }
-const INWON_PALL={roster:1,closing:1,students:1,segments:1,accounts:1,data:1};
+const INWON_PALL={roster:1,closing:1,students:1,segments:1,data:1};
 
 /* ============================================================================
    2. (시드 함수 제거됨 — 분원·계정·학기는 Supabase에서 관리)
@@ -1053,8 +1052,7 @@ function buildShell(){
       <div class="sb-sect">관리</div>
       <div class="sb-item" data-nav="admin">${I.dash}<span>통합 대시보드</span></div>
       <div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>
-      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>
-      <div class="sb-item" data-nav="accounts">${I.acct}<span>분원 계정 관리</span></div>`;
+      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
 } else if(isTeacher){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
@@ -1077,10 +1075,8 @@ function buildShell(){
     }
     if(P.students) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
     if(P.segments) nv+=`<div class="sb-sect">상담</div><div class="sb-item" data-nav="segments-edit">${I.seg}<span>세그먼트 공지</span></div>`;
-    if(P.accounts||P.data){
-      nv+=`<div class="sb-sect">설정</div>`;
-      if(P.accounts) nv+=`<div class="sb-item" data-nav="teachers">${I.teach}<span>계정 관리</span></div>`;
-      if(P.data)     nv+=`<div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;
+    if(P.data){
+      nv+=`<div class="sb-sect">설정</div><div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;
     }
     nav.innerHTML = nv;
   }

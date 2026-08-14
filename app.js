@@ -176,7 +176,6 @@ const MENU_TREE=[
       {k:'inwon.closing', label:'인원마감표'},
       {k:'inwon.students',label:'학생관리'},
       {k:'inwon.segments',label:'세그먼트공지'},
-      {k:'inwon.accounts',label:'계정관리'},
       {k:'inwon.data',    label:'데이터관리'},
     ]},
     {k:'grading',label:'시험채점'},
@@ -187,7 +186,7 @@ const MENU_TREE=[
   ]},
   {k:'insa',label:'인사'},
 ];
-const INWON_SUBS=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.accounts','inwon.data'];
+const INWON_SUBS=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.data'];
 const VIEW_ALL=['dashboard','leveltest','inwon',...INWON_SUBS,'grading','chongmu','insa','unyoung'];
 // 직급 목록 (tier: hq본사/branch분원/teacher담임)
 const TITLES=[
