@@ -1657,9 +1657,10 @@ function mtoggle(cb){
 function readMenuChk(){ const a=[]; document.querySelectorAll('#acMenus input[type=checkbox]').forEach(b=>{ if(b.checked && !b.dataset.group && b.value) a.push(b.value); });
   if(a.some(k=>k.indexOf('inwon.')===0) && a.indexOf('inwon')<0) a.push('inwon');   // 세부 있으면 인원현황 접근권한 보장
   return a; }
-// 직급 바꿔도 메뉴는 자동 체크 안 함(사람이 직접 선택) — 수정토글만 반영
+// 직급 바꿔도 메뉴는 자동 체크 안 함(사람이 직접 선택). 단, 담임은 시험채점만 자동 체크.
 function onTitleChange(){
   const tk=$('acTitle')?$('acTitle').value:''; const T=TITLE_MAP[tk]||{};
+  if(tk==='teacher'){ const host=$('acMenus'); const row=host&&host.querySelector('.amrow'); if(row) row.innerHTML=menuChkHtml(['grading']); }
   const et=$('acEditWrap'); if(et) et.style.display=T.editToggle?'flex':'none';
 }
 function renderAccounts(c){
