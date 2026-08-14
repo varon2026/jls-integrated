@@ -163,19 +163,32 @@ function savePerms(p){ localStorage.setItem(PKEY,JSON.stringify(p)); }
 function permOf(role){ const saved=loadPerms(); return saved[role] || ROLE_PRESET[role] || ROLE_PRESET.teacher; }
 /* ===== 계정별 메뉴 권한 (users.is_manager / users.menus) ===== */
 const ALL_MENUS=['dashboard','leveltest','inwon','grading','chongmu','insa','unyoung'];
-const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황',chongmu:'총무',insa:'인사·서류',unyoung:'운영비'};
+const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황','inwon.roster':'신규·퇴원명단','inwon.closing':'인원마감표','inwon.students':'학생관리','inwon.segments':'세그먼트공지','inwon.accounts':'계정관리','inwon.data':'데이터관리',grading:'시험채점',chongmu:'교재관리',insa:'인사',unyoung:'운영비'};
 /* ===== 직급(title) & 권한 프리셋 (계정 시스템 v2) ===== */
-// 메뉴 트리: 원무=레벨테스트/인원현황/시험채점, 인원현황 세부=현황/학생/상담/설정. 총무·인사·운영비는 통으로.
+// 메뉴 트리(계층): 대시보드 / 원무[레벨테스트·인원현황(6세부)·시험채점] / 총무[교재관리·운영비] / 인사
+// 원무·총무는 k 없는 '묶음'(권한 아님, 접기/펴기만). 실제 권한은 그 밑 항목들.
 const MENU_TREE=[
   {k:'dashboard',label:'대시보드'},
-  {k:'leveltest',label:'레벨테스트'},
-  {k:'inwon',label:'인원현황',sub:[{k:'inwon.hyeon',label:'현황'},{k:'inwon.stu',label:'학생'},{k:'inwon.counsel',label:'상담'},{k:'inwon.set',label:'설정'}]},
-  {k:'grading',label:'시험채점'},
-  {k:'chongmu',label:'총무'},
-  {k:'insa',label:'인사·서류'},
-  {k:'unyoung',label:'운영비'},
+  {label:'원무',sub:[
+    {k:'leveltest',label:'레벨테스트'},
+    {k:'inwon',label:'인원현황',sub:[
+      {k:'inwon.roster',  label:'신규·퇴원명단'},
+      {k:'inwon.closing', label:'인원마감표'},
+      {k:'inwon.students',label:'학생관리'},
+      {k:'inwon.segments',label:'세그먼트공지'},
+      {k:'inwon.accounts',label:'계정관리'},
+      {k:'inwon.data',    label:'데이터관리'},
+    ]},
+    {k:'grading',label:'시험채점'},
+  ]},
+  {label:'총무',sub:[
+    {k:'chongmu',label:'교재관리'},
+    {k:'unyoung',label:'운영비'},
+  ]},
+  {k:'insa',label:'인사'},
 ];
-const VIEW_ALL=['dashboard','leveltest','inwon','inwon.hyeon','inwon.stu','inwon.counsel','inwon.set','grading','chongmu','insa','unyoung'];
+const INWON_SUBS=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.accounts','inwon.data'];
+const VIEW_ALL=['dashboard','leveltest','inwon',...INWON_SUBS,'grading','chongmu','insa','unyoung'];
 // 직급 목록 (tier: hq본사/branch분원/teacher담임)
 const TITLES=[
   {k:'branch_acct', label:'분원관리자',      tier:'branch',  edit:true,  manage:true},
@@ -1600,20 +1613,48 @@ function rosterTeacherNames(branchId){
   return [...set].filter(n=>!used.has(n)).sort((a,b)=>a.localeCompare(b));
 }
 // 메뉴 체크박스 트리
+/* 메뉴 체크박스(계층) — 상위만 보이고, 체크하면 하위가 펼쳐짐 */
+function menuHasChecked(node,S){ return node.sub && node.sub.some(c=>(c.k&&S.has(c.k))||menuHasChecked(c,S)); }
+function menuNodeHtml(node,S,depth){
+  const isGroup=!node.k;                          // 원무·총무 = 묶음(권한 아님)
+  const checked = node.k ? S.has(node.k) : false;
+  const kids=node.sub||[];
+  const expanded = checked || menuHasChecked(node,S);   // 하위에 체크된 게 있으면 펼침(편집 복원)
+  const box=`<input type="checkbox" ${node.k?`value="${node.k}"`:'data-group="1"'} ${(checked||(isGroup&&expanded))?'checked':''} onchange="mtoggle(this)">`;
+  const indent = depth? `margin-left:${depth*18}px;border-left:2px solid var(--line);padding-left:10px` : '';
+  let h=`<div class="mnode" style="${indent}${depth?';margin-top:2px':''}">`;
+  h+=`<label class="amchk" style="${depth?'':'font-weight:800'}">${box} ${esc(node.label)}${kids.length?' <span style="color:var(--ink-3);font-size:11px">▾</span>':''}</label>`;
+  if(kids.length){
+    h+=`<div class="mchildren" style="display:${expanded?'block':'none'};margin-top:2px">${kids.map(c=>menuNodeHtml(c,S,depth+1)).join('')}</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
 function menuChkHtml(sel){
   const S=new Set(sel||[]);
-  return MENU_TREE.map(m=>{
-    let row=`<label class="amchk"><input type="checkbox" value="${m.k}" ${S.has(m.k)?'checked':''}>${m.label}</label>`;
-    if(m.sub) row+=`<span style="display:inline-flex;gap:6px;margin-left:6px;padding-left:8px;border-left:2px solid var(--line)">${m.sub.map(s=>`<label class="amchk" style="opacity:.9"><input type="checkbox" value="${s.k}" ${S.has(s.k)?'checked':''}>${s.label}</label>`).join('')}</span>`;
-    return row;
-  }).join('');
+  return `<div class="mtree" style="display:flex;flex-direction:column;gap:4px">${MENU_TREE.map(n=>menuNodeHtml(n,S,0)).join('')}</div>`;
 }
-function readMenuChk(){ const a=[]; document.querySelectorAll('#acMenus input[type=checkbox]').forEach(b=>{ if(b.checked) a.push(b.value); }); return a; }
-// 직급 바꾸면 프리셋 반영 + BM 수정토글 표시
+function mtoggle(cb){
+  const node=cb.closest('.mnode'); if(!node) return;
+  const kids=node.querySelector(':scope > .mchildren');
+  if(cb.checked){
+    if(kids) kids.style.display='block';   // 펼침
+    // 상위 부모도 자동 체크(접근권한 보장) + 펼침
+    let p=node.parentElement && node.parentElement.closest('.mnode');
+    while(p){ const pc=p.querySelector(':scope > label input[type=checkbox]'); if(pc){ if(!pc.checked)pc.checked=true; } const pk=p.querySelector(':scope > .mchildren'); if(pk)pk.style.display='block'; p=p.parentElement && p.parentElement.closest('.mnode'); }
+  } else if(kids){
+    kids.style.display='none';              // 접힘 + 하위 권한 해제
+    kids.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false);
+  }
+}
+function readMenuChk(){ const a=[]; document.querySelectorAll('#acMenus input[type=checkbox]').forEach(b=>{ if(b.checked && !b.dataset.group && b.value) a.push(b.value); });
+  if(a.some(k=>k.indexOf('inwon.')===0) && a.indexOf('inwon')<0) a.push('inwon');   // 세부 있으면 인원현황 접근권한 보장
+  return a; }
+// 직급 바꾸면 프리셋 반영(트리 다시 그림 → 펼침 상태도 자동) + BM 수정토글 표시
 function onTitleChange(){
   const tk=$('acTitle')?$('acTitle').value:''; const T=TITLE_MAP[tk]||{};
-  const S=new Set(titlePresetMenus(tk));
-  document.querySelectorAll('#acMenus input[type=checkbox]').forEach(b=>{ b.checked=S.has(b.value); });
+  const host=$('acMenus'); const row=host?host.querySelector('.amrow'):null;
+  if(row) row.innerHTML=menuChkHtml(titlePresetMenus(tk));
   const et=$('acEditWrap'); if(et) et.style.display=T.editToggle?'flex':'none';
 }
 function renderAccounts(c){

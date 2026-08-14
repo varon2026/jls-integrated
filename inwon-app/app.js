@@ -180,7 +180,7 @@ const TABLES = [
   { key:'branches',           table:'branches',             toRow:b=>({id:b.id,name:b.name}),
     fromRow:r=>({id:r.id,name:r.name}) },
 { key:'users', table:'users', toRow:u=>({id:u.id,username:u.username,password:u.password,role:u.role,branch_id:u.branchId,teacher_name:u.teacherName||null}),
-    fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name}) },
+    fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,menus:r.menus}) },
   { key:'semesters',          table:'semesters',            toRow:s=>({id:s.id,name:s.name}),
     fromRow:r=>({id:r.id,name:r.name}) },
   { key:'students',           table:'students',             toRow:s=>({id:s.id,code:s.code,name:s.name,school:s.school,grade:s.grade}),
@@ -325,6 +325,28 @@ let session = null;
 function loadSession(){ try{ session = JSON.parse(sessionStorage.getItem(SESSION_KEY)); }catch(e){ session=null; } }
 function setSession(s){ session = s; sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
 function clearSession(){ session=null; sessionStorage.removeItem(SESSION_KEY); }
+/* menus 배열 → 인원현황 세부권한 6종. 세부 지정이 전혀 없으면 null(=전체 허용, 기존 동작 유지).
+   구버전 키(inwon.hyeon/stu/counsel/set)도 새 6종으로 매핑(하위호환). */
+function inwonPermsFromMenus(menusArr){
+  let s; try{ s=new Set(Array.isArray(menusArr)?menusArr:JSON.parse(menusArr||'[]')); }catch(e){ s=new Set(); }
+  const NEW=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.accounts','inwon.data'];
+  const OLD=['inwon.hyeon','inwon.stu','inwon.counsel','inwon.set'];
+  if(!NEW.some(k=>s.has(k)) && !OLD.some(k=>s.has(k))) return null;   // 세부지정 없음 → 전체 허용
+  return {
+    roster:   s.has('inwon.roster')   || s.has('inwon.hyeon'),
+    closing:  s.has('inwon.closing')  || s.has('inwon.hyeon'),
+    students: s.has('inwon.students') || s.has('inwon.stu'),
+    segments: s.has('inwon.segments') || s.has('inwon.counsel'),
+    accounts: s.has('inwon.accounts') || s.has('inwon.set'),
+    data:     s.has('inwon.data')     || s.has('inwon.set'),
+  };
+}
+/* 현재 로그인 계정의 인원현황 세부권한 (db.users의 menus에서 계산). null이면 전체 허용 */
+function curInwonPerms(){
+  const u=(db.users||[]).find(x=> session && (x.id===session.userId || x.username===session.username));
+  return inwonPermsFromMenus(u && u.menus);
+}
+const INWON_PALL={roster:1,closing:1,students:1,segments:1,accounts:1,data:1};
 
 /* ============================================================================
    2. (시드 함수 제거됨 — 분원·계정·학기는 Supabase에서 관리)
@@ -945,8 +967,8 @@ function enterApp(){
   const cur = currentSemester();
   state.semId = db.semesters.some(s=>s.id===cur.id) ? cur.id : (db.semesters[0] ? db.semesters[0].id : null);
   buildShell();
- const _P=(session&&session.inwon)||{hyeon:1,stu:1,counsel:1,set:1};
-  const branchHome = _P.hyeon?'#/branch' : _P.stu?'#/students' : _P.counsel?'#/segments-edit' : _P.set?'#/data' : '#/branch';
+ const _P=curInwonPerms()||INWON_PALL;
+  const branchHome = (_P.roster||_P.closing)?'#/branch' : _P.students?'#/students' : _P.segments?'#/segments-edit' : _P.data?'#/data' : '#/branch';
   const home = session.role==='admin' ? '#/admin'
     : session.role==='teacher' ? '#/myclasses'
     : session.role==='assistant' ? '#/start'
@@ -1045,17 +1067,21 @@ function buildShell(){
       <div class="sb-sect">조교</div>
       <div class="sb-item" data-nav="start">${I.stu}<span>STaRT 관리</span></div>`;
  } else {
-    const P = (session && session.inwon) || {hyeon:true,stu:true,counsel:true,set:true};   // 세부메뉴 권한
+    const P = curInwonPerms() || INWON_PALL;   // 세부메뉴 권한 (menus에서 계산, 없으면 전체)
     let nv='<div class="sb-sect">분원</div>';
-    if(P.hyeon){
+    if(P.roster||P.closing){
       nv+=`<div class="sb-item" data-nav="branch">${I.dash}<span>Dashboard</span></div>
-      <div class="sb-sect">현황</div>
-      <div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>
-      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
+      <div class="sb-sect">현황</div>`;
+      if(P.roster)  nv+=`<div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>`;
+      if(P.closing) nv+=`<div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
     }
-    if(P.stu) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
-    if(P.counsel) nv+=`<div class="sb-sect">상담</div><div class="sb-item" data-nav="segments-edit">${I.seg}<span>세그먼트 공지</span></div>`;
-    if(P.set) nv+=`<div class="sb-sect">설정</div><div class="sb-item" data-nav="teachers">${I.teach}<span>계정 관리</span></div><div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;
+    if(P.students) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
+    if(P.segments) nv+=`<div class="sb-sect">상담</div><div class="sb-item" data-nav="segments-edit">${I.seg}<span>세그먼트 공지</span></div>`;
+    if(P.accounts||P.data){
+      nv+=`<div class="sb-sect">설정</div>`;
+      if(P.accounts) nv+=`<div class="sb-item" data-nav="teachers">${I.teach}<span>계정 관리</span></div>`;
+      if(P.data)     nv+=`<div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;
+    }
     nav.innerHTML = nv;
   }
   nav.querySelectorAll('[data-nav]').forEach(it=>{
