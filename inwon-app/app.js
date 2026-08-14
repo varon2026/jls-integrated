@@ -1011,6 +1011,7 @@ function closeSidebar(){
    6. 앱 셸 (사이드바, 학기 선택)
    ============================================================================ */
 // 담임: 자기반 시험채점 열기 (grader 담임모드 · 자기반만 · 읽기전용)
+// 새 탭 대신 같은 화면 안에서 전체화면 오버레이로 열고, 상단에 '‹ 뒤로' 바 제공 (인원현황/교재관리와 동일한 방식)
 function openMyGrading(){
   const name = session.teacherName || '';
   if(!name){ toast('선생님 이름 정보가 없어 시험채점을 열 수 없어요','err'); return; }
@@ -1019,8 +1020,19 @@ function openMyGrading(){
     + '&sem='    + encodeURIComponent(state.semId||'')
     + '&teacher='+ encodeURIComponent(name)
     + '&user='   + encodeURIComponent(session.username||'');
-  window.open(url, '_blank');
+  let ov = document.getElementById('gradingOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id='gradingOverlay'; document.body.appendChild(ov); }
+  ov.setAttribute('style','position:fixed;inset:0;z-index:9000;background:#fff;display:flex;flex-direction:column');
+  ov.innerHTML =
+      '<div style="flex:0 0 46px;height:46px;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid #ece8f5;background:#faf8fe">'
+    +   '<button onclick="closeMyGrading()" style="border:1px solid #e3ddf2;background:#fff;color:#6b6385;font-weight:800;font-size:13px;padding:7px 14px;border-radius:9px;cursor:pointer;font-family:inherit">‹ 뒤로</button>'
+    +   '<span style="font-size:13px;font-weight:800;color:#2a2440">시험채점</span>'
+    +   '<a href="'+url+'" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px;font-weight:700;color:#8b6ee8;text-decoration:none">새 탭으로 열기 ↗</a>'
+    + '</div>'
+    + '<iframe src="'+url+'" title="시험채점" allow="clipboard-write" style="flex:1;width:100%;border:0;background:#fff"></iframe>';
+  document.body.style.overflow='hidden';
 }
+function closeMyGrading(){ const ov=document.getElementById('gradingOverlay'); if(ov) ov.remove(); document.body.style.overflow=''; }
 function buildShell(){
   const isAdmin = session.role==='admin';
   const isTeacher = session.role==='teacher';
