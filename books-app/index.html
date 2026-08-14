@@ -1619,7 +1619,7 @@ async function call(action,payload){
           '학생ID':r.student_id||'','학생명':r.student_name||'',
           '학기':r.semester||'','반':r.class_name||'',
           '합계':Number(r.total||0),'날짜':r.sale_date,
-          '입금상태':status,'입금액':paid,'메모':r.memo||'',
+          '입금상태':status,'교재입금상태':r.pay_status||'','입금액':paid,'메모':r.memo||'',
           '입금내역':pmtHistory[k]||[]
         };
       });
@@ -4426,20 +4426,26 @@ async function generateSmsAll(){
   data.forEach(function(r){
     var key=r['학생ID']||r['학생명'];
     if(!allByKey[key]) allByKey[key]={studentId:r['학생ID'],name:r['학생명'],class:r['반'],semester:r['학기'],rows:[],paid:Number(r['입금액']||0),status:r['입금상태']};
-    allByKey[key].rows.push({book:r['교재명'],amt:Number(r['합계']||0),date:r['날짜']||''});
+    allByKey[key].rows.push({book:r['교재명'],amt:Number(r['합계']||0),date:r['날짜']||'',statusDb:r['교재입금상태']||''});
     allByKey[key].paid=Number(r['입금액']||0);
     allByKey[key].status=r['입금상태'];
   });
   Object.values(allByKey).forEach(function(s){
-    // 날짜순 정렬 (오래된 순)
-    s.rows.sort(function(a,b){return a.date.localeCompare(b.date);});
-    // 입금액을 오래된 교재부터 차감
-    var remaining=s.paid;
+    // ① 개별적으로 이미 '완납' 처리된 교재는 문자에서 제외하고, 낸 돈(입금액)에서도 그만큼 차감
+    var paidBooksAmt=0;
+    var pending=[];
+    s.rows.forEach(function(row){
+      if(row.statusDb==='완납'){ paidBooksAmt+=row.amt; }
+      else { pending.push(row); }
+    });
+    // ② 남은 교재를 날짜순(오래된 순) 정렬 후, 남은 입금액을 오래된 교재부터 차감
+    pending.sort(function(a,b){return a.date.localeCompare(b.date);});
+    var remaining=Math.max(0, s.paid - paidBooksAmt);
     var unpaidBooks=[];
     var unpaidTotal=0;
-    s.rows.forEach(function(row){
+    pending.forEach(function(row){
       if(remaining>=row.amt){
-        remaining-=row.amt; // 이 교재는 완납 → 문자에서 제외
+        remaining-=row.amt; // 이 교재는 이미 납부됨 → 문자에서 제외
       } else {
         var paidPart=remaining;
         remaining=0;
