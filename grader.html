@@ -165,6 +165,10 @@ function toast(m,ok){const el=document.createElement('div');el.className='toast 
 const _L2N={A:'1',B:'2',C:'3',D:'4',E:'5','①':'1','②':'2','③':'3','④':'4','⑤':'5'};
 const SANOTE='<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px solid var(--neg);background:var(--neg-s);border-radius:10px;font-weight:800;color:var(--neg);font-size:13px">🟥 빨간 네모칸(주관식)은 학생 답을 보고 <b>맞으면 1, 틀리면 0</b>을 입력하세요.</div>';
 const SANOTE_ACE='<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px solid #e0a44c;background:#fff3d6;border-radius:10px;font-weight:800;color:#b7791f;font-size:13px">🟧 빨간 네모칸(주관식)은 <b>학생이 받은 점수</b>를 그대로 입력하세요. 예) 배점 2점 문항 → 정답 2, 부분점수 1, 오답 0 (0.5 같은 소수점도 가능).</div>';
+/* 점수 정렬 버튼 (체스·에이스 공용) — 현재 화면의 채점표를 총점 기준으로 정렬 */
+const SORTBTNS='<div class="sortbar" style="display:flex;gap:8px;align-items:center;margin:2px 2px 10px"><span class="hint">점수 정렬:</span><button class="ghost mini" onclick="sortScore(\'desc\')">▼ 높은순</button><button class="ghost mini" onclick="sortScore(\'asc\')">▲ 낮은순</button></div>';
+function rowScore(tr){const raw=(tr.dataset&&tr.dataset.total!=null&&tr.dataset.total!=='')?tr.dataset.total:(tr.querySelector('td.tot')?tr.querySelector('td.tot').textContent:'');if(raw===''||raw==null)return null;const v=parseFloat(raw);return isNaN(v)?null:v;}
+function sortScore(dir){const tb=document.querySelector('#gradeArea table.g tbody');if(!tb)return;const rows=[...tb.children];rows.sort((a,b)=>{const sa=rowScore(a),sb=rowScore(b);if(sa==null&&sb==null)return 0;if(sa==null)return 1;if(sb==null)return -1;/* 미채점은 항상 아래로 */return dir==='asc'?(sa-sb):(sb-sa);});rows.forEach(r=>tb.appendChild(r));}
 function normA(v){v=String(v==null?'':v).trim().toUpperCase();return _L2N[v]||v;}
 function levelAlpha(cn){const m=String(cn||'').match(/^\s*\[?\s*([A-Za-z]+)/);return m?m[1].toUpperCase():'';}
 function levelCode(cn){
@@ -498,6 +502,7 @@ function buildGrid(){
       <span><span class="lgbox" style="background:#fff;border:2px solid var(--neg)"></span>직접채점(1=맞음/0=틀림)</span>
       <span class="hint">방향키 ←→↑↓ 이동 · 점수 = 맞은 배점 ÷ 총 배점 × 100</span></div>
     ${ans.some(a=>a.type==='sa')?SANOTE:''}
+    ${SORTBTNS}
     <div class="gwrap"><table class="g"><thead><tr class="r1">${r1}</tr><tr class="r2">${r2}</tr></thead><tbody>${body}</tbody></table></div>`;
   loadSavedScores();
 }
@@ -709,6 +714,7 @@ function buildAceGrid(section){
       <span><span class="lgbox" style="background:#fff3d6;border:1px solid #e0a44c"></span>부분점수</span>
       <span class="hint">방향키 이동 · ${esc(section)} 50점 만점 · 세부영역별 점수는 [총점] 탭에서</span></div>
     ${ans.some(a=>a.type==='sa')?SANOTE_ACE:''}
+    ${SORTBTNS}
     <div class="gwrap"><table class="g"><thead><tr class="r1">${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function buildAceSummary(){return `<div id="aceSum" class="card"><div class="hint">총점 계산 중…</div></div>`;}
@@ -724,17 +730,30 @@ async function loadAceSummary(){
   const dSubs=[...new Set(dAns.map(a=>a.sub||'기타'))],gSubs=[...new Set(gAns.map(a=>a.sub||'기타'))];
   let rows='';
   studs.forEach(st=>{
-    const d=dBy[st.code]?computeAce(dBy[st.code].responses,dAns):null;
-    const g=gBy[st.code]?computeAce(gBy[st.code].responses,gAns):null;
-    const dsc=d?d.got:null,gsc=g?g.got:null,total=(dsc||0)+(gsc||0);
+    const dRec=dBy[st.code], gRec=gBy[st.code];
+    const d=dRec?computeAce(dRec.responses,dAns):null;
+    const g=gRec?computeAce(gRec.responses,gAns):null;
+    const dsc=d?d.got:null,gsc=g?g.got:null,total=Math.round(((dsc||0)+(gsc||0))*10)/10;
+    const graded=!!(d&&g);
+    // 재시험 정보 (독해·문법 각각의 회차 중 큰 값)
+    const dRound=dRec?+(dRec.round||'1'):1, gRound=gRec?+(gRec.round||'1'):1;
+    const maxRound=Math.max(dRound,gRound);
+    const dPrev=(dRec&&Array.isArray(dRec.prev_scores))?dRec.prev_scores:[];
+    const gPrev=(gRec&&Array.isArray(gRec.prev_scores))?gRec.prev_scores:[];
+    const isRetest=maxRound>1||dPrev.length>0||gPrev.length>0;
+    // 1차 총점 = 1차 독해 + 1차 문법 (해당 영역 재시험 안 봤으면 현재 점수가 곧 1차)
+    const d1=dPrev.length?dPrev[0]:dsc, g1=gPrev.length?gPrev[0]:gsc;
+    const first1=(d1!=null&&g1!=null)?Math.round(((d1||0)+(g1||0))*10)/10:null;
+    const badge=isRetest?`<div style="font-size:10px;font-weight:800;color:#fff;background:rgba(0,0,0,.2);border-radius:20px;padding:1px 7px;margin-top:3px;display:inline-block">🔁 재시험 ${maxRound}차</div>${first1!=null?`<div style="font-size:10.5px;font-weight:700;color:#efe9ff;margin-top:2px">1차 ${first1}점</div>`:''}`:'';
     const subCells=dSubs.map(s=>`<td class="sc">${d?(d.subG[s]||0):'-'}</td>`).join('')+gSubs.map(s=>`<td class="sc">${g?(g.subG[s]||0):'-'}</td>`).join('');
-    rows+=`<tr><td class="stu"><b>${esc(st.name)}</b><div class="c">${esc(st.school||'')} ${esc(gradeKey(st.grade)||'')} · ${esc(st.code||'')}</div></td>
+    rows+=`<tr${graded?` data-total="${total}"`:''}><td class="stu"><b>${esc(st.name)}</b><div class="c">${esc(st.school||'')} ${esc(gradeKey(st.grade)||'')} · ${esc(st.code||'')}</div></td>
       <td class="sc">${dsc==null?'<span style="color:var(--ink3)">미채점</span>':dsc}</td>
       <td class="sc">${gsc==null?'<span style="color:var(--ink3)">미채점</span>':gsc}</td>
-      <td class="sc" style="font-weight:800;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2))">${(d&&g)?total:'-'}</td>${subCells}</tr>`;
+      <td class="sc" style="font-weight:800;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2))">${graded?total:'-'}${badge}</td>${subCells}</tr>`;
   });
   const subHdr=dSubs.map(s=>`<th class="part">독해<br>${esc(s)}</th>`).join('')+gSubs.map(s=>`<th class="part">문법<br>${esc(s)}</th>`).join('');
   host.innerHTML=`<div class="lbl">총점 · 세부영역별 점수 <span style="font-weight:700;color:var(--ink3)">(독해 50 + 문법 50 = 100)</span></div>
+    ${SORTBTNS}
     <div class="gwrap"><table class="g"><thead><tr class="r1"><th class="stu">학생</th><th>독해<br>/50</th><th>문법<br>/50</th><th>총점<br>/100</th>${subHdr}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 async function saveAce(){
