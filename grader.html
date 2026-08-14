@@ -717,7 +717,10 @@ async function loadAceSummary(){
   const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const dAns=aceAns('독해'),gAns=aceAns('문법');
   let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT'));}catch(e){host.innerHTML='<div class="hint">불러오기 실패</div>';return;}
-  const dBy={},gBy={};(data||[]).forEach(r=>{if(r.key_name!==CURVARIANT||(r.round||'1')!=='1')return;if(r.section==='독해')dBy[r.student_code]=r;else if(r.section==='문법')gBy[r.student_code]=r;});
+  // 학생·영역별로 최신 회차(재시험 포함) 기록을 집계 — 재시험 본 학생이 총점에서 빠지지 않도록
+  const dBy={},gBy={};(data||[]).forEach(r=>{if(r.key_name!==CURVARIANT)return;const map=r.section==='독해'?dBy:(r.section==='문법'?gBy:null);if(!map)return;
+    const cur=map[r.student_code];const rn=+(r.round||'1'),cn=cur?+(cur.round||'1'):-1;
+    if(!cur||rn>cn||(rn===cn&&String(r.graded_at||'')>String(cur.graded_at||''))) map[r.student_code]=r;});
   const dSubs=[...new Set(dAns.map(a=>a.sub||'기타'))],gSubs=[...new Set(gAns.map(a=>a.sub||'기타'))];
   let rows='';
   studs.forEach(st=>{
