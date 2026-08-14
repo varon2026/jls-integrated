@@ -90,6 +90,7 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .g td.qcell.sa input{border:2px solid var(--neg);background:#fff;color:var(--neg)}
 .g td.qcell.sa input::placeholder{color:var(--neg);opacity:.45;font-weight:800}
 .g td.qcell.sa.ok input{background:var(--pos-s);border-color:var(--pos);color:var(--pos)}
+.g td.qcell.sa.partial input{background:#fff3d6;border-color:#e0a44c;color:#b7791f}
 .g td.sc{font-weight:800;color:var(--brand);background:#faf8ff;min-width:46px}
 .g td.tot{font-weight:800;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2));min-width:56px;width:58px;font-size:14px;position:sticky;right:78px;z-index:3}
 .g th.tot{position:sticky;right:78px;z-index:5;background:#f6f3fc}
@@ -163,6 +164,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 function toast(m,ok){const el=document.createElement('div');el.className='toast show'+(ok===false?' err':'');el.textContent=m;document.body.appendChild(el);setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),300);},2600);}
 const _L2N={A:'1',B:'2',C:'3',D:'4',E:'5','①':'1','②':'2','③':'3','④':'4','⑤':'5'};
 const SANOTE='<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px solid var(--neg);background:var(--neg-s);border-radius:10px;font-weight:800;color:var(--neg);font-size:13px">🟥 빨간 네모칸(주관식)은 학생 답을 보고 <b>맞으면 1, 틀리면 0</b>을 입력하세요.</div>';
+const SANOTE_ACE='<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px solid #e0a44c;background:#fff3d6;border-radius:10px;font-weight:800;color:#b7791f;font-size:13px">🟧 빨간 네모칸(주관식)은 <b>학생이 받은 점수</b>를 그대로 입력하세요. 예) 배점 2점 문항 → 정답 2, 부분점수 1, 오답 0 (0.5 같은 소수점도 가능).</div>';
 function normA(v){v=String(v==null?'':v).trim().toUpperCase();return _L2N[v]||v;}
 function levelAlpha(cn){const m=String(cn||'').match(/^\s*\[?\s*([A-Za-z]+)/);return m?m[1].toUpperCase():'';}
 function levelCode(cn){
@@ -630,15 +632,36 @@ function vLabel(v,base){const s=String(v);return (s.toUpperCase().startsWith(nor
 function aceAns(section){const k=keyOfLevel(CURVARIANT);return k?(k.answers||[]).filter(a=>(a.part||'')===section).sort((a,b)=>a.n-b.n):[];}
 function aceScoreRow(tr,ans){
   let got=0,tot=0;
-  ans.forEach(a=>{tot+=(a.pt||0);const td=tr.querySelector(`td.qcell[data-n="${a.n}"]`);if(!td)return;const inp=td.querySelector('input');const v=(inp?inp.value:'').trim();
-    td.classList.remove('ok','no');let ok=false;if(v!==''){ok=a.type==='sa'?(v==='1'):(normA(v)===normA(a.ans));td.classList.add(ok?'ok':'no');}if(ok)got+=(a.pt||0);});
+  ans.forEach(a=>{const pt=a.pt||0;tot+=pt;const td=tr.querySelector(`td.qcell[data-n="${a.n}"]`);if(!td)return;const inp=td.querySelector('input');const v=(inp?inp.value:'').trim();
+    td.classList.remove('ok','no','partial');
+    if(v===''){return;}
+    if(a.type==='sa'){ // ACE 주관식: 획득 점수 직접 입력(0~배점), 부분점수 허용
+      let num=parseFloat(v.replace(/[^0-9.]/g,''));if(isNaN(num))num=0;
+      const gain=Math.max(0,Math.min(pt,num));got+=gain;
+      td.classList.add(gain<=0?'no':(gain>=pt?'ok':'partial'));
+    }else{ // 객관식
+      const ok=(normA(v)===normA(a.ans));td.classList.add(ok?'ok':'no');if(ok)got+=pt;
+    }});
+  got=Math.round(got*10)/10;
   const t=tr.querySelector('td.tot');if(t)t.textContent=got;updateHist(tr);return{got,tot};
 }
 function onAceCell(inp){aceScoreRow(inp.closest('tr'),aceAns(CURTAB));}
 function computeAce(responses,ans){
-  const rmap={};(responses||[]).forEach(r=>rmap[r.n]=(r.ans||'').trim());
+  const rmap={};(responses||[]).forEach(r=>rmap[r.n]=r);
   let got=0;const subG={};
-  ans.forEach(a=>{const sub=a.sub||'기타';const v=rmap[a.n]||'';let ok=false;if(v!==''){ok=a.type==='sa'?(v==='1'):(normA(v)===normA(a.ans));}if(ok){got+=(a.pt||0);subG[sub]=(subG[sub]||0)+(a.pt||0);}});
+  ans.forEach(a=>{const sub=a.sub||'기타';const pt=a.pt||0;const rp=rmap[a.n];if(!rp)return;const v=String(rp.ans==null?'':rp.ans).trim();
+    let gain=0;
+    if(a.type==='sa'){
+      if(rp.p!=null){ // 신규 기록: 획득 점수(부분점수) 저장됨
+        let num=parseFloat(rp.p);if(isNaN(num))num=0;gain=Math.max(0,Math.min(pt,num));
+      }else if(v!==''){ // 구버전 기록: 1=정답(만점)/그외 0 (하위호환)
+        gain=(v==='1')?pt:0;
+      }
+    }else if(v!==''){ // 객관식
+      gain=(normA(v)===normA(a.ans))?pt:0;
+    }
+    if(gain>0){got+=gain;subG[sub]=(subG[sub]||0)+gain;}});
+  got=Math.round(got*10)/10;Object.keys(subG).forEach(k=>subG[k]=Math.round(subG[k]*10)/10);
   return{got,subG};
 }
 function pickVariant(v){CURVARIANT=v;buildAceArea();}
@@ -670,21 +693,22 @@ function buildAceGrid(section){
   const ans=aceAns(section);
   if(!ans.length)return `<div class="card"><div class="hint">${esc(section)} 정답키가 없어요. 정답등록에서 ${esc(section)} 파일을 올려주세요.</div></div>`;
   let head=`<th class="stu">학생</th>`;
-  ans.forEach(a=>{head+=`<th>${a.n}${a.type==='sa'?'<span class="saq">1/0</span>':''}</th>`;});
+  ans.forEach(a=>{head+=`<th>${a.n}${a.type==='sa'?`<span class="saq">/${a.pt||2}</span>`:''}</th>`;});
   head+=`<th class="tot">최종<br>/50</th><th class="act">재시험</th>`;
   const cols=ans.length;let body='';
   studs.forEach((r,ri)=>{
     let cells=`<td class="stu"><b>${esc(r.name)}</b><div class="c">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
-    ans.forEach((a,ci)=>{cells+=`<td class="qcell${a.type==='sa'?' sa':''}" data-n="${a.n}"><input inputmode="numeric" maxlength="1" ${a.type==='sa'?'placeholder="1/0"':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${a.type==='sa'?'주관식: 맞으면 1, 틀리면 0 입력':'객관식: 1~5'}" oninput="onAceCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
+    ans.forEach((a,ci)=>{const sa=a.type==='sa';cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="${sa?'decimal':'numeric'}" ${sa?'':'maxlength="1"'} ${sa?`placeholder="0~${a.pt||2}"`:''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?`주관식: 획득 점수 입력 (0~${a.pt||2}, 부분점수 가능)`:'객관식: 1~5'}" oninput="onAceCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
     cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini" onclick="retest(this)">재시험</button></td>`;
     body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   return `<div class="legend">
       <span><span class="lgbox" style="background:var(--pos-s);border:1px solid #9dd9bd"></span>정답</span>
       <span><span class="lgbox" style="background:var(--neg-s);border:1px solid #f0b6b8"></span>오답</span>
-      <span><span class="lgbox" style="background:#fff;border:2px solid var(--neg)"></span>직접채점(1/0)</span>
+      <span><span class="lgbox" style="background:#fff;border:2px solid var(--neg)"></span>직접채점(획득점수)</span>
+      <span><span class="lgbox" style="background:#fff3d6;border:1px solid #e0a44c"></span>부분점수</span>
       <span class="hint">방향키 이동 · ${esc(section)} 50점 만점 · 세부영역별 점수는 [총점] 탭에서</span></div>
-    ${ans.some(a=>a.type==='sa')?SANOTE:''}
+    ${ans.some(a=>a.type==='sa')?SANOTE_ACE:''}
     <div class="gwrap"><table class="g"><thead><tr class="r1">${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function buildAceSummary(){return `<div id="aceSum" class="card"><div class="hint">총점 계산 중…</div></div>`;}
@@ -717,7 +741,7 @@ async function saveAce(){
   if(!trs.length){toast('입력된 학생이 없어요',false);return;}
   let ok=0;
   for(const tr of trs){
-    const s=aceScoreRow(tr,ans);const responses=ans.map(a=>{const td=tr.querySelector(`td.qcell[data-n="${a.n}"]`);return{n:a.n,ans:(td.querySelector('input').value||'').trim()};});
+    const s=aceScoreRow(tr,ans);const responses=ans.map(a=>{const td=tr.querySelector(`td.qcell[data-n="${a.n}"]`);const val=(td.querySelector('input').value||'').trim();const r={n:a.n,ans:val};if(a.type==='sa'){let num=parseFloat(val.replace(/[^0-9.]/g,''));if(isNaN(num))num=0;r.p=Math.max(0,Math.min(a.pt||0,num));}return r;});
     await sb.from('exam_scores').delete().eq('test_type','AT').eq('key_name',CURVARIANT).eq('section',section).eq('student_code',tr.dataset.code);
     const{error}=await sb.from('exam_scores').insert({key_name:CURVARIANT,section,semester:semName(SEM),test_type:'AT',branch:tr.dataset.branch,class_name:tr.dataset.class,student_name:tr.dataset.name,student_code:tr.dataset.code,responses,correct:0,num_q:ans.length,got_pt:s.got,total_pt:s.tot,score:s.got,graded_at:new Date().toISOString(),round:String(tr.dataset.attempt||'1'),prev_scores:JSON.parse(tr.dataset.prev||'[]')});
     if(error){toast('저장 실패: '+error.message,false);return;}ok++;
@@ -728,9 +752,13 @@ async function loadAceSaved(section){
   const ans=aceAns(section);if(!ans.length)return;
   let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT'));}catch(e){return;}
   const byCode={};(data||[]).forEach(r=>{if(r.key_name===CURVARIANT&&r.section===section)byCode[r.student_code]=r;});
+  const ansByN={};ans.forEach(a=>ansByN[a.n]=a);
   document.querySelectorAll('#aceContent tbody tr').forEach(tr=>{const rec=byCode[tr.dataset.code];if(!rec)return;
     tr.dataset.attempt=String(rec.round||'1');tr.dataset.prev=JSON.stringify(rec.prev_scores||[]);
-    (rec.responses||[]).forEach(rp=>{const td=tr.querySelector(`td.qcell[data-n="${rp.n}"]`);if(td){const i=td.querySelector('input');if(i)i.value=rp.ans||'';}});
+    (rec.responses||[]).forEach(rp=>{const td=tr.querySelector(`td.qcell[data-n="${rp.n}"]`);if(!td)return;const i=td.querySelector('input');if(!i)return;
+      const a=ansByN[rp.n];let val=rp.ans||'';
+      if(a&&a.type==='sa'){ if(rp.p!=null){ val=String(rp.p); } else if(val==='1'){ val=String(a.pt||2); } } // 구버전 만점 플래그 → 배점으로 변환
+      i.value=val;});
     aceScoreRow(tr,ans);});
 }
 
