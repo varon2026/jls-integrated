@@ -325,8 +325,19 @@ function renderDashHome(c){
   if(state.dashView==='mgmt') renderMgmtDash(body); else renderDashboard(body);
 }
 /* ---- 경영 분석: 학기→달력월 매핑 + 기간 필터 (기존 monthlyClosing 재사용) ---- */
-function mgScope(){ return session.role==='admin' ? null : session.branchId; }
-function mgBranchList(){ return session.role==='admin' ? db.branches : db.branches.filter(b=>b.id===session.branchId); }
+function mgScope(){ if(session.role!=='admin') return session.branchId; return (state.mgBranch && state.mgBranch!=='all') ? state.mgBranch : null; }
+function mgBranchList(){ const sc=mgScope(); if(sc) return db.branches.filter(b=>b.id===sc); return session.role==='admin' ? db.branches : db.branches.filter(b=>b.id===session.branchId); }
+function mgSetBranch(v){ state.mgBranch=v; render(); }
+/* 축 눈금 정리 — 500 등 깔끔한 단위로 (1·2·2.5·5 ×10ⁿ) */
+function mgNice(maxVal, targetTicks, unit){ targetTicks=targetTicks||5;
+  if(unit){ if(!(maxVal>0)) return {max:unit,step:unit}; let step=unit, max=Math.ceil(maxVal/step)*step; while(max/step>7){ step+=unit; max=Math.ceil(maxVal/step)*step; } return {max,step}; }
+  if(!(maxVal>0)) return {max:1,step:1};
+  const raw=maxVal/targetTicks; const mag=Math.pow(10,Math.floor(Math.log10(raw))); const norm=raw/mag;
+  const nn = norm<=1?1 : norm<=2?2 : norm<=2.5?2.5 : norm<=5?5 : 10;
+  const step=nn*mag; return { max:Math.ceil(maxVal/step)*step, step };
+}
+/* fromK~toK 사이 달력 월 목록 (yyyymm) */
+function mgEnumMonths(fromK,toK){ const out=[]; let y=Math.floor(fromK/100), m=fromK%100; while(y*100+m<=toK){ out.push(y*100+m); m++; if(m>12){m=1;y++;} } return out; }
 function semCalMonths(semId){
   const mm=String(semId).match(/sem_(\d+)_(\w+)/); if(!mm) return [];
   const y=+mm[1], s=mm[2];
@@ -357,9 +368,10 @@ function mgLt(fromK,toK){ const scope=mgScope(); const by={};
 function mgSvgLine(pts, valOf, opt){ opt=opt||{};
   if(!pts.length) return '<div style="color:#a9a2b6;font-size:13px;padding:34px 0;text-align:center">이 기간엔 데이터가 없어요</div>';
   const W=520,H=210,L=46,R=14,T=16,B=28, iw=W-L-R, ih=H-T-B;
-  const vals=pts.map(valOf); const max=opt.max||Math.max(1,Math.ceil(Math.max(...vals)*1.15)); const col=opt.color||'#2a78d6'; const n=pts.length;
+  const vals=pts.map(valOf); const col=opt.color||'#2a78d6'; const n=pts.length;
+  const nz=mgNice(Math.max(opt.floor||0, ...vals), 5, opt.unit); const max=nz.max, step=nz.step;
   const x=i=> n===1?L+iw/2 : L+iw*(i/(n-1)); const y=v=> T+ih*(1-v/max);
-  let g=''; for(let i=0;i<=4;i++){ const val=max*i/4, yy=y(val); g+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e1e0d9"/><text x="'+(L-8)+'" y="'+(yy+3)+'" font-size="10" fill="#898781" text-anchor="end">'+(opt.fmt?opt.fmt(val):Math.round(val))+'</text>'; }
+  let g=''; for(let val=0; val<=max+1e-9; val+=step){ const yy=y(val); g+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e1e0d9"/><text x="'+(L-8)+'" y="'+(yy+3)+'" font-size="10" fill="#898781" text-anchor="end">'+(opt.fmt?opt.fmt(val):Math.round(val))+'</text>'; }
   let d=''; vals.forEach((v,i)=>d+=(i?'L':'M')+x(i)+' '+y(v)+' ');
   let dots=''; pts.forEach((p,i)=>{ const v=vals[i]; dots+='<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3.4" fill="#fff" stroke="'+col+'" stroke-width="2"/>'
     +'<text x="'+x(i)+'" y="'+(y(v)-9)+'" font-size="9.5" font-weight="800" fill="'+col+'" text-anchor="middle">'+(opt.fmt?opt.fmt(v):v)+'</text>'
@@ -394,6 +406,7 @@ function renderMgmtDash(c){
     else if(allM.length){ state.mgFrom={y:allM[Math.max(0,allM.length-6)].y,m:allM[Math.max(0,allM.length-6)].m}; state.mgTo={y:allM[allM.length-1].y,m:allM[allM.length-1].m}; }
     else { const t=new Date(); state.mgFrom={y:t.getFullYear(),m:t.getMonth()+1}; state.mgTo={y:t.getFullYear(),m:t.getMonth()+1}; } }
   let fromK=mgKey(state.mgFrom), toK=mgKey(state.mgTo); if(fromK>toK){ const t=fromK; fromK=toK; toK=t; }
+  const monthsList=mgEnumMonths(fromK,toK); const capped=monthsList.length>12; if(capped) fromK=monthsList[monthsList.length-12];  // 최대 12개월
   const trend=mgTrend(fromK,toK), lt=mgLt(fromK,toK);
   const years=[...new Set(allM.map(o=>o.y))]; if(!years.length) years.push(new Date().getFullYear());
   const yOpt=(selY)=>years.map(y=>'<option value="'+y+'" '+(y===selY?'selected':'')+'>'+y+'</option>').join('');
@@ -404,7 +417,6 @@ function renderMgmtDash(c){
   const h3s='margin:0 0 2px;font-size:15px;font-weight:800;color:#3a3742';
   const css='font-size:12px;color:#a9a2b6;font-weight:600;margin-bottom:12px';
   const sels='background:#f6f3fc;border:1px solid #e2dcf2;border-radius:8px;padding:5px 8px;font:inherit;font-weight:700;color:#8b6ee8;cursor:pointer';
-  const maxRate=Math.max(6,Math.ceil(Math.max(1,...trend.map(p=>p.rate))*1.2));
   let html='';
   html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-size:13px;font-weight:700;color:#7b7488">'
     +'<span>기간</span>'
@@ -413,10 +425,12 @@ function renderMgmtDash(c){
     +'<span>~</span>'
     +'<select onchange="mgSetRange(\'toY\',this.value)" style="'+sels+'">'+yOpt(state.mgTo.y)+'</select>'
     +'<select onchange="mgSetRange(\'toM\',this.value)" style="'+sels+'">'+mOpt(state.mgTo.m)+'</select>'
+    +(session.role==='admin' ? '<span style="margin-left:8px">분원</span><select onchange="mgSetBranch(this.value)" style="'+sels+'"><option value="all" '+((!state.mgBranch||state.mgBranch==='all')?'selected':'')+'>전체</option>'+(db.branches||[]).map(b=>'<option value="'+b.id+'" '+(state.mgBranch===b.id?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '')
+    +(capped ? '<span style="color:#a9a2b6;font-weight:600;margin-left:6px">· 최대 12개월까지 표시</span>' : '')
     +'</div>';
   html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
-    +'<div style="'+card+'"><h3 style="'+h3s+'">재원 추이</h3><div style="'+css+'">월별 재원 수</div>'+mgSvgLine(trend,p=>p.reg,{color:'#2a78d6'})+'</div>'
-    +'<div style="'+card+'"><h3 style="'+h3s+'">퇴원율 추이</h3><div style="'+css+'">월별 퇴원율(%) · 낮을수록 좋음</div>'+mgSvgLine(trend,p=>Math.round(p.rate*10)/10,{color:'#d03b3b',max:maxRate,fmt:v=>v.toFixed(1)+'%'})+'</div>'
+    +'<div style="'+card+'"><h3 style="'+h3s+'">재원 추이</h3><div style="'+css+'">월별 재원 수</div>'+mgSvgLine(trend,p=>p.reg,{color:'#2a78d6',unit:500})+'</div>'
+    +'<div style="'+card+'"><h3 style="'+h3s+'">퇴원율 추이</h3><div style="'+css+'">월별 퇴원율(%) · 낮을수록 좋음</div>'+mgSvgLine(trend,p=>Math.round(p.rate*10)/10,{color:'#d03b3b',floor:6,fmt:v=>v.toFixed(1)+'%'})+'</div>'
     +'</div>';
   html+='<div style="'+card+'"><h3 style="'+h3s+'">레벨테스트 — 달별 예약 · 참석 · 등록</h3><div style="'+css+'">월별 전환 현황</div>'
     +'<div style="display:flex;gap:14px;margin-bottom:8px;font-size:11.5px;font-weight:700;color:#7b7488">'
@@ -1698,6 +1712,36 @@ function reloadBranches(){
     const t=TABLES.find(x=>x.key==='branches'); db.branches=(data||[]).map(t.fromRow);
   });
 }
+/* 분원 관리 카드 (어드민 전용) — 분원 목록 + 삭제 */
+function accBranchCard(){
+  if(session.role!=='admin') return '';
+  const rows=(db.branches||[]).map(b=>{
+    const nRec=(db.semesterRecords||[]).filter(r=>r.branchId===b.id).length;
+    const nUser=(db.users||[]).filter(u=>u.branchId===b.id).length;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px">
+      <div><b>${esc(b.name)}</b> <span style="color:var(--ink-3);font-size:12px">· 기록 ${nRec} · 계정 ${nUser}</span></div>
+      <button onclick="delBranch('${b.id}')" style="border:1px solid #f3cdcf;color:#d03b3b;background:#fff;border-radius:7px;padding:5px 13px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer">삭제</button>
+    </div>`;
+  }).join('');
+  return `<div class="acc-card"><div class="acc-h">분원 관리 <span style="font-weight:600;color:var(--ink-3);font-size:12px">— 어드민 전용 · 삭제는 되돌릴 수 없어요</span></div>${rows||'<div style="color:var(--ink-3);font-size:13px">분원이 없어요</div>'}</div>`;
+}
+async function delBranch(id){
+  if(session.role!=='admin'){ toast('권한이 없어요','err'); return; }
+  const b=(db.branches||[]).find(x=>x.id===id); if(!b) return;
+  const nRec=(db.semesterRecords||[]).filter(r=>r.branchId===id).length;
+  const nUser=(db.users||[]).filter(u=>u.branchId===id).length;
+  let msg='‘'+b.name+'’ 분원을 삭제할까요?';
+  if(nRec||nUser) msg+='\n\n⚠️ 이 분원에 학생 기록 '+nRec+'건, 계정 '+nUser+'개가 남아 있어요.\n분원만 삭제되고 그 데이터는 남습니다(소속 없는 데이터가 됨).\n정말 삭제하려면 확인을 누르세요.';
+  if(!confirm(msg)) return;
+  try{
+    const { error }=await sb.from('branches').delete().eq('id',id);
+    if(error) throw error;
+    await reloadBranches();
+    if(accView.branch===id) accView.branch='';
+    renderAccounts($('content'));
+    toast(b.name+' 분원 삭제됨 ✓');
+  }catch(e){ console.error(e); toast('삭제 실패 — '+(e.message||''),'err'); }
+}
 /* 계정관리 분원 드롭다운: 일반 선택 or "＋ 새 분원 추가…" */
 function onAcBranchChange(v){
   if(v==='__add__'){ addBranchPrompt(); return; }
@@ -1808,6 +1852,7 @@ function renderAccounts(c){
   let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('perm',24)}</span><span class="em">계정 관리</span></h2><p>아이디를 만들고 직급·권한을 지정하세요.</p></div></div>`;
   h += editing ? accEditCard(editing) : accCreateCard(isHQ);
   h += accListCard();
+  h += accBranchCard();
   c.innerHTML=h;
   if(!editing) onTitleChange();   // 생성카드 초기 프리셋
 }
@@ -1945,7 +1990,7 @@ window.ltSetTab=ltSetTab; window.anSetBranch=anSetBranch; window.anSetType=anSet
 window.ltSetGrade=ltSetGrade; window.ltTip=ltTip; window.ltTipHide=ltTipHide; window.ltTipPage=ltTipPage;
 window.openScoreTest=openScoreTest; window.openScoreView=openScoreView; window.closeLevelTest=closeLevelTest; window.openResInCalendar=openResInCalendar;
 window.openExam=openExam; window.closeExam=closeExam; window.examBack=examBack;
-window.setDashView=setDashView; window.mgSetRange=mgSetRange;
+window.setDashView=setDashView; window.mgSetRange=mgSetRange; window.mgSetBranch=mgSetBranch; window.delBranch=delBranch;
 window.openSms=openSms; window.smsSetExam=smsSetExam; window.smsToggleFree=smsToggleFree; window.closeSms=closeSms; window.copySms=copySms;
 window.addEventListener('message', async (e)=>{
   if(e.data && e.data.type==='lt-saved'){
