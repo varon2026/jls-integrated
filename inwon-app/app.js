@@ -2004,6 +2004,7 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
       <span style="font-size:12.5px;font-weight:600;background:#E6F1FB;color:#0C447C;border-radius:6px;padding:3px 10px">CHESS ${countChessAce(rows).chess}</span>
       <span style="font-size:12.5px;font-weight:600;background:#E1F5EE;color:#085041;border-radius:6px;padding:3px 10px">ACE ${countChessAce(rows).ace}</span>
       <span style="font-size:12.5px;color:var(--ink-3)">· 합 ${rows.length}</span>
+      <button class="btn sm" style="margin-left:auto;flex:none;white-space:nowrap;border-color:var(--brand);color:var(--brand)" onclick="downloadRosterXlsx('${branchId}')">⬇ 엑셀 다운로드</button>
     </div>
     <div class="roster-filter">
       <select onchange="setRosterTeacher(this.value)">
@@ -2122,6 +2123,58 @@ function setRosterQuery(v){
     const code=(tr.dataset.code||'').toLowerCase();
     tr.style.display = (!q || name.includes(q) || code.includes(q)) ? '' : 'none';
   });
+}
+
+/* ── 엑셀 다운로드 공용 ────────────────────────────────────────────── */
+function saveXlsx(ws, filename, sheetName){
+  if(typeof XLSX==='undefined'){ toast('엑셀 모듈 로드 실패 — 인터넷 연결을 확인하세요','err'); return; }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, (sheetName||'Sheet1').slice(0,31));
+  XLSX.writeFile(wb, filename);
+  toast('엑셀을 다운로드했습니다','ok');
+}
+/* 신규·퇴원 명단 → 엑셀 (현재 탭·담임·검색 필터 그대로 반영) */
+function downloadRosterXlsx(branchId){
+  const semId = state.semId;
+  const tab = state.rosterTab || 'new';
+  let rows = rosterRows(branchId, semId, tab);
+  const fTeacher = state.rosterTeacher||'';
+  if(fTeacher) rows = rows.filter(r=>r.teacher===fTeacher);
+  const fQuery = (state.rosterQuery||'').trim().toLowerCase();
+  if(fQuery) rows = rows.filter(r=> (r.name||'').toLowerCase().includes(fQuery) || (r.code||'').toLowerCase().includes(fQuery));
+  if(!rows.length){ toast('내보낼 명단이 없습니다','err'); return; }
+  const isIn = (tab==='new' || tab==='transferIn');
+  const dateLabel = isIn ? '입학일' : '퇴원일';
+  const tabLabel = {new:'신규생', transferIn:'전입', withdraw:'퇴원생', transferOut:'전출'}[tab] || '명단';
+  const header = ['학생명','회원코드','반','담임','학교','학년',dateLabel];
+  if(tab==='new')            header.push('메모');
+  else if(tab==='transferIn')header.push('출발분원','메모');
+  else if(tab==='withdraw')  header.push('사유','메모');
+  else if(tab==='transferOut')header.push('도착분원','메모');
+  const aoa = [header];
+  rows.forEach(r=>{
+    const base = [r.name, r.code, r.classLabel, r.teacher, r.school, r.grade, r.date];
+    if(tab==='new')            base.push(r.memo||'');
+    else if(tab==='transferIn')base.push((getBranch(r.transferTo)||{}).name||'', r.memo||'');
+    else if(tab==='withdraw'){ const wr=(WITHDRAW_REASONS.find(w=>w.code===r.withdrawReason)||{}).label||''; base.push(wr, r.withdrawMemo||''); }
+    else if(tab==='transferOut')base.push((getBranch(r.transferTo)||{}).name||'', r.withdrawMemo||'');
+    aoa.push(base);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = header.map((h,i)=> i===2?{wch:24}:(i===0?{wch:14}:(i===1?{wch:14}:{wch:12})));
+  const b = getBranch(branchId)||{};
+  const semNm = (db.semesters.find(s=>s.id===semId)||{}).name || '';
+  saveXlsx(ws, `${b.name||'분원'}_${tabLabel}명단_${semNm}.xlsx`, tabLabel);
+}
+/* 인원마감표 → 엑셀 (화면에 보이는 표 그대로 내보내기 — 병합 헤더/CHESS·ACE 포함) */
+function downloadClosingXlsx(branchId){
+  const tbl = document.querySelector('#content table.rank-table');
+  if(!tbl){ toast('표를 찾지 못했습니다','err'); return; }
+  const ws = XLSX.utils.table_to_sheet(tbl);
+  const b = getBranch(branchId)||{};
+  const semNm = (db.semesters.find(s=>s.id===state.semId)||{}).name || '';
+  const tabLabel = {teacher:'강사별', level:'레벨별', grade:'학년별', daily:'일별'}[state.closingTab||'teacher'] || '';
+  saveXlsx(ws, `${b.name||'분원'}_인원마감표_${tabLabel}_${semNm}.xlsx`, '인원마감표');
 }
 
 /* ============================================================================
@@ -2341,9 +2394,12 @@ function renderClosing(branchId){
     </div>`;
   const headHtml = `
     ${isAdmin?backLink('인원마감표','closing'):''}
-    <div class="page-head">
-      <h2>${esc(b.name)} 인원마감표</h2>
-      <div class="sub">${esc(db.semesters.find(s=>s.id===semId).name)} · 월별 퇴원현황 (월초+신규 / 퇴원 / 퇴원율)</div>
+    <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div>
+        <h2>${esc(b.name)} 인원마감표</h2>
+        <div class="sub">${esc(db.semesters.find(s=>s.id===semId).name)} · 월별 퇴원현황 (월초+신규 / 퇴원 / 퇴원율)</div>
+      </div>
+      <button class="btn sm" style="flex:none;white-space:nowrap;border-color:var(--brand);color:var(--brand)" onclick="downloadClosingXlsx('${branchId}')">⬇ 엑셀 다운로드</button>
     </div>${tabBar}`;
 
   // 일별 탭은 별도 렌더
