@@ -352,11 +352,23 @@ function mgSemIds(){ const ids={}; (db.semesters||[]).forEach(s=>{ if(s&&s.id) i
 function mgAllMonths(){ const set={}; mgSemIds().forEach(id=>semCalMonths(id).forEach(c=>set[c.y*100+c.m]={y:c.y,m:c.m})); return Object.values(set).sort((a,b)=>(a.y*100+a.m)-(b.y*100+b.m)); }
 function mgKey(o){ return o.y*100+o.m; }
 function mgLabel(o){ return String(o.y).slice(2)+'.'+String(o.m).padStart(2,'0'); }
+function ymKey(s){ const m=String(s||'').match(/(\d{4})-(\d{1,2})/); return m?parseInt(m[1],10)*100+parseInt(m[2],10):null; }
+/* 실제 날짜 기준 월별 재원/퇴원율 — 학기초(enroll_date null) 관습에 안 의존 (여름처럼 전원 enroll_date 있어도 정상) */
+function mgMonthStats(recs, calMonths){
+  return calMonths.map(cm=>{ const K=cm.y*100+cm.m; let reg=0, base=0, wd=0;
+    recs.forEach(r=>{ const eK=r.enrollDate?ymKey(r.enrollDate):0; if(eK===null||eK>K) return;  // 이 달 이후 입학 = 아직 없음
+      const wK=r.withdrawDate?ymKey(r.withdrawDate):null;
+      if(wK===null||wK>K) reg++;          // 월말 재원: 이 달 말까지 안 나감
+      if(wK===null||wK>=K) base++;        // 월초+신규(그 달 재적): 분모
+      if(wK===K && !r.transfer) wd++;     // 이 달 순수 퇴원
+    });
+    return { y:cm.y, m:cm.m, k:K, reg, rate: base>0 ? wd/base*100 : 0 };
+  });
+}
 function mgTrend(fromK,toK){ const scope=mgScope(); const seen={};
   mgSemIds().forEach(semId=>{ const cal=semCalMonths(semId); if(!cal.length) return;
     const recs=db.semesterRecords.filter(r=>r.semesterId===semId && (r.kind||'regular')!=='exam' && (!scope||r.branchId===scope));
-    const mc=monthlyClosing(recs, cal.map(c=>c.m));
-    mc.cells.forEach((cell,i)=>{ const k=mgKey(cal[i]); if(k<fromK||k>toK) return; seen[k]={k,y:cal[i].y,m:cal[i].m,reg:cell.monthEnd,rate:cell.rate}; });
+    mgMonthStats(recs, cal).forEach(s=>{ if(s.k<fromK||s.k>toK) return; seen[s.k]={k:s.k,y:s.y,m:s.m,reg:s.reg,rate:s.rate}; });
   });
   return Object.keys(seen).map(Number).sort((a,b)=>a-b).map(k=>seen[k]);
 }
