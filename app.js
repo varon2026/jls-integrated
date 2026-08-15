@@ -301,11 +301,135 @@ window.toggleSidebar=toggleSidebar; window.closeSidebar=closeSidebar;
 function render(){
   const c=$('content'); const v=state.view;
   $('semPick').style.display = (v==='dashboard')?'flex':'none';
-  if(v==='dashboard'){ $('crumbs').innerHTML='<b>대시보드</b>'; renderDashboard(c); }
+  if(v==='dashboard'){ renderDashHome(c); }
   else if(v==='accounts'){ $('crumbs').innerHTML='<span class="mut">설정 › </span><b>계정 관리</b>'; renderAccounts(c); }
   else if(v==='wonmu'){ $('crumbs').innerHTML='<b>원무</b>'; renderWonmu(c); }
   else if(v==='chongmu'){ $('crumbs').innerHTML = (chongmuView==='books') ? '<b>총무</b><span class="mut"> › 교재 재고관리</span>' : (chongmuView==='expense') ? '<b>총무</b><span class="mut"> › 운영비 관리</span>' : '<b>총무</b>'; renderChongmu(c); }
   else { const m=MODULES.find(x=>x.key===v); $('crumbs').innerHTML=`<b>${m.name}</b>`; renderStub(c,m); }
+}
+
+/* ============================================================================
+   대시보드 홈: 인원 현황 / 경영 분석 토글 (기존 인원 계산은 그대로 재사용·읽기전용)
+   ============================================================================ */
+function setDashView(v){ state.dashView=v; render(); }
+function renderDashHome(c){
+  if(!state.dashView) state.dashView='inwon';
+  $('crumbs').innerHTML='<b>대시보드</b>';
+  const btn=(on)=>'border:1px solid '+(on?'transparent':'#e2dcf2')+';background:'+(on?'linear-gradient(135deg,#8b6ee8,#6f9ad6)':'#fff')+';color:'+(on?'#fff':'#7b7488')+';font:inherit;font-weight:800;font-size:13.5px;padding:9px 20px;border-radius:20px;cursor:pointer';
+  c.innerHTML='<div style="display:flex;gap:8px;margin-bottom:18px">'
+    +'<button onclick="setDashView(\'inwon\')" style="'+btn(state.dashView==='inwon')+'">인원 현황</button>'
+    +'<button onclick="setDashView(\'mgmt\')" style="'+btn(state.dashView==='mgmt')+'">경영 분석</button>'
+    +'</div><div id="dashBody"></div>';
+  $('semPick').style.display=(state.dashView==='inwon')?'flex':'none';
+  const body=$('dashBody');
+  if(state.dashView==='mgmt') renderMgmtDash(body); else renderDashboard(body);
+}
+/* ---- 경영 분석: 학기→달력월 매핑 + 기간 필터 (기존 monthlyClosing 재사용) ---- */
+function mgScope(){ return session.role==='admin' ? null : session.branchId; }
+function mgBranchList(){ return session.role==='admin' ? db.branches : db.branches.filter(b=>b.id===session.branchId); }
+function semCalMonths(semId){
+  const mm=String(semId).match(/sem_(\d+)_(\w+)/); if(!mm) return [];
+  const y=+mm[1], s=mm[2];
+  if(s==='winter') return [{y,m:12},{y:y+1,m:1},{y:y+1,m:2}];
+  if(s==='spring') return [{y,m:3},{y,m:4},{y,m:5}];
+  if(s==='summer') return [{y,m:6},{y,m:7},{y,m:8}];
+  if(s==='fall')   return [{y,m:9},{y,m:10},{y,m:11}];
+  return [];
+}
+function mgAllMonths(){ const set={}; (db.semesters||[]).forEach(s=>semCalMonths(s.id).forEach(c=>set[c.y*100+c.m]={y:c.y,m:c.m})); return Object.values(set).sort((a,b)=>(a.y*100+a.m)-(b.y*100+b.m)); }
+function mgKey(o){ return o.y*100+o.m; }
+function mgLabel(o){ return String(o.y).slice(2)+'.'+String(o.m).padStart(2,'0'); }
+function mgTrend(fromK,toK){ const scope=mgScope(); const seen={};
+  (db.semesters||[]).forEach(sem=>{ const cal=semCalMonths(sem.id); if(!cal.length) return;
+    const recs=db.semesterRecords.filter(r=>r.semesterId===sem.id && (r.kind||'regular')!=='exam' && (!scope||r.branchId===scope));
+    const mc=monthlyClosing(recs, cal.map(c=>c.m));
+    mc.cells.forEach((cell,i)=>{ const k=mgKey(cal[i]); if(k<fromK||k>toK) return; seen[k]={k,y:cal[i].y,m:cal[i].m,reg:cell.monthEnd,rate:cell.rate}; });
+  });
+  return Object.keys(seen).map(Number).sort((a,b)=>a-b).map(k=>seen[k]);
+}
+function mgLt(fromK,toK){ const scope=mgScope(); const by={};
+  reservations.forEach(r=>{ if(scope&&r.branch_id!==scope) return; const ym=String(r.reserved_date||'').slice(0,7); if(!/^\d{4}-\d{2}$/.test(ym)) return;
+    const k=parseInt(ym.slice(0,4),10)*100+parseInt(ym.slice(5,7),10); if(k<fromK||k>toK) return; (by[k]=by[k]||[]).push(r); });
+  return Object.keys(by).map(Number).sort((a,b)=>a-b).map(k=>Object.assign({k,y:Math.floor(k/100),m:k%100}, ltMetrics(by[k])));
+}
+function mgSvgLine(pts, valOf, opt){ opt=opt||{};
+  if(!pts.length) return '<div style="color:#a9a2b6;font-size:13px;padding:34px 0;text-align:center">이 기간엔 데이터가 없어요</div>';
+  const W=520,H=210,L=46,R=14,T=16,B=28, iw=W-L-R, ih=H-T-B;
+  const vals=pts.map(valOf); const max=opt.max||Math.max(1,Math.ceil(Math.max(...vals)*1.15)); const col=opt.color||'#2a78d6'; const n=pts.length;
+  const x=i=> n===1?L+iw/2 : L+iw*(i/(n-1)); const y=v=> T+ih*(1-v/max);
+  let g=''; for(let i=0;i<=4;i++){ const val=max*i/4, yy=y(val); g+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e1e0d9"/><text x="'+(L-8)+'" y="'+(yy+3)+'" font-size="10" fill="#898781" text-anchor="end">'+(opt.fmt?opt.fmt(val):Math.round(val))+'</text>'; }
+  let d=''; vals.forEach((v,i)=>d+=(i?'L':'M')+x(i)+' '+y(v)+' ');
+  let dots=''; pts.forEach((p,i)=>{ const v=vals[i]; dots+='<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3.4" fill="#fff" stroke="'+col+'" stroke-width="2"/>'
+    +'<text x="'+x(i)+'" y="'+(y(v)-9)+'" font-size="9.5" font-weight="800" fill="'+col+'" text-anchor="middle">'+(opt.fmt?opt.fmt(v):v)+'</text>'
+    +'<text x="'+x(i)+'" y="'+(H-9)+'" font-size="9.5" fill="#898781" text-anchor="middle">'+mgLabel(p)+'</text>'; });
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;overflow:visible">'+g+'<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>'+dots+'</svg>';
+}
+function mgSvgLt(rows){
+  if(!rows.length) return '<div style="color:#a9a2b6;font-size:13px;padding:34px 0;text-align:center">이 기간엔 레벨테스트 데이터가 없어요</div>';
+  const W=1040,H=240,L=34,R=118,T=14,B=30, iw=W-L-R, ih=H-T-B;
+  const max=Math.max(1,Math.ceil(Math.max(...rows.map(r=>r.booked))*1.18));
+  const gw=iw/rows.length, bw=Math.min(24,gw/4.6), gap=4; const y=v=>T+ih*(1-v/max);
+  let g=''; for(let i=0;i<=4;i++){ const val=max*i/4, yy=y(val); g+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#e1e0d9"/><text x="'+(L-6)+'" y="'+(yy+3)+'" font-size="10" fill="#898781" text-anchor="end">'+Math.round(val)+'</text>'; }
+  const cols=['#b7d3f6','#5598e7','#184f95']; let bars='';
+  rows.forEach((r,i)=>{ const cx=L+gw*i+gw/2, vals=[r.booked,r.attended,r.enrolled], sx=cx-(bw*3+gap*2)/2;
+    vals.forEach((v,k)=>{ const bx=sx+k*(bw+gap), by=y(v), bh=T+ih-by; bars+='<rect x="'+bx+'" y="'+by+'" width="'+bw+'" height="'+Math.max(bh,1)+'" rx="3.5" fill="'+cols[k]+'"/><text x="'+(bx+bw/2)+'" y="'+(by-3)+'" font-size="9" font-weight="800" fill="#52514e" text-anchor="middle">'+v+'</text>'; });
+    bars+='<text x="'+cx+'" y="'+(H-11)+'" font-size="10" fill="#898781" text-anchor="middle">'+mgLabel(r)+'</text>'; });
+  const tb=rows.reduce((a,r)=>a+r.booked,0), ta=rows.reduce((a,r)=>a+r.attended,0), te=rows.reduce((a,r)=>a+r.enrolled,0); const rx=W-R+14;
+  const sm='<text x="'+rx+'" y="'+(T+24)+'" font-size="10" fill="#898781">기간 합계</text>'
+    +'<text x="'+rx+'" y="'+(T+48)+'" font-size="10" fill="#898781">참석률</text><text x="'+rx+'" y="'+(T+70)+'" font-size="20" font-weight="800" fill="#5598e7">'+(tb?Math.round(ta/tb*100):0)+'%</text>'
+    +'<text x="'+rx+'" y="'+(T+104)+'" font-size="10" fill="#898781">등록률</text><text x="'+rx+'" y="'+(T+126)+'" font-size="20" font-weight="800" fill="#184f95">'+(tb?Math.round(te/tb*100):0)+'%</text>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;overflow:visible">'+g+bars+sm+'</svg>';
+}
+function mgSetRange(which,val){ val=+val;
+  if(which==='fromY') state.mgFrom.y=val; else if(which==='fromM') state.mgFrom.m=val;
+  else if(which==='toY') state.mgTo.y=val; else if(which==='toM') state.mgTo.m=val;
+  render();
+}
+function renderMgmtDash(c){
+  const allM=mgAllMonths();
+  if(!state.mgFrom||!state.mgTo){ const cur=semCalMonths(state.semId);
+    if(cur.length){ state.mgFrom={y:cur[0].y,m:cur[0].m}; state.mgTo={y:cur[cur.length-1].y,m:cur[cur.length-1].m}; }
+    else if(allM.length){ state.mgFrom={y:allM[Math.max(0,allM.length-6)].y,m:allM[Math.max(0,allM.length-6)].m}; state.mgTo={y:allM[allM.length-1].y,m:allM[allM.length-1].m}; }
+    else { const t=new Date(); state.mgFrom={y:t.getFullYear(),m:t.getMonth()+1}; state.mgTo={y:t.getFullYear(),m:t.getMonth()+1}; } }
+  let fromK=mgKey(state.mgFrom), toK=mgKey(state.mgTo); if(fromK>toK){ const t=fromK; fromK=toK; toK=t; }
+  const trend=mgTrend(fromK,toK), lt=mgLt(fromK,toK);
+  const years=[...new Set(allM.map(o=>o.y))]; if(!years.length) years.push(new Date().getFullYear());
+  const yOpt=(selY)=>years.map(y=>'<option value="'+y+'" '+(y===selY?'selected':'')+'>'+y+'</option>').join('');
+  const mOpt=(selM)=>Array.from({length:12},(_,i)=>i+1).map(m=>'<option value="'+m+'" '+(m===selM?'selected':'')+'>'+m+'월</option>').join('');
+  const waitRows=mgBranchList().map(b=>({b, n:reservations.filter(r=>r.branch_id===b.id && r.enrolled==='waiting_next' && r.status!=='parent_only').length}));
+  const waitTot=waitRows.reduce((a,x)=>a+x.n,0);
+  const card='background:#fff;border:1px solid #ece8f5;border-radius:16px;padding:18px 20px;box-shadow:0 3px 14px rgba(80,70,120,.05);margin-bottom:16px';
+  const h3s='margin:0 0 2px;font-size:15px;font-weight:800;color:#3a3742';
+  const css='font-size:12px;color:#a9a2b6;font-weight:600;margin-bottom:12px';
+  const sels='background:#f6f3fc;border:1px solid #e2dcf2;border-radius:8px;padding:5px 8px;font:inherit;font-weight:700;color:#8b6ee8;cursor:pointer';
+  const maxRate=Math.max(6,Math.ceil(Math.max(1,...trend.map(p=>p.rate))*1.2));
+  let html='';
+  html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-size:13px;font-weight:700;color:#7b7488">'
+    +'<span>기간</span>'
+    +'<select onchange="mgSetRange(\'fromY\',this.value)" style="'+sels+'">'+yOpt(state.mgFrom.y)+'</select>'
+    +'<select onchange="mgSetRange(\'fromM\',this.value)" style="'+sels+'">'+mOpt(state.mgFrom.m)+'</select>'
+    +'<span>~</span>'
+    +'<select onchange="mgSetRange(\'toY\',this.value)" style="'+sels+'">'+yOpt(state.mgTo.y)+'</select>'
+    +'<select onchange="mgSetRange(\'toM\',this.value)" style="'+sels+'">'+mOpt(state.mgTo.m)+'</select>'
+    +'</div>';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+    +'<div style="'+card+'"><h3 style="'+h3s+'">재원 추이</h3><div style="'+css+'">월별 재원 수</div>'+mgSvgLine(trend,p=>p.reg,{color:'#2a78d6'})+'</div>'
+    +'<div style="'+card+'"><h3 style="'+h3s+'">퇴원율 추이</h3><div style="'+css+'">월별 퇴원율(%) · 낮을수록 좋음</div>'+mgSvgLine(trend,p=>Math.round(p.rate*10)/10,{color:'#d03b3b',max:maxRate,fmt:v=>v.toFixed(1)+'%'})+'</div>'
+    +'</div>';
+  html+='<div style="'+card+'"><h3 style="'+h3s+'">레벨테스트 — 달별 예약 · 참석 · 등록</h3><div style="'+css+'">월별 전환 현황</div>'
+    +'<div style="display:flex;gap:14px;margin-bottom:8px;font-size:11.5px;font-weight:700;color:#7b7488">'
+    +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#b7d3f6;margin-right:4px;vertical-align:middle"></i>예약</span>'
+    +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#5598e7;margin-right:4px;vertical-align:middle"></i>참석</span>'
+    +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#184f95;margin-right:4px;vertical-align:middle"></i>등록</span></div>'
+    +mgSvgLt(lt)+'</div>';
+  html+='<div style="'+card+'"><h3 style="'+h3s+'">다음학기 대기 인원</h3><div style="'+css+'">레벨테스트 후 \'다음학기 대기\'로 잡아둔 예비 등록생</div>'
+    +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch">'
+    +'<div style="flex:0 0 160px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;justify-content:center">'
+    +'<div style="font-size:12px;font-weight:700;opacity:.9">총 대기 인원</div><div style="font-size:34px;font-weight:800;line-height:1.1">'+waitTot+'<span style="font-size:15px;font-weight:700;opacity:.9"> 명</span></div></div>'
+    +'<div style="flex:1;min-width:280px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">'
+    +waitRows.map(w=>'<div style="border:1px solid #ece8f5;border-radius:12px;padding:12px 14px;background:#faf8fe"><div style="font-size:12.5px;font-weight:700;color:#52514e">'+esc(w.b.name)+'</div><div style="font-size:24px;font-weight:800;color:#8b6ee8">'+w.n+'<span style="font-size:12px;color:#a9a2b6;font-weight:700"> 명</span></div></div>').join('')
+    +'</div></div></div>';
+  c.innerHTML=html;
 }
 
 /* ---------- 대시보드: 인원 현황 (진짜 데이터 + CHESS/ACE) ---------- */
@@ -1819,6 +1943,7 @@ window.ltSetTab=ltSetTab; window.anSetBranch=anSetBranch; window.anSetType=anSet
 window.ltSetGrade=ltSetGrade; window.ltTip=ltTip; window.ltTipHide=ltTipHide; window.ltTipPage=ltTipPage;
 window.openScoreTest=openScoreTest; window.openScoreView=openScoreView; window.closeLevelTest=closeLevelTest; window.openResInCalendar=openResInCalendar;
 window.openExam=openExam; window.closeExam=closeExam; window.examBack=examBack;
+window.setDashView=setDashView; window.mgSetRange=mgSetRange;
 window.openSms=openSms; window.smsSetExam=smsSetExam; window.smsToggleFree=smsToggleFree; window.closeSms=closeSms; window.copySms=copySms;
 window.addEventListener('message', async (e)=>{
   if(e.data && e.data.type==='lt-saved'){
