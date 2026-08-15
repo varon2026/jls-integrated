@@ -336,12 +336,14 @@ function semCalMonths(semId){
   if(s==='fall')   return [{y,m:9},{y,m:10},{y,m:11}];
   return [];
 }
-function mgAllMonths(){ const set={}; (db.semesters||[]).forEach(s=>semCalMonths(s.id).forEach(c=>set[c.y*100+c.m]={y:c.y,m:c.m})); return Object.values(set).sort((a,b)=>(a.y*100+a.m)-(b.y*100+b.m)); }
+/* 학기 목록 + 실제 학생 기록에 있는 학기 id 전부 (진행중 학기·목록 누락 학기도 포함) */
+function mgSemIds(){ const ids={}; (db.semesters||[]).forEach(s=>{ if(s&&s.id) ids[s.id]=1; }); (db.semesterRecords||[]).forEach(r=>{ if(r&&r.semesterId) ids[r.semesterId]=1; }); return Object.keys(ids); }
+function mgAllMonths(){ const set={}; mgSemIds().forEach(id=>semCalMonths(id).forEach(c=>set[c.y*100+c.m]={y:c.y,m:c.m})); return Object.values(set).sort((a,b)=>(a.y*100+a.m)-(b.y*100+b.m)); }
 function mgKey(o){ return o.y*100+o.m; }
 function mgLabel(o){ return String(o.y).slice(2)+'.'+String(o.m).padStart(2,'0'); }
 function mgTrend(fromK,toK){ const scope=mgScope(); const seen={};
-  (db.semesters||[]).forEach(sem=>{ const cal=semCalMonths(sem.id); if(!cal.length) return;
-    const recs=db.semesterRecords.filter(r=>r.semesterId===sem.id && (r.kind||'regular')!=='exam' && (!scope||r.branchId===scope));
+  mgSemIds().forEach(semId=>{ const cal=semCalMonths(semId); if(!cal.length) return;
+    const recs=db.semesterRecords.filter(r=>r.semesterId===semId && (r.kind||'regular')!=='exam' && (!scope||r.branchId===scope));
     const mc=monthlyClosing(recs, cal.map(c=>c.m));
     mc.cells.forEach((cell,i)=>{ const k=mgKey(cal[i]); if(k<fromK||k>toK) return; seen[k]={k,y:cal[i].y,m:cal[i].m,reg:cell.monthEnd,rate:cell.rate}; });
   });
