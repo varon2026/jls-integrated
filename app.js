@@ -353,11 +353,15 @@ function mgAllMonths(){ const set={}; mgSemIds().forEach(id=>semCalMonths(id).fo
 function mgKey(o){ return o.y*100+o.m; }
 function mgLabel(o){ return String(o.y).slice(2)+'.'+String(o.m).padStart(2,'0'); }
 function ymKey(s){ const m=String(s||'').match(/(\d{4})-(\d{1,2})/); return m?parseInt(m[1],10)*100+parseInt(m[2],10):null; }
+/* 퇴원 연월키 — 기록의 withdrawDate 우선, 없으면 이동이력(studentMovements) 날짜 (withdrawMonth와 동일한 폴백) */
+function mgWKey(r){ if(r.withdrawDate) return ymKey(r.withdrawDate);
+  const mv=(db.studentMovements||[]).find(m=>m.studentId===r.studentId && m.branchId===r.branchId && m.semesterId===r.semesterId && m.type==='withdraw');
+  return (mv&&mv.date)?ymKey(mv.date):null; }
 /* 실제 날짜 기준 월별 재원/퇴원율 — 학기초(enroll_date null) 관습에 안 의존 (여름처럼 전원 enroll_date 있어도 정상) */
 function mgMonthStats(recs, calMonths){
   return calMonths.map(cm=>{ const K=cm.y*100+cm.m; let reg=0, base=0, wd=0;
     recs.forEach(r=>{ const eK=r.enrollDate?ymKey(r.enrollDate):0; if(eK===null||eK>K) return;  // 이 달 이후 입학 = 아직 없음
-      const wK=r.withdrawDate?ymKey(r.withdrawDate):null;
+      const wK=mgWKey(r);
       if(wK===null||wK>K) reg++;          // 월말 재원: 이 달 말까지 안 나감
       if(wK===null||wK>=K) base++;        // 월초+신규(그 달 재적): 분모
       if(wK===K && !r.transfer) wd++;     // 이 달 순수 퇴원
