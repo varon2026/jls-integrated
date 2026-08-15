@@ -359,9 +359,11 @@ function mgWKey(r){ if(r.withdrawDate) return ymKey(r.withdrawDate);
   return (mv&&mv.date)?ymKey(mv.date):null; }
 /* 실제 날짜 기준 월별 재원/퇴원율 — 학기초(enroll_date null) 관습에 안 의존 (여름처럼 전원 enroll_date 있어도 정상) */
 function mgMonthStats(recs, calMonths){
+  const firstK=calMonths[0].y*100+calMonths[0].m, lastK=calMonths[calMonths.length-1].y*100+calMonths[calMonths.length-1].m;
   return calMonths.map(cm=>{ const K=cm.y*100+cm.m; let reg=0, base=0, wd=0;
     recs.forEach(r=>{ const eK=r.enrollDate?ymKey(r.enrollDate):0; if(eK===null||eK>K) return;  // 이 달 이후 입학 = 아직 없음
-      const wK=mgWKey(r);
+      let wK=mgWKey(r);
+      if(wK!==null){ if(wK<firstK) wK=firstK; else if(wK>lastK) wK=lastK; }  // 학기 범위 밖 퇴원일(정리날짜 등)은 학기 경계 달로 귀속
       if(wK===null||wK>K) reg++;          // 월말 재원: 이 달 말까지 안 나감
       if(wK===null||wK>=K) base++;        // 월초+신규(그 달 재적): 분모
       if(wK===K && !r.transfer) wd++;     // 이 달 순수 퇴원
@@ -463,7 +465,7 @@ function renderMgmtDash(c){
     +(capped ? '<span style="color:#a9a2b6;font-weight:600;margin-left:6px">· 최대 12개월까지 표시</span>' : '')
     +'</div>';
   html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
-    +'<div style="'+card+'"><h3 style="'+h3s+'">재원 추이</h3><div style="'+css+'">월별 재원 수</div>'+mgSvgLine(trend,p=>p.reg,{color:'#2a78d6',unit:500})+'</div>'
+    +'<div style="'+card+'"><h3 style="'+h3s+'">재원 추이</h3><div style="'+css+'">월별 재원 수</div>'+mgSvgLine(trend,p=>p.reg,{color:'#2a78d6',unit:(mgScope()?100:500)})+'</div>'
     +'<div style="'+card+'"><h3 style="'+h3s+'">퇴원율 추이</h3><div style="'+css+'">월별 퇴원율(%) · 낮을수록 좋음</div>'+mgSvgLine(trend,p=>Math.round(p.rate*10)/10,{color:'#d03b3b',floor:6,fmt:v=>v.toFixed(1)+'%'})+'</div>'
     +'</div>';
   html+='<div style="'+card+'">'
