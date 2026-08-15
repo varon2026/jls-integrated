@@ -399,6 +399,11 @@ function mgSetRange(which,val){ val=+val;
   else if(which==='toY') state.mgTo.y=val; else if(which==='toM') state.mgTo.m=val;
   render();
 }
+/* 현 학기 다음 학기 id (spring→summer→fall→winter→다음해 spring) */
+function nextSemId(semId){ const m=String(semId).match(/sem_(\d+)_(\w+)/); if(!m) return semId; let y=+m[1]; const order=['spring','summer','fall','winter']; let i=order.indexOf(m[2]); if(i<0) return semId; i++; if(i>3){i=0;y++;} return 'sem_'+y+'_'+order[i]; }
+/* 레벨테스트 데이터가 있는 달 목록(yyyymm) */
+function mgLtMonths(){ const set={}; reservations.forEach(r=>{ const ym=String(r.reserved_date||'').slice(0,7); if(/^\d{4}-\d{2}$/.test(ym)) set[parseInt(ym.slice(0,4),10)*100+parseInt(ym.slice(5,7),10)]=1; }); return Object.keys(set).map(Number).sort((a,b)=>a-b); }
+function mgSetLtRange(which,val){ val=+val; if(which==='fromY') state.ltFrom.y=val; else if(which==='fromM') state.ltFrom.m=val; else if(which==='toY') state.ltTo.y=val; else if(which==='toM') state.ltTo.m=val; render(); }
 function renderMgmtDash(c){
   const allM=mgAllMonths();
   if(!state.mgFrom||!state.mgTo){ const cur=semCalMonths(state.semId);
@@ -407,11 +412,24 @@ function renderMgmtDash(c){
     else { const t=new Date(); state.mgFrom={y:t.getFullYear(),m:t.getMonth()+1}; state.mgTo={y:t.getFullYear(),m:t.getMonth()+1}; } }
   let fromK=mgKey(state.mgFrom), toK=mgKey(state.mgTo); if(fromK>toK){ const t=fromK; fromK=toK; toK=t; }
   const monthsList=mgEnumMonths(fromK,toK); const capped=monthsList.length>12; if(capped) fromK=monthsList[monthsList.length-12];  // 최대 12개월
-  const trend=mgTrend(fromK,toK), lt=mgLt(fromK,toK);
+  const trend=mgTrend(fromK,toK);
+  // 레벨테스트 전용 기간 (6월부터 · 최대 6개월)
+  const ltAll=mgLtMonths(); const ltFloorK=ltAll.length?ltAll[0]:202506; const ltLatestK=ltAll.length?ltAll[ltAll.length-1]:toK;
+  if(!state.ltFrom||!state.ltTo){ const list=mgEnumMonths(ltFloorK,ltLatestK); const f=list.length>6?list[list.length-6]:(list[0]||ltFloorK);
+    state.ltFrom={y:Math.floor(f/100),m:f%100}; state.ltTo={y:Math.floor(ltLatestK/100),m:ltLatestK%100}; }
+  let ltFromK=mgKey(state.ltFrom), ltToK=mgKey(state.ltTo); if(ltFromK>ltToK){ const t=ltFromK; ltFromK=ltToK; ltToK=t; }
+  if(ltFromK<ltFloorK) ltFromK=ltFloorK;
+  const ltList=mgEnumMonths(ltFromK,ltToK); const ltCapped=ltList.length>6; if(ltCapped) ltFromK=ltList[ltList.length-6];
+  const lt=mgLt(ltFromK,ltToK);
+  const ltYears=[...new Set(ltAll.map(k=>Math.floor(k/100)))]; if(!ltYears.length) ltYears.push(new Date().getFullYear());
+  const ltYOpt=(selY)=>ltYears.map(y=>'<option value="'+y+'" '+(y===selY?'selected':'')+'>'+y+'</option>').join('');
+  const ltMOpt=(selM)=>Array.from({length:12},(_,i)=>i+1).map(m=>'<option value="'+m+'" '+(m===selM?'selected':'')+'>'+m+'월</option>').join('');
+  // 다음학기 대기 — 현 학기(state.semId) 기준 다음 학기 대기자만
+  const waitSemId=nextSemId(state.semId); const waitSemNm=semName(waitSemId);
   const years=[...new Set(allM.map(o=>o.y))]; if(!years.length) years.push(new Date().getFullYear());
   const yOpt=(selY)=>years.map(y=>'<option value="'+y+'" '+(y===selY?'selected':'')+'>'+y+'</option>').join('');
   const mOpt=(selM)=>Array.from({length:12},(_,i)=>i+1).map(m=>'<option value="'+m+'" '+(m===selM?'selected':'')+'>'+m+'월</option>').join('');
-  const waitRows=mgBranchList().map(b=>({b, n:reservations.filter(r=>r.branch_id===b.id && r.enrolled==='waiting_next' && r.status!=='parent_only').length}));
+  const waitRows=mgBranchList().map(b=>({b, n:reservations.filter(r=>r.branch_id===b.id && r.enrolled==='waiting_next' && r.status!=='parent_only' && r.wait_semester===waitSemId).length}));
   const waitTot=waitRows.reduce((a,x)=>a+x.n,0);
   const card='background:#fff;border:1px solid #ece8f5;border-radius:16px;padding:18px 20px;box-shadow:0 3px 14px rgba(80,70,120,.05);margin-bottom:16px';
   const h3s='margin:0 0 2px;font-size:15px;font-weight:800;color:#3a3742';
@@ -432,19 +450,26 @@ function renderMgmtDash(c){
     +'<div style="'+card+'"><h3 style="'+h3s+'">재원 추이</h3><div style="'+css+'">월별 재원 수</div>'+mgSvgLine(trend,p=>p.reg,{color:'#2a78d6',unit:500})+'</div>'
     +'<div style="'+card+'"><h3 style="'+h3s+'">퇴원율 추이</h3><div style="'+css+'">월별 퇴원율(%) · 낮을수록 좋음</div>'+mgSvgLine(trend,p=>Math.round(p.rate*10)/10,{color:'#d03b3b',floor:6,fmt:v=>v.toFixed(1)+'%'})+'</div>'
     +'</div>';
-  html+='<div style="'+card+'"><h3 style="'+h3s+'">레벨테스트 — 달별 예약 · 참석 · 등록</h3><div style="'+css+'">월별 전환 현황</div>'
-    +'<div style="display:flex;gap:14px;margin-bottom:8px;font-size:11.5px;font-weight:700;color:#7b7488">'
+  html+='<div style="'+card+'">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h3 style="'+h3s+'">레벨테스트 — 달별 예약 · 참석 · 등록</h3><div style="'+css+'">월별 전환 현황 · 레벨테스트 전용 기간</div></div>'
+    +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;font-weight:700;color:#7b7488">'
+    +'<select onchange="mgSetLtRange(\'fromY\',this.value)" style="'+sels+'">'+ltYOpt(state.ltFrom.y)+'</select>'
+    +'<select onchange="mgSetLtRange(\'fromM\',this.value)" style="'+sels+'">'+ltMOpt(state.ltFrom.m)+'</select>'
+    +'<span>~</span>'
+    +'<select onchange="mgSetLtRange(\'toY\',this.value)" style="'+sels+'">'+ltYOpt(state.ltTo.y)+'</select>'
+    +'<select onchange="mgSetLtRange(\'toM\',this.value)" style="'+sels+'">'+ltMOpt(state.ltTo.m)+'</select>'
+    +'<span style="color:#a9a2b6;font-weight:600">· 6월부터 · 최대 6개월</span></div></div>'
+    +'<div style="display:flex;gap:14px;margin:8px 0;font-size:11.5px;font-weight:700;color:#7b7488">'
     +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#b7d3f6;margin-right:4px;vertical-align:middle"></i>예약</span>'
     +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#5598e7;margin-right:4px;vertical-align:middle"></i>참석</span>'
     +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#184f95;margin-right:4px;vertical-align:middle"></i>등록</span></div>'
     +mgSvgLt(lt)+'</div>';
-  html+='<div style="'+card+'"><h3 style="'+h3s+'">다음학기 대기 인원</h3><div style="'+css+'">레벨테스트 후 \'다음학기 대기\'로 잡아둔 예비 등록생</div>'
-    +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch">'
-    +'<div style="flex:0 0 160px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;justify-content:center">'
-    +'<div style="font-size:12px;font-weight:700;opacity:.9">총 대기 인원</div><div style="font-size:34px;font-weight:800;line-height:1.1">'+waitTot+'<span style="font-size:15px;font-weight:700;opacity:.9"> 명</span></div></div>'
-    +'<div style="flex:1;min-width:280px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">'
+  html+='<div style="'+card+'"><h3 style="'+h3s+'">다음학기 대기 인원</h3><div style="'+css+'">'+esc(waitSemNm)+' 대기 · 현 학기 기준 예비 등록생</div>'
+    +'<div style="display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:12px 20px;margin-bottom:14px">'
+    +'<span style="font-size:13px;font-weight:700;opacity:.92">총 대기 인원</span><span style="font-size:30px;font-weight:800;line-height:1">'+waitTot+'</span><span style="font-size:14px;font-weight:700;opacity:.92">명</span></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">'
     +waitRows.map(w=>'<div style="border:1px solid #ece8f5;border-radius:12px;padding:12px 14px;background:#faf8fe"><div style="font-size:12.5px;font-weight:700;color:#52514e">'+esc(w.b.name)+'</div><div style="font-size:24px;font-weight:800;color:#8b6ee8">'+w.n+'<span style="font-size:12px;color:#a9a2b6;font-weight:700"> 명</span></div></div>').join('')
-    +'</div></div></div>';
+    +'</div></div>';
   c.innerHTML=html;
 }
 
@@ -1990,7 +2015,7 @@ window.ltSetTab=ltSetTab; window.anSetBranch=anSetBranch; window.anSetType=anSet
 window.ltSetGrade=ltSetGrade; window.ltTip=ltTip; window.ltTipHide=ltTipHide; window.ltTipPage=ltTipPage;
 window.openScoreTest=openScoreTest; window.openScoreView=openScoreView; window.closeLevelTest=closeLevelTest; window.openResInCalendar=openResInCalendar;
 window.openExam=openExam; window.closeExam=closeExam; window.examBack=examBack;
-window.setDashView=setDashView; window.mgSetRange=mgSetRange; window.mgSetBranch=mgSetBranch; window.delBranch=delBranch;
+window.setDashView=setDashView; window.mgSetRange=mgSetRange; window.mgSetBranch=mgSetBranch; window.delBranch=delBranch; window.mgSetLtRange=mgSetLtRange;
 window.openSms=openSms; window.smsSetExam=smsSetExam; window.smsToggleFree=smsToggleFree; window.closeSms=closeSms; window.copySms=copySms;
 window.addEventListener('message', async (e)=>{
   if(e.data && e.data.type==='lt-saved'){
