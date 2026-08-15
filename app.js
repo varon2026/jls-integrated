@@ -423,18 +423,19 @@ function nextSemId(semId){ const m=String(semId).match(/sem_(\d+)_(\w+)/); if(!m
 function mgLtMonths(){ const set={}; reservations.forEach(r=>{ const ym=String(r.reserved_date||'').slice(0,7); if(/^\d{4}-\d{2}$/.test(ym)) set[parseInt(ym.slice(0,4),10)*100+parseInt(ym.slice(5,7),10)]=1; }); return Object.keys(set).map(Number).sort((a,b)=>a-b); }
 function mgSetLtRange(which,val){ val=+val; if(which==='fromY') state.ltFrom.y=val; else if(which==='fromM') state.ltFrom.m=val; else if(which==='toY') state.ltTo.y=val; else if(which==='toM') state.ltTo.m=val; render(); }
 function renderMgmtDash(c){
+  if(!bookState.loaded){ c.innerHTML='<div style="padding:44px 0;text-align:center;color:#a9a2b6;font-size:13px">레벨테스트·대기 정보 불러오는 중…</div>'; ensureReservations().then(()=>{ if(state.view==='dashboard'&&state.dashView==='mgmt'){ const b=document.getElementById('dashBody'); if(b) renderMgmtDash(b); } }); return; }
   const allM=mgAllMonths();
+  const _now=new Date(); const nowY=_now.getFullYear(), nowM=_now.getMonth()+1;
   if(!state.mgFrom||!state.mgTo){ const cur=semCalMonths(state.semId);
-    if(cur.length){ state.mgFrom={y:cur[0].y,m:cur[0].m}; state.mgTo={y:cur[cur.length-1].y,m:cur[cur.length-1].m}; }
-    else if(allM.length){ state.mgFrom={y:allM[Math.max(0,allM.length-6)].y,m:allM[Math.max(0,allM.length-6)].m}; state.mgTo={y:allM[allM.length-1].y,m:allM[allM.length-1].m}; }
-    else { const t=new Date(); state.mgFrom={y:t.getFullYear(),m:t.getMonth()+1}; state.mgTo={y:t.getFullYear(),m:t.getMonth()+1}; } }
+    state.mgFrom = cur.length ? {y:cur[0].y,m:cur[0].m} : {y:nowY,m:nowM};   // 시작: 현재 학기 시작 달
+    state.mgTo   = {y:nowY, m:nowM};                                          // 끝: 현재 월
+  }
   let fromK=mgKey(state.mgFrom), toK=mgKey(state.mgTo); if(fromK>toK){ const t=fromK; fromK=toK; toK=t; }
   const monthsList=mgEnumMonths(fromK,toK); const capped=monthsList.length>12; if(capped) fromK=monthsList[monthsList.length-12];  // 최대 12개월
   const trend=mgTrend(fromK,toK);
   // 레벨테스트 전용 기간 (6월부터 · 최대 6개월)
   const ltAll=mgLtMonths(); const ltFloorK=ltAll.length?ltAll[0]:202506; const ltLatestK=ltAll.length?ltAll[ltAll.length-1]:toK;
-  if(!state.ltFrom||!state.ltTo){ const list=mgEnumMonths(ltFloorK,ltLatestK); const f=list.length>6?list[list.length-6]:(list[0]||ltFloorK);
-    state.ltFrom={y:Math.floor(f/100),m:f%100}; state.ltTo={y:Math.floor(ltLatestK/100),m:ltLatestK%100}; }
+  if(!state.ltFrom||!state.ltTo){ state.ltFrom={y:nowY,m:6}; state.ltTo={y:nowY,m:Math.max(6,nowM)}; }  // 기본: 6월 ~ 현재 월
   let ltFromK=mgKey(state.ltFrom), ltToK=mgKey(state.ltTo); if(ltFromK>ltToK){ const t=ltFromK; ltFromK=ltToK; ltToK=t; }
   if(ltFromK<ltFloorK) ltFromK=ltFloorK;
   const ltList=mgEnumMonths(ltFromK,ltToK); const ltCapped=ltList.length>6; if(ltCapped) ltFromK=ltList[ltList.length-6];
