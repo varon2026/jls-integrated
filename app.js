@@ -477,7 +477,7 @@ function renderMgmtDash(c){
     +'<span>~</span>'
     +'<select onchange="mgSetLtRange(\'toY\',this.value)" style="'+sels+'">'+ltYOpt(state.ltTo.y)+'</select>'
     +'<select onchange="mgSetLtRange(\'toM\',this.value)" style="'+sels+'">'+ltMOpt(state.ltTo.m)+'</select>'
-    +'<span style="color:#a9a2b6;font-weight:600">· 6월부터 · 최대 6개월</span></div></div>'
+    +'<span style="color:#a9a2b6;font-weight:600">· 최대 6개월</span></div></div>'
     +'<div style="display:flex;gap:14px;margin:8px 0;font-size:11.5px;font-weight:700;color:#7b7488">'
     +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#b7d3f6;margin-right:4px;vertical-align:middle"></i>예약</span>'
     +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#5598e7;margin-right:4px;vertical-align:middle"></i>참석</span>'

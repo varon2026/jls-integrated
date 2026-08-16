@@ -1303,7 +1303,7 @@ tot.start+=hc.start; tot.newCnt+=hc.newCnt; tot.transferIn+=hc.transferIn; tot.w
       ${kpiCard('전체 전출', tot.transfer, {unit:'명', ca:totCa.transfer})}
       ${kpiCard('전체 퇴원율', totWithdrawRate, {unit:'%'})}
       ${kpiCard('현 재원생', tot.active, {unit:'명', accent:true, ca:totCa.active})}
-    </div>`+ transferWarnBox(semId) +`
+    </div>`+ xferReconBox() +`
     <div class="sect-head">
       <h3>분원별 현황</h3>
       <div class="sort-bar">
@@ -1535,6 +1535,51 @@ function emptyState(t, s){
 }
 /* 전출-전입 매칭 경고 박스 (통합 대시보드용).
    전출했는데 도착분원에 전입 안 잡힌 건 / 전입인데 출발분원에 전출 없는 건을 빨강으로 경고. */
+/* ── 전출입 매칭 현황 (학기를 넘나드는 이동도 회원코드로 짝지어 한 화면에) ── */
+function semShort(id){ const m=String(id).match(/sem_(\d+)_(\w+)/); if(!m) return String(id); const yy=String(m[1]).slice(2); const s={spring:'봄',summer:'여름',fall:'가을',winter:'겨울'}[m[2]]||m[2]; return yy+s; }
+function _mdShort(d){ const m=String(d||'').match(/\d{4}-(\d{1,2})-(\d{1,2})/); return m?(parseInt(m[1],10)+'/'+parseInt(m[2],10)):''; }
+function xferReconMoves(){
+  const outs={}, ins={};
+  (db.semesterRecords||[]).forEach(r=>{
+    const st=getStudent(r.studentId); const code=st&&st.code?st.code:null; if(!code) return;
+    if(r.transfer && r.transferTo){ const k=code+'|'+r.branchId+'|'+r.transferTo; if(!outs[k]) outs[k]={code,name:st.name,from:r.branchId,to:r.transferTo,sem:r.semesterId,date:r.withdrawDate}; }
+    if(r.transferIn && r.transferTo){ const k=code+'|'+r.transferTo+'|'+r.branchId; if(!ins[k]) ins[k]={code,name:st.name,from:r.transferTo,to:r.branchId,sem:r.semesterId,date:r.enrollDate}; }
+  });
+  const keys=Object.keys(outs).concat(Object.keys(ins).filter(k=>!outs[k]));
+  const moves=keys.map(k=>({o:outs[k]||null,i:ins[k]||null}));
+  moves.sort((a,b)=>{ const ma=(a.o&&a.i)?1:0, mb=(b.o&&b.i)?1:0; if(ma!==mb) return ma-mb;  // 미매칭 먼저
+    const na=(a.o||a.i).name, nb=(b.o||b.i).name; return String(na).localeCompare(String(nb),'ko'); });
+  return moves;
+}
+function xferReconBox(){
+  const moves=xferReconMoves(); if(!moves.length) return '';
+  const matched=moves.filter(m=>m.o&&m.i).length, mismatch=moves.length-matched;
+  const bn=id=>{ const b=getBranch(id); return b?b.name.replace(/분원$/,''):'?'; };
+  const cell=(o,isOut)=>{ if(!o) return '<span style="color:#b7791f;font-weight:800;font-size:12px">— 없음</span>';
+    const bg=isOut?'#fdeef0':'#eef2fb', fg=isOut?'#b5405a':'#3a5a86';
+    return '<span style="display:inline-flex;align-items:center;gap:7px"><span style="background:'+bg+';color:'+fg+';border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:800">'+esc(bn(o.from))+'→'+esc(bn(o.to))+'</span><span style="font-size:11px;color:var(--ink-3);font-weight:700">'+esc(semShort(o.sem))+' '+esc(_mdShort(o.date))+'</span></span>'; };
+  const rows=moves.map(m=>{ const ok=m.o&&m.i; const who=m.o||m.i;
+    const stt = ok?'<span style="background:#e8f6ec;color:var(--pos);font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:20px">✓ 짝맞음</span>'
+      :'<span style="background:#fff3d6;color:#b7791f;font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:20px">⚠ '+(m.i?'전출 없음':'전입 없음')+'</span>';
+    return '<tr style="'+(ok?'':'background:#fffaf0')+'">'
+      +'<td style="padding:9px 12px;border-bottom:1px solid #f4f1fa"><b>'+esc(who.name)+'</b> <span style="font-size:10.5px;color:var(--ink-3);font-family:monospace">'+esc(who.code)+'</span></td>'
+      +'<td style="padding:9px 12px;border-bottom:1px solid #f4f1fa">'+cell(m.o,true)+'</td>'
+      +'<td style="padding:9px 4px;border-bottom:1px solid #f4f1fa;color:var(--ink-3)">→</td>'
+      +'<td style="padding:9px 12px;border-bottom:1px solid #f4f1fa">'+cell(m.i,false)+'</td>'
+      +'<td style="padding:9px 12px;border-bottom:1px solid #f4f1fa;text-align:right">'+stt+'</td></tr>';
+  }).join('');
+  return '<style>details.xrecon>summary::-webkit-details-marker{display:none}</style>'
+    +'<details class="xrecon" style="margin:14px 0;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;overflow:hidden">'
+    +'<summary style="list-style:none;cursor:pointer;padding:13px 16px;display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:800;color:var(--ink)">'
+    +'<span>전출입 매칭 현황</span>'
+    +'<span style="font-size:12px;font-weight:700;color:var(--ink-2)">전출 '+moves.filter(m=>m.o).length+' · 전입 '+moves.filter(m=>m.i).length+' · 짝맞음 '+matched+'</span>'
+    +(mismatch>0?'<span style="font-size:12px;font-weight:800;color:var(--neg);background:var(--neg-soft);padding:2px 10px;border-radius:20px">⚠ 미매칭 '+mismatch+'</span>':'<span style="font-size:12px;font-weight:800;color:var(--pos)">✓ 모두 매칭</span>')
+    +'<span style="margin-left:auto;font-size:11.5px;color:var(--ink-3);font-weight:700">펼치기 ▾</span>'
+    +'</summary>'
+    +'<div style="max-height:440px;overflow:auto;border-top:1px solid var(--line)">'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;padding:9px 12px;font-size:11px;color:var(--ink-3);font-weight:700;position:sticky;top:0;background:#faf8fe">학생</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:var(--ink-3);font-weight:700;position:sticky;top:0;background:#faf8fe">전출(나간 곳)</th><th style="position:sticky;top:0;background:#faf8fe"></th><th style="text-align:left;padding:9px 12px;font-size:11px;color:var(--ink-3);font-weight:700;position:sticky;top:0;background:#faf8fe">전입(들어간 곳)</th><th style="text-align:right;padding:9px 12px;font-size:11px;color:var(--ink-3);font-weight:700;position:sticky;top:0;background:#faf8fe">상태</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'</details>';
+}
 function transferWarnBox(semId){
   const { matched, unmatchedOut, unmatchedIn } = transferMatch(semId);
   if(unmatchedOut.length===0 && unmatchedIn.length===0){
