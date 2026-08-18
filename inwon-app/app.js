@@ -2379,7 +2379,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
       <td class="num cc" style="font-weight:700">${r.totWithdraw||'-'}</td>
       <td class="num cc" style="font-weight:700;color:${r.totTransfer?'var(--warn)':'inherit'}">${r.totTransfer||'-'}</td>
       <td class="num cc"><span style="font-weight:700;color:${r.avgRate>=10?'var(--neg)':r.avgRate>=5?'var(--warn)':'var(--brand)'}">${r.avgRate?r.avgRate.toFixed(1)+'%':'-'}</span></td>
-      <td class="num cc" style="font-weight:800;color:#7a5be0;background:#faf8ff">${curCnt(curOf(g))}</td>
+      ${(()=>{ const cm=curMoveNoteText(g.moveEvents,'all'); return `<td class="num cc" ${cm?`style="font-weight:800;color:#7a5be0;background:#ffe4a3;cursor:help" title="${esc(cm)}"`:`style="font-weight:800;color:#7a5be0;background:#faf8ff"`}>${curCnt(curOf(g))}${cm?' <span style="color:#b7791f">*</span>':''}</td>`; })()}
     </tr>`;
 
     if(!showCA) return totalRow;
@@ -2411,7 +2411,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
       <td class="num cc clos-ca-cell">${mc.totWithdraw||'-'}</td>
       <td class="num cc clos-ca-cell">${mc.totTransfer||'-'}</td>
       <td class="num cc clos-ca-cell">${mc.avgRate?mc.avgRate.toFixed(1)+'%':'-'}</td>
-      <td class="num cc clos-ca-cell" style="background:#faf8ff;color:#7a5be0;font-weight:700">${curCnt||'-'}</td>
+      ${(()=>{ const cm=curMoveNoteText(g.moveEvents,div); return `<td class="num cc clos-ca-cell" ${cm?`style="background:#ffe4a3;color:#7a5be0;font-weight:700;cursor:help" title="${esc(cm)}"`:`style="background:#faf8ff;color:#7a5be0;font-weight:700"`}>${curCnt||'-'}${cm?' <span style="color:#b7791f">*</span>':''}</td>`; })()}
     </tr>`;
 
     return totalRow
@@ -2648,6 +2648,12 @@ function movesFromEvents(events, div){
 /* 특정 달 월초 셀의 반이동 툴팁 텍스트 (div 필터) */
 function moveNoteText(events, affMonth, div){
   const list=(events||[]).filter(e=> e.affMonth===affMonth && !(div==='chess'&&!e.isChess) && !(div==='ace'&&e.isChess));
+  if(!list.length) return '';
+  return list.map(e=> e.dir==='out' ? `${e.name}: ${e.from}→${e.to} 이동, 1명 차감` : `${e.name}: ${e.from}→${e.to} 이동, 1명 증가`).join(' / ');
+}
+/* '현재' 열 반이동 툴팁 — 학기 마지막 달 이동(affMonth 없음)은 현재 재원에 반영 */
+function curMoveNoteText(events, div){
+  const list=(events||[]).filter(e=> e.affMonth==null && !(div==='chess'&&!e.isChess) && !(div==='ace'&&e.isChess));
   if(!list.length) return '';
   return list.map(e=> e.dir==='out' ? `${e.name}: ${e.from}→${e.to} 이동, 1명 차감` : `${e.name}: ${e.from}→${e.to} 이동, 1명 증가`).join(' / ');
 }
