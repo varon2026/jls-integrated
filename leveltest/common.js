@@ -1475,24 +1475,45 @@ document.addEventListener('keydown', function (e) {
   moveToNextFocusable(t);
 });
 
+/* 입력 즉시 정오답 색칠 (DT/AT 채점과 동일) — 정답=초록 / 오답=빨강 / 빈칸=색 없음
+   correctVal: 정답값(객관식은 data-ans, VOCA는 "1"). 없으면 색 안 칠함 */
+function markAns(input, correctVal) {
+  const v = (input.value || "").trim();
+  if (v === "" || correctVal == null || correctVal === "") {
+    input.style.background = ""; input.style.borderColor = ""; input.style.color = "";
+    return;
+  }
+  const ok = String(v) === String(correctVal);
+  input.style.background = ok ? "#e4f6ee" : "#fdecec";
+  input.style.borderColor = ok ? "#22a06b" : "#e5484d";
+  input.style.color = ok ? "#1a7a4f" : "#c2373b";
+}
+/* 저장된(미리 채워진) 답안도 열 때 색칠 */
+function markAllAns() {
+  document.querySelectorAll('input[id^="q-"]').forEach(el => markAns(el, el.dataset ? el.dataset.ans : null));
+  document.querySelectorAll('input[id^="vocab-"]').forEach(el => markAns(el, "1"));
+}
 function onlyChoice(input) {
   input.value = input.value.replace(/[^1-5]/g, "");
+  markAns(input, input.dataset ? input.dataset.ans : null);
 }
 function onlyBinary(input) {
   input.value = input.value.replace(/[^10○oOxX]/g, "");
   if (input.value === "○" || /^[oO]$/.test(input.value)) input.value = "1";
   if (/^[xX]$/.test(input.value)) input.value = "0";
   if (input.value.length > 1) input.value = input.value.slice(-1);
+  markAns(input, "1");   // VOCA: 1=정답(초록) / 0=오답(빨강) / 빈칸=색없음(채점은 0점)
 }
+function _focusSel(id) { const el = document.getElementById(id); if (el) { el.focus(); if (el.select) el.select(); } }
 function moveLinear(e, prefix, idx, last, fallbackId) {
-  if (e.key === "Enter" || e.key === "ArrowDown") {
+  // 상하좌우 + 엔터 모두 이동 (→/↓/Enter = 다음, ←/↑ = 이전)
+  if (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowRight") {
     e.preventDefault();
-    if (idx < last) document.getElementById(`${prefix}-${idx + 1}`)?.focus();
-    else if (fallbackId) document.getElementById(fallbackId)?.focus();
-  }
-  if (e.key === "ArrowUp") {
+    if (idx < last) _focusSel(`${prefix}-${idx + 1}`);
+    else if (fallbackId) _focusSel(fallbackId);
+  } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
     e.preventDefault();
-    if (idx > 1) document.getElementById(`${prefix}-${idx - 1}`)?.focus();
+    if (idx > 1) _focusSel(`${prefix}-${idx - 1}`);
   }
 }
 function focusNext(e, nextId) {
@@ -1502,14 +1523,13 @@ function focusNext(e, nextId) {
   }
 }
 function moveScoreSelect(e, idx, last) {
-  if (e.key === "Enter" || e.key === "ArrowDown") {
+  if (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowRight") {
     e.preventDefault();
-    if (idx < last) document.getElementById(`trans-score-${idx + 1}`)?.focus();
-  }
-  if (e.key === "ArrowUp") {
+    if (idx < last) _focusSel(`trans-score-${idx + 1}`);
+  } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
     e.preventDefault();
-    if (idx > 1) document.getElementById(`trans-score-${idx - 1}`)?.focus();
-    else document.getElementById('vocab-40')?.focus();
+    if (idx > 1) _focusSel(`trans-score-${idx - 1}`);
+    else _focusSel('vocab-40');
   }
 }
 function moveSubjective(e, qNo, part) {
@@ -1905,7 +1925,7 @@ function renderExamPage(memberCode, name, school, grade, testDate, title, examKe
       <div class="answer-row simple" id="row-${q.no}">
         <div class="question-no">${q.no}번</div>
         <input id="q-${q.no}" class="answer-input" maxlength="1" inputmode="numeric"
-          value="${esc(preset)}"
+          value="${esc(preset)}" data-ans="${esc(q.ans == null ? '' : q.ans)}"
           oninput="onlyChoice(this)"
           onkeydown="moveLinear(event,'q',${q.no},${examData.length},'${grade === '초등6' || grade === '중등1' ? 'vocab-1' : ''}')">
         <div class="answer-meta">${q.area} / ${q.score}점</div>
@@ -2046,6 +2066,7 @@ app.innerHTML = `
   };
 
   document.getElementById("q-1")?.focus();
+  markAllAns();
 }
 
 function restoreExamInput() {
@@ -2350,6 +2371,7 @@ function renderVTExamPage(memberCode, name, school, grade, testDate, title, vtSt
 
   LAST_VT_SESSION = { memberCode, name, school, grade, testDate, title, vtState: vtState || null };
   document.getElementById("vocab-1")?.focus();
+  markAllAns();
 }
 
 function restoreVTInput() {
