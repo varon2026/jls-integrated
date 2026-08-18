@@ -1643,12 +1643,28 @@ async function deleteReservation(id, reason){
 function triggerExcelUpload(){ const inp=$('ltXlsx'); if(inp){ inp.value=''; inp.click(); } }
 function xlDate(s){ const m=String(s==null?'':s).match(/(\d{4})[.\-/\s]+(\d{1,2})[.\-/\s]+(\d{1,2})/); return m?`${m[1]}-${_pad(+m[2])}-${_pad(+m[3])}`:null; }
 function xlPhone(s){ const d=String(s==null?'':s).replace(/[^0-9]/g,''); return d.length===11?`${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7)}`:(d||null); }
-function matchBranch(place){
-  const p=String(place||'').replace(/\s/g,'');
-  if(!p) return null;
-  let hit=(db.branches||[]).find(b=>b.name.replace(/\s/g,'')===p);
-  if(!hit) hit=(db.branches||[]).find(b=>{ const n=b.name.replace(/\s/g,''); return p.includes(n)||n.includes(p); });
-  return hit?hit.id:null;
+/* 분원명 핵심어만 남김 — IMS의 '○○정상어학원'·'○○어학CHESS관' 같은 표기를 분원명과 맞추기 위함.
+   ('관'·'점' 같은 한 글자는 지우지 않음 → 관악분원 등이 깨지지 않도록) */
+function _brCore(s){ return String(s||'').replace(/\s/g,'').replace(/CHESS관|정상어학원|어학원|정상|어학|학원|분원|캠퍼스/g,''); }
+/* 여러 후보(장소·분원명)를 받아 가장 잘 맞는 분원을 찾음.
+   1) 원문 그대로 정확/포함  2) 핵심어(core) 정확  3) 핵심어 포함(가장 구체적인=긴 것 우선)
+   → '수원'과 '수원장안'처럼 겹치는 이름도 더 구체적인 쪽으로 정확히 매칭 */
+function matchBranch(...places){
+  const cands=places.flat().map(x=>String(x==null?'':x).replace(/\s/g,'')).filter(Boolean);
+  if(!cands.length) return null;
+  const list=(db.branches||[]).map(b=>({id:b.id, raw:String(b.name||'').replace(/\s/g,''), core:_brCore(b.name)})).filter(x=>x.raw);
+  for(const p of cands){
+    let hit=list.find(x=>x.raw===p)
+      || list.filter(x=>p.includes(x.raw)||x.raw.includes(p)).sort((a,b)=>b.raw.length-a.raw.length)[0];
+    if(hit) return hit.id;
+  }
+  for(const p of cands){
+    const pc=_brCore(p); if(!pc) continue;
+    let hit=list.find(x=>x.core===pc)
+      || list.filter(x=>x.core&&(pc.includes(x.core)||x.core.includes(pc))).sort((a,b)=>b.core.length-a.core.length)[0];
+    if(hit) return hit.id;
+  }
+  return null;
 }
 async function handleExcelFile(ev){
   if(!curCanEdit()){ toast('뷰어 계정은 업로드 권한이 없습니다','err'); return; }
@@ -1665,7 +1681,7 @@ async function handleExcelFile(ev){
     if(hi<0){ toast('예약 명단 형식이 아니에요 (헤더 못 찾음)','err'); return; }
     const H=rows[hi].map(x=>String(x==null?'':x).trim());
     const col=n=>H.indexOf(n);
-    const cB=col('장소')>=0?col('장소'):col('분원명'), cD=col('예약일'), cT=col('예약시간'),
+    const cB=col('장소'), cB2=col('분원명'), cD=col('예약일'), cT=col('예약시간'),
       cN=col('이름'), cC=col('회원코드')>=0?col('회원코드'):col('아이디'),
       cS=col('학교'), cG=col('학년'), cP=col('학부모 연락처'), cM=col('공지'), cR=col('접수자');
     if(cN<0||cD<0){ toast('이름·예약일 칸을 못 찾았어요','err'); return; }
@@ -1674,7 +1690,7 @@ async function handleExcelFile(ev){
     for(let i=hi+1;i<rows.length;i++){
       const r=rows[i]; if(!r) continue;
       const name=String(r[cN]==null?'':r[cN]).trim(); if(!name) continue;
-      const branchId=matchBranch(r[cB]);
+      const branchId=matchBranch(cB>=0?r[cB]:'', cB2>=0?r[cB2]:'');
       if(!branchId){ noBr++; continue; }
       const date=xlDate(r[cD]); if(!date){ bad++; continue; }
       const time=String(r[cT]==null?'':r[cT]).trim().slice(0,5);
