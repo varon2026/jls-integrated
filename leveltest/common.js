@@ -1494,18 +1494,27 @@ function markAns(input, correctVal) {
 /* 저장된(미리 채워진) 답안도 열 때 색칠 */
 function markAllAns() {
   document.querySelectorAll('input[id^="q-"]').forEach(el => markAns(el, el.dataset ? el.dataset.ans : null));
-  document.querySelectorAll('input[id^="vocab-"]').forEach(el => markAns(el, "1"));
+  // VOCA: 빈칸도 오답(빨강)으로 표시
+  document.querySelectorAll('input[id^="vocab-"]').forEach(el => paintCell(el, (el.value || "").trim() === "1" ? "ok" : "no"));
 }
 function onlyChoice(input) {
   input.value = input.value.replace(/[^1-5]/g, "");
   markAns(input, input.dataset ? input.dataset.ans : null);
 }
-function onlyBinary(input) {
+function sanitizeBinary(input) {
   input.value = input.value.replace(/[^10○oOxX]/g, "");
   if (input.value === "○" || /^[oO]$/.test(input.value)) input.value = "1";
   if (/^[xX]$/.test(input.value)) input.value = "0";
   if (input.value.length > 1) input.value = input.value.slice(-1);
-  markAns(input, "1");   // VOCA: 1=정답(초록) / 0=오답(빨강) / 빈칸=색없음(채점은 0점)
+}
+function onlyBinary(input) {   // CHESS 문법 등: 1=초록 / 0=빨강 / 빈칸=색없음
+  sanitizeBinary(input);
+  markAns(input, "1");
+}
+/* 초6·중1 VOCA: 1=맞음(초록) / 0 또는 빈칸=오답(빨강) — 빈칸도 빨강으로 */
+function onlyVocab(input) {
+  sanitizeBinary(input);
+  paintCell(input, input.value.trim() === "1" ? "ok" : "no");
 }
 function _focusSel(id) { const el = document.getElementById(id); if (el) { el.focus(); if (el.select) el.select(); } }
 /* 답안칸이 여러 열(그리드)로 배치되므로, 같은 줄에 몇 칸인지 계산해서 ↑↓가 '줄 단위'로 움직이게 함 */
@@ -1976,7 +1985,7 @@ if ((grade === "초등6" || grade === "중등1") &&
         <div class="answer-meta left">${esc(item.word)}</div>
         <input id="vocab-${item.no}" class="answer-input" maxlength="1" inputmode="numeric"
           value="${esc(preset)}"
-          oninput="onlyBinary(this)"
+          oninput="onlyVocab(this)"
           onkeydown="moveLinear(event,'vocab',${item.no},${VOCAB_ITEMS.length},'trans-score-1')">
       </div>
     `;
@@ -2056,6 +2065,7 @@ const transRows = TRANS_ITEMS.map((item, idx) => {
     <div class="integrated-section">
       <div class="chess-section">
         <h3>Vocabulary Test</h3>
+        <p class="muted" style="margin:-4px 0 10px;font-weight:800;color:#b7791f;">맞으면 1, 틀리면 0 또는 빈칸 (빈칸도 오답 처리) · 1=초록 / 0·빈칸=빨강</p>
         <div class="answer-list">
           ${vocabRows}
         </div>
@@ -2357,7 +2367,7 @@ function renderVTExamPage(memberCode, name, school, grade, testDate, title, vtSt
         <div class="answer-meta left">${esc(item.word)} <span style="color:#64748b;">(${esc(item.gradeGroup)})</span></div>
         <input id="vocab-${item.no}" class="answer-input" maxlength="1" inputmode="numeric"
           value="${esc(preset)}"
-          oninput="onlyBinary(this)"
+          oninput="onlyVocab(this)"
           onkeydown="moveLinear(event,'vocab',${item.no},${VOCAB_ITEMS.length},'trans-score-1')">
       </div>
     `;
@@ -2390,6 +2400,7 @@ function renderVTExamPage(memberCode, name, school, grade, testDate, title, vtSt
     </div>
     <div class="integrated-section">
       <div class="integrated-title">Part 1. Vocabulary</div>
+      <p class="muted" style="margin:-2px 0 10px;font-weight:800;color:#b7791f;">맞으면 1, 틀리면 0 또는 빈칸 (빈칸도 오답 처리) · 1=초록 / 0·빈칸=빨강</p>
       <div class="answer-list">${vocabRows}</div>
     </div>
     <div class="integrated-section">
