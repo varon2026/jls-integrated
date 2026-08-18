@@ -151,6 +151,23 @@ function normalizeChessAnswer(value) {
     .replace(/\s+/g, "")
     .replace(/[.,]/g, "");
 }
+/* CHESS 답안 입력 즉시 정오답 색칠 (정답 비교는 normalizeChessAnswer 기준) */
+function markChessAns(input, correctVal) {
+  const v = (input.value || "").trim();
+  if (v === "" || correctVal == null || correctVal === "") {
+    input.style.background = ""; input.style.borderColor = ""; input.style.color = "";
+    return;
+  }
+  const ok = normalizeChessAnswer(v) === normalizeChessAnswer(correctVal);
+  input.style.background = ok ? "#e4f6ee" : "#fdecec";
+  input.style.borderColor = ok ? "#22a06b" : "#e5484d";
+  input.style.color = ok ? "#1a7a4f" : "#c2373b";
+}
+/* 저장된(미리 채워진) CHESS 답안도 열 때 색칠 */
+function markAllChess() {
+  document.querySelectorAll('input[id^="chess-q-"]').forEach(el => markChessAns(el, el.dataset ? el.dataset.ans : null));
+  if (typeof markAns === "function") document.querySelectorAll('input[id^="chess-g-"]').forEach(el => markAns(el, "1"));
+}
 
 function getChessMeta(examName) {
   const t = String(examName || "").toUpperCase();
@@ -170,6 +187,8 @@ function getChessQuestionCount(examName) {
 function buildChessAnswerInputs(examName) {
   const count = getChessQuestionCount(examName);
   if (!count) return `<p class="muted">답안 데이터가 없습니다.</p>`;
+  const key = CHESS_ANSWER_KEY[String(examName || "").toUpperCase()] || [];
+  const hasGrammar = getChessMeta(examName).hasGrammar;
 
   return `
     <div class="answer-list">
@@ -181,6 +200,9 @@ function buildChessAnswerInputs(examName) {
             type="text"
             class="answer-input"
             autocomplete="off"
+            data-ans="${esc(key[i] == null ? "" : key[i])}"
+            oninput="markChessAns(this, this.dataset.ans)"
+            onkeydown="moveLinear(event,'chess-q',${i + 1},${count},'${hasGrammar ? "chess-g-1" : ""}')"
           >
           <div class="answer-meta">답안</div>
         </div>
@@ -212,7 +234,8 @@ function buildChessGrammarInputs(examName) {
               maxlength="1"
               class="answer-input"
               inputmode="numeric"
-              oninput="this.value=this.value.replace(/[^01]/g,'')"
+              oninput="onlyBinary(this)"
+              onkeydown="moveLinear(event,'chess-g',${i + 1},${answerKey.length},'')"
               placeholder="0/1"
             >
           </div>
@@ -620,6 +643,8 @@ const config = CHESS_CONFIG[cleanKey];
   `;
 
   window.scrollTo({ top: 0, behavior: "smooth" });
+  document.getElementById("chess-q-1")?.focus();
+  markAllChess();
 }
 
 function collectChessAnswers(examName) {
