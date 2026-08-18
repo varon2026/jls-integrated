@@ -276,6 +276,65 @@ async function loadDB(){
   await saveDB(); // ensureSemesters로 늘어난 학기 등 반영
 }
 
+/* ============================================================================
+   교재관리(bk_students) 자동 동기화
+   - 원무에서 신규 등록(재원) → bk_students upsert(재원)
+   - 원무에서 퇴원 처리      → bk_students status='퇴원' (기록·미납은 그대로 유지, 절대 삭제 안 함)
+   - 연결 키: bk_students.student_id = 회원코드(students.code)
+   - 분원: 교재관리는 자체 코드 사용(아래 매핑). 아산탕정 등 교재관리에 없는 분원은 건너뜀.
+   ============================================================================ */
+const BK_BRANCH_BY_NAME = {
+  '남동탄':'namdongtanjls', '수원':'suwon_jls', '장안':'suwonjls2009',
+  '서수원':'seosuwonjls', '운정1':'unjeongjls', '운정2':'unjeongjls2'
+};
+function bkBranchCode(branchId){
+  const b=getBranch(branchId); if(!b) return null;
+  const key=String(b.name||'').replace(/분원$/,'').trim();
+  return BK_BRANCH_BY_NAME[key]||null;
+}
+function bkSemester(semId){
+  const m=String(semId||'').match(/sem_(\d+)_(\w+)/); if(!m) return null;
+  const yy=String(m[1]).slice(2), s={spring:'봄',summer:'여름',fall:'가을',winter:'겨울'}[m[2]];
+  return s?(yy+'년'+s):null;
+}
+function bkDivision(grade, className){
+  const cn=String(className||'').toUpperCase();
+  const mm=cn.match(/\[?\s*([A-Z]+)/); const lv=mm?mm[1]:'';
+  if(/^(IS|DS|LS|MS)/.test(lv)) return 'CHESS';
+  return 'ACE';
+}
+/* 바뀐 semesterRecords만 교재관리로 반영 (saveDB 성공 후 호출). 실패해도 원무 저장엔 영향 없음. */
+async function mirrorToBooks(records){
+  if(!sb || !records || !records.length) return;
+  const nowIso=new Date().toISOString();
+  const upserts=[]; const wdByBranch={};
+  for(const r of records){
+    const st=getStudent(r.studentId); const code=st&&st.code?st.code:null; if(!code) continue;
+    const bk=bkBranchCode(r.branchId); if(!bk) continue;   // 교재관리에 없는 분원 제외
+    if(r.status==='active'){
+      upserts.push({ student_id:code, branch:bk, name:st.name||'', grade:st.grade||null, school:st.school||null,
+        class_name:r.classLabel||r.className||null, semester:bkSemester(r.semesterId),
+        division:bkDivision(st.grade, r.className), status:'재원', updated_at:nowIso });
+    } else if(r.status==='withdraw'){
+      (wdByBranch[bk]=wdByBranch[bk]||[]).push(code);
+    }
+  }
+  try{
+    for(let i=0;i<upserts.length;i+=200){
+      const { error }=await sb.from('bk_students').upsert(upserts.slice(i,i+200),{onConflict:'student_id,branch'});
+      if(error) console.error('교재관리 신규 반영 실패', error);
+    }
+    for(const bk of Object.keys(wdByBranch)){
+      const codes=[...new Set(wdByBranch[bk])];
+      for(let i=0;i<codes.length;i+=200){
+        // 이미 교재관리에 있는 학생만 퇴원 표시(없으면 아무 행도 안 바뀜) — 기록·미납 그대로 보존
+        const { error }=await sb.from('bk_students').update({status:'퇴원',updated_at:nowIso}).eq('branch',bk).in('student_id',codes.slice(i,i+200));
+        if(error) console.error('교재관리 퇴원 반영 실패', error);
+      }
+    }
+  }catch(e){ console.error('교재관리 동기화 오류', e); }
+}
+
 /* 메모리 db를 서버에 동기화 — 직전 스냅샷과 비교해 바뀐 행만 upsert + 삭제된 행 delete.
    대량 데이터는 Supabase 요청 한도를 넘지 않게 잘게 나눠서 보냄(배치). */
 async function saveDB(){
@@ -283,6 +342,7 @@ async function saveDB(){
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
   const CHUNK = 200;  // 한 번에 보낼 최대 행 수
   let failed = false;
+  const bkChangedRecs = [];   // 교재관리로 반영할 바뀐 명단(재원/퇴원) 행
   try{
     for(const t of TABLES){
       const cur = db[t.key] || [];
@@ -293,7 +353,7 @@ async function saveDB(){
       const ups = [];
       for(const [id,row] of curById){
         const before = prevById.get(id);
-        if(!before || JSON.stringify(before)!==JSON.stringify(row)) ups.push(t.toRow(row));
+        if(!before || JSON.stringify(before)!==JSON.stringify(row)){ ups.push(t.toRow(row)); if(t.key==='semesterRecords') bkChangedRecs.push(row); }
       }
       // 삭제 대상: 이전엔 있었는데 지금 없는 행
       const delIds = [];
@@ -316,6 +376,7 @@ async function saveDB(){
       return false;  // 스냅샷 갱신 안 함 → 다음 저장에서 재시도
     }
     dbSnapshot = JSON.parse(JSON.stringify(db));  // 동기화 완료 → 스냅샷 갱신
+    mirrorToBooks(bkChangedRecs);  // 교재관리 자동 반영(실패해도 원무 저장 성공엔 영향 없음)
     return true;
   }catch(e){ console.error('saveDB error', e); toast('서버 저장 중 오류가 발생했습니다','err'); return false; }
 }
