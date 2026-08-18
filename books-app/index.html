@@ -1459,7 +1459,7 @@ async function call(action,payload){
       d.forEach(function(s){merged[s.student_id]=s;});
       Object.values(hLatest).forEach(function(s){if(!merged[s.student_id]) merged[s.student_id]=s;});
       var combined=Object.values(merged).sort(function(a,b){return String(a.name).localeCompare(String(b.name),'ko');});
-      return {ok:true,data:combined.map(function(s){return {'학생ID':s.student_id,'이름':s.name,'학년':s.grade||'','반':s.class_name||'','구분':s.division||''};})};
+      return {ok:true,data:combined.map(function(s){return {'학생ID':s.student_id,'이름':s.name,'학년':s.grade||'','반':s.class_name||'','구분':s.division||'','상태':s.status||''};})};
     }    if(action==='loanBook'){
       var bc=String(payload.barcode||'').trim();
       var book=(await sbGet('books','select=name&barcode=eq.'+encodeURIComponent(bc)))[0];
@@ -1640,6 +1640,12 @@ async function call(action,payload){
       var unitPrice=payload.price!=null?Number(payload.price):(book.price||0);
       var sts=await sbGet('students','select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&class_name=eq.'+encodeURIComponent(payload.classNum)+'&branch=eq.'+encodeURIComponent(currentBranch));
       if(!sts.length) return {ok:false,msg:'해당 반 학생이 없습니다.'};
+      // 프론트에서 체크한 학생만 출고 (studentIds 전달 시)
+      if(Array.isArray(payload.studentIds)&&payload.studentIds.length){
+        var _selSet=new Set(payload.studentIds.map(String));
+        sts=sts.filter(function(s){return _selSet.has(String(s.student_id));});
+        if(!sts.length) return {ok:false,msg:'선택된 학생이 없습니다.'};
+      }
       // 중복 판매 확인: 이미 해당 교재 판매된 학생 제외
       var dupCheck=await sbGet('sales_history','select=student_id&type=eq.출고&barcode=eq.'+encodeURIComponent(bc)+'&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(effectiveBranch()));
       var dupIds=new Set(dupCheck.map(function(r){return r.student_id;}));
@@ -2933,12 +2939,36 @@ async function updateBulkPreview(){
   el.textContent='조회 중...';
   var r=await call('getStudentsBySemesterClass',{semester:sem,classNum:cls});
   bulkAssigns=r.data||[];
-  el.innerHTML='<span style="color:var(--accent2);font-weight:700">'+cls+' '+bulkAssigns.length+'명</span>에게 출고됩니다.';
-  document.getElementById('bulk-student-list').innerHTML=bulkAssigns.length?'<div class="twrap"><table><thead><tr><th>이름</th><th>학년</th><th>반</th></tr></thead><tbody>'+bulkAssigns.map(function(a){return '<tr><td><b>'+a['이름']+'</b></td><td>'+(a['학년']||'-')+'</td><td>'+a['반']+'</td></tr>';}).join('')+'</tbody></table></div>':'';
+  document.getElementById('bulk-student-list').innerHTML=bulkAssigns.length?'<div class="twrap"><table><thead><tr>'
+    +'<th style="width:36px;text-align:center"><input type="checkbox" id="bulk-chk-all" checked onchange="toggleBulkAll(this)"></th>'
+    +'<th>이름</th><th>학년</th><th>반</th></tr></thead><tbody>'
+    +bulkAssigns.map(function(a){
+      var wd=a['상태']==='퇴원';
+      return '<tr>'
+        +'<td style="text-align:center"><input type="checkbox" class="bulk-chk" value="'+escapeHtml(a['학생ID'])+'" '+(wd?'':'checked')+' onchange="updateBulkCount()"></td>'
+        +'<td><b>'+escapeHtml(a['이름'])+'</b>'+(wd?' <span class="badge b-red">퇴원</span>':'')+'</td>'
+        +'<td>'+(a['학년']||'-')+'</td><td>'+escapeHtml(a['반'])+'</td></tr>';
+    }).join('')+'</tbody></table></div>':'';
+  updateBulkCount();
+}
+function toggleBulkAll(cb){
+  document.querySelectorAll('#bulk-student-list .bulk-chk').forEach(function(b){b.checked=cb.checked;});
+  updateBulkCount();
+}
+function updateBulkCount(){
+  var boxes=document.querySelectorAll('#bulk-student-list .bulk-chk');
+  var checked=[].filter.call(boxes,function(b){return b.checked;}).length;
+  var cls=document.getElementById('bulk-class').value;
+  var el=document.getElementById('bulk-preview');
+  if(el){ el.innerHTML=bulkAssigns.length?('<span style="color:var(--accent2);font-weight:700">'+cls+' 선택 '+checked+'명</span> / 전체 '+bulkAssigns.length+'명'):'학기와 반을 선택하면 인원이 표시됩니다.'; }
+  var all=document.getElementById('bulk-chk-all');
+  if(all) all.checked = boxes.length>0 && checked===boxes.length;
 }
 async function doBulk(){
   if(!dataReady) return toast('데이터를 불러오는 중입니다.',false);
   if(!bulkAssigns.length) return toast('학생 조회를 먼저 눌러주세요.',false);
+  var checkedIds=[].map.call(document.querySelectorAll('#bulk-student-list .bulk-chk:checked'),function(b){return b.value;});
+  if(!checkedIds.length) return toast('출고할 학생을 선택하세요.',false);
   var resolvedBulkBook=resolveBookInputValue(document.getElementById('bulk-barcode').value);
   var barcode=resolvedBulkBook.barcode;
   var semester=document.getElementById('bulk-semester').value;
@@ -2950,7 +2980,7 @@ async function doBulk(){
   if(!classNum) return toast('반을 선택하세요.',false);
   // 재고 부족 확인
   try{
-    var _bulkQty=bulkAssigns.length;
+    var _bulkQty=checkedIds.length;
     var _bulkStock=0;
     var _bulkCached=(stockCache||[]).find(function(r){return r['바코드']===barcode;});
     if(_bulkCached){
@@ -2967,12 +2997,12 @@ async function doBulk(){
     var _bulkShortage=_bulkQty-_bulkStock;
     if(_bulkShortage>0){
       var _bulkLabel=(findBookByBarcode(barcode)||{})['교재명']||barcode;
-      if(!confirm('⚠️ 재고 부족\n\n['+_bulkLabel+']\n현재 재고: '+_bulkStock+'권 / 출고 요청: '+_bulkQty+'권 ('+bulkAssigns.length+'명)\n재고가 '+_bulkShortage+'권 부족합니다.\n\n그대로 처리하시겠습니까?')) return;
+      if(!confirm('⚠️ 재고 부족\n\n['+_bulkLabel+']\n현재 재고: '+_bulkStock+'권 / 출고 요청: '+_bulkQty+'권 ('+checkedIds.length+'명)\n재고가 '+_bulkShortage+'권 부족합니다.\n\n그대로 처리하시겠습니까?')) return;
     }
   }catch(e){ /* 재고 확인 실패 시 진행 */ }
 
-  if(!confirm('['+semester+'] ['+classNum+'] ('+bulkAssigns.length+'명) 전원 출고합니다. 계속할까요?')) return;
-  try{var res=await call('bulkSales',{barcode:barcode,semester:semester,classNum:classNum,price:price?Number(price):null,memo:memo});toast(res.msg,res.ok);}
+  if(!confirm('['+semester+'] ['+classNum+'] 선택 '+checkedIds.length+'명에게 출고합니다. 계속할까요?')) return;
+  try{var res=await call('bulkSales',{barcode:barcode,semester:semester,classNum:classNum,price:price?Number(price):null,memo:memo,studentIds:checkedIds});toast(res.msg,res.ok);}
   catch(e){toast('오류 발생',false);}
 }
 
