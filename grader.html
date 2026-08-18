@@ -135,6 +135,7 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================================================================
@@ -444,6 +445,10 @@ function renderAnswerView(){
   $('content').innerHTML=`
     <div class="h2">${EXAM} 답안입력·채점</div>
     <div class="sub">${semName(SEM)}${BRANCH?' · '+esc(BRANCHES[BRANCH]):' · 전 분원'} · 반(요일·담임)을 고르면 그 반 명단이 떠요. 같은 레벨 다른 반은 따로 채점해요.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+      <button class="ghost mini" onclick="exportScoresBulk()">📊 ${EXAM} 성적 엑셀 일괄 다운로드 ${BRANCH?'· '+esc(BRANCHES[BRANCH]):(ROLE==='admin'?'· 전체':'')}</button>
+      <span class="hint">정답키가 등록된 레벨만 · 미응시 노랑 · 재시험 초록</span>
+    </div>
     <div class="dd" style="margin-bottom:16px">
       <div class="ddbox" onclick="toggleDD()"><span id="ddLabel">${cur?esc(noDays(cur.levelCode))+' · '+esc(classDetail(cur.className)):'<span class=ph>— 반을 선택하세요 —</span>'}</span><span style="color:var(--ink3)">▾</span></div>
       <div class="ddlist" id="ddList" style="display:none"><div class="ddopts">${opts||'<div style="padding:16px" class="hint">대상 반이 없어요</div>'}</div></div>
@@ -466,6 +471,7 @@ function buildGrid(){
       <div style="font-size:16px;font-weight:800">${esc(noDays(code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
       <div class="hint">응시 ${studs.length}명 · <b style="color:var(--pos)">채점 ${gradedOf(cls)}/${studs.length}명</b> · ${key?`정답키 ${key.num_q}문항`:'<b style="color:var(--warn)">정답키 없음</b>'}</div>
       <div style="flex:1"></div>
+      ${key?`<button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>`:''}
       ${isTeacherRO()?'':`<button class="ghost mini ${isOff?'':'danger'}" onclick="toggleOff('${esc(code)}')">${isOff?'✓ 미응시 해제':'✕ 이 레벨 시험없음(미응시)'}</button>
       ${key&&!isOff?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
       <label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">답안 엑셀↑<input type="file" accept=".xlsx,.xls" hidden onchange="uploadAns(this)"></label>
@@ -683,6 +689,7 @@ function buildAceArea(){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div style="font-size:16px;font-weight:800">${esc(base)} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
         <div style="flex:1"></div>
+        <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>
         ${CURTAB!=='총점'?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
         <label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">답안 엑셀↑<input type="file" accept=".xlsx,.xls" hidden onchange="uploadAns(this)"></label>
         <button class="btn mini" onclick="saveAce()">${CURTAB} 채점 저장</button>`:''}
@@ -782,6 +789,178 @@ async function loadAceSaved(section){
       if(a&&a.type==='sa'){ if(rp.p!=null){ val=String(rp.p); } else if(val==='1'){ val=String(a.pt||2); } } // 구버전 만점 플래그 → 배점으로 변환
       i.value=val;});
     aceScoreRow(tr,ans);});
+}
+
+/* ============================================================================
+   성적 엑셀 다운로드 — 세부 항목별 점수 (답안 X, 점수만)
+   · 미응시(채점기록 없음) = 노란 줄 / 재시험 = 초록 줄 + 1차·2차 총점 맨 끝
+   · 정답키가 등록된 레벨·영역만 내보냄
+   · admin/본사: 전체 또는 분원(상단 분원 선택) 일괄 / 분원계정: 자기 분원만
+   ============================================================================ */
+const XL_YELLOW='FFFFF3CD';   // 미응시
+const XL_GREEN ='FFE4F6EE';   // 재시험
+const XL_HEAD  ='FFF0EBFE';   // 헤더
+const XL_LINE  ='FFECE8F5';
+function _meta(r){return [r.branchName||'', r.name||'', r.school||'', gradeKey(r.grade)||'', r.code||''];}
+function _latest(idx,k,r){const cur=idx[k];const rn=+(r.round||1),cn=cur?+(cur.round||1):-1;if(!cur||rn>cn||(rn===cn&&String(r.graded_at||'')>String(cur.graded_at||'')))idx[k]=r;}
+function _sheetName(base){return String(base||'sheet').replace(/[\\/?*\[\]:]/g,' ').trim().slice(0,28)||'sheet';}
+function _uniqSheet(sheets,base){let n=_sheetName(base),i=2;while(sheets.some(s=>s.name===n)){n=_sheetName(base).slice(0,25)+'_'+i;i++;}return n;}
+function keyOfVariant(v){return KEYS.find(k=>k.test_type==='AT'&&normLv(k.level)===normLv(v));}
+/* DT·내신: 저장된 답안(responses)에서 영역별 획득점수·총점(%) 재계산 (scoreRow와 동일 로직) */
+function computeParts(responses,ans){
+  const rmap={};(responses||[]).forEach(r=>rmap[r.n]=r);
+  const parts=[...new Set(ans.map(a=>a.part||'전체'))];
+  const got={},pt={};parts.forEach(p=>{got[p]=0;pt[p]=0;});
+  ans.forEach(a=>{const p=a.part||'전체';pt[p]+=(a.pt||0);const rp=rmap[a.n];if(!rp)return;const v=String(rp.ans==null?'':rp.ans).trim();if(v==='')return;
+    const ok=a.type==='sa'?(v==='1'):(normA(v)===normA(a.ans));if(ok)got[p]+=(a.pt||0);});
+  parts.forEach(p=>got[p]=Math.round(got[p]*10)/10);
+  const tg=parts.reduce((s,p)=>s+got[p],0),tp=parts.reduce((s,p)=>s+pt[p],0);
+  return {parts,got,score:tp>0?Math.round(tg/tp*1000)/10:0};
+}
+/* DT·내신 한 레벨 → 시트 {name,header,rows(cells,fill)} */
+function dtSheetFor(code,key,recs,idx){
+  const ans=(key.answers||[]).slice().sort((a,b)=>a.n-b.n);
+  const parts=[...new Set(ans.map(a=>a.part||'전체'))];
+  const built=recs.map(r=>{
+    const rec=idx[r.code+'|'+key.id];
+    if(!rec)return {r,none:true};
+    const cp=computeParts(rec.responses,ans);
+    const attempts=[...(Array.isArray(rec.prev_scores)?rec.prev_scores:[]),rec.score];
+    const isRe=(+(rec.round||1)>1)||(Array.isArray(rec.prev_scores)&&rec.prev_scores.length>0);
+    return {r,none:false,cp,attempts,isRe};
+  });
+  const anyRe=built.some(b=>b.isRe);
+  const maxR=anyRe?Math.max(...built.filter(b=>b.isRe).map(b=>b.attempts.length)):0;
+  const header=['분원명','학생명','학교','학년','회원코드',...parts.map(p=>p+' 점수'),'최종'];
+  for(let i=0;i<maxR;i++)header.push((i+1)+'차');
+  const rows=built.map(b=>{
+    const cells=_meta(b.r);
+    if(b.none){while(cells.length<header.length)cells.push('');return {cells,fill:XL_YELLOW};}
+    parts.forEach(p=>cells.push(b.cp.got[p]));
+    cells.push(b.cp.score);
+    for(let i=0;i<maxR;i++)cells.push(b.isRe&&b.attempts[i]!=null?b.attempts[i]:'');
+    return {cells,fill:b.isRe?XL_GREEN:null};
+  });
+  const widths=[11,12,15,7,13,...parts.map(()=>10),9,...Array(maxR).fill(7)];
+  return {name:code,header,rows,widths};
+}
+/* AT 한 시험지(variant) → 시트. 독해/문법 각 세부영역 + 총점 */
+function atSheetFor(variant,recs,idx){
+  const k=keyOfVariant(variant);const kAns=k?(k.answers||[]):[];
+  const dAns=kAns.filter(a=>(a.part||'')==='독해').sort((a,b)=>a.n-b.n);
+  const gAns=kAns.filter(a=>(a.part||'')==='문법').sort((a,b)=>a.n-b.n);
+  const hasD=dAns.length>0,hasG=gAns.length>0;
+  const dSubs=[...new Set(dAns.map(a=>a.sub||'기타'))],gSubs=[...new Set(gAns.map(a=>a.sub||'기타'))];
+  const built=recs.map(r=>{
+    const dRec=idx[r.code+'|'+variant+'|독해'],gRec=idx[r.code+'|'+variant+'|문법'];
+    const d=dRec?computeAce(dRec.responses,dAns):null,g=gRec?computeAce(gRec.responses,gAns):null;
+    const dArr=dRec?[...(Array.isArray(dRec.prev_scores)?dRec.prev_scores:[]),d.got]:[];
+    const gArr=gRec?[...(Array.isArray(gRec.prev_scores)?gRec.prev_scores:[]),g.got]:[];
+    const isRe=!!((dRec&&(+(dRec.round||1)>1||(Array.isArray(dRec.prev_scores)&&dRec.prev_scores.length)))||(gRec&&(+(gRec.round||1)>1||(Array.isArray(gRec.prev_scores)&&gRec.prev_scores.length))));
+    return {r,d,g,none:!(d||g),dArr,gArr,isRe};
+  });
+  const anyRe=built.some(b=>b.isRe);
+  const maxR=anyRe?Math.max(...built.filter(b=>b.isRe).map(b=>Math.max(b.dArr.length,b.gArr.length))):0;
+  const header=['분원명','학생명','학교','학년','회원코드'];
+  if(hasD)header.push('독해');if(hasG)header.push('문법');header.push('총점');
+  if(hasD)dSubs.forEach(s=>header.push('독해-'+s));
+  if(hasG)gSubs.forEach(s=>header.push('문법-'+s));
+  for(let i=0;i<maxR;i++)header.push((i+1)+'차 총점');
+  const rows=built.map(b=>{
+    const cells=_meta(b.r);
+    if(b.none){while(cells.length<header.length)cells.push('');return {cells,fill:XL_YELLOW};}
+    const dsc=b.d?b.d.got:null,gsc=b.g?b.g.got:null,tot=Math.round(((dsc||0)+(gsc||0))*10)/10;
+    if(hasD)cells.push(dsc==null?'':dsc);
+    if(hasG)cells.push(gsc==null?'':gsc);
+    cells.push(tot);
+    if(hasD)dSubs.forEach(s=>cells.push(b.d?(b.d.subG[s]||0):''));
+    if(hasG)gSubs.forEach(s=>cells.push(b.g?(b.g.subG[s]||0):''));
+    for(let i=0;i<maxR;i++){
+      if(!b.isRe){cells.push('');continue;}
+      const dv=b.dArr[i]!=null?b.dArr[i]:(b.dArr.length?b.dArr[b.dArr.length-1]:0);
+      const gv=b.gArr[i]!=null?b.gArr[i]:(b.gArr.length?b.gArr[b.gArr.length-1]:0);
+      cells.push(Math.round((dv+gv)*10)/10);
+    }
+    return {cells,fill:b.isRe?XL_GREEN:null};
+  });
+  return {name:variant,header,rows};
+}
+async function writeXlsxColored(sheets,filename){
+  const thin={style:'thin',color:{argb:XL_LINE}};const border={top:thin,left:thin,bottom:thin,right:thin};
+  const wb=new ExcelJS.Workbook();
+  sheets.forEach(sh=>{
+    const ws=wb.addWorksheet(sh.name.slice(0,31));
+    ws.addRow(sh.header);
+    for(let ci=1;ci<=sh.header.length;ci++){const c=ws.getRow(1).getCell(ci);c.font={bold:true,size:11};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:XL_HEAD}};c.alignment={horizontal:'center',vertical:'middle'};c.border=border;}
+    sh.rows.forEach(r=>{
+      const row=ws.addRow(r.cells);
+      for(let ci=1;ci<=sh.header.length;ci++){const c=row.getCell(ci);c.border=border;c.alignment={horizontal:ci===2||ci===3?'left':'center',vertical:'middle'};if(r.fill)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:r.fill}};}
+    });
+    (sh.widths||[]).forEach((w,i)=>{if(ws.getColumn(i+1))ws.getColumn(i+1).width=w;});
+    for(let i=1;i<=sh.header.length;i++){if(!ws.getColumn(i).width)ws.getColumn(i).width=11;}
+    ws.views=[{state:'frozen',ySplit:1,xSplit:5}];
+  });
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename.replace(/[\\/:*?"<>|]/g,'_')+'.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+/* 현재 열려있는 반(시험지) 하나만 내보내기 */
+async function exportScoresXlsx(){
+  if(typeof ExcelJS==='undefined'){toast('엑셀 모듈 로딩 중이에요. 잠시 후 다시 눌러주세요',false);return;}
+  const cls=curClassObj();if(!cls){toast('반을 먼저 선택하세요',false);return;}
+  toast('성적 엑셀 만드는 중…');
+  try{
+    const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    if(EXAM==='AT'){
+      const variant=CURVARIANT;if(!variant||!keyOfVariant(variant)){toast('시험지(정답키)를 선택하세요',false);return;}
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('key_name',variant));
+      const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
+      const sh=atSheetFor(variant,studs,idx);sh.name=_sheetName(cls.levelCode+'_'+vLabel(variant,cls.levelCode));sh.widths=[11,12,15,7,13];
+      await writeXlsxColored([sh],`${EXAM}_${cls.levelCode}_${vLabel(variant,cls.levelCode)}_${semName(SEM)}`);
+    }else{
+      const key=keyOfLevel(cls.levelCode);if(!key){toast('정답키가 없어요',false);return;}
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM).eq('key_id',key.id));
+      const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+key.id,r));
+      const sh=dtSheetFor(cls.levelCode,key,studs,idx);
+      await writeXlsxColored([sh],`${EXAM}_${cls.levelCode}_${semName(SEM)}`);
+    }
+    toast('성적 엑셀 다운로드 완료 ✓');
+  }catch(e){console.error(e);toast('엑셀 생성 실패: '+(e.message||e),false);}
+}
+/* 현재 시험종류·분원범위 전체 일괄 내보내기 (레벨/시험지별 시트) */
+async function exportScoresBulk(){
+  if(typeof ExcelJS==='undefined'){toast('엑셀 모듈 로딩 중이에요. 잠시 후 다시 눌러주세요',false);return;}
+  toast('전체 성적 엑셀 만드는 중… 잠시만요');
+  try{
+    const sheets=[];
+    if(EXAM==='AT'){
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT'));
+      const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
+      classesForExam().forEach(cls=>{
+        variantsForBase(cls.levelCode).forEach(v=>{
+          if(!keyOfVariant(v))return;
+          const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+          if(!studs.some(r=>idx[r.code+'|'+v+'|독해']||idx[r.code+'|'+v+'|문법']))return;
+          const sh=atSheetFor(v,studs,idx);sh.name=_uniqSheet(sheets,noDays(classDetail(cls.className))+'_'+vLabel(v,cls.levelCode));sh.widths=[11,12,15,7,13];
+          sheets.push(sh);
+        });
+      });
+    }else{
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM));
+      levelsForExam().forEach(l=>{
+        const key=keyOfLevel(l.code);if(!key)return;
+        if(!data.some(r=>r.key_id===key.id))return;   // 채점 데이터 없는 레벨은 건너뜀
+        const idx={};data.forEach(r=>{if(r.key_id===key.id)_latest(idx,r.student_code+'|'+key.id,r);});
+        const studs=l.recs.slice().sort((a,b)=>(a.branchName+a.name).localeCompare(b.branchName+b.name));
+        const sh=dtSheetFor(l.code,key,studs,idx);sh.name=_uniqSheet(sheets,l.code);
+        sheets.push(sh);
+      });
+    }
+    if(!sheets.length){toast('내보낼 채점 데이터가 없어요 (정답키·채점 여부 확인)',false);return;}
+    const br=BRANCH?(BRANCHES[BRANCH]||'분원'):'전체';
+    await writeXlsxColored(sheets,`${EXAM}_성적_${semName(SEM)}_${br}`);
+    toast(`성적 엑셀 다운로드 완료 ✓ (${sheets.length}개 시트)`);
+  }catch(e){console.error(e);toast('엑셀 생성 실패: '+(e.message||e),false);}
 }
 
 (async function(){
