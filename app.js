@@ -417,8 +417,8 @@ function mgSetRange(which,val){ val=+val;
   else if(which==='toY') state.mgTo.y=val; else if(which==='toM') state.mgTo.m=val;
   render();
 }
-/* 현 학기 다음 학기 id (spring→summer→fall→winter→다음해 spring) */
-function nextSemId(semId){ const m=String(semId).match(/sem_(\d+)_(\w+)/); if(!m) return semId; let y=+m[1]; const order=['spring','summer','fall','winter']; let i=order.indexOf(m[2]); if(i<0) return semId; i++; if(i>3){i=0;y++;} return 'sem_'+y+'_'+order[i]; }
+/* nextSemId는 파일 상단(43줄)에 정의됨 — 인자 없이 부르면 현재학기 기준 다음학기 반환.
+   (예전엔 여기 중복 정의가 있어 인자 없는 호출이 undefined를 반환 → wait_semester가 비어 저장되는 버그였음) */
 /* 레벨테스트 데이터가 있는 달 목록(yyyymm) */
 function mgLtMonths(){ const set={}; reservations.forEach(r=>{ const ym=String(r.reserved_date||'').slice(0,7); if(/^\d{4}-\d{2}$/.test(ym)) set[parseInt(ym.slice(0,4),10)*100+parseInt(ym.slice(5,7),10)]=1; }); return Object.keys(set).map(Number).sort((a,b)=>a-b); }
 function mgSetLtRange(which,val){ val=+val; if(which==='fromY') state.ltFrom.y=val; else if(which==='fromM') state.ltFrom.m=val; else if(which==='toY') state.ltTo.y=val; else if(which==='toM') state.ltTo.m=val; render(); }
@@ -448,7 +448,8 @@ function renderMgmtDash(c){
   const years=[...new Set(allM.map(o=>o.y))]; if(!years.length) years.push(new Date().getFullYear());
   const yOpt=(selY)=>years.map(y=>'<option value="'+y+'" '+(y===selY?'selected':'')+'>'+y+'</option>').join('');
   const mOpt=(selM)=>Array.from({length:12},(_,i)=>i+1).map(m=>'<option value="'+m+'" '+(m===selM?'selected':'')+'>'+m+'월</option>').join('');
-  const waitRows=mgBranchList().map(b=>({b, n:reservations.filter(r=>r.branch_id===b.id && r.enrolled==='waiting_next' && r.status!=='parent_only' && r.wait_semester===waitSemId).length}));
+  // 다음학기 대기 = 현 학기의 다음학기(waitSemId)로 지정된 사람 + 학기 미지정(옛 버그로 wait_semester가 빈) 대기자
+  const waitRows=mgBranchList().map(b=>({b, n:reservations.filter(r=>r.branch_id===b.id && r.enrolled==='waiting_next' && r.status!=='parent_only' && (r.wait_semester===waitSemId || !r.wait_semester)).length}));
   const waitTot=waitRows.reduce((a,x)=>a+x.n,0);
   const card='background:#fff;border:1px solid #ece8f5;border-radius:16px;padding:18px 20px;box-shadow:0 3px 14px rgba(80,70,120,.05);margin-bottom:16px';
   const h3s='margin:0 0 2px;font-size:15px;font-weight:800;color:#3a3742';
