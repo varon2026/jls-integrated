@@ -151,17 +151,12 @@ function normalizeChessAnswer(value) {
     .replace(/\s+/g, "")
     .replace(/[.,]/g, "");
 }
-/* CHESS 답안 입력 즉시 정오답 색칠 (정답 비교는 normalizeChessAnswer 기준) */
+/* CHESS 답안 입력 즉시 정오답 색칠 (정답 비교는 normalizeChessAnswer 기준)
+   paintCell(common.js)은 !important로 색을 강제 지정 */
 function markChessAns(input, correctVal) {
   const v = (input.value || "").trim();
-  if (v === "" || correctVal == null || correctVal === "") {
-    input.style.background = ""; input.style.borderColor = ""; input.style.color = "";
-    return;
-  }
-  const ok = normalizeChessAnswer(v) === normalizeChessAnswer(correctVal);
-  input.style.background = ok ? "#e4f6ee" : "#fdecec";
-  input.style.borderColor = ok ? "#22a06b" : "#e5484d";
-  input.style.color = ok ? "#1a7a4f" : "#c2373b";
+  if (v === "" || correctVal == null || correctVal === "") return paintCell(input, "");
+  paintCell(input, normalizeChessAnswer(v) === normalizeChessAnswer(correctVal) ? "ok" : "no");
 }
 /* 저장된(미리 채워진) CHESS 답안도 열 때 색칠 */
 function markAllChess() {

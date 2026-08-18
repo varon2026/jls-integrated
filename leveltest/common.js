@@ -1477,16 +1477,19 @@ document.addEventListener('keydown', function (e) {
 
 /* 입력 즉시 정오답 색칠 (DT/AT 채점과 동일) — 정답=초록 / 오답=빨강 / 빈칸=색 없음
    correctVal: 정답값(객관식은 data-ans, VOCA는 "1"). 없으면 색 안 칠함 */
+/* CSS에 !important 규칙이 많아 인라인도 important로 강제 지정해야 색이 먹음 */
+function paintCell(input, state) {   // state: "ok" | "no" | ""(비움)
+  const s = input.style;
+  if (!state) { s.removeProperty("background-color"); s.removeProperty("border-color"); s.removeProperty("color"); return; }
+  const ok = state === "ok";
+  s.setProperty("background-color", ok ? "#e4f6ee" : "#fdecec", "important");
+  s.setProperty("border-color",     ok ? "#22a06b" : "#e5484d", "important");
+  s.setProperty("color",            ok ? "#1a7a4f" : "#c2373b", "important");
+}
 function markAns(input, correctVal) {
   const v = (input.value || "").trim();
-  if (v === "" || correctVal == null || correctVal === "") {
-    input.style.background = ""; input.style.borderColor = ""; input.style.color = "";
-    return;
-  }
-  const ok = String(v) === String(correctVal);
-  input.style.background = ok ? "#e4f6ee" : "#fdecec";
-  input.style.borderColor = ok ? "#22a06b" : "#e5484d";
-  input.style.color = ok ? "#1a7a4f" : "#c2373b";
+  if (v === "" || correctVal == null || correctVal === "") return paintCell(input, "");
+  paintCell(input, String(v) === String(correctVal) ? "ok" : "no");
 }
 /* 저장된(미리 채워진) 답안도 열 때 색칠 */
 function markAllAns() {
@@ -1505,15 +1508,41 @@ function onlyBinary(input) {
   markAns(input, "1");   // VOCA: 1=정답(초록) / 0=오답(빨강) / 빈칸=색없음(채점은 0점)
 }
 function _focusSel(id) { const el = document.getElementById(id); if (el) { el.focus(); if (el.select) el.select(); } }
+/* 답안칸이 여러 열(그리드)로 배치되므로, 같은 줄에 몇 칸인지 계산해서 ↑↓가 '줄 단위'로 움직이게 함 */
+function _gridCols(el) {
+  try {
+    const row = el.closest(".answer-row");
+    const list = row && row.parentElement;
+    if (!list) return 1;
+    const rows = [...list.children].filter(c => c.offsetParent !== null || c.offsetTop != null);
+    if (!rows.length) return 1;
+    const top0 = rows[0].offsetTop;
+    let c = 0;
+    for (const r of rows) { if (r.offsetTop === top0) c++; else break; }
+    return Math.max(1, c);
+  } catch (_) { return 1; }
+}
 function moveLinear(e, prefix, idx, last, fallbackId) {
-  // 상하좌우 + 엔터 모두 이동 (→/↓/Enter = 다음, ←/↑ = 이전)
-  if (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowRight") {
+  // 상하좌우 + 엔터 (←→ = 한 칸, ↑↓ = 한 줄(열 개수만큼), Enter = 다음 칸)
+  const k = e.key;
+  if (k === "Enter" || k === "ArrowRight") {
     e.preventDefault();
     if (idx < last) _focusSel(`${prefix}-${idx + 1}`);
     else if (fallbackId) _focusSel(fallbackId);
-  } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+  } else if (k === "ArrowLeft") {
     e.preventDefault();
     if (idx > 1) _focusSel(`${prefix}-${idx - 1}`);
+  } else if (k === "ArrowDown") {
+    e.preventDefault();
+    const cols = _gridCols(e.target);
+    const t = idx + cols;
+    if (t <= last) _focusSel(`${prefix}-${t}`);
+    else if (fallbackId) _focusSel(fallbackId);
+  } else if (k === "ArrowUp") {
+    e.preventDefault();
+    const cols = _gridCols(e.target);
+    const t = idx - cols;
+    if (t >= 1) _focusSel(`${prefix}-${t}`);
   }
 }
 function focusNext(e, nextId) {
