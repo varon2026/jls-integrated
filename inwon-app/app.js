@@ -203,8 +203,8 @@ const TABLES = [
     fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,date:r.date,type:r.type,content:r.content,counselor:r.counselor,batchId:r.batch_id,mistag:!!r.mistag}) },
   { key:'studentMovements',   table:'student_movements',    toRow:m=>({id:m.id,student_id:m.studentId,branch_id:m.branchId,semester_id:m.semesterId,type:m.type,date:m.date,memo:m.memo}),
     fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,type:r.type,date:r.date,memo:r.memo}) },
-  { key:'uploadBatches',      table:'upload_batches',       toRow:b=>({id:b.id,branch_id:b.branchId,semester_id:b.semesterId,kind:b.kind,file_name:b.fileName,uploaded_at:b.uploadedAt,added:b.added,dup:b.dup,skip:b.skip}),
-    fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,kind:r.kind,fileName:r.file_name,uploadedAt:r.uploaded_at,added:r.added,dup:r.dup,skip:r.skip}) },
+  { key:'uploadBatches',      table:'upload_batches',       toRow:b=>({id:b.id,branch_id:b.branchId,semester_id:b.semesterId,kind:b.kind,file_name:b.fileName,uploaded_at:b.uploadedAt,added:b.added,dup:b.dup,skip:b.skip,payload:b.payload||null}),
+    fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,kind:r.kind,fileName:r.file_name,uploadedAt:r.uploaded_at,added:r.added,dup:r.dup,skip:r.skip,payload:r.payload||null}) },
   { key:'teacherChanges',     table:'teacher_changes',      toRow:c=>({id:c.id,branch_id:c.branchId,semester_id:c.semesterId,class_name:c.className,from_teacher:c.fromTeacher,to_teacher:c.toTeacher,date:c.date}),
     fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,fromTeacher:r.from_teacher,toTeacher:r.to_teacher,date:r.date}) },
     { key:'segments', table:'segments', toRow:s=>({id:s.id,branch_id:s.branchId,semester_id:s.semesterId,stage:s.stage,sec1:s.sec1,sec2:s.sec2,sec3:s.sec3,sec4:s.sec4,updated_at:s.updatedAt}),
@@ -1144,6 +1144,7 @@ function buildShell(){
     nav.innerHTML = `
       <div class="sb-sect">관리</div>
       <div class="sb-item" data-nav="admin">${I.dash}<span>통합 대시보드</span></div>
+      <div class="sb-item" data-nav="ban">${I.roster}<span>반배정표</span></div>
       <div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>
       <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
 } else if(isTeacher){
@@ -1162,6 +1163,7 @@ function buildShell(){
     let nv='<div class="sb-sect">분원</div>';
     if(P.roster||P.closing){
       nv+=`<div class="sb-item" data-nav="branch">${I.dash}<span>Dashboard</span></div>
+      <div class="sb-item" data-nav="ban">${I.roster}<span>반배정표</span></div>
       <div class="sb-sect">현황</div>`;
       if(P.roster)  nv+=`<div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>`;
       if(P.closing) nv+=`<div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
@@ -1236,7 +1238,8 @@ if(session.role==='teacher'){
     if(parts[1]==='teacher' && parts[2]){ setActiveNav('branch'); renderTeacherDetail(decodeURIComponent(parts[2])); }
     else if(parts[1]==='class' && parts[2] && parts[3]){ setActiveNav('branch'); renderClassDetail(decodeURIComponent(parts[2]), decodeURIComponent(parts[3])); }
     else { setActiveNav('branch'); renderBranchDashboard(); }
-  } else if(root==='data'){ setActiveNav('data'); renderDataManagement(); }
+  } else if(root==='ban'){ setActiveNav('ban'); renderBanTable(); }
+  else if(root==='data'){ setActiveNav('data'); renderDataManagement(); }
   else if(root==='students'){ setActiveNav('students'); renderStudentManagement(); }
   else if(root==='roster'){
     if(parts[1]==='branch' && parts[2]){ setActiveNav('roster'); renderRosterDetail(parts[2]); }
@@ -1669,6 +1672,81 @@ function transferWarnBox(semId){
     <div style="font-size:13px;font-weight:700;color:var(--neg);margin-bottom:6px">전출-전입 불일치 ${unmatchedOut.length+unmatchedIn.length}건 — 분원 간 확인 필요</div>
     <div style="font-size:12.5px;color:var(--ink-2);line-height:1.5">${rows}</div>
     ${matched.length?`<div style="margin-top:8px;font-size:12px;color:var(--pos)">✓ 정상 매칭 ${matched.length}건은 양쪽 다 잡혔습니다.</div>`:''}</div>`;
+}
+/* ============================================================================
+   반배정표 — 현재 재원명단을 부(시간대)/반별로 배치. 신규·복귀는 연두.
+   반이름 예: [IS2]SU1/MWF/IS2/J → 레벨 IS2 · 부(SU1+MWF) · 교실 J · (ACE는 끝자락에 학년)
+   ============================================================================ */
+function banParts(cn){ return String(cn||'').replace(/^\s*\[[^\]]*\]/,'').split('/').map(x=>x.trim()).filter(Boolean); }
+function banBu(cn){
+  const parts=banParts(cn); const code=parts[0]||''; const dayseg=(parts[1]||'').toUpperCase();
+  const day=/TT/.test(dayseg)?'TT':(/MWF/.test(dayseg)?'MWF':''); const mm=code.match(/(\d)/); const num=mm?parseInt(mm[1],10):0;
+  if(!day||!num) return null;
+  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num,label:num+'부 · 월수금 · '+t}; }
+  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num,label:'화목 · '+t};
+}
+function banLevel(cn){ const m=String(cn||'').match(/\[([A-Za-z0-9]+)\]/); return m?m[1]:String(cn||''); }
+function banRoom(cn){ const p=banParts(cn); return p.length?p[p.length-1]:''; }
+function banLevelLabel(cn){ const lv=banLevel(cn); const p=banParts(cn); const seg=p.length>=2?p[p.length-2]:''; if(seg && seg.toUpperCase().replace(/[()]/g,'').startsWith(lv.toUpperCase())) return seg; return lv; }
+function banIsChess(lv){ return /^(IS|DS|LS|MS)/.test(String(lv||'').toUpperCase()); }
+function banTeacher(t){ const m=String(t||'').match(/^([A-Za-z]+)/); return m?m[1]:String(t||''); }
+function banSchoolGrade(st){ let s=String((st&&st.school)||'').replace('초등학교','초').replace('중학교','중').replace('고등학교','고'); if(s.startsWith('수원')&&s.length>3) s=s.slice(2); const g=String((st&&st.grade)||''); const gm=g.match(/(\d+)/); return s+(gm?gm[1]:''); }
+function banLvRank(lv){ const order=['IS','DS','LS','MS','PA','A','MA','HA','HM','HB','B']; const m=String(lv||'').toUpperCase().match(/^([A-Za-z]+)(\d*)/); const pre=m?m[1]:lv; const oi=order.indexOf(pre); return (oi<0?99:oi)*100+(m&&m[2]?parseInt(m[2],10):0); }
+function banBranchId(){ if(session.role!=='admin') return session.branchId; return state.banBranch || (db.branches[0]&&db.branches[0].id); }
+function banSetBranch(v){ state.banBranch=v; renderBanTable(); }
+function renderBanTable(){
+  const semId=state.semId; const brId=banBranchId();
+  const brName=(getBranch(brId)||{}).name||'분원';
+  crumbs([{label:'반배정표'}]);
+  const recs=db.semesterRecords.filter(r=>r.branchId===brId && r.semesterId===semId && r.status==='active' && (r.kind||'regular')!=='exam');
+  const buMap=new Map();
+  recs.forEach(r=>{
+    const bu=banBu(r.className); if(!bu) return;
+    if(!buMap.has(bu.label)) buMap.set(bu.label,{order:bu.order, classes:new Map()});
+    const grp=buMap.get(bu.label);
+    if(!grp.classes.has(r.className)) grp.classes.set(r.className,{label:banLevelLabel(r.className),chess:banIsChess(banLevel(r.className)),teacher:banTeacher(r.teacher),room:banRoom(r.className),students:[]});
+    const st=getStudent(r.studentId)||{};
+    grp.classes.get(r.className).students.push({name:st.name||'?', sg:banSchoolGrade(st), isNew:(r.origin==='new'||r.origin==='return')});
+  });
+  const bus=[...buMap.entries()].sort((a,b)=>a[1].order-b[1].order);
+  const brSel = session.role==='admin' ? '<span style="font-size:12.5px;font-weight:800;color:var(--ink-3);margin-right:6px">분원</span><select onchange="banSetBranch(this.value)" style="font:inherit;font-weight:700;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:6px 10px;background:#fff;cursor:pointer">'+db.branches.map(b=>'<option value="'+b.id+'" '+(b.id===brId?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '';
+  let gChess=0,gAce=0,gTot=0;
+  let h='<div class="page-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div><h2>'+esc(brName)+' 반배정표</h2><div class="sub">'+esc((db.semesters.find(s=>s.id===semId)||{}).name||'')+' · 현재 재원 기준 · 신규/복귀 연두</div></div><div style="flex:1"></div>'+brSel+'<button class="btn sm" style="border:1px solid var(--brand);color:var(--brand);background:#fff" onclick="downloadBanXlsx()">⬇ 엑셀</button></div><div id="banArea">';
+  if(!bus.length){ h+='<div style="padding:40px;text-align:center;color:var(--ink-3)">이 분원·학기에 배정된 반이 없어요. (반이름에 시간대/요일 정보가 있어야 부가 잡혀요)</div>'; }
+  bus.forEach(([label,grp])=>{
+    const classes=[...grp.classes.entries()].sort((a,b)=>banLvRank(banLevel(a[0]))-banLvRank(banLevel(b[0])));
+    let bChess=0,bAce=0,bTot=0;
+    const ROWS=Math.max(15, ...classes.map(c=>c[1].students.length));
+    const lvBg=c2=>c2.chess?'#cfe0f5':'#e6d3f5', tcBg=c2=>c2.chess?'#e5eefb':'#f0e6fb', lvFg=c2=>c2.chess?'#1c4f8a':'#5a2a8a';
+    h+='<div style="margin-bottom:22px"><div style="font-weight:800;font-size:13.5px;color:#2a2440;background:#e7ecf3;padding:6px 12px;border-radius:6px;margin-bottom:6px">'+esc(label)+'</div><div style="overflow:auto"><table style="border-collapse:collapse;font-size:11.5px"><tbody>';
+    h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:var(--brand)">레벨</th>'+classes.map(c=>'<th colspan="2" style="border:1px solid #cfc9de;background:'+lvBg(c[1])+';color:'+lvFg(c[1])+';padding:3px 8px;font-weight:800">'+esc(c[1].label)+'</th>').join('')+'</tr>';
+    h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:var(--brand)">담임</th>'+classes.map(c=>'<td colspan="2" style="border:1px solid #cfc9de;background:'+tcBg(c[1])+';text-align:center;font-weight:700;padding:3px 8px">'+esc(c[1].teacher)+'</td>').join('')+'</tr>';
+    h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:var(--brand)">교실</th>'+classes.map(c=>'<td colspan="2" style="border:1px solid #cfc9de;background:#eef;text-align:center;font-weight:700;padding:3px 8px">'+esc(c[1].room)+'</td>').join('')+'</tr>';
+    for(let i=0;i<ROWS;i++){
+      h+='<tr><td style="border:1px solid #cfc9de;background:#eee;text-align:center;font-weight:700;color:#999">'+(i+1)+'</td>';
+      classes.forEach(c=>{ const s=c[1].students[i];
+        if(s){ const bg=s.isNew?'background:#c9f0c0;':''; h+='<td style="border:1px solid #cfc9de;padding:2px 6px;font-weight:700;'+bg+'">'+esc(s.name)+'</td><td style="border:1px solid #cfc9de;padding:2px 6px;color:#666;font-size:10.5px;'+bg+'">'+esc(s.sg)+'</td>'; }
+        else h+='<td style="border:1px solid #cfc9de"></td><td style="border:1px solid #cfc9de"></td>';
+      });
+      h+='</tr>';
+    }
+    h+='<tr><td style="border:1px solid #cfc9de;background:#ddd;text-align:center;font-weight:800">계</td>'+classes.map(c=>{const n=c[1].students.length;bTot+=n;if(c[1].chess)bChess+=n;else bAce+=n;return '<td colspan="2" style="border:1px solid #cfc9de;background:#ddd;text-align:center;font-weight:800">'+n+'명</td>';}).join('')+'</tr>';
+    h+='</tbody></table></div><div style="margin-top:5px;font-size:12px;font-weight:800;color:#2a2440">CHESS <span style="color:#c24a4a">'+bChess+'</span> · ACE <span style="color:#356fb2">'+bAce+'</span> · 총 '+bTot+'명</div></div>';
+    gChess+=bChess; gAce+=bAce; gTot+=bTot;
+  });
+  h+='</div>';
+  if(bus.length) h+='<div style="margin-top:8px;padding:12px 16px;background:#faf8ff;border:1px solid var(--line);border-radius:12px;font-weight:800;font-size:14px">전체 · CHESS <span style="color:#c24a4a">'+gChess+'</span>명 · ACE <span style="color:#356fb2">'+gAce+'</span>명 · <span style="color:var(--brand)">총 '+gTot+'명</span></div>';
+  el('content').innerHTML=h;
+}
+function downloadBanXlsx(){
+  try{
+    const tables=document.querySelectorAll('#banArea table');
+    if(!tables.length){ toast&&toast('내보낼 표가 없어요','err'); return; }
+    const wb=XLSX.utils.book_new();
+    tables.forEach((t,i)=>{ const ws=XLSX.utils.table_to_sheet(t); XLSX.utils.book_append_sheet(wb, ws, (i+1)+'교시'); });
+    const brName=(getBranch(banBranchId())||{}).name||'분원';
+    XLSX.writeFile(wb, brName+'_반배정표.xlsx');
+  }catch(e){ console.error(e); toast&&toast('엑셀 생성 실패','err'); }
 }
 /* ============================================================================
    11. 분원 — Dashboard (요약 + 담임별 현황). 업로드 버튼 없음(보는 화면)
@@ -2838,6 +2916,14 @@ function renderDataManagement(){
     </div>
 
     <div class="panel" style="margin-top:16px">
+      <div class="panel-head"><div class="pi" style="background:var(--brand-soft);color:var(--brand)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2zM12 11v6M9 14h6"/></svg></div>
+        <div><h3>전체명단 업로드 내역</h3></div></div>
+      <div class="pd">방금 올린 전체명단 엑셀을 <b>업로드 직전 상태로 되돌립니다.</b> 잘못된 파일(예: 상담이력 파일)을 전체명단에 올렸을 때 이걸로 취소하세요. 되돌리면 <b>그 업로드로 새로 추가된 학생·반배정은 삭제</b>되고, <b>덮어써진 기존 학생의 반·담임은 원래대로 복구</b>됩니다.</div>
+      ${renderRosterBatches(branchId, semId)}
+    </div>
+
+    <div class="panel" style="margin-top:16px">
       <div class="panel-head"><div class="pi" style="background:var(--pos-soft);color:var(--pos)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
         <div><h3>상담이력 업로드 내역</h3></div></div>
@@ -2906,6 +2992,74 @@ function confirmDeleteBatch(batchId){
       db.uploadBatches = db.uploadBatches.filter(b=>b.id!==batchId);
       saveDB(); closeModal(); toast(`${live}건 삭제 완료`,'ok'); render();
     });
+}
+
+/* 전체명단 업로드 묶음 목록 (최신순) — 되돌리기 버튼 */
+function renderRosterBatches(branchId, semId){
+  const batches = (db.uploadBatches||[])
+    .filter(x=>x.kind==='roster' && x.branchId===branchId && x.semesterId===semId)
+    .sort((a,b)=> (b.uploadedAt||'').localeCompare(a.uploadedAt||''));
+  if(batches.length===0){
+    return `<div style="padding:14px 2px;color:var(--ink-3);font-size:12.5px">아직 이 학기 전체명단 업로드 기록이 없습니다. (이 기능 적용 후 올린 파일부터 되돌릴 수 있어요)</div>`;
+  }
+  const order = new Map();
+  [...batches].reverse().forEach((x,i)=> order.set(x.id, i+1));
+  return `<div class="batch-list">` + batches.map((x,i)=>{
+    const p = x.payload||{};
+    const newCnt = (p.addedRecIds||[]).length;
+    const updCnt = (p.updatedRecs||[]).length;
+    const latest = (i===0);   // 가장 최근 업로드만 강조
+    return `<div class="batch-item"${latest?' style="border-color:var(--brand-soft);background:var(--brand-soft)"':''}>
+      <div class="batch-no">${order.get(x.id)}</div>
+      <div class="batch-main">
+        <div class="batch-name">${esc(x.fileName)}${latest?' <span style="font-size:11px;color:var(--brand);font-weight:800">· 최근</span>':''}</div>
+        <div class="batch-meta">${esc(x.uploadedAt||'')} · 새로 추가 ${newCnt}명, 덮어쓴 기존 ${updCnt}명</div>
+      </div>
+      <button class="btn sm" style="border-color:var(--neg-soft);color:var(--neg)"
+        onclick="confirmDeleteRosterBatch('${x.id}')">이 업로드 되돌리기</button>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+/* 특정 전체명단 업로드 되돌리기 — 그 업로드가 추가한 것 삭제 + 덮어쓴 것 원상복구 */
+function confirmDeleteRosterBatch(batchId){
+  if(isPastSemester(state.semId)){ lockedPastToast(); return; }
+  const x = (db.uploadBatches||[]).find(b=>b.id===batchId);
+  if(!x){ return; }
+  const p = x.payload||{};
+  const addRecs = new Set(p.addedRecIds||[]);
+  const addMvs  = new Set(p.addedMvIds||[]);
+  const addStus = new Set(p.addedStuIds||[]);
+  const updRecs = p.updatedRecs||[];
+  const newCnt = addRecs.size, updCnt = updRecs.length;
+  openConfirm('이 업로드 되돌리기',
+    `${x.fileName} (${x.uploadedAt})\n\n· 새로 추가된 학생·반배정 ${newCnt}명 → 삭제\n· 덮어써진 기존 학생 ${updCnt}명 → 업로드 직전 반·담임으로 복구\n\n이 업로드 이후에 손댄 다른 변경(반이동·퇴원 등)이 있으면 함께 되돌아갈 수 있으니, 방금 잘못 올렸을 때 바로 쓰는 걸 권장합니다.`,
+    ()=>{
+      // 1) 덮어써진 기존 레코드 원상복구
+      let restored=0;
+      updRecs.forEach(before=>{
+        const rec = db.semesterRecords.find(r=>r.id===before.id);
+        if(rec){ Object.keys(rec).forEach(k=>{ if(!(k in before)) delete rec[k]; }); Object.assign(rec, before); restored++; }
+      });
+      // 2) 이 업로드가 추가한 레코드 삭제
+      db.semesterRecords = db.semesterRecords.filter(r=>!addRecs.has(r.id));
+      // 3) 이 업로드가 남긴 이동이력(신규/복귀) 삭제
+      db.studentMovements = db.studentMovements.filter(m=>!addMvs.has(m.id));
+      // 4) 이 업로드가 처음 만든 학생 중, 이제 아무 레코드도 없는 학생만 삭제
+      let stuDel=0;
+      if(addStus.size){
+        const stillRef = new Set(db.semesterRecords.map(r=>r.studentId));
+        db.students = db.students.filter(s=>{
+          if(addStus.has(s.id) && !stillRef.has(s.id)){ stuDel++; return false; }
+          return true;
+        });
+      }
+      // 5) 묶음 제거
+      db.uploadBatches = db.uploadBatches.filter(b=>b.id!==batchId);
+      saveDB(); closeModal();
+      toast(`되돌리기 완료 · 추가 ${newCnt}명 삭제, 기존 ${restored}명 복구`,'ok');
+      render();
+    }, {yesLabel:'되돌리기', danger:true});
 }
 
 /* 상담이력 전체 삭제 (전체명단은 유지) */
@@ -3613,6 +3767,8 @@ function importRoster(file, branchId, semId, opts){
     const autoSem = detectSemesterFromRows(rows.slice(1), idx);
     if(autoSem){ semId = ensureSemester(autoSem); }
     let added=0, updated=0, excluded=0, examAdded=0;
+    // ★ 업로드 되돌리기용 추적 — 이 업로드가 새로 만든/덮어쓴 것을 기록
+    const addedRecIds=new Set(), addedStuIds=new Set(), addedMvIds=[], updBefore=new Map();
     rows.slice(1).forEach(r=>{
       const name=String(r[idx.name]||'').trim();
       const code=String(r[idx.code]||'').trim();
@@ -3671,7 +3827,7 @@ function importRoster(file, branchId, semId, opts){
       if(opts.forceNew && !enrollDate) enrollDate = today();   // 신규생 일괄: 날짜 없으면 오늘
       // 학생 DB upsert (회원코드 기준)
       let stu = db.students.find(s=>s.code===code);
-      if(!stu){ stu={id:uid('st'),code,name,school,grade}; db.students.push(stu); }
+      if(!stu){ stu={id:uid('st'),code,name,school,grade}; db.students.push(stu); addedStuIds.add(stu.id); }
       else { stu.name=name; if(school)stu.school=school; if(grade)stu.grade=grade; }
       // 학기레코드 upsert — ★ kind까지 일치해야 같은 레코드 (정규/내신 별개 공존)
       let rec = db.semesterRecords.find(x=>x.studentId===stu.id && x.branchId===branchId && x.semesterId===semId && (x.kind||'regular')===kind);
@@ -3687,13 +3843,16 @@ function importRoster(file, branchId, semId, opts){
           transferTo: transferBranch,
           withdrawDate: willWithdraw ? (finalWdDate||semDefaultDate(semId)) : (reEnrollAfterWd ? finalWdDate : '')};
         db.semesterRecords.push(rec);
+        addedRecIds.add(rec.id);
         if(kind==='exam'){ examAdded++; }
         else {
           added++;
-          if(origin==='new') db.studentMovements.push({id:uid('mv'),studentId:stu.id,branchId,semesterId:semId,type:'new',date:enrollDate||today(),memo:isTransferIn?'명단 업로드(전입)':'명단 업로드'});
-          if(origin==='return') db.studentMovements.push({id:uid('mv'),studentId:stu.id,branchId,semesterId:semId,type:'return',date:enrollDate||today(),memo:'명단 업로드'});
+          if(origin==='new'){ const mv={id:uid('mv'),studentId:stu.id,branchId,semesterId:semId,type:'new',date:enrollDate||today(),memo:isTransferIn?'명단 업로드(전입)':'명단 업로드'}; db.studentMovements.push(mv); addedMvIds.push(mv.id); }
+          if(origin==='return'){ const mv={id:uid('mv'),studentId:stu.id,branchId,semesterId:semId,type:'return',date:enrollDate||today(),memo:'명단 업로드'}; db.studentMovements.push(mv); addedMvIds.push(mv.id); }
         }
       } else {
+        // 덮어쓰기 전 원본 스냅샷 1회 저장(되돌리기용). 이번 업로드가 새로 만든 rec은 제외.
+        if(!addedRecIds.has(rec.id) && !updBefore.has(rec.id)) updBefore.set(rec.id, JSON.parse(JSON.stringify(rec)));
         rec.className=classFull; rec.classLabel=classLbl; rec.teacher=teacher;
         if(note) rec.note=note; rec.targetType=targetType;
         if(enrollDate) rec.enrollDate=enrollDate;
@@ -3710,6 +3869,20 @@ function importRoster(file, branchId, semId, opts){
         updated++;
       }
     });
+    // ★ 이 업로드를 '되돌리기' 가능한 묶음으로 기록 (뭔가 바뀐 게 있을 때만)
+    if(added+updated+examAdded > 0){
+      db.uploadBatches.push({
+        id: uid('batch'), branchId, semesterId: semId, kind:'roster',
+        fileName: file.name || '전체명단', uploadedAt: nowStamp(),
+        added: added+examAdded, dup: updated, skip: excluded,
+        payload:{
+          addedRecIds:[...addedRecIds],
+          addedStuIds:[...addedStuIds],
+          addedMvIds,
+          updatedRecs:[...updBefore.values()]
+        }
+      });
+    }
     showSaving(`전체명단 저장 중… (잠시만요)`);
     const ok = await saveDB();
     hideSaving();
