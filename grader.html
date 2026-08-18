@@ -251,10 +251,10 @@ function gradedOf(cls){return cls.recs.filter(r=>SCOREDCODES.has(r.code)).length
 function prettySem(id){const m=String(id).match(/(\d{4})[_-]?(spring|summer|fall|autumn|winter)/i);if(m){const t={spring:'봄',summer:'여름',fall:'가을',autumn:'가을',winter:'겨울'}[m[2].toLowerCase()];return `${m[1]}년 ${t}학기`;}return id;}
 function semName(id){const s=SEMS.find(x=>x.id===id);return s&&s.name?s.name:prettySem(id);}
 function disabledSet(){return CONFIG[EXAM]||new Set();}
-function scopedRoster(){return ROSTER.filter(r=>(!BRANCH||r.branchId===BRANCH)&&(!TEACHER||String(r.teacher||'').split(',').some(t=>t.trim()===TEACHER))&&inScopeFor(EXAM,r));}
-function levelsForExam(){
+function scopedRoster(brOverride){const br=(brOverride===undefined)?BRANCH:brOverride;return ROSTER.filter(r=>(!br||r.branchId===br)&&(!TEACHER||String(r.teacher||'').split(',').some(t=>t.trim()===TEACHER))&&inScopeFor(EXAM,r));}
+function levelsForExam(br){
   const m=new Map();
-  scopedRoster().forEach(r=>{const code=EXAM==='내신모의고사'?(r.classLabel||r.className):levelCode(r.className);if(!code)return;
+  scopedRoster(br).forEach(r=>{const code=EXAM==='내신모의고사'?(r.classLabel||r.className):levelCode(r.className);if(!code)return;
     if(!m.has(code))m.set(code,{code,chess:r.chess,recs:[]});m.get(code).recs.push(r);});
   return [...m.values()].sort((a,b)=>lvSort(a.code,b.code));
 }
@@ -263,9 +263,9 @@ function studentsOfLevel(code){
     .sort((a,b)=>(a.branchName+a.className+a.name).localeCompare(b.branchName+b.className+b.name));
 }
 /* 답안입력용 — 반(요일·담임)별로 분리. 같은 레벨이어도 반이 다르면 따로. 정답키는 레벨 걸 공유 */
-function classesForExam(){
+function classesForExam(br){
   const m=new Map();
-  scopedRoster().forEach(r=>{
+  scopedRoster(br).forEach(r=>{
     const code=EXAM==='내신모의고사'?(r.classLabel||r.className):levelCode(r.className);
     const key=r.branchId+'|'+r.className;
     if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,chess:r.chess,branchName:r.branchName,recs:[]});
@@ -446,7 +446,12 @@ function renderAnswerView(){
     <div class="h2">${EXAM} 답안입력·채점</div>
     <div class="sub">${semName(SEM)}${BRANCH?' · '+esc(BRANCHES[BRANCH]):' · 전 분원'} · 반(요일·담임)을 고르면 그 반 명단이 떠요. 같은 레벨 다른 반은 따로 채점해요.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-      <button class="ghost mini" onclick="exportScoresBulk()">📊 ${EXAM} 성적 엑셀 일괄 다운로드 ${BRANCH?'· '+esc(BRANCHES[BRANCH]):(ROLE==='admin'?'· 전체':'')}</button>
+      ${ROLE==='admin'?`<span class="pick" style="gap:6px"><span style="font-size:12.5px;font-weight:800;color:var(--ink3)">다운로드 분원</span>
+        <select id="dlBranch" style="font:inherit;font-weight:700;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:#fff;color:var(--ink);cursor:pointer;outline:none">
+          <option value="">전체 (모든 분원)</option>
+          ${Object.keys(BRANCHES).map(id=>`<option value="${id}" ${id===BRANCH?'selected':''}>${esc(BRANCHES[id])}</option>`).join('')}
+        </select></span>`:''}
+      <button class="btn mini" onclick="exportScoresBulk()">📊 ${EXAM} 성적 엑셀 일괄 다운로드</button>
       <span class="hint">정답키가 등록된 레벨만 · 미응시 노랑 · 재시험 초록</span>
     </div>
     <div class="dd" style="margin-bottom:16px">
@@ -930,13 +935,14 @@ async function exportScoresXlsx(){
 /* 현재 시험종류·분원범위 전체 일괄 내보내기 (레벨/시험지별 시트) */
 async function exportScoresBulk(){
   if(typeof ExcelJS==='undefined'){toast('엑셀 모듈 로딩 중이에요. 잠시 후 다시 눌러주세요',false);return;}
+  const dlSel=$('dlBranch');const brDl=(ROLE==='admin')?(dlSel?dlSel.value:'') : BRANCH;   // 분원계정은 자기 분원 고정
   toast('전체 성적 엑셀 만드는 중… 잠시만요');
   try{
     const sheets=[];
     if(EXAM==='AT'){
       const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT'));
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
-      classesForExam().forEach(cls=>{
+      classesForExam(brDl).forEach(cls=>{
         variantsForBase(cls.levelCode).forEach(v=>{
           if(!keyOfVariant(v))return;
           const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
@@ -947,17 +953,17 @@ async function exportScoresBulk(){
       });
     }else{
       const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM));
-      levelsForExam().forEach(l=>{
+      levelsForExam(brDl).forEach(l=>{
         const key=keyOfLevel(l.code);if(!key)return;
-        if(!data.some(r=>r.key_id===key.id))return;   // 채점 데이터 없는 레벨은 건너뜀
         const idx={};data.forEach(r=>{if(r.key_id===key.id)_latest(idx,r.student_code+'|'+key.id,r);});
         const studs=l.recs.slice().sort((a,b)=>(a.branchName+a.name).localeCompare(b.branchName+b.name));
+        if(!studs.some(r=>idx[r.code+'|'+key.id]))return;   // 이 분원에 채점된 학생이 없으면 건너뜀
         const sh=dtSheetFor(l.code,key,studs,idx);sh.name=_uniqSheet(sheets,l.code);
         sheets.push(sh);
       });
     }
     if(!sheets.length){toast('내보낼 채점 데이터가 없어요 (정답키·채점 여부 확인)',false);return;}
-    const br=BRANCH?(BRANCHES[BRANCH]||'분원'):'전체';
+    const br=brDl?(BRANCHES[brDl]||'분원'):'전체';
     await writeXlsxColored(sheets,`${EXAM}_성적_${semName(SEM)}_${br}`);
     toast(`성적 엑셀 다운로드 완료 ✓ (${sheets.length}개 시트)`);
   }catch(e){console.error(e);toast('엑셀 생성 실패: '+(e.message||e),false);}
