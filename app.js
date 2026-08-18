@@ -319,10 +319,112 @@ function renderDashHome(c){
   c.innerHTML='<div style="display:flex;gap:8px;margin-bottom:18px">'
     +'<button onclick="setDashView(\'inwon\')" style="'+btn(state.dashView==='inwon')+'">인원 현황</button>'
     +'<button onclick="setDashView(\'mgmt\')" style="'+btn(state.dashView==='mgmt')+'">경영 분석</button>'
+    +'<button onclick="setDashView(\'ban\')" style="'+btn(state.dashView==='ban')+'">반배정표</button>'
     +'</div><div id="dashBody"></div>';
-  $('semPick').style.display=(state.dashView==='inwon')?'flex':'none';
+  $('semPick').style.display=(state.dashView==='inwon'||state.dashView==='ban')?'flex':'none';
   const body=$('dashBody');
-  if(state.dashView==='mgmt') renderMgmtDash(body); else renderDashboard(body);
+  if(state.dashView==='mgmt') renderMgmtDash(body);
+  else if(state.dashView==='ban') renderBanDash(body);
+  else renderDashboard(body);
+}
+/* ============================================================================
+   반배정표 — 현재 재원명단을 부(시간대)/반별로 배치. 신규·복귀는 연두.
+   반이름 예: [IS2]SU1/MWF/IS2/J → 레벨 IS2 · 부(SU1+MWF) · 교실 J
+   ============================================================================ */
+/* 반이름 대괄호[레벨] 뒤를 '/'로 쪼갬: [IS2]SU1/MWF/IS2/J → ['SU1','MWF','IS2','J'] */
+function banParts(cn){ return String(cn||'').replace(/^\s*\[[^\]]*\]/,'').split('/').map(x=>x.trim()).filter(Boolean); }
+function banBu(className){
+  const parts=banParts(className);
+  const code=parts[0]||'';           // 시간대 코드(SU1/SM3 등) — 대괄호 뒤 첫 조각
+  const dayseg=(parts[1]||'').toUpperCase();
+  const day = /TT/.test(dayseg) ? 'TT' : (/MWF/.test(dayseg)?'MWF':'');
+  const mm = code.match(/(\d)/); const num = mm?parseInt(mm[1],10):0;
+  if(!day||!num) return null;
+  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:num+'부 · 월수금 · '+t}; }
+  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:'화목 · '+t};
+}
+function banLevel(cn){ const m=String(cn||'').match(/\[([A-Za-z0-9]+)\]/); return m?m[1]:String(cn||''); }
+function banRoom(cn){ const p=banParts(cn); return p.length?p[p.length-1]:''; }
+/* 표시용 레벨명 — ACE는 반이름의 '레벨+학년' 조각 사용(PA1(1)_E6, A1_M1). 없으면 대괄호 레벨 */
+function banLevelLabel(cn){
+  const lv=banLevel(cn); const p=banParts(cn);
+  const seg=p.length>=2?p[p.length-2]:'';   // 교실 바로 앞 조각 = 레벨(+학년)
+  if(seg && seg.toUpperCase().replace(/[()]/g,'').startsWith(lv.toUpperCase())) return seg;
+  return lv;
+}
+function banTeacher(t){ const m=String(t||'').match(/^([A-Za-z]+)/); return m?m[1]:String(t||''); }
+function banSchoolGrade(st){
+  let s=String((st&&st.school)||'').replace('초등학교','초').replace('중학교','중').replace('고등학교','고');
+  if(s.startsWith('수원')&&s.length>3) s=s.slice(2);
+  const g=String((st&&st.grade)||''); const gm=g.match(/(\d+)/); return s+(gm?gm[1]:'');
+}
+function banLvRank(lv){ const order=['IS','DS','LS','MS','PA','A','MA','HA','HM','HB','B']; const m=String(lv||'').toUpperCase().match(/^([A-Za-z]+)(\d*)/); const pre=m?m[1]:lv; const oi=order.indexOf(pre); return (oi<0?99:oi)*100+(m&&m[2]?parseInt(m[2],10):0); }
+function banScope(){ if(session.role!=='admin') return session.branchId; return (state.banBranch && state.banBranch!=='all') ? state.banBranch : (state.banBranch||(db.branches[0]&&db.branches[0].id)); }
+function banSetBranch(v){ state.banBranch=v; render(); }
+function renderBanDash(c){
+  const semId=state.semId;
+  const brId=banScope();
+  const brName=(db.branches.find(b=>b.id===brId)||{}).name||'분원';
+  // 부 → 반(className) → 학생들
+  const recs=db.semesterRecords.filter(r=>r.branchId===brId && r.semesterId===semId && r.status==='active' && (r.kind||'regular')!=='exam');
+  const buMap=new Map();   // buLabel → {order, classes:Map(className→{level,teacher,room,students[]})}
+  recs.forEach(r=>{
+    const bu=banBu(r.className); if(!bu) return;
+    if(!buMap.has(bu.label)) buMap.set(bu.label,{order:bu.order, classes:new Map()});
+    const grp=buMap.get(bu.label);
+    if(!grp.classes.has(r.className)) grp.classes.set(r.className,{level:banLevel(r.className),label:banLevelLabel(r.className),chess:banIsChess(banLevel(r.className)),teacher:banTeacher(r.teacher),room:banRoom(r.className),students:[]});
+    const st=getStudent(r.studentId)||{};
+    grp.classes.get(r.className).students.push({name:st.name||'?', sg:banSchoolGrade(st), isNew:(r.origin==='new'||r.origin==='return')});
+  });
+  const bus=[...buMap.entries()].sort((a,b)=>a[1].order-b[1].order);
+  const brSel = session.role==='admin' ? '<span style="font-size:12.5px;font-weight:800;color:#a9a2b6;margin-right:6px">분원</span><select onchange="banSetBranch(this.value)" style="font:inherit;font-weight:700;font-size:13px;border:1px solid #ece8f5;border-radius:9px;padding:6px 10px;background:#fff;color:#2f3138;cursor:pointer">'+db.branches.map(b=>'<option value="'+b.id+'" '+(b.id===brId?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '';
+  let gChess=0,gAce=0,gTot=0;
+  let h='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
+    +'<div style="font-size:16px;font-weight:800;color:#2f3138">'+esc(brName)+' 반배정표</div>'
+    +'<div style="flex:1"></div>'+brSel
+    +'<button class="btn" onclick="downloadBanXlsx()" style="border:1px solid #8b6ee8;color:#8b6ee8;background:#fff;border-radius:9px;padding:7px 14px;font-weight:800;font-size:13px;cursor:pointer">⬇ 엑셀</button>'
+    +'</div><div id="banArea">';
+  if(!bus.length){ h+='<div style="padding:40px;text-align:center;color:#a9a2b6">이 분원·학기에 배정된 반이 없어요. (반이름에 시간대/요일 정보가 있어야 부가 잡혀요)</div>'; }
+  bus.forEach(([label,grp])=>{
+    const classes=[...grp.classes.entries()].sort((a,b)=>banLvRank(a[1].level)-banLvRank(b[1].level));
+    let bChess=0,bAce=0,bTot=0;
+    const ROWS=Math.max(15, ...classes.map(c=>c[1].students.length));
+    h+='<div style="margin-bottom:22px"><div style="font-weight:800;font-size:13.5px;color:#2a2440;background:#e7ecf3;padding:6px 12px;border-radius:6px;margin-bottom:6px">'+esc(label)+'</div>';
+    h+='<div style="overflow:auto"><table style="border-collapse:collapse;font-size:11.5px"><tbody>';
+    // 레벨/담임/교실 — CHESS=파랑, ACE=보라 계열로 구분
+    const lvBg=c2=>c2.chess?'#cfe0f5':'#e6d3f5', tcBg=c2=>c2.chess?'#e5eefb':'#f0e6fb';
+    h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:#8b6ee8">레벨</th>'+classes.map(c=>'<th colspan="2" style="border:1px solid #cfc9de;background:'+lvBg(c[1])+';padding:3px 8px;font-weight:800;color:'+(c[1].chess?'#1c4f8a':'#5a2a8a')+'">'+esc(c[1].label)+'</th>').join('')+'</tr>';
+    h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:#8b6ee8">담임</th>'+classes.map(c=>'<td colspan="2" style="border:1px solid #cfc9de;background:'+tcBg(c[1])+';text-align:center;font-weight:700;padding:3px 8px">'+esc(c[1].teacher)+'</td>').join('')+'</tr>';
+    h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:#8b6ee8">교실</th>'+classes.map(c=>'<td colspan="2" style="border:1px solid #cfc9de;background:#eef;text-align:center;font-weight:700;padding:3px 8px">'+esc(c[1].room)+'</td>').join('')+'</tr>';
+    for(let i=0;i<ROWS;i++){
+      h+='<tr><td style="border:1px solid #cfc9de;background:#eee;text-align:center;font-weight:700;color:#999">'+(i+1)+'</td>';
+      classes.forEach(c=>{ const s=c[1].students[i];
+        if(s){ const bg=s.isNew?'background:#c9f0c0;':''; h+='<td style="border:1px solid #cfc9de;padding:2px 6px;font-weight:700;'+bg+'">'+esc(s.name)+'</td><td style="border:1px solid #cfc9de;padding:2px 6px;color:#666;font-size:10.5px;'+bg+'">'+esc(s.sg)+'</td>'; }
+        else h+='<td style="border:1px solid #cfc9de"></td><td style="border:1px solid #cfc9de"></td>';
+      });
+      h+='</tr>';
+    }
+    // 인원수
+    h+='<tr><td style="border:1px solid #cfc9de;background:#ddd;text-align:center;font-weight:800">계</td>'+classes.map(c=>{const n=c[1].students.length;bTot+=n;if(banIsChess(c[1].level))bChess+=n;else bAce+=n;return '<td colspan="2" style="border:1px solid #cfc9de;background:#ddd;text-align:center;font-weight:800">'+n+'명</td>';}).join('')+'</tr>';
+    h+='</tbody></table></div>';
+    h+='<div style="margin-top:5px;font-size:12px;font-weight:800;color:#2a2440">CHESS <span style="color:#c24a4a">'+bChess+'</span> · ACE <span style="color:#356fb2">'+bAce+'</span> · 총 '+bTot+'명</div>';
+    h+='</div>';
+    gChess+=bChess; gAce+=bAce; gTot+=bTot;
+  });
+  h+='</div>';
+  if(bus.length) h+='<div style="margin-top:8px;padding:12px 16px;background:#faf8ff;border:1px solid #ece8f5;border-radius:12px;font-weight:800;font-size:14px;color:#2f3138">전체 · CHESS <span style="color:#c24a4a">'+gChess+'</span>명 · ACE <span style="color:#356fb2">'+gAce+'</span>명 · <span style="color:#8b6ee8">총 '+gTot+'명</span></div>';
+  c.innerHTML=h;
+}
+function banIsChess(lv){ return /^(IS|DS|LS|MS)/.test(String(lv||'').toUpperCase()); }
+function downloadBanXlsx(){
+  try{
+    const tables=document.querySelectorAll('#banArea table');
+    if(!tables.length){ toast&&toast('내보낼 표가 없어요','err'); return; }
+    const wb=XLSX.utils.book_new();
+    tables.forEach((t,i)=>{ const ws=XLSX.utils.table_to_sheet(t); XLSX.utils.book_append_sheet(wb, ws, (i+1)+'부'); });
+    const brName=(db.branches.find(b=>b.id===banScope())||{}).name||'분원';
+    XLSX.writeFile(wb, brName+'_반배정표_'+(semName(state.semId)||'')+'.xlsx');
+  }catch(e){ console.error(e); toast&&toast('엑셀 생성 실패','err'); }
 }
 /* ---- 경영 분석: 학기→달력월 매핑 + 기간 필터 (기존 monthlyClosing 재사용) ---- */
 function mgScope(){ if(session.role!=='admin') return session.branchId; return (state.mgBranch && state.mgBranch!=='all') ? state.mgBranch : null; }
@@ -2110,6 +2212,7 @@ window.ltSetGrade=ltSetGrade; window.ltTip=ltTip; window.ltTipHide=ltTipHide; wi
 window.openScoreTest=openScoreTest; window.openScoreView=openScoreView; window.closeLevelTest=closeLevelTest; window.openResInCalendar=openResInCalendar;
 window.openExam=openExam; window.closeExam=closeExam; window.examBack=examBack;
 window.setDashView=setDashView; window.mgSetRange=mgSetRange; window.mgSetBranch=mgSetBranch; window.delBranch=delBranch; window.mgSetLtRange=mgSetLtRange;
+window.banSetBranch=banSetBranch; window.downloadBanXlsx=downloadBanXlsx;
 window.openSms=openSms; window.smsSetExam=smsSetExam; window.smsToggleFree=smsToggleFree; window.closeSms=closeSms; window.copySms=copySms;
 window.addEventListener('message', async (e)=>{
   if(e.data && e.data.type==='lt-saved'){
