@@ -1653,17 +1653,19 @@ function matchBranch(...places){
   const cands=places.flat().map(x=>String(x==null?'':x).replace(/\s/g,'')).filter(Boolean);
   if(!cands.length) return null;
   const list=(db.branches||[]).map(b=>({id:b.id, raw:String(b.name||'').replace(/\s/g,''), core:_brCore(b.name)})).filter(x=>x.raw);
-  for(const p of cands){
-    let hit=list.find(x=>x.raw===p)
-      || list.filter(x=>p.includes(x.raw)||x.raw.includes(p)).sort((a,b)=>b.raw.length-a.raw.length)[0];
-    if(hit) return hit.id;
-  }
-  for(const p of cands){
-    const pc=_brCore(p); if(!pc) continue;
-    let hit=list.find(x=>x.core===pc)
-      || list.filter(x=>x.core&&(pc.includes(x.core)||x.core.includes(pc))).sort((a,b)=>b.core.length-a.core.length)[0];
-    if(hit) return hit.id;
-  }
+  // 1) 원문(공백제거) 정확 일치
+  for(const p of cands){ const hit=list.find(x=>x.raw===p); if(hit) return hit.id; }
+  // 2) 핵심어 정확 일치
+  for(const p of cands){ const pc=_brCore(p); if(pc){ const hit=list.find(x=>x.core===pc); if(hit) return hit.id; } }
+  // 3) 핵심어 포함 — 가장 구체적인 것 우선: (a)코어가 긴 것(서수원>수원) (b)같으면 글자상 더 뒤에 나오는 것(수원'장안'→장안)
+  for(const p of cands){ const pc=_brCore(p)||p;
+    const hit=list.filter(x=>x.core&&pc.includes(x.core))
+      .sort((a,b)=> b.core.length-a.core.length || pc.lastIndexOf(b.core)-pc.lastIndexOf(a.core))[0];
+    if(hit) return hit.id; }
+  // 4) 반대 포함(분원명이 파일 글자를 포함) — 가장 짧은(구체적인) 것
+  for(const p of cands){ const pc=_brCore(p);
+    const hit=list.filter(x=>x.raw.includes(p)||(pc&&x.core.includes(pc))).sort((a,b)=>a.raw.length-b.raw.length)[0];
+    if(hit) return hit.id; }
   return null;
 }
 async function handleExcelFile(ev){
