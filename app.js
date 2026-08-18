@@ -504,6 +504,59 @@ function getStudent(id){ return (db.students||[]).find(s=>s.id===id); }
 function bName(x){ const b=(db.branches||[]).find(v=>v.id===x||v.name===x); return b?b.name:(x||''); }
 function sName(r){ const s=getStudent(r.studentId); return s?s.name:'?'; }
 
+/* ── 전출입 매칭 현황 (학기를 넘나드는 이동도 회원코드로 짝지어 한 화면에 · 어드민 전용) ── */
+function _xrSemShort(id){ const m=String(id).match(/sem_(\d+)_(\w+)/); if(!m) return String(id); const yy=String(m[1]).slice(2); const s={spring:'봄',summer:'여름',fall:'가을',winter:'겨울'}[m[2]]||m[2]; return yy+s; }
+function _xrMd(d){ const m=String(d||'').match(/\d{4}-(\d{1,2})-(\d{1,2})/); return m?(parseInt(m[1],10)+'/'+parseInt(m[2],10)):''; }
+function xferReconMoves(){
+  const outs={}, ins={};
+  (db.semesterRecords||[]).forEach(r=>{
+    const st=getStudent(r.studentId); const code=st&&st.code?st.code:null; if(!code) return;
+    if(r.transfer && r.transferTo){ const k=code+'|'+r.branchId+'|'+r.transferTo; if(!outs[k]) outs[k]={code,name:st.name,from:r.branchId,to:r.transferTo,sem:r.semesterId,date:r.withdrawDate}; }
+    if(r.transferIn && r.transferTo){ const k=code+'|'+r.transferTo+'|'+r.branchId; if(!ins[k]) ins[k]={code,name:st.name,from:r.transferTo,to:r.branchId,sem:r.semesterId,date:r.enrollDate}; }
+  });
+  const keys=Object.keys(outs).concat(Object.keys(ins).filter(k=>!outs[k]));
+  const moves=keys.map(k=>({o:outs[k]||null,i:ins[k]||null}));
+  moves.sort((a,b)=>{ const ma=(a.o&&a.i)?1:0, mb=(b.o&&b.i)?1:0; if(ma!==mb) return ma-mb;  // 미매칭 먼저
+    const na=(a.o||a.i).name, nb=(b.o||b.i).name; return String(na).localeCompare(String(nb),'ko'); });
+  return moves;
+}
+function xferReconBox(){
+  if(session.role!=='admin') return '';
+  const moves=xferReconMoves(); if(!moves.length) return '';
+  const matched=moves.filter(m=>m.o&&m.i).length, mismatch=moves.length-matched;
+  const bn=id=>{ const n=bName(id); return String(n).replace(/분원$/,'')||'?'; };
+  const cell=(o,isOut)=>{ if(!o) return '<span style="color:#b7791f;font-weight:800;font-size:12px">— 없음</span>';
+    const bg=isOut?'#fdeef0':'#eef2fb', fg=isOut?'#b5405a':'#3a5a86';
+    return '<span style="display:inline-flex;align-items:center;gap:7px"><span style="background:'+bg+';color:'+fg+';border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:800">'+esc(bn(o.from))+'→'+esc(bn(o.to))+'</span><span style="font-size:11px;color:#9a93b0;font-weight:700">'+esc(_xrSemShort(o.sem))+' '+esc(_xrMd(o.date))+'</span></span>'; };
+  const rows=moves.map(m=>{ const ok=m.o&&m.i; const who=m.o||m.i;
+    const stt = ok?'<span style="background:#e8f6ec;color:#0ca30c;font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:20px">✓ 짝맞음</span>'
+      :'<span style="background:#fff3d6;color:#b7791f;font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:20px">⚠ '+(m.i?'전출 없음':'전입 없음')+'</span>';
+    return '<tr style="'+(ok?'':'background:#fffaf0')+'">'
+      +'<td style="padding:9px 12px;border-bottom:1px solid #f4f1fa"><b>'+esc(who.name)+'</b> <span style="font-size:10.5px;color:#9a93b0;font-family:monospace">'+esc(who.code)+'</span></td>'
+      +'<td style="padding:9px 12px;border-bottom:1px solid #f4f1fa">'+cell(m.o,true)+'</td>'
+      +'<td style="padding:9px 4px;border-bottom:1px solid #f4f1fa;color:#9a93b0">→</td>'
+      +'<td style="padding:9px 12px;border-bottom:1px solid #f4f1fa">'+cell(m.i,false)+'</td>'
+      +'<td style="padding:9px 12px;border-bottom:1px solid #f4f1fa;text-align:right">'+stt+'</td></tr>';
+  }).join('');
+  return '<style>details.xrecon>summary::-webkit-details-marker{display:none}</style>'
+    +'<details class="xrecon" style="margin:0 0 16px;border:1px solid #ece8f5;border-radius:14px;background:#fff;overflow:hidden">'
+    +'<summary style="list-style:none;cursor:pointer;padding:13px 16px;display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:800;color:#2f3138">'
+    +'<span>전출입 매칭 현황</span>'
+    +'<span style="font-size:12px;font-weight:700;color:#6b6385">전출 '+moves.filter(m=>m.o).length+' · 전입 '+moves.filter(m=>m.i).length+' · 짝맞음 '+matched+'</span>'
+    +(mismatch>0?'<span style="font-size:12px;font-weight:800;color:#e5484d;background:#fdecec;padding:2px 10px;border-radius:20px">⚠ 미매칭 '+mismatch+'</span>':'<span style="font-size:12px;font-weight:800;color:#0ca30c">✓ 모두 매칭</span>')
+    +'<span style="margin-left:auto;font-size:11.5px;color:#9a93b0;font-weight:700">펼치기 ▾</span>'
+    +'</summary>'
+    +'<div style="max-height:440px;overflow:auto;border-top:1px solid #ece8f5">'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'
+    +'<th style="text-align:left;padding:9px 12px;font-size:11px;color:#9a93b0;font-weight:700;position:sticky;top:0;background:#faf8fe">학생</th>'
+    +'<th style="text-align:left;padding:9px 12px;font-size:11px;color:#9a93b0;font-weight:700;position:sticky;top:0;background:#faf8fe">전출(나간 곳)</th>'
+    +'<th style="position:sticky;top:0;background:#faf8fe"></th>'
+    +'<th style="text-align:left;padding:9px 12px;font-size:11px;color:#9a93b0;font-weight:700;position:sticky;top:0;background:#faf8fe">전입(들어간 곳)</th>'
+    +'<th style="text-align:right;padding:9px 12px;font-size:11px;color:#9a93b0;font-weight:700;position:sticky;top:0;background:#faf8fe">상태</th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'</details>';
+}
+
 function renderDashboard(c){
   const semNm=semName(state.semId);
   const months=semesterMonths(state.semId);
@@ -576,6 +629,9 @@ function renderDashboard(c){
     <div class="kpi"><div class="l"><span class="kdot" style="background:var(--warn)"></span>전체 퇴원율</div><div class="v num ${sumRate<3?'pos':sumRate<5?'wn':'neg'}">${sumRate.toFixed(1)}<span class="unit">%</span></div><div class="d mut">순증감 ${net>=0?'+':''}${net}</div></div>
     ${caCard('현 재원생','var(--brand)',caAct)}
   </div>`;
+
+  // 전출입 매칭 현황 (어드민 전용, 접이식) — 분원별 표 위
+  h+= xferReconBox();
 
   // 표
   h+=`<div class="twrap"><div class="tw-h"><div class="t">분원별 인원 현황 (${periodTxt})</div>
