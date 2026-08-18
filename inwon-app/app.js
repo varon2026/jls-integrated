@@ -579,12 +579,14 @@ function splitMonthForGroup(recs, month, cutDay){
    첫 달 월초 = 학기초부터 다닌 인원(enrollMonth==null).
    이후 달 월초 = 전달(월초+신규) − 전달 퇴원.
    월별 퇴원율 = 그 달 퇴원 ÷ (월초+신규). 평균퇴원율 = 월별 퇴원율의 단순평균. */
-function monthlyClosing(recs, months, activeMonths, splits){
+function monthlyClosing(recs, months, activeMonths, splits, moves){
   // activeMonths: 담당 월 Set (그 외 빈칸). splits: 변경월 날짜쪼갬 정보 배열.
+  // moves: 반이동 보정 {out:Map(month→cnt), in:Map(month→cnt)} — 컬럼엔 안 뜨고 다음달 월초에만 반영(반이동으로 인한 월초 변동).
   const startOfSem = recs.filter(r=> enrollMonth(r)==null).length;
   const splitByMonth = new Map();
   (splits||[]).forEach(sp=> splitByMonth.set(sp.month, sp));
-  let carry = 0;
+  const mvOut = (moves&&moves.out)||null, mvIn = (moves&&moves.in)||null;
+  let carry = 0, prevMoveIn = 0, prevMoveOut = 0;
   const cells = [];
   const rates = [];
   months.forEach((m, idx)=>{
@@ -608,13 +610,19 @@ let newThis, tiThis=0, wdThis, trThis;
     }
 const baseNew = monthStart + newThis + tiThis;
     const rate = baseNew>0 ? (wdThis/baseNew*100) : 0;
+    const moveOutThis = mvOut ? (mvOut.get(m)||0) : 0;   // 이 달 다른 반으로 나감 → 다음달 월초 −
+    const moveInThis  = mvIn  ? (mvIn.get(m)||0)  : 0;   // 이 달 다른 반에서 들어옴 → 다음달 월초 +
+    // 이 달 월초가 반이동 때문에 바뀐 것(= 전달의 in/out). 하이라이트/툴팁용.
+    const startMoveIn  = idx===0 ? 0 : prevMoveIn;
+    const startMoveOut = idx===0 ? 0 : prevMoveOut;
     if(active){
-      cells.push({ month:m, monthStart, newThis, transferIn:tiThis, baseNew, withdraw:wdThis, transfer:trThis, rate, blank:false });
+      cells.push({ month:m, monthStart, newThis, transferIn:tiThis, baseNew, withdraw:wdThis, transfer:trThis, rate, blank:false, startMoveIn, startMoveOut });
       if(baseNew>0) rates.push(rate);
     } else {
-      cells.push({ month:m, monthStart:0, newThis:0, transferIn:0, baseNew:0, withdraw:0, transfer:0, rate:0, blank:true });
+      cells.push({ month:m, monthStart:0, newThis:0, transferIn:0, baseNew:0, withdraw:0, transfer:0, rate:0, blank:true, startMoveIn:0, startMoveOut:0 });
     }
-    carry = baseNew - wdThis - trThis;
+    carry = baseNew - wdThis - trThis + moveInThis - moveOutThis;
+    prevMoveIn = moveInThis; prevMoveOut = moveOutThis;
   });
  const totWithdraw = cells.reduce((a,c)=>a+(c.blank?0:c.withdraw),0);
   const totTransfer = cells.reduce((a,c)=>a+(c.blank?0:c.transfer),0);
@@ -1854,6 +1862,10 @@ const isExamClass = recs.length>0 && (recs[0].kind||'regular')==='exam';
     const statusBadge = rec.status==='active'
       ? '<span class="status-badge active">재원</span>'
       : '<span class="status-badge withdraw">퇴원</span>';
+    const _mvRec = (db.studentMovements||[]).find(m=>m.type==='classChange' && m.studentId===rec.studentId && m.branchId===branchId && m.semesterId===semId);
+    let moveBadge='';
+    if(_mvRec){ let _mi={}; try{_mi=JSON.parse(_mvRec.memo||'{}');}catch(e){}
+      moveBadge=`<span class="origin-badge" style="background:#fff3d6;color:#b7791f;margin-left:4px" title="${esc((_mi.fromLabel||_mi.fromClass||'')+' → '+(_mi.toLabel||_mi.toClass||'')+' ('+(_mvRec.date||'')+')')}">🔀 반이동</span>`; }
     const isExam = (rec.kind||'regular')==='exam';
 const cells = STAGES.map(stg=>{
       const isMc = (stg==='MC1'||stg==='MC2'||stg==='MC3');
@@ -1888,7 +1900,7 @@ const cells = STAGES.map(stg=>{
 return `<td class="cc"><span class="cc-mark undone" title="미완료">✕</span></td>`;
     }).join('');
     return `<tr>
-      <td><div class="st-name">${esc(stu.name)}${originBadge}</div></td>
+      <td><div class="st-name">${esc(stu.name)}${originBadge}${moveBadge}</div></td>
       <td><div>${esc(stu.school)}</div><div class="st-meta">${esc(stu.grade)}학년</div></td>
       <td><span class="code-chip">${esc(stu.code)}</span></td>
       <td>${statusBadge}</td>
@@ -2338,15 +2350,17 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
   }
  
   const bodyRows = groups.map((g, i)=>{
-    // 합계행: 기존 로직 그대로 (split 정확 반영)
-    const r = monthlyClosing(g.recs, months, g.activeMonths, g.splits);
+    // 합계행: 기존 로직 그대로 (split 정확 반영) + 반이동 월초 보정
+    const r = monthlyClosing(g.baseRecs||g.recs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'all'));
     const splitMonths = new Set((g.splits||[]).map(s=>s.month));
     const monthCells = r.cells.map(c=>{
       if(c.blank) return `<td class="num cc cell-na">-</td>`.repeat(6);
       const cls = splitMonths.has(c.month) ? ' cell-split' : '';
+      const mvTxt = (c.startMoveIn||c.startMoveOut) ? moveNoteText(g.moveEvents, c.month, 'all') : '';
+      const msAttr = mvTxt ? ` style="background:#ffe4a3;cursor:help;font-weight:800" title="${esc(mvTxt)}"` : '';
       const trCell = c.transfer ? `<span style="color:var(--warn)">${c.transfer}</span>` : '-';
       const tiCell = c.transferIn ? `<span style="color:var(--pos)">${c.transferIn}</span>` : '-';
-      return `<td class="num cc${cls}">${c.monthStart||'-'}</td>
+      return `<td class="num cc${cls}"${msAttr}>${c.monthStart||'-'}${mvTxt?' <span style="color:#b7791f">*</span>':''}</td>
         <td class="num cc${cls}">${c.newThis||'-'}</td>
         <td class="num cc${cls}">${tiCell}</td>
         <td class="num cc${cls}">${c.withdraw||'-'}</td>
@@ -2370,25 +2384,28 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
 
     if(!showCA) return totalRow;
  
-    // CHESS / ACE 행 — 합계 줄과 동일하게 담임 변경(활성월·날짜쪼갬) 반영
-    const chessRecs = g.recs.filter(r=>isChess(r.className));
-    const aceRecs   = g.recs.filter(r=>!isChess(r.className));
-    const cR = monthlyClosing(chessRecs, months, g.activeMonths, g.splits);
-    const aR = monthlyClosing(aceRecs, months, g.activeMonths, g.splits);
-    const caCellsHtml = (mc)=> mc.cells.map(c=>{
+    // CHESS / ACE 행 — 합계 줄과 동일하게 담임 변경(활성월·날짜쪼갬) + 반이동 반영
+    const baseR = g.baseRecs||g.recs;
+    const chessRecs = baseR.filter(r=>isChess(r.className));
+    const aceRecs   = baseR.filter(r=>!isChess(r.className));
+    const cR = monthlyClosing(chessRecs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'chess'));
+    const aR = monthlyClosing(aceRecs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'ace'));
+    const caCellsHtml = (mc, div)=> mc.cells.map(c=>{
       if(c.blank) return `<td class="num cc cell-na clos-ca-cell">-</td>`.repeat(6);
+      const mvTxt = (c.startMoveIn||c.startMoveOut) ? moveNoteText(g.moveEvents, c.month, div) : '';
+      const msAttr = mvTxt ? ` style="background:#ffe4a3;cursor:help;font-weight:800" title="${esc(mvTxt)}"` : '';
       const trCell = c.transfer ? `<span style="color:var(--warn)">${c.transfer}</span>` : '-';
       const tiCell = c.transferIn ? `<span style="color:var(--pos)">${c.transferIn}</span>` : '-';
-      return `<td class="num cc clos-ca-cell">${c.monthStart||'-'}</td>
+      return `<td class="num cc clos-ca-cell"${msAttr}>${c.monthStart||'-'}${mvTxt?' <span style="color:#b7791f">*</span>':''}</td>
         <td class="num cc clos-ca-cell">${c.newThis||'-'}</td>
         <td class="num cc clos-ca-cell">${tiCell}</td>
         <td class="num cc clos-ca-cell">${c.withdraw||'-'}</td>
         <td class="num cc clos-ca-cell">${trCell}</td>
         <td class="num cc clos-ca-cell"><span style="color:var(--ink-3)">${c.baseNew?c.rate.toFixed(1)+'%':'-'}</span></td>`;
     }).join('');
-    const caRow = (label, tagCls, mc, curCnt)=>`<tr class="clos-ca">
+    const caRow = (label, tagCls, mc, curCnt, div)=>`<tr class="clos-ca">
       <td class="cc clos-catag ${tagCls}">${label}</td>
-     ${caCellsHtml(mc)}
+     ${caCellsHtml(mc, div)}
       <td class="num cc clos-ca-cell">${mc.totNew||'-'}</td>
       <td class="num cc clos-ca-cell">${mc.totTransferIn||'-'}</td>
       <td class="num cc clos-ca-cell">${mc.totWithdraw||'-'}</td>
@@ -2398,8 +2415,8 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
     </tr>`;
 
     return totalRow
-      + caRow('CHESS','clos-chess', cR, curCnt(curOf(g).filter(x=>isChess(x.className))))
-      + caRow('ACE','clos-ace', aR, curCnt(curOf(g).filter(x=>!isChess(x.className))));
+      + caRow('CHESS','clos-chess', cR, curCnt(curOf(g).filter(x=>isChess(x.className))), 'chess')
+      + caRow('ACE','clos-ace', aR, curCnt(curOf(g).filter(x=>!isChess(x.className))), 'ace');
   }).join('');
  
   // 합계(맨 아래)
@@ -2589,10 +2606,50 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
     }
   });
 
-  const allMonthsCount = months.length;
-  return [...groupMap.values()].map(g=>{
-    return { name:g.name, recs:g.recs, activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs };
-  }).sort((a,b)=> b.recs.length - a.recs.length);
+  // ── 반 이동(class_move) 반영: 이동 학생은 이전 반(담임)의 '월초 계산'엔 이동월까지 포함,
+  //    새 반(담임)의 월초 계산엔 이동월+1부터 포함. 표의 신규/퇴원/전출입 컬럼엔 안 뜨고, 월초만 변동.
+  //    (현재 재원 수/명단은 학생의 현재 반=새 반 기준 그대로 — recs는 안 건드리고 baseRecs만 조정)
+  // ── 반 이동(class_move) 반영: 이동 학생은 이전 반(담임)의 '월초 계산'엔 이동월까지 포함,
+  //    새 반(담임)의 월초 계산엔 이동월 다음 달부터 포함. 표의 신규/퇴원/전출입 컬럼엔 안 뜨고, 월초만 변동.
+  //    (현재 재원 수/명단은 학생의 현재 반=새 반 기준 그대로 — recs는 안 건드리고 baseRecs만 조정)
+  const groups = [...groupMap.values()].map(g=>({ name:g.name, recs:g.recs, baseRecs:g.recs.slice(), activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs, moveEvents:[] }));
+  const classMoves = (db.studentMovements||[]).filter(mv=> mv.type==='classChange' && mv.branchId===branchId && mv.semesterId===semId);
+  if(classMoves.length){
+    const byName = new Map(groups.map(g=>[g.name,g]));
+    const ensureG = (t)=>{ let g=byName.get(t); if(!g){ g={ name:t, recs:[], baseRecs:[], activeMonths:new Set(months), splits:[], currentRecs:[], moveEvents:[] }; byName.set(t,g); groups.push(g);} return g; };
+    const monthAfter = (mo)=>{ const i=months.indexOf(mo); return (i>=0 && i<months.length-1) ? months[i+1] : null; };
+    classMoves.forEach(mv=>{
+      let info={}; try{ info=JSON.parse(mv.memo||'{}'); }catch(e){ info={}; }
+      const fromT=info.fromTeacher, toT=info.toTeacher; if(!fromT||!toT||fromT===toT) return;
+      const rec = recs.find(r=> r.studentId===mv.studentId); if(!rec) return;   // 현재 명단(새 반)에 있는 그 학생
+      const mMonth = monthOfDate(mv.date); if(!months.includes(mMonth)) return;
+      const aff = monthAfter(mMonth);   // 월초가 바뀌는(하이라이트) 달 = 이동월 다음 달
+      const gFrom = ensureG(fromT), gTo = ensureG(toT);
+      const nm = getStudent(rec.studentId), nmT = nm&&nm.name?nm.name:'';
+      const fl=info.fromLabel||info.fromClass||fromT, tl=info.toLabel||info.toClass||toT;
+      const chess = isChess(rec.className);
+      // 이전 반: 월초 계산엔 포함(이동월까지)
+      if(!gFrom.baseRecs.some(r=>r.studentId===rec.studentId)) gFrom.baseRecs.push(rec);
+      gFrom.moveEvents.push({ month:mMonth, affMonth:aff, dir:'out', studentId:rec.studentId, isChess:chess, name:nmT, from:fl, to:tl });
+      // 새 반: 월초 계산에선 이동월까지 제외 (recs=현재 재원엔 그대로 남김)
+      gTo.baseRecs = gTo.baseRecs.filter(r=> r.studentId!==rec.studentId);
+      gTo.moveEvents.push({ month:mMonth, affMonth:aff, dir:'in', studentId:rec.studentId, isChess:chess, name:nmT, from:fl, to:tl });
+    });
+  }
+  return groups.sort((a,b)=> b.recs.length - a.recs.length);
+}
+/* moveEvents → monthlyClosing용 {out,in} 맵 (div: 'all'|'chess'|'ace') */
+function movesFromEvents(events, div){
+  const out=new Map(), inn=new Map();
+  (events||[]).forEach(e=>{ if(div==='chess'&&!e.isChess) return; if(div==='ace'&&e.isChess) return;
+    const M = e.dir==='out'?out:inn; M.set(e.month,(M.get(e.month)||0)+1); });
+  return {out, in:inn};
+}
+/* 특정 달 월초 셀의 반이동 툴팁 텍스트 (div 필터) */
+function moveNoteText(events, affMonth, div){
+  const list=(events||[]).filter(e=> e.affMonth===affMonth && !(div==='chess'&&!e.isChess) && !(div==='ace'&&e.isChess));
+  if(!list.length) return '';
+  return list.map(e=> e.dir==='out' ? `${e.name}: ${e.from}→${e.to} 이동, 1명 차감` : `${e.name}: ${e.from}→${e.to} 이동, 1명 증가`).join(' / ');
 }
 
 /* 일별 퇴원율 집계 — 월 선택 + 날짜별 표 */
@@ -3118,6 +3175,52 @@ function renderStudentManagement(){
               <span class="tc-flow">${esc(c.fromTeacher)} → <b>${esc(c.toTeacher)}</b></span>
               <span class="tc-date num">${esc(c.date)}</span>
               <button class="tc-del" onclick="deleteTeacherChange('${c.id}')">변경 취소</button>
+            </div>`;
+          }).join('')}
+        </div>`;
+      })()}
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <div class="panel-head">
+        <div class="pi" style="background:var(--brand-soft);color:var(--brand)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h11M4 7l3-3M4 7l3 3M20 17H9M20 17l-3-3M20 17l-3 3"/></svg>
+        </div>
+        <div><h3>반 이동 (학생 개별)</h3></div>
+      </div>
+      <div class="pd">학생 한 명을 다른 반으로 옮깁니다. <b>이동일 다음 달 월초</b>부터 새 반 담임 실적으로 반영되고(이전 담임은 −1, 새 담임은 +1), 상담(MC) 기록도 학생을 따라갑니다. <b>전체 인원수는 안 바뀝니다.</b> 인원마감표에선 이동으로 월초가 바뀐 칸이 <span style="background:#ffe4a3;padding:0 4px;border-radius:3px">색</span>으로 표시돼요.</div>
+      <div class="form-row">
+        <div class="field"><label>현재 반</label>
+          <select id="mvFromClass" onchange="onMvFromClass()">
+            <option value="">반 선택…</option>
+            ${classList.map(c=>`<option value="${esc(c.className)}">${esc(c.label)} · ${esc(c.teacher)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>옮길 학생</label>
+          <select id="mvStudent"><option value="">먼저 현재 반을 고르세요</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>새 반</label>
+          <select id="mvToClass">
+            <option value="">반 선택…</option>
+            ${classList.map(c=>`<option value="${esc(c.className)}">${esc(c.label)} · ${esc(c.teacher)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>이동일</label><input id="mvDate" type="date" value="${today()}"></div>
+      </div>
+      <button class="btn primary" style="width:100%" onclick="moveStudent()">반 이동 등록</button>
+      ${(()=>{
+        const moves=(db.studentMovements||[]).filter(m=>m.type==='classChange' && m.branchId===branchId && m.semesterId===semId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+        if(!moves.length) return '';
+        return `<div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:8px">반 이동 이력</div>
+          ${moves.map(m=>{ let info={}; try{info=JSON.parse(m.memo||'{}');}catch(e){}
+            const s=getStudent(m.studentId);
+            return `<div class="tc-hist">
+              <span><b>${esc(s?s.name:'?')}</b></span>
+              <span class="tc-flow">${esc(info.fromLabel||info.fromClass||'')} → <b>${esc(info.toLabel||info.toClass||'')}</b></span>
+              <span class="tc-date num">${esc(m.date||'')}</span>
+              <button class="tc-del" onclick="cancelClassMove('${m.id}')">이동 취소</button>
             </div>`;
           }).join('')}
         </div>`;
@@ -4217,6 +4320,50 @@ function onTcClassChange(){
   const sel = el('tcClass');
   const opt = sel.options[sel.selectedIndex];
   el('tcFrom').value = opt ? (opt.dataset.teacher||'') : '';
+}
+/* 반 이동 — 현재 반 선택 시 그 반 재원 학생 목록 채움 */
+function onMvFromClass(){
+  const branchId = activeBranchId()||session.branchId, semId = state.semId;
+  const cn = el('mvFromClass').value;
+  const sel = el('mvStudent'); if(!sel) return;
+  if(!cn){ sel.innerHTML='<option value="">먼저 현재 반을 고르세요</option>'; return; }
+  const recs = activeRecordsOf(branchId, semId).filter(r=>r.className===cn)
+    .sort((a,b)=>{const sa=getStudent(a.studentId),sb=getStudent(b.studentId);return String(sa?sa.name:'').localeCompare(String(sb?sb.name:''),'ko');});
+  sel.innerHTML = '<option value="">학생 선택…</option>' + recs.map(r=>{ const s=getStudent(r.studentId); return `<option value="${esc(r.studentId)}">${esc(s?s.name:'?')}${s&&s.code?' ('+esc(s.code)+')':''}</option>`; }).join('');
+}
+/* 반 이동 등록 — 학생 1명을 새 반으로 (반이름·라벨·담임 갱신 + 이동 이력) */
+function moveStudent(){
+  const branchId = activeBranchId()||session.branchId, semId = state.semId;
+  const fromCn=el('mvFromClass').value, studentId=el('mvStudent').value, toCn=el('mvToClass').value, date=el('mvDate').value||today();
+  if(!fromCn||!studentId){ toast('옮길 학생을 선택하세요','err'); return; }
+  if(!toCn){ toast('새 반을 선택하세요','err'); return; }
+  if(fromCn===toCn){ toast('현재 반과 새 반이 같습니다','err'); return; }
+  const rec = activeRecordsOf(branchId,semId).find(r=>r.studentId===studentId && r.className===fromCn);
+  if(!rec){ toast('학생 기록을 찾을 수 없습니다','err'); return; }
+  const target = activeRecordsOf(branchId,semId).find(r=>r.className===toCn)
+    || db.semesterRecords.find(r=>r.branchId===branchId&&r.semesterId===semId&&r.className===toCn);
+  const toLabel = target ? (target.classLabel||toCn) : toCn;
+  const toTeacher = target ? (target.teacher||'') : '';
+  const fromLabel = rec.classLabel||fromCn, fromTeacher = rec.teacher||'';
+  db.studentMovements.push({ id:uid('mv'), studentId, branchId, semesterId:semId, type:'classChange', date,
+    memo:JSON.stringify({fromClass:fromCn,fromLabel,toClass:toCn,toLabel,fromTeacher,toTeacher}) });
+  rec.className=toCn; rec.classLabel=toLabel; rec.teacher=toTeacher;   // MC/상담기록은 studentId 기준이라 자동으로 따라옴
+  showSaving('반 이동 저장 중…');
+  saveDB().then(ok=>{ hideSaving(); toast(ok?`반 이동 완료 · ${fromLabel} → ${toLabel}`:'저장 실패, 다시 시도하세요', ok?'ok':'err'); render(); });
+}
+/* 반 이동 취소 — 이력 삭제 + 학생을 이전 반으로 되돌림 */
+function cancelClassMove(id){
+  const mv=(db.studentMovements||[]).find(m=>m.id===id); if(!mv) return;
+  let info={}; try{info=JSON.parse(mv.memo||'{}');}catch(e){}
+  openConfirm('반 이동 취소',
+    `「${info.fromLabel||''} → ${info.toLabel||''}」 이동을 취소하고 이전 반으로 되돌릴까요?`,
+    ()=>{
+      const rec=db.semesterRecords.find(r=>r.studentId===mv.studentId && r.branchId===mv.branchId && r.semesterId===mv.semesterId && r.status==='active');
+      if(rec && info.fromClass){ rec.className=info.fromClass; rec.classLabel=info.fromLabel||info.fromClass; if(info.fromTeacher) rec.teacher=info.fromTeacher; }
+      db.studentMovements=db.studentMovements.filter(m=>m.id!==id);
+      showSaving('되돌리는 중…');
+      saveDB().then(ok=>{ hideSaving(); toast(ok?'반 이동 취소됨':'저장 실패',ok?'ok':'err'); render(); });
+    });
 }
 /* 담임 변경 등록 — 반 학생들 담임 교체 + 변경 이력 저장 */
 function changeTeacher(){
