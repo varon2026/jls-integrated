@@ -3485,7 +3485,7 @@ function renderStuSearch(){
     <td style="padding:5px 8px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap">${esc(s.name||'?')}</td>
     <td style="padding:5px 8px;border-bottom:1px solid var(--line);color:var(--ink-3);font-size:11.5px;white-space:nowrap">${esc(s.code||'')}</td>
     <td style="padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap">${esc((s.school||'')+(s.grade?(' '+s.grade):''))}</td>
-    <td style="padding:5px 8px;border-bottom:1px solid var(--line)">${esc(r.classLabel||r.className||'')}</td>
+    <td style="padding:5px 8px;border-bottom:1px solid var(--line)">${esc(classLabel(r.className)||r.classLabel||r.className||'')}</td>
     <td style="padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap">${esc(r.teacher||'')}</td>
   </tr>`).join('');
   box.innerHTML = `<div style="font-size:12px;color:var(--ink-3);margin-bottom:6px">${list.length}명${list.length>CAP?` (상위 ${CAP}명 표시)`:''}</div>
@@ -3749,8 +3749,10 @@ function classLabel(raw){
   const level = classLevel(s);
   const body = s.replace(/^\[[^\]]*\]/,'');
   const parts = body.split('/').map(x=>x.trim()).filter(Boolean);
-  // 레벨로 시작하는 조각(예: "PA1(1)_E6", "A1_M1") = 반 코어 이름
-  const core = parts.find(p=> level && p.toUpperCase().startsWith(level.toUpperCase())) || level || s;
+  // 반 코어 이름: (구형식) 레벨로 시작하는 조각 우선 → 없으면 (신형식) 레벨(개월수)_학년 조립
+  let core = parts.find(p=> level && p.toUpperCase().startsWith(level.toUpperCase()));
+  if(!core) core = banLevelLabel(s);   // 신형식: CHESS="DSB1", ACE="PA1(4-6)_E6"
+  if(!core) core = level || s;
   // 요일 (MWF=월수금, TTH=화목)
   const dayPart = parts.find(p=> /^(MWF|TTH|TTHS|MTWTF|MW|WF|MWTF)$/i.test(p));
   const dayMap = {MWF:'월수금', TTH:'화목', MW:'월수', WF:'수금', MWTF:'월화수금', MTWTF:'매일'};
