@@ -2956,8 +2956,8 @@ function renderDataManagement(){
 
   wireDropzone('rosterZone','rosterFile', f=> importRoster(f, branchId, semId));
   wireDropzone('newStuZone','newStuFile', f=> importRoster(f, branchId, semId, {forceNew:true}));
-  wireDropzone('wdZone','wdFile', f=> importWithdrawals(f, branchId, semId));
-  wireDropzone('historyZone','historyFile', f=> importHistory(f, branchId, semId));
+  wireDropzone('wdZone','wdFile', f=> openConfirm('퇴원생 일괄 업로드 확인', `「${f.name}」\n이 파일의 학생들을 퇴원 처리합니다.\n계속할까요?`, ()=>{ closeModal(); importWithdrawals(f, branchId, semId); }, {yesLabel:'퇴원 처리', danger:false}));
+  wireDropzone('historyZone','historyFile', f=> openConfirm('상담이력 업로드 확인', `「${f.name}」\n상담이력을 누적으로 추가합니다. (중복은 자동 제외)\n계속할까요?`, ()=>{ closeModal(); importHistory(f, branchId, semId); }, {yesLabel:'업로드', danger:false}));
 }
 
 /* 상담이력 업로드 묶음 목록 (최신순). 각 묶음에 현재 남아있는 건수 표시 + 삭제 */
@@ -3162,6 +3162,20 @@ function renderStudentManagement(){
       <h2>학생관리</h2>
       <div class="sub">${esc(b.name)} · ${esc(db.semesters.find(s=>s.id===semId).name)} · 신규생 추가와 퇴원 처리를 합니다</div>
     </div>
+
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head">
+        <div class="pi" style="background:var(--brand-soft);color:var(--brand)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        </div>
+        <div><h3>현 재원생 검색</h3></div>
+      </div>
+      <div class="pd">현재 재원 중인 학생을 이름·회원코드·학교·반·담임으로 검색합니다. (여러 단어로 좁힐 수 있어요 — 예: "월수금 PA2")</div>
+      <input id="stuSearch" placeholder="예: 김태양 · PA2 · 월수금 · 담임명 · 송림초" autocomplete="off" oninput="renderStuSearch()"
+        style="width:100%;height:38px;padding:0 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface-2)">
+      <div id="stuSearchResults" style="margin-top:10px"></div>
+    </div>
+
     <div class="dm-grid">
       <!-- ===== 왼쪽 위: 신규생 추가 ===== -->
       <div class="panel">
@@ -3433,6 +3447,48 @@ function renderStudentManagement(){
   });
   // 문자 카드 최초 렌더
   renderMsgCard();
+  // 현 재원생 검색 최초 렌더(전체 표시)
+  renderStuSearch();
+}
+
+/* 현 재원생 검색 — 이름·회원코드·학교·반·담임으로 필터, 재원(active)만 */
+function renderStuSearch(){
+  const box = el('stuSearchResults'); if(!box) return;
+  const branchId = session.branchId, semId = state.semId;
+  const q = (el('stuSearch') && el('stuSearch').value || '').trim().toLowerCase();
+  let list = activeRecordsOf(branchId, semId)
+    .filter(r=>(r.kind||'regular')!=='exam')
+    .map(r=>({ r, s:getStudent(r.studentId)||{} }));
+  if(q){
+    const terms = q.split(/\s+/).filter(Boolean);
+    list = list.filter(({r,s})=>{
+      const hay = [s.name,s.code,s.school,s.grade,r.classLabel,r.className,r.teacher]
+        .map(x=>String(x||'').toLowerCase()).join(' ');
+      return terms.every(t=> hay.includes(t));
+    });
+  }
+  list.sort((a,b)=> String(a.r.teacher||'').localeCompare(String(b.r.teacher||''),'ko')
+    || String(a.r.classLabel||a.r.className||'').localeCompare(String(b.r.classLabel||b.r.className||''),'ko')
+    || String(a.s.name||'').localeCompare(String(b.s.name||''),'ko'));
+  if(!list.length){ box.innerHTML = `<div style="padding:12px;color:var(--ink-3);font-size:12.5px">${q?'검색 결과가 없습니다.':'현재 재원생이 없습니다.'}</div>`; return; }
+  const CAP = 400;
+  const body = list.slice(0,CAP).map(({r,s})=>`<tr>
+    <td style="padding:5px 8px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap">${esc(s.name||'?')}</td>
+    <td style="padding:5px 8px;border-bottom:1px solid var(--line);color:var(--ink-3);font-size:11.5px;white-space:nowrap">${esc(s.code||'')}</td>
+    <td style="padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap">${esc((s.school||'')+(s.grade?(' '+s.grade):''))}</td>
+    <td style="padding:5px 8px;border-bottom:1px solid var(--line)">${esc(r.classLabel||r.className||'')}</td>
+    <td style="padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap">${esc(r.teacher||'')}</td>
+  </tr>`).join('');
+  box.innerHTML = `<div style="font-size:12px;color:var(--ink-3);margin-bottom:6px">${list.length}명${list.length>CAP?` (상위 ${CAP}명 표시)`:''}</div>
+    <div style="overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:8px">
+    <table style="border-collapse:collapse;width:100%;font-size:12.5px">
+    <thead><tr style="position:sticky;top:0;background:var(--surface-2);z-index:1">
+      <th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)">이름</th>
+      <th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)">회원코드</th>
+      <th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)">학교/학년</th>
+      <th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)">반</th>
+      <th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--line)">담임</th>
+    </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 /* 수동 등록 학생 목록 (수정/삭제) — 학생관리에서 직접 추가한 신규생만 */
@@ -3602,6 +3658,37 @@ function readTable(file, cb){
   }
 }
 
+/* 파일 → 모든 시트의 2차원 배열 배열. 시트가 나눠진 엑셀(예: CHESS/ACE 분리) 지원.
+   반환: [[시트1 rows], [시트2 rows], ...]. CSV는 시트 1개로 취급. */
+function readTableSheets(file, cb){
+  const name = (file.name||'').toLowerCase();
+  const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls');
+  const r = new FileReader();
+  r.onerror = ()=> toast('파일을 읽지 못했습니다','err');
+  if(isExcel){
+    if(typeof XLSX==='undefined'){ toast('엑셀 모듈 로드 실패 — 인터넷 연결을 확인하세요','err'); return; }
+    r.onload = ()=>{
+      try{
+        const wb = XLSX.read(new Uint8Array(r.result), {type:'array', cellDates:true});
+        const sheets = wb.SheetNames.map(nm=>{
+          const ws = wb.Sheets[nm];
+          const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true, blankrows:false});
+          return rows.map(row=> row.map(c=>{
+            if(c==null) return '';
+            if(c instanceof Date && !isNaN(c)) return `${c.getUTCFullYear()}-${String(c.getUTCMonth()+1).padStart(2,'0')}-${String(c.getUTCDate()).padStart(2,'0')}`;
+            return String(c);
+          }));
+        }).filter(s=> s && s.length);
+        cb(sheets);
+      }catch(e){ console.error(e); toast('엑셀을 해석하지 못했습니다','err'); }
+    };
+    r.readAsArrayBuffer(file);
+  } else {
+    r.onload = ()=> cb([parseCSV(r.result)]);
+    r.readAsText(file,'UTF-8');
+  }
+}
+
 /* 반 이름이 실제 수업반인지 (대괄호로 시작하면 수업반).
    "[A2(1-3)]..." 처럼 대괄호 안에 괄호가 있어도 인식. 셔틀비 등 대괄호 없으면 제외 */
 function isRealClass(raw){
@@ -3743,32 +3830,61 @@ function withdrawDateFromLabel(label, semId){
   const day = isMid ? 15 : new Date(year, month, 0).getDate();
   return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 }
+const ROSTER_HDR = {
+  name:['이름','학생명','성명'],
+  code:['회원코드','코드','학생코드'],
+  school:['학교'],
+  grade:['학년'],
+  cls:['반 이름','반이름','반명','반','클래스'],
+  teacher:['담임선생님','담임명','담임','선생님'],
+  note:['특이사항','비고','메모','신규생'],
+  startdate:['등록일','등록일자','반 시작일','반시작일','시작일'],
+  transferin:['전입여부','전입'],
+  transfersrc:['전입출신분원','전입분원','전입전분원','출신분원','이전분원','전입출신'],
+  withdraw:['퇴원생','퇴원','퇴원여부'],
+  withdrawdate:['퇴원일'],
+  withdrawreason:['퇴원사유','사유']
+};
 function importRoster(file, branchId, semId, opts){
   opts = opts || {};   // opts.forceNew : 신규생 일괄업로드 (모든 행을 '신규'로)
-  readTable(file, async rows=>{
-    if(rows.length<2){ toast('데이터가 없습니다','err'); return; }
-    const HDR = {
-      name:['이름','학생명','성명'],
-      code:['회원코드','코드','학생코드'],
-      school:['학교'],
-      grade:['학년'],
-      cls:['반 이름','반이름','반명','반','클래스'],
-      teacher:['담임선생님','담임명','담임','선생님'],
-      note:['특이사항','비고','메모','신규생'],
-      startdate:['등록일','등록일자','반 시작일','반시작일','시작일'],
-      transferin:['전입여부','전입'],
-      transfersrc:['전입출신분원','전입분원','전입전분원','출신분원','이전분원','전입출신'],
-      withdraw:['퇴원생','퇴원','퇴원여부'],
-      withdrawdate:['퇴원일'],
-      withdrawreason:['퇴원사유','사유']
-    };
-    // 맨 위 병합 제목행이 있어도 자동으로 건너뜀 — 최대 3행 탐색
-    let idx = null;
-    for(let i=0; i<Math.min(3, rows.length-1); i++){
-      const cand = mapHeader(rows[i].map(h=>String(h).trim()), HDR);
-      if(cand.name>=0 && cand.code>=0){ idx = cand; rows = rows.slice(i); break; }
+  readTableSheets(file, sheets=>{
+    // 시트마다 헤더를 찾아 데이터행을 모음 → CHESS/ACE 분리 시트도 합쳐서 처리
+    let headerRow=null, idx=null, sheetsUsed=0; const dataRows=[];
+    for(const sh of (sheets||[])){
+      let hi=-1, cand=null;
+      for(let i=0; i<Math.min(3, sh.length); i++){
+        const c = mapHeader(sh[i].map(h=>String(h).trim()), ROSTER_HDR);
+        if(c.name>=0 && c.code>=0){ hi=i; cand=c; break; }
+      }
+      if(hi<0) continue;                 // 명단 헤더 없는 시트는 건너뜀
+      sheetsUsed++;
+      if(!headerRow){ headerRow=sh[hi]; idx=cand; }  // 첫 유효시트 헤더를 대표로(열 구성 동일)
+      for(let i=hi+1; i<sh.length; i++) dataRows.push(sh[i]);
     }
-    if(!idx){ toast('이름·회원코드 열을 찾지 못했습니다','err'); return; }
+    if(!headerRow){ toast('이름·회원코드 열을 찾지 못했습니다','err'); return; }
+    if(!dataRows.length){ toast('데이터가 없습니다','err'); return; }
+    const rows = [headerRow, ...dataRows];   // 기존 처리 로직과 호환 (rows[0]=헤더)
+    // 확인 팝업 — 파일명 + 예상 인원 미리보기 (고유 회원코드 기준, 셔틀/예시행 제외)
+    const seenCodes = new Set();
+    dataRows.forEach(r=>{
+      const n=String(r[idx.name]||'').trim(), cd=String(r[idx.code]||'').trim();
+      if(!n || !cd || /\(예시\)|\(지우세요\)|지우세요|←|예시행/.test(n)) return;
+      let cls = idx.cls>=0 ? String(r[idx.cls]||'').trim() : '';
+      cls = cls.replace(/^[★☆*※•·∘◦‣▪○●#@♡♥◆■□▶▷◀◁\s]+(?=\[)/,'');
+      if(!/^\[/.test(cls)) return;   // 대괄호 [레벨]로 시작하는 재원생만 카운트
+      seenCodes.add(cd);
+    });
+    const cnt = seenCodes.size;
+    const label = opts.forceNew ? '신규생 일괄' : '전체명단';
+    const sheetNote = sheetsUsed>1 ? `\n(시트 ${sheetsUsed}개를 합쳐서 올립니다)` : '';
+    openConfirm(`${label} 업로드 확인`,
+      `「${file.name}」\n약 ${cnt}명을 ${label}(으)로 올립니다.${sheetNote}\n\n기존 학생은 최신 반·담임으로 갱신되고, 새 학생은 추가됩니다.\n이대로 진행할까요?`,
+      ()=>{ closeModal(); doImportRoster(rows, idx, file, branchId, semId, opts); },
+      {yesLabel:'업로드', danger:false});
+  });
+}
+async function doImportRoster(rows, idx, file, branchId, semId, opts){
+    opts = opts || {};
     // ★ 반시작일 최빈값으로 학기 자동 판별 → semId 덮어쓰기 + 학기 자동 생성
     const autoSem = detectSemesterFromRows(rows.slice(1), idx);
     if(autoSem){ semId = ensureSemester(autoSem); }
@@ -3782,14 +3898,11 @@ function importRoster(file, branchId, semId, opts){
       if(/\(예시\)|\(지우세요\)|지우세요|←|예시행/.test(name)) return;  // 양식 예시/안내행 건너뜀
       let rawClass = idx.cls>=0 ? String(r[idx.cls]||'').trim() : '';
       rawClass = rawClass.replace(/^[★☆*※•·∘◦‣▪○●#@♡♥◆■□▶▷◀◁\s]+(?=\[)/,'');  // 반 이름 앞 별표(★)·샵(#) 등 장식문자 제거 → 정상 [반]으로 인식·병합
-      let kind = classKind(rawClass);     // 'regular' | 'exam' | null
+      let kind = classKind(rawClass);     // 'regular'(=[레벨] 시작) | 'exam'(내신) | null
       let unassigned = false;
-      if(!kind){
-        // 셔틀비/차량비 등 '반이 아닌' 항목은 계속 제외
-        if(/셔틀|차량비|교재비|회비|입회비|테스트비|납부/.test(rawClass)){ excluded++; return; }
-        // 반 배정만 안 된 학생(반 이름 빈칸 등) → 제외하지 말고 '미배정'으로 편입 (인원수 우선)
-        kind='regular'; rawClass='미배정'; unassigned=true;
-      }
+      // ★ 재원생 기준 = 반명이 대괄호 [레벨]로 시작하는 반만.
+      //   몰입/·문법/·셔틀·미배정·빈칸 등 대괄호로 시작하지 않는 행은 전부 제외.
+      if(!kind){ excluded++; return; }
       const classFull = rawClass;
       const classLbl = kind==='exam' ? rawClass : (unassigned ? '미배정' : classLabel(rawClass));  // 내신반/미배정은 이름 그대로 표시
       const note = idx.note>=0 ? String(r[idx.note]||'').trim() : '';
@@ -3902,7 +4015,6 @@ function importRoster(file, branchId, semId, opts){
     }
     buildShell();
     render();
-  });
 }
 
 /* ── 퇴원생 엑셀 일괄 업로드 ─────────────────────────────────────────────
