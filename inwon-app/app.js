@@ -2919,7 +2919,7 @@ function renderDataManagement(){
       <div class="panel-head"><div class="pi" style="background:var(--brand-soft);color:var(--brand)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2zM12 11v6M9 14h6"/></svg></div>
         <div><h3>전체명단 업로드 내역</h3></div></div>
-      <div class="pd">방금 올린 전체명단 엑셀을 <b>업로드 직전 상태로 되돌립니다.</b> 잘못된 파일(예: 상담이력 파일)을 전체명단에 올렸을 때 이걸로 취소하세요. 되돌리면 <b>그 업로드로 새로 추가된 학생·반배정은 삭제</b>되고, <b>덮어써진 기존 학생의 반·담임은 원래대로 복구</b>됩니다.</div>
+      <div class="pd">잘못 올린 전체명단 엑셀을 <b>업로드 단위로 삭제</b>합니다. 잘못된 파일(예: 상담이력 파일)을 전체명단에 올렸을 때 그 업로드만 골라 삭제하면 <b>그 전 상태(이전 업로드까지)만 남습니다.</b> 삭제하면 <b>그 업로드로 새로 추가된 학생·반배정은 제거</b>되고, <b>덮어써진 기존 학생의 반·담임은 원래대로 복구</b>됩니다.</div>
       ${renderRosterBatches(branchId, semId)}
     </div>
 
@@ -3016,7 +3016,7 @@ function renderRosterBatches(branchId, semId){
         <div class="batch-meta">${esc(x.uploadedAt||'')} · 새로 추가 ${newCnt}명, 덮어쓴 기존 ${updCnt}명</div>
       </div>
       <button class="btn sm" style="border-color:var(--neg-soft);color:var(--neg)"
-        onclick="confirmDeleteRosterBatch('${x.id}')">이 업로드 되돌리기</button>
+        onclick="confirmDeleteRosterBatch('${x.id}')">이 업로드 삭제</button>
     </div>`;
   }).join('') + `</div>`;
 }
@@ -3032,8 +3032,8 @@ function confirmDeleteRosterBatch(batchId){
   const addStus = new Set(p.addedStuIds||[]);
   const updRecs = p.updatedRecs||[];
   const newCnt = addRecs.size, updCnt = updRecs.length;
-  openConfirm('이 업로드 되돌리기',
-    `${x.fileName} (${x.uploadedAt})\n\n· 새로 추가된 학생·반배정 ${newCnt}명 → 삭제\n· 덮어써진 기존 학생 ${updCnt}명 → 업로드 직전 반·담임으로 복구\n\n이 업로드 이후에 손댄 다른 변경(반이동·퇴원 등)이 있으면 함께 되돌아갈 수 있으니, 방금 잘못 올렸을 때 바로 쓰는 걸 권장합니다.`,
+  openConfirm('이 업로드 삭제',
+    `${x.fileName} (${x.uploadedAt})\n\n이 업로드만 삭제하고 그 전 상태(이전 업로드까지)로 되돌립니다.\n· 이 업로드로 새로 추가된 학생·반배정 ${newCnt}명 → 삭제\n· 이 업로드가 덮어쓴 기존 학생 ${updCnt}명 → 업로드 직전 반·담임으로 복구\n\n이 업로드 이후에 손댄 다른 변경(반이동·퇴원 등)이 있으면 함께 되돌아갈 수 있으니, 방금 잘못 올렸을 때 바로 쓰는 걸 권장합니다.`,
     ()=>{
       // 1) 덮어써진 기존 레코드 원상복구
       let restored=0;
@@ -3057,9 +3057,9 @@ function confirmDeleteRosterBatch(batchId){
       // 5) 묶음 제거
       db.uploadBatches = db.uploadBatches.filter(b=>b.id!==batchId);
       saveDB(); closeModal();
-      toast(`되돌리기 완료 · 추가 ${newCnt}명 삭제, 기존 ${restored}명 복구`,'ok');
+      toast(`삭제 완료 · 추가 ${newCnt}명 삭제, 기존 ${restored}명 복구`,'ok');
       render();
-    }, {yesLabel:'되돌리기', danger:true});
+    }, {yesLabel:'삭제', danger:true});
 }
 
 /* 상담이력 전체 삭제 (전체명단은 유지) */
