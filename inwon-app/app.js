@@ -1752,7 +1752,7 @@ function banBu(cn){
   const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num,label:'화목 · '+t};
 }
 function banLevel(cn){ const m=String(cn||'').match(/\[([^\]]+)\]/); return m?m[1].trim():String(cn||''); }
-function banRoom(cn){ const body=String(cn||'').replace(/^\s*\[[^\]]*\]/,''); const segs=body.split('/'); return (segs.length?segs[segs.length-1]:'').trim(); }  // 맨 끝 조각=강의실. 없으면(슬래시로 끝나면) 빈칸
+function banRoom(cn){ const body=String(cn||'').replace(/^\s*\[[^\]]*\]/,''); const segs=body.split('/'); const last=(segs.length?segs[segs.length-1]:'').trim(); return (/^[A-Za-z]{1,2}$/.test(last) && !/^(mw|wf|tt)$/i.test(last)) ? last : ''; }  // 강의실=알파벳 1~2글자만. 요일(MWF/TTH)·숫자·이상한 값은 빈칸
 function banLevelLabel(cn){
   const lv=banLevel(cn);
   if(banIsChess(lv)) return lv;                       // CHESS: 레벨만 (예: DSA2(1), DSB1)
