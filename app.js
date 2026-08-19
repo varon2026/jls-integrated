@@ -953,11 +953,22 @@ function waitRegisterOpen(resId){
   const semId=r.wait_semester||nextSemId();
   const yms=(semesterYM(semId)||[]).map(p=>p.ym);
   const defDate=(yms[0]||'')+'-01';
+  // 이 학기(가을)에 이미 만들어진 반 목록 (전체명단 업로드됐으면 채워짐)
+  const cls=[...new Map((db.semesterRecords||[])
+    .filter(x=>x.branchId===session.branchId && x.semesterId===semId && x.status==='active' && (x.kind||'regular')!=='exam' && x.className && x.className!=='미배정')
+    .map(x=>[x.className,x])).values()]
+    .sort((a,b)=>String(a.classLabel||a.className).localeCompare(String(b.classLabel||b.className),'ko'));
+  const hasCls=cls.length>0;
+  const clsOpts=`<option value="미배정">미배정 (반은 나중에)</option>`
+    + cls.map(x=>`<option value="${esc(x.className)}">${esc(x.classLabel||x.className)}${x.teacher?' · '+esc(x.teacher):''}</option>`).join('');
   waitModalOpen(`
     <div style="font-weight:800;font-size:16px;margin-bottom:4px">${esc(semNameFromId(semId))} 신규생 등록</div>
-    <div style="font-size:13px;color:#667;line-height:1.6;margin-bottom:14px">${esc(r.student_name||'')} · ${esc([r.school,gradeTxt(r.grade)].filter(Boolean).join(' · '))}<br>반은 <b>미배정</b>으로 등록되고, 나중에 전체명단을 올리면 실제 반으로 자동 배정됩니다.</div>
-    <label style="font-size:12.5px;font-weight:700;color:#556">입학일</label>
-    <input type="date" id="waitRegDate" value="${defDate}" style="width:100%;height:40px;padding:0 11px;margin-top:5px;border:1px solid #dcdce6;border-radius:9px">
+    <div style="font-size:13px;color:#667;line-height:1.6;margin-bottom:14px">${esc(r.student_name||'')} · ${esc([r.school,gradeTxt(r.grade)].filter(Boolean).join(' · '))}</div>
+    <label style="font-size:12.5px;font-weight:700;color:#556">입학일(등원일)</label>
+    <input type="date" id="waitRegDate" value="${defDate}" style="width:100%;height:40px;padding:0 11px;margin:5px 0 12px;border:1px solid #dcdce6;border-radius:9px">
+    <label style="font-size:12.5px;font-weight:700;color:#556">등록 반</label>
+    <select id="waitRegClass" ${hasCls?'':'disabled'} style="width:100%;height:40px;padding:0 8px;margin-top:5px;border:1px solid #dcdce6;border-radius:9px;background:${hasCls?'#fff':'#f3f3f6'}">${clsOpts}</select>
+    <div style="font-size:12px;color:#8a8fa3;margin-top:6px">${hasCls?'이미 올라온 가을 반 중에서 고르세요. (미정이면 미배정)':'전체명단 업로드 전이라 반 선택은 잠겨 있어요 → <b>미배정</b>으로 등록됩니다.'}</div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
       <button class="btn-sm" style="border:1px solid #dcdce6;background:#fff;border-radius:9px;padding:8px 14px;cursor:pointer" onclick="waitModalClose()">취소</button>
       <button class="btn-sm" style="border:1px solid #1f8a95;background:#1f8a95;color:#fff;border-radius:9px;padding:8px 14px;font-weight:700;cursor:pointer" onclick="waitRegisterConfirm('${resId}')">등록</button>
@@ -970,6 +981,13 @@ async function waitRegisterConfirm(resId){
   if(!enrollDate){ toast('입학일을 선택하세요','err'); return; }
   const brId=session.branchId, semId=r.wait_semester||nextSemId();
   const code=(r.student_code||'').trim();
+  // 등록 반 선택값 (없거나 '미배정'이면 미배정)
+  const pickCls=($('waitRegClass')&&$('waitRegClass').value)||'미배정';
+  let className='미배정', classLabelV='미배정', teacherV='미배정';
+  if(pickCls && pickCls!=='미배정'){
+    const ref=(db.semesterRecords||[]).find(x=>x.branchId===session.branchId && x.semesterId===semId && x.className===pickCls);
+    className=pickCls; classLabelV=(ref&&ref.classLabel)||pickCls; teacherV=(ref&&ref.teacher)||'미배정';
+  }
   try{
     // 대기 학기가 아직 없으면 자동 생성 (레코드만 붕 뜨는 것 방지)
     if(!(db.semesters||[]).some(s=>s.id===semId)){
@@ -993,13 +1011,13 @@ async function waitRegisterConfirm(resId){
     const recId=uid('rec');
     const { error:e2 }=await sb.from('semester_records').insert({
       id:recId, student_id:stu.id, branch_id:brId, semester_id:semId,
-      class_name:'미배정', class_label:'미배정', teacher:'미배정', note:'신규생',
+      class_name:className, class_label:classLabelV, teacher:teacherV, note:'신규생',
       target_type:'HCMC', status:'active', origin:'new', enroll_date:enrollDate,
       withdraw_date:'', transfer:false, transfer_in:false, transfer_to:null, kind:'regular'
     });
     if(e2) throw e2;
     db.semesterRecords.push({ id:recId, studentId:stu.id, branchId:brId, semesterId:semId,
-      className:'미배정', classLabel:'미배정', teacher:'미배정', targetType:'HCMC',
+      className, classLabel:classLabelV, teacher:teacherV, targetType:'HCMC',
       status:'active', origin:'new', enrollDate, withdrawDate:'', transfer:false, transferIn:false, transferTo:null, kind:'regular' });
     const mvId=uid('mv');
     await sb.from('student_movements').insert({ id:mvId, student_id:stu.id, branch_id:brId, semester_id:semId, type:'new', date:enrollDate, memo:'레벨테스트 대기→등록' });
@@ -1007,7 +1025,7 @@ async function waitRegisterConfirm(resId){
     // 레벨테스트 예약 상태를 '등록완료'로
     await updateReservation(resId, { enrolled:'enrolled', not_enrolled_reason:null, wait_semester:null });
     waitModalClose();
-    toast(`${r.student_name||''} 신규생(미배정) 등록 완료 ✓`);
+    toast(`${r.student_name||''} 신규생 등록 완료 (${className==='미배정'?'미배정':classLabelV}) ✓`);
     renderWonmuBody();
   }catch(e){ console.error('대기→등록 실패', e); toast('등록 실패: '+(e.message||e),'err'); }
 }
