@@ -4291,6 +4291,20 @@ function addNewStudent(){
   if(!name||!code){ toast('학생명과 회원코드는 필수입니다','err'); return; }
   const enrollDate=el('nsDate').value;  // "2026-07-15" (캘린더 선택값)
   if(!enrollDate){ toast('입학일을 선택하세요','err'); return; }
+  // ★ 다음학기 신규생 방지: 입학일이 지금 보고 있는 학기가 아니면 등록 막기
+  {
+    const p=enrollDate.split('-').map(n=>parseInt(n,10));
+    const enrollSem = semesterOfDate(new Date(p[0], (p[1]||1)-1, p[2]||1));
+    if(enrollSem && enrollSem.id !== semId){
+      const curName=(db.semesters.find(s=>s.id===semId)||{}).name||semId;
+      const exists=db.semesters.some(s=>s.id===enrollSem.id);
+      openConfirm('학기가 다릅니다',
+        `이 학생의 입학일(${enrollDate})은 "${enrollSem.name}" 신규생입니다.\n지금은 "${curName}" 창이에요.\n\n"${enrollSem.name}" 학기로 바꿔서 등록해 주세요.`
+        + (exists ? ' (좌측 상단 학기 선택에서 전환)' : `\n\n※ "${enrollSem.name}"가 아직 없으면 학기 선택의 "＋ 다음 학기 추가"로 먼저 만든 뒤 등록하세요.`),
+        ()=>closeModal(), {yesLabel:'확인', danger:false});
+      return;
+    }
+  }
   if(db.semesterRecords.some(r=>{const s=getStudent(r.studentId);return s&&s.code===code&&r.branchId===branchId&&r.semesterId===semId;})){
     toast('이미 등록된 회원코드입니다','err'); return; }
 
