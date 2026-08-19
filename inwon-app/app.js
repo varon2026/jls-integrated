@@ -1717,7 +1717,7 @@ function renderBanTable(){
   const bus=[...buMap.entries()].sort((a,b)=>a[1].order-b[1].order);
   const brSel = session.role==='admin' ? '<span style="font-size:12.5px;font-weight:800;color:var(--ink-3);margin-right:6px">분원</span><select onchange="banSetBranch(this.value)" style="font:inherit;font-weight:700;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:6px 10px;background:#fff;cursor:pointer">'+db.branches.map(b=>'<option value="'+b.id+'" '+(b.id===brId?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '';
   let gChess=0,gAce=0,gTot=0;
-  let h='<div class="page-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div><h2>'+esc(brName)+' 반배정표</h2><div class="sub">'+esc((db.semesters.find(s=>s.id===semId)||{}).name||'')+' · 현재 재원 기준 · 신규/복귀 연두</div></div><div style="flex:1"></div>'+brSel+'<button class="btn sm" style="border:1px solid var(--brand);color:var(--brand);background:#fff" onclick="downloadBanXlsx()">⬇ 엑셀</button></div><div id="banArea">';
+  let h='<div class="page-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div><h2>'+esc(brName)+' 반배정표</h2><div class="sub">'+esc((db.semesters.find(s=>s.id===semId)||{}).name||'')+' · 현재 재원 기준 · 신규/복귀 연두</div></div><div style="flex:1"></div>'+brSel+'<button class="btn sm" style="border:1px solid var(--brand);color:var(--brand);background:#fff" onclick="downloadBanXlsx()">⬇ 엑셀</button></div>'+stuSearchPanelHTML()+'<div id="banArea">';
   if(!bus.length){ h+='<div style="padding:40px;text-align:center;color:var(--ink-3)">이 분원·학기에 배정된 반이 없어요. (반이름에 시간대/요일 정보가 있어야 부가 잡혀요)</div>'; }
   bus.forEach(([label,grp])=>{
     const classes=[...grp.classes.entries()].sort((a,b)=>banLvRank(banLevel(a[0]))-banLvRank(banLevel(b[0])));
@@ -1743,6 +1743,8 @@ function renderBanTable(){
   h+='</div>';
   if(bus.length) h+='<div style="margin-top:8px;padding:12px 16px;background:#faf8ff;border:1px solid var(--line);border-radius:12px;font-weight:800;font-size:14px">전체 · CHESS <span style="color:#c24a4a">'+gChess+'</span>명 · ACE <span style="color:#356fb2">'+gAce+'</span>명 · <span style="color:var(--brand)">총 '+gTot+'명</span></div>';
   el('content').innerHTML=h;
+  state.stuSearchBranch = brId;   // 반배정표가 보는 분원 기준으로 검색
+  renderStuSearch();
 }
 function downloadBanXlsx(){
   try{
@@ -1786,6 +1788,7 @@ function renderBranchDashboard(){
       ${kpiCard('전출', hc.transfer, {unit:'명', ca:hc.ca.transfer})}
       ${kpiCard('현 재원생', hc.active, {unit:'명', accent:true, ca:hc.ca.active})}
     </div>
+    ${stuSearchPanelHTML()}
     <div class="sect-head"><h3>전체 상담률</h3>
     <span class="cnt">단계별 진행 현황</span></div>
     ${ratePanel(rates)}
@@ -1798,6 +1801,8 @@ function renderBranchDashboard(){
     html += `<div class="card-grid g3">` + teacherCardsSection(teachers, branchId, 'branch').cards + `</div>`;
   }
   el('content').innerHTML = html;
+  state.stuSearchBranch = branchId;
+  renderStuSearch();
 }
 
 /* ============================================================================
@@ -3163,18 +3168,7 @@ function renderStudentManagement(){
       <div class="sub">${esc(b.name)} · ${esc(db.semesters.find(s=>s.id===semId).name)} · 신규생 추가와 퇴원 처리를 합니다</div>
     </div>
 
-    <div class="panel" style="margin-bottom:16px">
-      <div class="panel-head">
-        <div class="pi" style="background:var(--brand-soft);color:var(--brand)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        </div>
-        <div><h3>현 재원생 검색</h3></div>
-      </div>
-      <div class="pd">현재 재원 중인 학생을 이름·회원코드·학교·반·담임으로 검색합니다. (여러 단어로 좁힐 수 있어요 — 예: "월수금 PA2")</div>
-      <input id="stuSearch" placeholder="예: 김태양 · PA2 · 월수금 · 담임명 · 송림초" autocomplete="off" oninput="renderStuSearch()"
-        style="width:100%;height:38px;padding:0 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface-2)">
-      <div id="stuSearchResults" style="margin-top:10px"></div>
-    </div>
+    ${stuSearchPanelHTML()}
 
     <div class="dm-grid">
       <!-- ===== 왼쪽 위: 신규생 추가 ===== -->
@@ -3447,26 +3441,41 @@ function renderStudentManagement(){
   });
   // 문자 카드 최초 렌더
   renderMsgCard();
-  // 현 재원생 검색 최초 렌더(전체 표시)
+  // 현 재원생 검색 (입력했을 때만 결과 표시)
+  state.stuSearchBranch = session.branchId;
   renderStuSearch();
 }
 
-/* 현 재원생 검색 — 이름·회원코드·학교·반·담임으로 필터, 재원(active)만 */
+/* 재사용 가능한 '현 재원생 검색' 위젯 HTML — 여러 화면에 동일 id로 삽입(한 번에 한 화면만 렌더되므로 안전) */
+function stuSearchPanelHTML(){
+  return `<div class="panel" style="margin-bottom:16px">
+    <div class="panel-head">
+      <div class="pi" style="background:var(--brand-soft);color:var(--brand)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      </div>
+      <div><h3>현 재원생 검색</h3></div>
+    </div>
+    <input id="stuSearch" placeholder="이름·회원코드·학교·반·담임 검색 (예: 월수금 PA2)" autocomplete="off" oninput="renderStuSearch()"
+      style="width:100%;height:38px;padding:0 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface-2)">
+    <div id="stuSearchResults" style="margin-top:10px"></div>
+  </div>`;
+}
+/* 현 재원생 검색 — 입력했을 때만 결과 표시. 대상 분원은 state.stuSearchBranch(없으면 세션 분원). */
 function renderStuSearch(){
   const box = el('stuSearchResults'); if(!box) return;
-  const branchId = session.branchId, semId = state.semId;
   const q = (el('stuSearch') && el('stuSearch').value || '').trim().toLowerCase();
+  if(!q){ box.innerHTML = `<div style="padding:10px 2px;color:var(--ink-3);font-size:12.5px">이름·회원코드·학교·반·담임을 입력하면 결과가 여기에 표시됩니다.</div>`; return; }
+  const branchId = state.stuSearchBranch || session.branchId || (db.branches[0]&&db.branches[0].id);
+  const semId = state.semId;
   let list = activeRecordsOf(branchId, semId)
     .filter(r=>(r.kind||'regular')!=='exam')
     .map(r=>({ r, s:getStudent(r.studentId)||{} }));
-  if(q){
-    const terms = q.split(/\s+/).filter(Boolean);
-    list = list.filter(({r,s})=>{
-      const hay = [s.name,s.code,s.school,s.grade,r.classLabel,r.className,r.teacher]
-        .map(x=>String(x||'').toLowerCase()).join(' ');
-      return terms.every(t=> hay.includes(t));
-    });
-  }
+  const terms = q.split(/\s+/).filter(Boolean);
+  list = list.filter(({r,s})=>{
+    const hay = [s.name,s.code,s.school,s.grade,r.classLabel,r.className,r.teacher]
+      .map(x=>String(x||'').toLowerCase()).join(' ');
+    return terms.every(t=> hay.includes(t));
+  });
   list.sort((a,b)=> String(a.r.teacher||'').localeCompare(String(b.r.teacher||''),'ko')
     || String(a.r.classLabel||a.r.className||'').localeCompare(String(b.r.classLabel||b.r.className||''),'ko')
     || String(a.s.name||'').localeCompare(String(b.s.name||''),'ko'));
