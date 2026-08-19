@@ -1171,7 +1171,16 @@ function buildShell(){
   // 학기 선택 — 분원 계정만 '다음 학기 추가' 옵션 노출 (관리자·선생님은 보기 전용)
   const sel = el('semSelect');
   const isBranch = session.role==='branch';
-  sel.innerHTML = db.semesters.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')
+  // 분원 계정: 자기 분원이 실제 쓰는 학기(데이터 있는 학기) + 현재 선택 + 오늘 학기만 표시 (다른 분원이 만든 빈 학기는 안 보임)
+  let semList = db.semesters;
+  if(isBranch){
+    const keep = new Set(db.semesterRecords.filter(r=>r.branchId===session.branchId).map(r=>r.semesterId));
+    if(state.semId) keep.add(state.semId);
+    const cur=currentSemester(); if(cur) keep.add(cur.id);
+    semList = db.semesters.filter(s=> keep.has(s.id));
+    if(!semList.length){ const cur2=currentSemester(); semList = db.semesters.filter(s=> s.id===cur2.id); }
+  }
+  sel.innerHTML = semList.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')
     + (isBranch ? `<option value="__add_semester__">+ 학기 추가…</option>` : '');
   sel.value = state.semId;
   sel.onchange = ()=>{
