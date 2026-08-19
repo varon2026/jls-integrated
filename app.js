@@ -924,9 +924,15 @@ async function waitRegisterConfirm(resId){
   const enrollDate=($('waitRegDate')&&$('waitRegDate').value)||'';
   if(!enrollDate){ toast('입학일을 선택하세요','err'); return; }
   const brId=session.branchId, semId=r.wait_semester||state.semId;
-  if(!(db.semesters||[]).some(s=>s.id===semId)){ toast(`대기 학기(${semNameFromId(semId)})가 아직 없어요. 인원현황에서 학기부터 추가해 주세요.`,'err'); return; }
   const code=(r.student_code||'').trim();
   try{
+    // 대기 학기가 아직 없으면 자동 생성 (레코드만 붕 뜨는 것 방지)
+    if(!(db.semesters||[]).some(s=>s.id===semId)){
+      const semNm=semNameFromId(semId);
+      const { error:eSem }=await sb.from('semesters').insert({id:semId, name:semNm});
+      if(eSem) throw eSem;
+      db.semesters.push({id:semId, name:semNm});
+    }
     // 학생 upsert (회원코드 기준). 코드 없으면 새 학생으로.
     let stu = code ? (db.students||[]).find(s=>s.code===code) : null;
     if(!stu){
