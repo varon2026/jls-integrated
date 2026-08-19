@@ -42,9 +42,57 @@ function winterAwareName(year, season){
 }
 function currentSemester(){ return semesterOfDate(new Date()); }
 /* 학기 드롭다운에서 '다음 학기 추가' 선택 시 — 가장 최신 학기의 다음 학기를 만들어 전환 */
+/* 학기 추가 — 연도·학기를 드롭다운으로 고르는 팝업. 생성 후 빈 상태로 대시보드부터 시작. */
 function goAddSemester(){
-  state.addSemesterMode = true; // 데이터관리 배너 표시용 플래그
-  go('data'); // 데이터관리 화면으로 이동 (라우트명 확인 필요 — 아래 참고)
+  const cy = new Date().getFullYear();
+  const years = []; for(let y=cy-1; y<=cy+2; y++) years.push(y);
+  const yOpts = years.map(y=>`<option value="${y}" ${y===cy?'selected':''}>${y}년</option>`).join('');
+  const sOpts = SEASONS.map(s=>`<option value="${s.key}" ${s.key==='fall'?'selected':''}>${s.label}학기</option>`).join('');
+  openModal(`
+    <div class="modal-head"><div><h3>학기 추가</h3></div><button class="modal-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">추가할 학기를 선택하세요. 생성하면 <b>빈 상태(0명)</b>로 시작하고, 대시보드에서 전체명단 업로드 또는 신규생 등록을 진행하면 됩니다.</p>
+      <div style="display:flex;gap:10px">
+        <div class="field" style="flex:1"><label>연도</label><select id="addSemYear" onchange="updateAddSemPreview()">${yOpts}</select></div>
+        <div class="field" style="flex:1"><label>학기</label><select id="addSemSeason" onchange="updateAddSemPreview()">${sOpts}</select></div>
+      </div>
+      <div id="addSemPreview" style="margin-top:14px;font-weight:800;color:var(--brand);font-size:14px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">취소</button>
+      <button class="btn primary" id="addSemYes" onclick="confirmAddSemester()">학기 생성</button>
+    </div>`);
+  updateAddSemPreview();
+}
+function addSemPick(){
+  const y = parseInt(el('addSemYear').value,10);
+  const key = el('addSemSeason').value;
+  const season = SEASONS.find(s=>s.key===key);
+  return { id:`sem_${y}_${key}`, name:winterAwareName(y, season), year:y, key };
+}
+function updateAddSemPreview(){
+  const sem = addSemPick();
+  const exists = db.semesters.some(s=>s.id===sem.id);
+  el('addSemPreview').innerHTML = `→ ${esc(sem.name)}` + (exists?` <span style="color:var(--warn);font-weight:700">(이미 있는 학기 — 생성 대신 전환됩니다)</span>`:'');
+  const btn = el('addSemYes'); if(btn) btn.textContent = exists ? '이 학기로 전환' : '학기 생성';
+}
+function confirmAddSemester(){
+  const sem = addSemPick();
+  if(!db.semesters.some(s=>s.id===sem.id)){
+    db.semesters.push({ id:sem.id, name:sem.name });
+    const rk = id=>{ const m=String(id).match(/sem_(\d+)_(\w+)/); if(!m) return 0;
+      const o={spring:0,summer:1,fall:2,winter:3}; return parseInt(m[1],10)*10+(o[m[2]]||0); };
+    db.semesters.sort((a,b)=>rk(b.id)-rk(a.id));
+    saveDB();
+    toast(`${sem.name} 생성됨`,'ok');
+  } else {
+    toast(`${sem.name}(으)로 전환`,'ok');
+  }
+  state.semId = sem.id;
+  state.addSemesterMode = false;
+  closeModal();
+  buildShell();
+  go(session.role==='admin' ? 'admin' : 'branch');   // 첫 화면은 대시보드
 }
 function addNextSemester(){
   // db.semesters 중 가장 최신(rank 큰) 학기를 기준으로 다음 학기 계산
@@ -68,7 +116,7 @@ function addNextSemester(){
   state.semId = next.id;
   saveDB();
   buildShell();
-  toast(`${next.name} 추가됨 — 이제 이 학기 명단을 업로드하세요`,'ok');
+  toast(`${next.name} 추가됨 — 신규생 등록 또는 전체명단 업로드로 시작하세요`,'ok');
   render();
 }
 
@@ -3211,7 +3259,7 @@ function renderStudentManagement(){
           </div>
         </div>
 <div class="form-row">
-          <div class="field full"><label>반 선택 (검색 가능 · 레벨·반명·담임으로)</label>
+          <div class="field full"><label>반 선택 (검색 가능 · 비워두면 '미배정'으로 등록 → 전체명단 올릴 때 실제 반으로 자동 배정)</label>
             <input id="nsClassSearch" placeholder="반 검색… (예: PA2, 월수금, 담임명)" autocomplete="off"
               oninput="renderNsClassResults()" onfocus="renderNsClassResults()">
             <div id="nsClassResults" class="wd-results" style="display:none"></div>
@@ -4325,7 +4373,8 @@ function addNewStudent(){
     classLbl = classLabel(inClass) || inClass;
     teacher = el('nsTeacher').value.trim() || '미배정';
   } else {
-    toast('반을 선택하세요','err'); return;
+    // 반 미선택 → '미배정'으로 등록. 나중에 전체명단 업로드 시 실제 반으로 자동 덮어씀.
+    className='미배정'; classLbl='미배정'; teacher='미배정';
   }
 
   let stu=db.students.find(s=>s.code===code);
