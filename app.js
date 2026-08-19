@@ -343,13 +343,14 @@ function banBu(className){
   if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:num+'부 · 월수금 · '+t}; }
   const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:'화목 · '+t};
 }
-function banLevel(cn){ const m=String(cn||'').match(/\[([A-Za-z0-9]+)\]/); return m?m[1]:String(cn||''); }
+function banLevel(cn){ const m=String(cn||'').match(/\[([^\]]+)\]/); return m?m[1].trim():String(cn||''); }
 function banRoom(cn){ const p=banParts(cn); return p.length?p[p.length-1]:''; }
-/* 표시용 레벨명 — ACE는 반이름의 '레벨+학년' 조각 사용(PA1(1)_E6, A1_M1). 없으면 대괄호 레벨 */
+/* 표시용 레벨명 — CHESS는 레벨만(DSA2(1)), ACE는 레벨_학년(PA1(4-6)_E6) */
 function banLevelLabel(cn){
-  const lv=banLevel(cn); const p=banParts(cn);
-  const seg=p.length>=2?p[p.length-2]:'';   // 교실 바로 앞 조각 = 레벨(+학년)
-  if(seg && seg.toUpperCase().replace(/[()]/g,'').startsWith(lv.toUpperCase())) return seg;
+  const lv=banLevel(cn);
+  if(banIsChess(lv)) return lv;                       // CHESS: 레벨만
+  const p=banParts(cn); const seg=p.length>=2?p[p.length-2]:'';   // ACE: 레벨_학년
+  if(seg && /^[A-Za-z]?\d/.test(seg)) return lv+'_'+seg;
   return lv;
 }
 function banTeacher(t){ const m=String(t||'').match(/^([A-Za-z]+)/); return m?m[1]:String(t||''); }
@@ -390,16 +391,16 @@ function renderBanDash(c){
     let bChess=0,bAce=0,bTot=0;
     const ROWS=Math.max(15, ...classes.map(c=>c[1].students.length));
     h+='<div style="margin-bottom:22px"><div style="font-weight:800;font-size:13.5px;color:#2a2440;background:#e7ecf3;padding:6px 12px;border-radius:6px;margin-bottom:6px">'+esc(label)+'</div>';
-    h+='<div style="overflow:auto"><table style="border-collapse:collapse;font-size:11.5px"><tbody>';
+    h+='<div style="overflow:auto"><table style="border-collapse:collapse;font-size:11.5px;table-layout:fixed"><colgroup><col style="width:30px">'+classes.map(()=>'<col style="width:66px"><col style="width:46px">').join('')+'</colgroup><tbody>';
     // 레벨/담임/교실 — CHESS=파랑, ACE=보라 계열로 구분
     const lvBg=c2=>c2.chess?'#cfe0f5':'#e6d3f5', tcBg=c2=>c2.chess?'#e5eefb':'#f0e6fb';
-    h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:#8b6ee8">레벨</th>'+classes.map(c=>'<th colspan="2" style="border:1px solid #cfc9de;background:'+lvBg(c[1])+';padding:3px 8px;font-weight:800;color:'+(c[1].chess?'#1c4f8a':'#5a2a8a')+'">'+esc(c[1].label)+'</th>').join('')+'</tr>';
+    h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:#8b6ee8">레벨</th>'+classes.map(c=>'<th colspan="2" style="border:1px solid #cfc9de;background:'+lvBg(c[1])+';padding:3px 4px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:'+(c[1].chess?'#1c4f8a':'#5a2a8a')+'">'+esc(c[1].label)+'</th>').join('')+'</tr>';
     h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:#8b6ee8">담임</th>'+classes.map(c=>'<td colspan="2" style="border:1px solid #cfc9de;background:'+tcBg(c[1])+';text-align:center;font-weight:700;padding:3px 8px">'+esc(c[1].teacher)+'</td>').join('')+'</tr>';
     h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:#8b6ee8">교실</th>'+classes.map(c=>'<td colspan="2" style="border:1px solid #cfc9de;background:#eef;text-align:center;font-weight:700;padding:3px 8px">'+esc(c[1].room)+'</td>').join('')+'</tr>';
     for(let i=0;i<ROWS;i++){
       h+='<tr><td style="border:1px solid #cfc9de;background:#eee;text-align:center;font-weight:700;color:#999">'+(i+1)+'</td>';
       classes.forEach(c=>{ const s=c[1].students[i];
-        if(s){ const bg=s.isNew?'background:#c9f0c0;':''; h+='<td style="border:1px solid #cfc9de;padding:2px 6px;font-weight:700;'+bg+'">'+esc(s.name)+'</td><td style="border:1px solid #cfc9de;padding:2px 6px;color:#666;font-size:10.5px;'+bg+'">'+esc(s.sg)+'</td>'; }
+        if(s){ const bg=s.isNew?'background:#c9f0c0;':''; h+='<td style="border:1px solid #cfc9de;padding:2px 5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+bg+'">'+esc(s.name)+'</td><td style="border:1px solid #cfc9de;padding:2px 4px;color:#666;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+bg+'">'+esc(s.sg)+'</td>'; }
         else h+='<td style="border:1px solid #cfc9de"></td><td style="border:1px solid #cfc9de"></td>';
       });
       h+='</tr>';
