@@ -3561,7 +3561,7 @@ function renderStuSearch(){
 function renderManualStudents(branchId, semId){
   // 수동 등록 = '수동 등록' 메모가 있는 new 이동이력을 가진 학생
   const manualIds = new Set(db.studentMovements
-    .filter(m=>m.branchId===branchId && m.semesterId===semId && m.type==='new' && m.memo==='수동 등록')
+    .filter(m=>m.branchId===branchId && m.semesterId===semId && (m.type==='new'||m.type==='return') && !/^명단 업로드/.test(m.memo||''))
     .map(m=>m.studentId));
   const recs = recordsOf(branchId, semId)
     .filter(r=> manualIds.has(r.studentId))
