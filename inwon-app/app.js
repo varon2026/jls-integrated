@@ -1752,12 +1752,13 @@ function banBu(cn){
   const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num,label:'화목 · '+t};
 }
 function banLevel(cn){ const m=String(cn||'').match(/\[([^\]]+)\]/); return m?m[1].trim():String(cn||''); }
-function banRoom(cn){ const p=banParts(cn); return p.length?p[p.length-1]:''; }
+function banRoom(cn){ const body=String(cn||'').replace(/^\s*\[[^\]]*\]/,''); const segs=body.split('/'); return (segs.length?segs[segs.length-1]:'').trim(); }  // 맨 끝 조각=강의실. 없으면(슬래시로 끝나면) 빈칸
 function banLevelLabel(cn){
   const lv=banLevel(cn);
   if(banIsChess(lv)) return lv;                       // CHESS: 레벨만 (예: DSA2(1), DSB1)
-  const p=banParts(cn); const seg=p.length>=2?p[p.length-2]:'';   // ACE: 레벨_학년 (예: PA1(4-6)_E6)
-  if(seg && /^[A-Za-z]?\d/.test(seg)) return lv+'_'+seg;
+  const p=banParts(cn); const seg=p.length>=2?p[p.length-2]:'';
+  if(seg && seg.toUpperCase().startsWith(lv.toUpperCase())) return seg;   // 이미 '레벨_학년'이면 그대로 (A2_M1)
+  if(seg && /^[A-Za-z]?\d/.test(seg)) return lv+'_'+seg;                  // 학년코드면 레벨_코드 (PA1(4-6)_E6)
   return lv;
 }
 function banIsChess(lv){ return /^(IS|DS|LS|MS)/.test(String(lv||'').toUpperCase()); }

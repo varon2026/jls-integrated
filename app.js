@@ -344,12 +344,13 @@ function banBu(className){
   const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:'화목 · '+t};
 }
 function banLevel(cn){ const m=String(cn||'').match(/\[([^\]]+)\]/); return m?m[1].trim():String(cn||''); }
-function banRoom(cn){ const p=banParts(cn); return p.length?p[p.length-1]:''; }
+function banRoom(cn){ const body=String(cn||'').replace(/^\s*\[[^\]]*\]/,''); const segs=body.split('/'); return (segs.length?segs[segs.length-1]:'').trim(); }  // 맨 끝 조각=강의실. 없으면 빈칸
 /* 표시용 레벨명 — CHESS는 레벨만(DSA2(1)), ACE는 레벨_학년(PA1(4-6)_E6) */
 function banLevelLabel(cn){
   const lv=banLevel(cn);
   if(banIsChess(lv)) return lv;                       // CHESS: 레벨만
   const p=banParts(cn); const seg=p.length>=2?p[p.length-2]:'';   // ACE: 레벨_학년
+  if(seg && seg.toUpperCase().startsWith(lv.toUpperCase())) return seg;   // 이미 '레벨_학년'이면 그대로 (A2_M1)
   if(seg && /^[A-Za-z]?\d/.test(seg)) return lv+'_'+seg;
   return lv;
 }
