@@ -445,12 +445,21 @@ function isPastSemester(semId){
 }
 /* 지난 학기 보호 안내 팝업 — 잠금 해제 안내 포함 */
 function lockedPastToast(){
+  const tail = canUnlockPast()
+    ? '정말 수정해야 하면, 데이터관리 화면 위쪽의 "🔓 지난 학기 잠금 해제"를 눌러 푸신 뒤 진행하세요.'
+    : '수정이 필요하면 서수원분원 엄윤경 대리 계정에서만 잠금 해제가 가능합니다.';
   openConfirm('지난 학기는 잠겨 있습니다',
-    '이미 마감된 지난 학기 데이터입니다.\n\n삭제와 전체명단 덮어쓰기는 막아두었습니다. (실수로 지난 장부가 날아가는 걸 방지)\n\n정말 수정해야 하면, 데이터관리 화면 위쪽의 "🔓 지난 학기 잠금 해제"를 눌러 푸신 뒤 진행하세요.',
+    '이미 마감된 지난 학기 데이터입니다.\n\n삭제와 전체명단 덮어쓰기는 막아두었습니다. (실수로 지난 장부가 날아가는 걸 방지)\n\n'+tail,
     ()=>{ closeModal(); }, {yesLabel:'확인', danger:false});
 }
 /* 지난 학기 잠금 해제 / 다시 잠그기 (이 세션 한정 — 새로고침하면 자동 재잠금) */
+/* 지난 학기 잠금 해제 권한 — 서수원분원 엄윤경 대리(로그인 아이디 '엄윤경')만. 어드민 포함 그 외 전원 불가. */
+function canUnlockPast(){ return !!(session && session.username==='엄윤경'); }
 function unlockPast(){
+  if(!canUnlockPast()){
+    openConfirm('권한 없음','지난 학기 잠금 해제는 서수원분원 엄윤경 대리 계정에서만 가능합니다.', ()=>closeModal(), {yesLabel:'확인', danger:false});
+    return;
+  }
   openConfirm('지난 학기 잠금을 풀까요?',
     '지난 학기 데이터를 삭제·덮어쓸 수 있게 됩니다.\n실수로 지난 명단이 바뀔 수 있으니 주의하세요.\n\n(새로고침하면 자동으로 다시 잠깁니다.)',
     ()=>{ state.migrationMode=true; closeModal(); toast('잠금 해제됨 — 이제 명단을 다시 올릴 수 있어요','ok'); render(); },
@@ -2855,8 +2864,8 @@ function renderDataManagement(){
       <div style="display:flex;align-items:center;gap:10px;padding:2px 4px;flex-wrap:wrap">
         <div style="font-size:20px">🔒</div>
         <div style="flex:1;min-width:200px"><div style="font-weight:800">지난 학기 (마감됨)</div>
-          <div style="font-size:13px;color:var(--ink-2);margin-top:2px">실수 방지를 위해 <b>삭제·전체명단 덮어쓰기</b>가 잠겨 있어요. 명단을 다시 올리려면 잠금을 풀어주세요.</div></div>
-        <button class="btn" style="background:#fff;color:#c26a1f;border:1px solid #f4c4a0" onclick="unlockPast()">🔓 지난 학기 잠금 해제</button>
+          <div style="font-size:13px;color:var(--ink-2);margin-top:2px">실수 방지를 위해 <b>삭제·전체명단 덮어쓰기</b>가 잠겨 있어요.${canUnlockPast()?' 명단을 다시 올리려면 잠금을 풀어주세요.':' <b>잠금 해제는 서수원분원 엄윤경 대리 계정에서만</b> 가능합니다.'}</div></div>
+        ${canUnlockPast()?`<button class="btn" style="background:#fff;color:#c26a1f;border:1px solid #f4c4a0" onclick="unlockPast()">🔓 지난 학기 잠금 해제</button>`:''}
       </div>
     </div>` : '');
 
