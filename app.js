@@ -886,7 +886,50 @@ function waitAlertBanner(){
       <button class="btn-sm" style="border:1px solid #d99;color:#c0504d;background:#fff;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer" onclick="waitNotEnrolledOpen('${r.id}')">미등록</button>
     </div>`;
   }).join('');
-  return `<div class="wait-alert">${head}<div class="wa-list">${rows}</div></div>`;
+  return `<div class="wait-alert">${head}<div class="wa-list">${rows}${waitDoneListHTML()}</div></div>`;
+}
+/* 이번에 '대기→등록'한 학생 목록 (취소 가능) */
+function waitDoneListHTML(){
+  const done=(db.studentMovements||[]).filter(m=> m.memo==='레벨테스트 대기→등록' && m.branchId===session.branchId);
+  if(!done.length) return '';
+  const items=done.map(m=>{
+    const s=(db.students||[]).find(x=>x.id===m.studentId)||{};
+    return `<div class="wa-item" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="wa-nm">${esc(s.name||'?')}</span>
+      <span class="wa-meta">${esc(semNameFromId(m.semesterId))} · 대기→등록됨</span>
+      <span style="flex:1"></span>
+      <button class="btn-sm" style="border:1px solid #c99;color:#a55;background:#fff;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer" onclick="waitCancelOpen('${m.studentId}')">등록 취소</button>
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:12px;border-top:1px dashed #cfd3e0;padding-top:10px">
+    <div style="font-size:12px;font-weight:800;color:#778;margin-bottom:6px">이번에 대기→등록한 학생 (취소 가능)</div>${items}</div>`;
+}
+function waitCancelOpen(studentId){
+  const s=(db.students||[]).find(x=>x.id===studentId)||{};
+  waitModalOpen(`
+    <div style="font-weight:800;font-size:16px;margin-bottom:6px">등록 취소</div>
+    <div style="font-size:13px;color:#667;line-height:1.6;margin-bottom:16px"><b>${esc(s.name||'')}</b> 학생의 이번 등록을 취소합니다.<br>등록한 반(미배정 등)에서 빠지고, 레벨테스트에서 <b>다시 ‘다음학기 대기’</b>로 돌아갑니다.</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn-sm" style="border:1px solid #dcdce6;background:#fff;border-radius:9px;padding:8px 14px;cursor:pointer" onclick="waitModalClose()">닫기</button>
+      <button class="btn-sm" style="border:1px solid #a55;background:#a55;color:#fff;border-radius:9px;padding:8px 14px;font-weight:700;cursor:pointer" onclick="waitCancelConfirm('${studentId}')">등록 취소</button>
+    </div>`);
+}
+async function waitCancelConfirm(studentId){
+  if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
+  const brId=session.branchId;
+  const mv=(db.studentMovements||[]).find(m=> m.studentId===studentId && m.branchId===brId && m.memo==='레벨테스트 대기→등록');
+  const semId=mv?mv.semesterId:null;
+  const stu=(db.students||[]).find(s=>s.id===studentId)||{};
+  try{
+    const rec=(db.semesterRecords||[]).find(r=> r.studentId===studentId && r.branchId===brId && (!semId||r.semesterId===semId) && (r.kind||'regular')!=='exam');
+    if(rec){ const { error }=await sb.from('semester_records').delete().eq('id',rec.id); if(error) throw error; db.semesterRecords=db.semesterRecords.filter(x=>x.id!==rec.id); }
+    if(mv){ const { error:e2 }=await sb.from('student_movements').delete().eq('id',mv.id); if(e2) throw e2; db.studentMovements=db.studentMovements.filter(x=>x.id!==mv.id); }
+    const res=reservations.find(r=> r.branch_id===brId && ((stu.code && r.student_code===stu.code) || r.student_name===stu.name));
+    if(res){ await updateReservation(res.id, {enrolled:'waiting_next', wait_semester: semId||nextSemId(), not_enrolled_reason:null}); }
+    waitModalClose();
+    toast(`${stu.name||''} 등록 취소 — 대기명단으로 복귀 ✓`);
+    renderWonmuBody();
+  }catch(e){ console.error('등록 취소 실패', e); toast('취소 실패: '+(e.message||e),'err'); }
 }
 /* 학기 id → '가을' 같은 계절 단어 */
 function seasonWord(semId){
