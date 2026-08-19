@@ -864,8 +864,8 @@ function toggleWait(){ waitOpen=!waitOpen; renderWonmuBody(); }
 /* 다음학기 대기명단 — 분원 계정 전용(본사관리자·직원 미표시). 접이식(제목만 → 펼치기). 등록/미등록 버튼. */
 function waitAlertBanner(){
   if(session.role!=='branch') return '';   // 어드민(본사관리자)·직원 등은 안 보임
-  // 대기 학기와 무관하게, 이 분원의 '다음학기 대기' 학생 전부 표시 (등록은 각자 대기 학기로)
-  const due=reservations.filter(r=> r.enrolled==='waiting_next' && r.wait_semester && r.branch_id===session.branchId);
+  // 이 분원의 '다음학기 대기' 학생 전부 표시. wait_semester 비어있어도 포함(→ 다음 학기 기본).
+  const due=reservations.filter(r=> r.enrolled==='waiting_next' && r.branch_id===session.branchId);
   if(!due.length) return '';
   const head=`<div class="wa-head" style="cursor:pointer" onclick="toggleWait()">
     <span class="wa-ic">${IC_BELL}</span>
@@ -875,13 +875,14 @@ function waitAlertBanner(){
   </div>`;
   if(!waitOpen) return `<div class="wait-alert">${head}</div>`;
   const rows=due.sort((a,b)=>String(a.student_name||'').localeCompare(String(b.student_name||''))).map(r=>{
-    const meta=[semNameFromId(r.wait_semester), r.school, gradeTxt(r.grade)].filter(Boolean).join(' · ');
+    const wsem=r.wait_semester||nextSemId();
+    const meta=[semNameFromId(wsem), r.school, gradeTxt(r.grade)].filter(Boolean).join(' · ');
     return `<div class="wa-item" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span class="wa-nm">${esc(r.student_name||'')}</span>
       <span class="wa-meta">${esc(meta)}</span>
       ${r.parent_phone?`<span class="wa-ph">${esc(r.parent_phone)}</span>`:''}
       <span style="flex:1"></span>
-      <button class="btn-sm" style="border:1px solid #1f8a95;color:#fff;background:#1f8a95;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer" onclick="waitRegisterOpen('${r.id}')">${esc(seasonWord(r.wait_semester))} 등록</button>
+      <button class="btn-sm" style="border:1px solid #1f8a95;color:#fff;background:#1f8a95;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer" onclick="waitRegisterOpen('${r.id}')">${esc(seasonWord(wsem))} 등록</button>
       <button class="btn-sm" style="border:1px solid #d99;color:#c0504d;background:#fff;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer" onclick="waitNotEnrolledOpen('${r.id}')">미등록</button>
     </div>`;
   }).join('');
@@ -905,7 +906,7 @@ function waitModalClose(){ const m=$('waitModal'); if(m) m.remove(); }
 /* [등록] 캘린더 팝업 → 신규생(미배정) 자동 등록 */
 function waitRegisterOpen(resId){
   const r=reservations.find(x=>x.id===resId); if(!r) return;
-  const semId=r.wait_semester||state.semId;
+  const semId=r.wait_semester||nextSemId();
   const yms=(semesterYM(semId)||[]).map(p=>p.ym);
   const defDate=(yms[0]||'')+'-01';
   waitModalOpen(`
@@ -923,7 +924,7 @@ async function waitRegisterConfirm(resId){
   const r=reservations.find(x=>x.id===resId); if(!r){ waitModalClose(); return; }
   const enrollDate=($('waitRegDate')&&$('waitRegDate').value)||'';
   if(!enrollDate){ toast('입학일을 선택하세요','err'); return; }
-  const brId=session.branchId, semId=r.wait_semester||state.semId;
+  const brId=session.branchId, semId=r.wait_semester||nextSemId();
   const code=(r.student_code||'').trim();
   try{
     // 대기 학기가 아직 없으면 자동 생성 (레코드만 붕 뜨는 것 방지)
