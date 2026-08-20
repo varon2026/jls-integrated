@@ -185,8 +185,15 @@ function levelCode(cn){
 }
 function isChess(cn){return /^(IS|DS|LS|MS)/.test(levelAlpha(cn));}
 function gradeKey(g){g=String(g||'').trim();let m;if(m=g.match(/중\s*등?\s*(\d)/))return '중'+m[1];if(m=g.match(/초\s*등?\s*(\d)/))return '초'+m[1];if(m=g.match(/고\s*(\d)/))return '고'+m[1];if(m=g.match(/^(\d)$/))return '초'+m[1];return g;}
-/* 내신모의고사 반 판정 — 반이름 기준(강한 표식만; 초6/중1은 일반 ACE반 이름에도 들어가 제외) */
-function isNaesin(r){return /내신|E6|M1|초등6|중등1/i.test(String(r.className||'')+' '+String(r.classLabel||''));}
+/* 내신모의고사 반 판정 — 학년코드 토큰(_E6=초6, _M1=중1)만 인정.
+   앞이 / 또는 _, 뒤가 / ( 공백 끝 이어야 함 → 부코드 'SM1'·레벨명 'HM1' 부분일치 오탐 방지.
+   (기존엔 'M1'을 부분일치로 잡아 SM1(여름1부)·HM1반까지 내신으로 오분류됐음) */
+function isNaesin(r){
+  const s=String(r.className||'')+' '+String(r.classLabel||'');
+  if(/내신|초등6|중등1/.test(s)) return true;
+  const toks=(s.match(/[\/_](E\d+|M\d+)(?=[\/(\s]|$)/g)||[]).map(x=>x.slice(1).toUpperCase());
+  return toks.includes('E6')||toks.includes('M1');
+}
 /* AT는 '정답키에 있는 레벨(대괄호 베이스)'인 반만 대상 — 수능반·모의고사반 등 키 없는 반 제외 */
 function atHasKey(r){return variantsForBase(levelCode(r.className)).length>0;}
 function inScopeFor(exam,r){if(exam==='DT')return r.chess;if(exam==='AT')return !r.chess&&atHasKey(r);return isNaesin(r);}
