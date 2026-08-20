@@ -1927,10 +1927,15 @@ async function submitReservation(){
 }
 async function setResStatus(id,st){ const ok=await updateReservation(id,{status:st}); if(ok){ toast('상태 변경됨 ✓'); renderWonmuBody(); } }
 async function setResEnrolled(id,en){
+  const r=reservations.find(x=>x.id===id);
   const patch={enrolled:en};
   if(en!=='not_enrolled') patch.not_enrolled_reason=null;
   if(en!=='waiting_next') patch.wait_semester=null;
-  else { const r=reservations.find(x=>x.id===id); if(!r||!r.wait_semester) patch.wait_semester=nextSemId(); }  // 다음학기대기 기본값 = 다음 학기
+  else { if(!r||!r.wait_semester) patch.wait_semester=nextSemId(); }  // 다음학기대기 기본값 = 다음 학기
+  // ★ 등록결과(등록완료·미등록·미통과·다음학기대기)를 정했다는 건 시험을 봤다는 뜻
+  //   → 상태가 '예약'이면 '참석'으로 자동 승격. (parent_only·취소·노쇼는 의도된 상태라 안 건드림)
+  const attendedOutcome = (en==='enrolled'||en==='not_enrolled'||en==='failed'||en==='waiting_next');
+  if(attendedOutcome && r && (!r.status || r.status==='booked')) patch.status='attended';
   const ok=await updateReservation(id,patch); if(ok){ toast('등록 여부 변경됨 ✓'); renderWonmuBody(); }
 }
 async function setWaitSemester(id,sem){ const ok=await updateReservation(id,{wait_semester:sem||null}); if(ok) toast('대기 학기 저장됨 ✓'); }
