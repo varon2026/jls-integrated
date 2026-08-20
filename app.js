@@ -2026,11 +2026,15 @@ async function handleExcelFile(ev){
       cS=col('학교'), cG=col('학년'), cP=col('학부모 연락처'), cM=col('공지'), cR=col('접수자');
     if(cN<0||cD<0){ toast('이름·예약일 칸을 못 찾았어요','err'); return; }
     const seen=new Set(reservations.map(r=>`${r.branch_id}|${(r.student_code||r.student_name||'').trim()}|${String(r.reserved_date).slice(0,10)}|${String(r.reserved_time||'').slice(0,5)}`));
+    // ★ 분원 계정이 올리면 파일의 장소/분원명을 신뢰하지 않고 '내 분원'으로 고정.
+    //   (운정1이 올렸는데 파일 장소칸이 운정2로 매칭돼 엉뚱한 분원에 들어가는 사고 방지)
+    //   어드민만 여러 분원 섞인 파일을 파일값(matchBranch)으로 분배.
+    const forcedBranch = (session && session.role!=='admin') ? (session.branchId||null) : null;
     const toInsert=[]; let dup=0, noBr=0, bad=0;
     for(let i=hi+1;i<rows.length;i++){
       const r=rows[i]; if(!r) continue;
       const name=String(r[cN]==null?'':r[cN]).trim(); if(!name) continue;
-      const branchId=matchBranch(cB>=0?r[cB]:'', cB2>=0?r[cB2]:'');
+      const branchId = forcedBranch || matchBranch(cB>=0?r[cB]:'', cB2>=0?r[cB2]:'');
       if(!branchId){ noBr++; continue; }
       const date=xlDate(r[cD]); if(!date){ bad++; continue; }
       const time=String(r[cT]==null?'':r[cT]).trim().slice(0,5);
