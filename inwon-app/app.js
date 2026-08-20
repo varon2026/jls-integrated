@@ -3123,12 +3123,19 @@ function confirmDeleteRosterBatch(batchId){
       db.semesterRecords = db.semesterRecords.filter(r=>!addRecs.has(r.id));
       // 3) 이 업로드가 남긴 이동이력(신규/복귀) 삭제
       db.studentMovements = db.studentMovements.filter(m=>!addMvs.has(m.id));
-      // 4) 이 업로드가 처음 만든 학생 중, 이제 아무 레코드도 없는 학생만 삭제
+      // 4) 이 업로드가 처음 만든 학생 중, 이제 '어디에서도' 참조되지 않는 학생만 삭제.
+      //    ★ 세미스터 레코드뿐 아니라 상담이력·이동이력·면제 참조도 확인한다.
+      //    (상담이 붙은 학생을 지워버리면 상담이 고아가 되고, 재업로드 시 같은 코드로
+      //     새 id가 생겨 상담이 옛 id에 끊긴 채 남는 버그를 방지)
       let stuDel=0;
       if(addStus.size){
-        const stillRef = new Set(db.semesterRecords.map(r=>r.studentId));
+        const refRec = new Set(db.semesterRecords.map(r=>r.studentId));
+        const refCns = new Set((db.counselingHistories||[]).map(c=>c.studentId));
+        const refMov = new Set((db.studentMovements||[]).map(m=>m.studentId));
+        const refExm = new Set((db.mcExemptions||[]).map(e=>e.studentId));
         db.students = db.students.filter(s=>{
-          if(addStus.has(s.id) && !stillRef.has(s.id)){ stuDel++; return false; }
+          const referenced = refRec.has(s.id) || refCns.has(s.id) || refMov.has(s.id) || refExm.has(s.id);
+          if(addStus.has(s.id) && !referenced){ stuDel++; return false; }
           return true;
         });
       }
@@ -4251,8 +4258,16 @@ function importHistory(file, branchId, semId){
       const content=String(r[idx.content]||'').replace(/\\n/g,'\n').trim();
       const date=normDate(String(r[idx.date]||'').trim());
       if(!content){ return; }
-      const stu = db.students.find(s=>s.code===code) ||
-                  db.students.find(s=>s.name===String(r[idx.name]||'').trim());
+      // 학생 매칭 — 회원코드/이름으로 후보를 모으되,
+      // '이 분원·이 학기에 실제 재원레코드가 있는 학생'을 우선 연결한다.
+      // (같은 학생이 중복 레코드로 여러 id를 갖고 있어도 상담이 엉뚱한 id로 붙지 않게)
+      const nm = String(r[idx.name]||'').trim();
+      let cands = db.students.filter(s=> code && s.code===code);
+      if(cands.length===0 && nm) cands = db.students.filter(s=> s.name===nm);
+      const stu = cands.find(s=> db.semesterRecords.some(x=>
+                    x.studentId===s.id && x.branchId===branchId && x.semesterId===semId))
+                || cands.find(s=> db.semesterRecords.some(x=>x.studentId===s.id && x.branchId===branchId))
+                || cands[0];
       if(!stu){ skip++; noStu++; return; }
       // 태그로 단계 판정 — 대괄호 안의 모든 단계를 추출.
       // [MC2] 단일은 물론 [HC2+MC2], [HC2/MC2], [HC2,MC2], [HC2 MC2] 같은 복합표기도 각각 인정.
