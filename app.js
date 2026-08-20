@@ -59,7 +59,7 @@ const TABLES = [
   { key:'users', table:'users', fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,isManager:!!r.is_manager,menus:r.menus,title:r.title||null,active:r.active!==false,canManage:!!r.can_manage,canEdit:!!r.can_edit}) },
   { key:'semesters', table:'semesters', fromRow:r=>({id:r.id,name:r.name}) },
   { key:'students', table:'students', fromRow:r=>({id:r.id,code:r.code,name:r.name,school:r.school,grade:r.grade}) },
-  { key:'semesterRecords', table:'semester_records', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,classLabel:r.class_label,teacher:r.teacher,targetType:r.target_type,status:r.status,origin:r.origin,enrollDate:r.enroll_date,withdrawDate:r.withdraw_date,transfer:!!r.transfer,transferIn:!!r.transfer_in,transferTo:r.transfer_to,kind:r.kind||'regular'}) },
+  { key:'semesterRecords', table:'semester_records', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,classLabel:r.class_label,teacher:r.teacher,targetType:r.target_type,status:r.status,origin:r.origin,enrollDate:r.enroll_date,withdrawDate:r.withdraw_date,transfer:!!r.transfer,transferIn:!!r.transfer_in,transferTo:r.transfer_to,kind:r.kind||'regular',grade:r.grade||''}) },
   { key:'studentMovements', table:'student_movements', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,type:r.type,date:r.date,memo:r.memo}) },
   { key:'counselingHistories', table:'counseling_histories', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,date:r.date,type:r.type,content:r.content,counselor:r.counselor,batchId:r.batch_id,mistag:!!r.mistag}) },
   { key:'mcExemptions', table:'mc_exemptions', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,stage:r.stage}) },
@@ -376,7 +376,7 @@ function renderBanDash(c){
     const grp=buMap.get(bu.label);
     if(!grp.classes.has(r.className)) grp.classes.set(r.className,{level:banLevel(r.className),label:banLevelLabel(r.className),chess:banIsChess(banLevel(r.className)),teacher:banTeacher(r.teacher),room:banRoom(r.className),students:[]});
     const st=getStudent(r.studentId)||{};
-    grp.classes.get(r.className).students.push({name:st.name||'?', sg:banSchoolGrade(st), isNew:(r.origin==='new'||r.origin==='return')});
+    grp.classes.get(r.className).students.push({name:st.name||'?', sg:banSchoolGrade({...st, grade:(r.grade||st.grade)}), isNew:(r.origin==='new'||r.origin==='return')});
   });
   const bus=[...buMap.entries()].sort((a,b)=>a[1].order-b[1].order);
   const brSel = session.role==='admin' ? '<span style="font-size:12.5px;font-weight:800;color:#a9a2b6;margin-right:6px">분원</span><select onchange="banSetBranch(this.value)" style="font:inherit;font-weight:700;font-size:13px;border:1px solid #ece8f5;border-radius:9px;padding:6px 10px;background:#fff;color:#2f3138;cursor:pointer">'+db.branches.map(b=>'<option value="'+b.id+'" '+(b.id===brId?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '';

@@ -245,8 +245,8 @@ const TABLES = [
     fromRow:r=>({id:r.id,name:r.name}) },
   { key:'students',           table:'students',             toRow:s=>({id:s.id,code:s.code,name:s.name,school:s.school,grade:s.grade}),
     fromRow:r=>({id:r.id,code:r.code,name:r.name,school:r.school,grade:r.grade}) },
-{ key:'semesterRecords',    table:'semester_records',     toRow:r=>({id:r.id,student_id:r.studentId,branch_id:r.branchId,semester_id:r.semesterId,class_name:r.className,class_label:r.classLabel,teacher:r.teacher,note:r.note,target_type:r.targetType,status:r.status,origin:r.origin,enroll_date:r.enrollDate,withdraw_date:r.withdrawDate,transfer:!!r.transfer,transfer_in:!!r.transferIn,transfer_to:r.transferTo||null,kind:r.kind||'regular',withdraw_reason:r.withdrawReason||null,withdraw_memo:r.withdrawMemo||null}),
-    fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,classLabel:r.class_label,teacher:r.teacher,note:r.note,targetType:r.target_type,status:r.status,origin:r.origin,enrollDate:r.enroll_date,withdrawDate:r.withdraw_date,transfer:!!r.transfer,transferIn:!!r.transfer_in,transferTo:r.transfer_to,kind:r.kind||'regular',withdrawReason:r.withdraw_reason||null,withdrawMemo:r.withdraw_memo||null}) },
+{ key:'semesterRecords',    table:'semester_records',     toRow:r=>({id:r.id,student_id:r.studentId,branch_id:r.branchId,semester_id:r.semesterId,class_name:r.className,class_label:r.classLabel,teacher:r.teacher,note:r.note,target_type:r.targetType,status:r.status,origin:r.origin,enroll_date:r.enrollDate,withdraw_date:r.withdrawDate,transfer:!!r.transfer,transfer_in:!!r.transferIn,transfer_to:r.transferTo||null,kind:r.kind||'regular',withdraw_reason:r.withdrawReason||null,withdraw_memo:r.withdrawMemo||null,grade:r.grade||null}),
+    fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,classLabel:r.class_label,teacher:r.teacher,note:r.note,targetType:r.target_type,status:r.status,origin:r.origin,enrollDate:r.enroll_date,withdrawDate:r.withdraw_date,transfer:!!r.transfer,transferIn:!!r.transfer_in,transferTo:r.transfer_to,kind:r.kind||'regular',withdrawReason:r.withdraw_reason||null,withdrawMemo:r.withdraw_memo||null,grade:r.grade||''}) },
   { key:'counselingHistories',table:'counseling_histories', toRow:c=>({id:c.id,student_id:c.studentId,branch_id:c.branchId,semester_id:c.semesterId,date:c.date,type:c.type,content:c.content,counselor:c.counselor,batch_id:c.batchId,mistag:!!c.mistag}),
     fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,date:r.date,type:r.type,content:r.content,counselor:r.counselor,batchId:r.batch_id,mistag:!!r.mistag}) },
   { key:'studentMovements',   table:'student_movements',    toRow:m=>({id:m.id,student_id:m.studentId,branch_id:m.branchId,semester_id:m.semesterId,type:m.type,date:m.date,memo:m.memo}),
@@ -1779,7 +1779,7 @@ function renderBanTable(){
     const grp=buMap.get(bu.label);
     if(!grp.classes.has(r.className)) grp.classes.set(r.className,{label:banLevelLabel(r.className),chess:banIsChess(banLevel(r.className)),teacher:banTeacher(r.teacher),room:banRoom(r.className),students:[]});
     const st=getStudent(r.studentId)||{};
-    grp.classes.get(r.className).students.push({name:st.name||'?', sg:banSchoolGrade(st), isNew:(r.origin==='new'||r.origin==='return')});
+    grp.classes.get(r.className).students.push({name:st.name||'?', sg:banSchoolGrade({...st, grade:(r.grade||st.grade)}), isNew:(r.origin==='new'||r.origin==='return')});
   });
   const bus=[...buMap.entries()].sort((a,b)=>a[1].order-b[1].order);
   const brSel = session.role==='admin' ? '<span style="font-size:12.5px;font-weight:800;color:var(--ink-3);margin-right:6px">분원</span><select onchange="banSetBranch(this.value)" style="font:inherit;font-weight:700;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:6px 10px;background:#fff;cursor:pointer">'+db.branches.map(b=>'<option value="'+b.id+'" '+(b.id===brId?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '';
@@ -2057,7 +2057,7 @@ return `<td class="cc"><span class="cc-mark undone" title="미완료">✕</span>
     }).join('');
     return `<tr>
       <td><div class="st-name">${esc(stu.name)}${originBadge}${moveBadge}</div></td>
-      <td><div>${esc(stu.school)}</div><div class="st-meta">${esc(stu.grade)}학년</div></td>
+      <td><div>${esc(stu.school)}</div><div class="st-meta">${esc(rec.grade||stu.grade)}학년</div></td>
       <td><span class="code-chip">${esc(stu.code)}</span></td>
       <td>${statusBadge}</td>
       <td style="color:var(--ink-2);font-size:12.5px">${esc(rec.note||'–')}</td>
@@ -2177,7 +2177,7 @@ function rosterRows(branchId, semId, tab){
     const date = isIn ? (r.enrollDate || (mv&&mv.date) || '-')
                       : (r.withdrawDate || (mv&&mv.date) || '-');
 rows.push({
-      name:s.name, code:s.code, school:s.school||'', grade:s.grade||'',
+      name:s.name, code:s.code, school:s.school||'', grade:r.grade||s.grade||'',
       classLabel:r.classLabel||r.className||'-', className:r.className||'', teacher:r.teacher||'-',
 date, memo:(mv&&mv.memo)||'',
       recId:r.id, withdrawReason:r.withdrawReason||'', withdrawMemo:r.withdrawMemo||'', transferTo:r.transferTo||'',
@@ -3968,6 +3968,13 @@ function importRoster(file, branchId, semId, opts){
       {yesLabel:'업로드', danger:false});
   });
 }
+/* 학기 시간순 순위 (전역 학년 갱신 가드용) — 최신 학기일수록 큰 값 */
+function semRank(id){
+  const m=String(id||'').match(/sem_(\d{4})_(spring|summer|fall|winter)/);
+  if(!m) return 0;
+  const o={spring:1,summer:2,fall:3,winter:4}[m[2]]||0;
+  return parseInt(m[1],10)*10 + o;
+}
 async function doImportRoster(rows, idx, file, branchId, semId, opts){
     opts = opts || {};
     // ★ 반시작일 최빈값으로 학기 자동 판별 → semId 덮어쓰기 + 학기 자동 생성
@@ -4032,7 +4039,15 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
       // 학생 DB upsert (회원코드 기준)
       let stu = db.students.find(s=>s.code===code);
       if(!stu){ stu={id:uid('st'),code,name,school,grade}; db.students.push(stu); addedStuIds.add(stu.id); }
-      else { stu.name=name; if(school)stu.school=school; if(grade)stu.grade=grade; }
+      else {
+        stu.name=name; if(school)stu.school=school;
+        // 전역 학년은 '최신(또는 동급) 학기' 업로드만 갱신 → 과거 학기 명단을 나중에 올려도 안 덮임.
+        if(grade){
+          const myRank=semRank(semId);
+          const maxRank=Math.max(0,...db.semesterRecords.filter(x=>x.studentId===stu.id).map(x=>semRank(x.semesterId)));
+          if(myRank>=maxRank) stu.grade=grade;
+        }
+      }
       // 학기레코드 upsert — ★ kind까지 일치해야 같은 레코드 (정규/내신 별개 공존)
       let rec = db.semesterRecords.find(x=>x.studentId===stu.id && x.branchId===branchId && x.semesterId===semId && (x.kind||'regular')===kind);
       // 복귀(return)면서 퇴원기록 있고 재입학이 나중이면 = 퇴원 후 재입학. 재원 유지하되 퇴원일 보존(마감표 카운트용).
@@ -4041,7 +4056,7 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
       const finalWdDate = isTransferOut ? (wdDate||enrollDate||semDefaultDate(semId)) : (wdDate||'');
       if(!rec){
         rec={id:uid('rec'),studentId:stu.id,branchId,semesterId:semId,
-          className:classFull,classLabel:classLbl,teacher,note,targetType,
+          className:classFull,classLabel:classLbl,teacher,note,targetType, grade,
           status: willWithdraw?'withdraw':'active', origin, enrollDate, kind,
           transfer: isTransferOut, transferIn: isTransferIn,
           transferTo: transferBranch,
@@ -4058,6 +4073,7 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
         // 덮어쓰기 전 원본 스냅샷 1회 저장(되돌리기용). 이번 업로드가 새로 만든 rec은 제외.
         if(!addedRecIds.has(rec.id) && !updBefore.has(rec.id)) updBefore.set(rec.id, JSON.parse(JSON.stringify(rec)));
         rec.className=classFull; rec.classLabel=classLbl; rec.teacher=teacher;
+        if(grade) rec.grade=grade;   // ★ 학년은 이 학기 명단값으로 저장(학기별 독립 → 다른 학기 업로드에 안 덮임)
         if(note) rec.note=note; rec.targetType=targetType;
         if(enrollDate) rec.enrollDate=enrollDate;
         rec.transferIn = isTransferIn;
