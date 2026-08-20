@@ -4240,7 +4240,7 @@ function importHistory(file, branchId, semId){
     rows = rows.slice(headRow);
     // 이번 업로드를 하나의 배치로 기록
     const batchId = uid('batch');
-    let added=0, dup=0, skip=0, notCounsel=0, prevSem=0, misTagCnt=0;
+    let added=0, dup=0, skip=0, notCounsel=0, prevSem=0, misTagCnt=0, noStu=0, noTag=0;
     rows.slice(1).forEach(r=>{
       // 분류가 '상담'인 건만 반영 (수납/기타/성적 등 제외)
       if(idx.category>=0){
@@ -4253,7 +4253,7 @@ function importHistory(file, branchId, semId){
       if(!content){ return; }
       const stu = db.students.find(s=>s.code===code) ||
                   db.students.find(s=>s.name===String(r[idx.name]||'').trim());
-      if(!stu){ skip++; return; }
+      if(!stu){ skip++; noStu++; return; }
       // 태그로 단계 판정 — 대괄호 안의 모든 단계를 추출.
       // [MC2] 단일은 물론 [HC2+MC2], [HC2/MC2], [HC2,MC2], [HC2 MC2] 같은 복합표기도 각각 인정.
       const tags = [];
@@ -4264,7 +4264,7 @@ function importHistory(file, branchId, semId){
         (inner.match(/HC1|HC2|MC1|MC2|MC3/g) || []).forEach(t=> tags.push(t));
       }
       const uniqTags = [...new Set(tags)];
-      if(uniqTags.length===0){ skip++; return; } // 단계 태그 없는 상담은 완료율과 무관 → 미반영
+      if(uniqTags.length===0){ skip++; noTag++; return; } // 단계 태그 없는 상담은 완료율과 무관 → 미반영
       uniqTags.forEach(type=>{
         // ★ 회차-월 판정: 이전학기 상담이면 현재 학기 집계에서 제외
         const recForStu = db.semesterRecords.find(x=>x.studentId===stu.id && x.branchId===branchId && x.semesterId===semId);
@@ -4277,9 +4277,12 @@ function importHistory(file, branchId, semId){
           c.studentId===stu.id && c.branchId===branchId &&
           c.semesterId===semId && c.type===type);
         if(prev){
-          // 내용·날짜가 완전히 같으면 변화 없음(중복)
-          if(prev.content===content && prev.date===date){ dup++; return; }
-          // 내용이 바뀌었으면 최신 내용으로 교체(갱신)
+          // 내용·날짜가 같아도 완료판정(mistag)이 달라졌으면 갱신해서 표시를 교정한다.
+          // (예전에 오기재로 잘못 저장된 ⚠/✕를 같은 파일 재업로드로 바로잡을 수 있게)
+          const sameText   = (prev.content===content && prev.date===date);
+          const sameVerdict = (!!prev.mistag === isMistag);
+          if(sameText && sameVerdict){ dup++; return; } // 진짜 변화 없음(중복)
+          // 내용이 바뀌었거나 완료판정이 바뀌었으면 최신 상태로 교체(갱신)
           prev.content = content;
           prev.date = date;
           prev.counselor = String(r[idx.counselor]||'').trim();
@@ -4310,8 +4313,11 @@ function importHistory(file, branchId, semId){
     let extra = '';
     if(prevSem>0) extra += `, 이전학기 제외 ${prevSem}`;
     if(misTagCnt>0) extra += `, 오기재 의심 ${misTagCnt}`;
+    if(noTag>0) extra += `, 단계태그없음 ${noTag}`;
+    if(notCounsel>0) extra += `, 상담아님 ${notCounsel}`;
     if(ok){
-      toast(`✅ 저장 완료 · 추가 ${added}, 중복 ${dup}, 미매칭 ${skip}${extra}`,'ok');
+      // '미매칭'은 명단에 없는 학생만 카운트(noStu). 태그없음은 별도 표기.
+      toast(`✅ 저장 완료 · 추가 ${added}, 중복 ${dup}, 미매칭 ${noStu}${extra}`,'ok');
     } else {
       toast('❌ 저장 실패 — 다시 업로드해 주세요 (서버에 저장되지 않았습니다)','err');
     }
