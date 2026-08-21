@@ -351,36 +351,80 @@ function bkDivision(grade, className){
   if(/^(IS|DS|LS|MS)/.test(lv)) return 'CHESS';
   return 'ACE';
 }
-/* 바뀐 semesterRecords만 교재관리로 반영 (saveDB 성공 후 호출). 실패해도 원무 저장엔 영향 없음. */
+/* 바뀐 semesterRecords만 교재관리로 반영 (saveDB 성공 후 호출). 실패해도 원무 저장엔 영향 없음.
+   ★ 학기 보존 — bk_students는 (student_id, branch) 한 행 구조라, 학기가 바뀌면 이전 학기가 덮어써진다.
+     그래서 덮어쓰기 전에 이전 학기 행을 bk_students_history에 스냅샷으로 남긴다.
+     (교재관리 앱의 명단 업로드가 쓰는 방식과 동일. 교재앱 학기별 조회가 현재+history를 합쳐 보므로,
+      가을 명단을 올려도 여름 학기 조회는 그대로 남는다.)
+     스냅샷에 실패한 학생은 덮어쓰지 않고 건너뛴다 → 지난 학기가 유실되는 일은 없다. */
+const BK_SNAP_COLS='student_id,name,contact,grade,class_name,semester,note,created_at,branch,division,status,updated_at,school';
 async function mirrorToBooks(records){
   if(!sb || !records || !records.length) return;
   const nowIso=new Date().toISOString();
-  const upserts=[]; const wdByBranch={};
+  const wdByBranch={};
+  // 같은 학생이 여러 학기 행으로 한꺼번에 바뀌었으면 최신 학기 1건만 남긴다.
+  // (한 배치 안에 (student_id,branch) 중복이 있으면 Supabase upsert가 통째로 실패한다)
+  const upMap=new Map();
   for(const r of records){
+    if((r.kind||'regular')==='exam') continue;              // 내신반은 교재 대상 아님 — 정규반 반정보를 덮어쓰지 않게 제외
     const st=getStudent(r.studentId); const code=st&&st.code?st.code:null; if(!code) continue;
     const bk=bkBranchCode(r.branchId); if(!bk) continue;   // 교재관리에 없는 분원 제외
     if(r.status==='active'){
-      upserts.push({ student_id:code, branch:bk, name:st.name||'', grade:st.grade||null, school:st.school||null,
+      const key=code+'|'+bk, rank=semRank(r.semesterId);
+      const prev=upMap.get(key);
+      if(prev && prev._rank>rank) continue;                 // 이미 더 최신 학기 행을 잡아둠
+      upMap.set(key,{ _rank:rank, row:{ student_id:code, branch:bk, name:st.name||'', grade:st.grade||null, school:st.school||null,
         class_name:r.classLabel||r.className||null, semester:bkSemester(r.semesterId),
-        division:bkDivision(st.grade, r.className), status:'재원', updated_at:nowIso });
+        division:bkDivision(st.grade, r.className), status:'재원', updated_at:nowIso } });
     } else if(r.status==='withdraw'){
       (wdByBranch[bk]=wdByBranch[bk]||[]).push(code);
     }
   }
+  let upserts=[...upMap.values()].map(v=>v.row);
+  let snapFail=0, upFail=0;
   try{
+    // ── 학기가 바뀌는 학생은 덮어쓰기 전에 이전 학기를 history로 백업 ──
+    const byBranch={};
+    upserts.forEach(u=>{ (byBranch[u.branch]=byBranch[u.branch]||[]).push(u); });
+    const blocked=new Set();   // 백업 실패 → 덮어쓰지 않을 학생 ('학생코드|분원')
+    for(const bk of Object.keys(byBranch)){
+      const newSem=new Map(byBranch[bk].map(u=>[u.student_id,u.semester]));
+      const ids=[...newSem.keys()]; const olds=[];
+      for(let i=0;i<ids.length;i+=200){
+        const chunk=ids.slice(i,i+200);
+        const { data, error }=await sb.from('bk_students').select(BK_SNAP_COLS).eq('branch',bk).in('student_id',chunk);
+        // 기존 행을 못 읽으면 학기가 바뀌는지 알 수 없다 → 안전하게 덮어쓰기 보류
+        if(error){ console.error('교재관리 기존 명단 조회 실패', error); chunk.forEach(c=>blocked.add(c+'|'+bk)); snapFail++; continue; }
+        if(data) olds.push(...data);
+      }
+      // 학기가 실제로 달라지는 행만 스냅샷 (같은 학기 재업로드는 백업할 필요 없음)
+      const snapRows=olds.filter(o=> o.semester && newSem.get(o.student_id) && o.semester!==newSem.get(o.student_id));
+      for(let i=0;i<snapRows.length;i+=200){
+        const slice=snapRows.slice(i,i+200);
+        const { error }=await sb.from('bk_students_history').insert(slice.map(o=>Object.assign({snapshot_at:nowIso},o)));
+        if(error){ console.error('교재관리 학기 스냅샷 실패', error); slice.forEach(o=>blocked.add(o.student_id+'|'+bk)); snapFail++; }
+      }
+    }
+    if(blocked.size) upserts=upserts.filter(u=>!blocked.has(u.student_id+'|'+u.branch));
     for(let i=0;i<upserts.length;i+=200){
       const { error }=await sb.from('bk_students').upsert(upserts.slice(i,i+200),{onConflict:'student_id,branch'});
-      if(error) console.error('교재관리 신규 반영 실패', error);
+      if(error){ console.error('교재관리 신규 반영 실패', error); upFail++; }
     }
     for(const bk of Object.keys(wdByBranch)){
       const codes=[...new Set(wdByBranch[bk])];
       for(let i=0;i<codes.length;i+=200){
         // 이미 교재관리에 있는 학생만 퇴원 표시(없으면 아무 행도 안 바뀜) — 기록·미납 그대로 보존
         const { error }=await sb.from('bk_students').update({status:'퇴원',updated_at:nowIso}).eq('branch',bk).in('student_id',codes.slice(i,i+200));
-        if(error) console.error('교재관리 퇴원 반영 실패', error);
+        if(error){ console.error('교재관리 퇴원 반영 실패', error); upFail++; }
       }
     }
-  }catch(e){ console.error('교재관리 동기화 오류', e); }
+  }catch(e){ console.error('교재관리 동기화 오류', e); upFail++; }
+  // 조용히 실패하면 모르고 지나가므로, 실패했을 때만 알린다
+  if(snapFail||upFail){
+    toast(snapFail
+      ? '교재관리 반영 일부 실패 — 지난 학기 백업이 안 돼서 해당 학생은 덮어쓰지 않았습니다. 새로고침 후 다시 저장해 주세요.'
+      : '교재관리 반영에 일부 실패했습니다. 새로고침 후 다시 저장해 주세요.', 'err');
+  }
 }
 
 /* 메모리 db를 서버에 동기화 — 직전 스냅샷과 비교해 바뀐 행만 upsert + 삭제된 행 delete.
