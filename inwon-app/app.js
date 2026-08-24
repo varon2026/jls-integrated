@@ -2348,7 +2348,11 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
         ${rows.map(r=>{
           const memoShown = (r.memo && r.memo!=='수동 등록' && r.memo!=='퇴원 처리') ? r.memo : '';
           const _canW = !(session&&session.canEdit===false);
-          const _brOpts = (sel)=>(db.branches||[]).map(b=>`<option value="${b.id}" ${b.id===sel?'selected':''}>${esc(b.name)}</option>`).join('');
+          // 전입 '출발분원' / 전출 '도착분원' 목록 — 자기 분원은 뺀다.
+          // 자기 분원이 들어가면 '운정1→운정1' 같은 기록이 만들어지고,
+          // 어드민 전출입 매칭은 (학생·출발·도착)이 양쪽 같아야 짝지어져서 영영 미매칭으로 남는다.
+          // (퇴원·전출 모달은 이미 같은 방식으로 자기 분원을 제외하고 있음)
+          const _brOpts = (sel)=>(db.branches||[]).filter(b=>b.id!==branchId).map(b=>`<option value="${b.id}" ${b.id===sel?'selected':''}>${esc(b.name)}</option>`).join('');
           let _act='';
           if(tab==='transferIn') _act = _canW
             ? `<td><div style="display:flex;gap:6px;align-items:center"><button class="btn sm" style="border-color:var(--brand);color:var(--brand);flex:none;white-space:nowrap;padding:0 8px" onclick="convertTransferInToNew('${r.recId}')">일반 신규로</button> <select class="wd-inline-sel" style="width:auto;flex:1;min-width:78px" onchange="setTransferBranch('${r.recId}',this.value)"><option value="">출발분원…</option>${_brOpts(r.transferTo)}</select></div></td>`
