@@ -535,7 +535,10 @@ tr.sum .col-now{background:#f5f1fc}
 .wscope .wa-t{font-size:14.5px;font-weight:800;color:#17727c}
 .wscope .wa-t b{color:#0f5a63}
 .wscope .wa-hint{font-size:12px;font-weight:600;color:#5a8b8f}
-.wscope .wa-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+/* 대기명단은 한 줄에 한 명씩 세로로 쌓는다.
+   가로 wrap이면 남는 자리에 다음 항목·'취소 가능' 묶음이 옆에 끼어 붙고,
+   그 줄 높이에 맞춰 카드가 늘어나 빈 상자처럼 보였음. */
+.wscope .wa-list{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-top:12px}
 .wscope .wa-item{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #d3ebeb;border-radius:11px;padding:8px 13px}
 .wscope .wa-nm{font-size:13.5px;font-weight:800;color:var(--wink)}
 .wscope .wa-meta{font-size:12px;color:var(--wink2)}
