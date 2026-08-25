@@ -319,11 +319,13 @@ function renderDashHome(c){
   c.innerHTML='<div style="display:flex;gap:8px;margin-bottom:18px">'
     +'<button onclick="setDashView(\'inwon\')" style="'+btn(state.dashView==='inwon')+'">인원 현황</button>'
     +'<button onclick="setDashView(\'mgmt\')" style="'+btn(state.dashView==='mgmt')+'">경영 분석</button>'
+    +'<button onclick="setDashView(\'jh\')" style="'+btn(state.dashView==='jh')+'">전형 현황</button>'
     +'<button onclick="setDashView(\'ban\')" style="'+btn(state.dashView==='ban')+'">반배정표</button>'
     +'</div><div id="dashBody"></div>';
   $('semPick').style.display=(state.dashView==='inwon'||state.dashView==='ban')?'flex':'none';
   const body=$('dashBody');
   if(state.dashView==='mgmt') renderMgmtDash(body);
+  else if(state.dashView==='jh') renderJeonhyeongDash(body);
   else if(state.dashView==='ban') renderBanDash(body);
   else renderDashboard(body);
 }
@@ -547,14 +549,9 @@ function renderMgmtDash(c){
   const ltYears=[...new Set(ltAll.map(k=>Math.floor(k/100)))]; if(!ltYears.length) ltYears.push(new Date().getFullYear());
   const ltYOpt=(selY)=>ltYears.map(y=>'<option value="'+y+'" '+(y===selY?'selected':'')+'>'+y+'</option>').join('');
   const ltMOpt=(selM)=>Array.from({length:12},(_,i)=>i+1).map(m=>'<option value="'+m+'" '+(m===selM?'selected':'')+'>'+m+'월</option>').join('');
-  // 다음학기 대기 — 현 학기(state.semId) 기준 다음 학기 대기자만
-  const waitSemId=nextSemId(state.semId); const waitSemNm=semName(waitSemId);
   const years=[...new Set(allM.map(o=>o.y))]; if(!years.length) years.push(new Date().getFullYear());
   const yOpt=(selY)=>years.map(y=>'<option value="'+y+'" '+(y===selY?'selected':'')+'>'+y+'</option>').join('');
   const mOpt=(selM)=>Array.from({length:12},(_,i)=>i+1).map(m=>'<option value="'+m+'" '+(m===selM?'selected':'')+'>'+m+'월</option>').join('');
-  // 다음학기 대기 = 현 학기의 다음학기(waitSemId)로 지정된 사람 + 학기 미지정(옛 버그로 wait_semester가 빈) 대기자
-  const waitRows=mgBranchList().map(b=>({b, n:reservations.filter(r=>r.branch_id===b.id && r.enrolled==='waiting_next' && r.status!=='parent_only' && (r.wait_semester===waitSemId || !r.wait_semester)).length}));
-  const waitTot=waitRows.reduce((a,x)=>a+x.n,0);
   const card='background:#fff;border:1px solid #ece8f5;border-radius:16px;padding:18px 20px;box-shadow:0 3px 14px rgba(80,70,120,.05);margin-bottom:16px';
   const h3s='margin:0 0 2px;font-size:15px;font-weight:800;color:#3a3742';
   const css='font-size:12px;color:#a9a2b6;font-weight:600;margin-bottom:12px';
@@ -588,15 +585,176 @@ function renderMgmtDash(c){
     +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#5598e7;margin-right:4px;vertical-align:middle"></i>참석</span>'
     +'<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#184f95;margin-right:4px;vertical-align:middle"></i>등록</span></div>'
     +mgSvgLt(lt)+'</div>';
-  html+='<div style="'+card+'"><h3 style="'+h3s+'">다음학기 대기 인원</h3><div style="'+css+'">'+esc(waitSemNm)+' 대기 · 현 학기 기준 예비 등록생</div>'
-    +'<div style="display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:12px 20px;margin-bottom:14px">'
-    +'<span style="font-size:13px;font-weight:700;opacity:.92">총 대기 인원</span><span style="font-size:30px;font-weight:800;line-height:1">'+waitTot+'</span><span style="font-size:14px;font-weight:700;opacity:.92">명</span></div>'
-    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">'
-    +waitRows.map(w=>'<div style="border:1px solid #ece8f5;border-radius:12px;padding:12px 14px;background:#faf8fe"><div style="font-size:12.5px;font-weight:700;color:#52514e">'+esc(w.b.name)+'</div><div style="font-size:24px;font-weight:800;color:#8b6ee8">'+w.n+'<span style="font-size:12px;color:#a9a2b6;font-weight:700"> 명</span></div></div>').join('')
-    +'</div></div>';
   c.innerHTML=html;
 }
 
+/* ============================================================================
+   전형 현황 — '다음 학기 입학을 목표로 본 레벨테스트'의 결과만 모아 본다.
+   대기 → 등록 / 미등록까지 추적. 학기 중간에 보고 바로 등록한 건은 여기 안 들어온다.
+
+   과거 데이터 소급: 예전 코드가 등록·미등록 처리 때 wait_semester를 지워버려서
+   '어느 학기 대기였는지'가 사라진 건이 있다. 그중 대기→등록만은 studentMovements에
+   memo='레벨테스트 대기→등록' 으로 남아 있어 그걸로 되살린다(표에 '소급' 표시).
+   대기→미등록은 아무 흔적이 없어 되살릴 수 없다 — 이후 처리분부터 잡힌다.
+   ============================================================================ */
+function jhRank(id){ const m=String(id||'').match(/sem_(\d+)_(\w+)/); if(!m) return 0; return (+m[1])*10+({spring:1,summer:2,fall:3,winter:4}[m[2]]||0); }
+function jhSemId(){ return state.jhSem || nextSemId(state.semId); }
+function jhSetSem(v){ state.jhSem=v; render(); }
+/* 고를 수 있는 대상 학기 = 등록된 학기 + 실제 대기·등록 기록이 있는 학기 */
+function jhSemOptions(){
+  const ids={};
+  (db.semesters||[]).forEach(s=>{ if(s&&s.id) ids[s.id]=1; });
+  reservations.forEach(r=>{ if(r.wait_semester) ids[r.wait_semester]=1; });
+  (db.studentMovements||[]).forEach(m=>{ if(m.memo==='레벨테스트 대기→등록' && m.semesterId) ids[m.semesterId]=1; });
+  ids[nextSemId(state.semId)]=1;
+  return Object.keys(ids).sort((a,b)=>jhRank(b)-jhRank(a));
+}
+/* 대상 학기의 전형 대상자 = 한 명당 한 행. 예약 기록이 우선, 없으면 이동 기록으로 소급. */
+function jhRows(semId){
+  const out=[], seen={};
+  const key=(br,code,nm)=> String(br)+'|'+(code?('#'+code):('@'+(nm||'')));
+  reservations.forEach(r=>{
+    if(r.wait_semester!==semId || r.status==='parent_only') return;
+    const st = r.enrolled==='waiting_next' ? 'wait'
+             : r.enrolled==='enrolled'     ? 'enrolled'
+             : r.enrolled==='not_enrolled' ? 'notenr' : null;
+    if(!st) return;
+    const k=key(r.branch_id, r.student_code, r.student_name); if(seen[k]) return; seen[k]=1;
+    out.push({ branchId:r.branch_id, code:r.student_code||'', name:r.student_name||'',
+      school:r.school||'', grade:r.grade||'', date:String(r.reserved_date||'').slice(0,10),
+      st:st, back:false, reason:r.not_enrolled_reason||'' });
+  });
+  (db.studentMovements||[]).forEach(m=>{
+    if(m.memo!=='레벨테스트 대기→등록' || m.semesterId!==semId) return;
+    const stu=getStudent(m.studentId)||{};
+    const k=key(m.branchId, stu.code, stu.name); if(seen[k]) return; seen[k]=1;
+    out.push({ branchId:m.branchId, code:stu.code||'', name:stu.name||'',
+      school:stu.school||'', grade:stu.grade||'', date:String(m.date||'').slice(0,10),
+      st:'enrolled', back:true, reason:'' });
+  });
+  return out;
+}
+function jhChip(bg,fg,txt){ return '<span style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
+function jhStateChip(r){
+  const back = r.back ? ' <span style="background:#f3f0fa;color:#9a93b0;font-size:10px;font-weight:800;border-radius:5px;padding:2px 6px">소급</span>' : '';
+  if(r.st==='enrolled') return jhChip('#e6f7f0','#2fa878','등록 완료')+back;
+  if(r.st==='notenr')   return jhChip('#fdf3e6','#e2953f','미등록');
+  return jhChip('#e4f4f5','#1f8a95','대기중');
+}
+function renderJeonhyeongDash(c){
+  if(!bookState.loaded){
+    c.innerHTML='<div style="padding:44px 0;text-align:center;color:#a9a2b6;font-size:13px">레벨테스트·대기 정보 불러오는 중…</div>';
+    ensureReservations().then(()=>{ if(state.view==='dashboard'&&state.dashView==='jh'){ const b=document.getElementById('dashBody'); if(b) renderJeonhyeongDash(b); } });
+    return;
+  }
+  const semId=jhSemId(), semNm=semNameFromId(semId);
+  const brs=mgBranchList(), inScope={}; brs.forEach(b=>inScope[b.id]=1);
+  const rows=jhRows(semId).filter(r=>inScope[r.branchId]);
+  const nOf=(list,st)=>list.filter(r=>r.st===st).length;
+  const tot=rows.length, enr=nOf(rows,'enrolled'), ne=nOf(rows,'notenr'), wt=nOf(rows,'wait');
+  const backN=rows.filter(r=>r.back).length;
+  const rate = tot ? Math.round(enr/tot*100) : null;
+
+  const card='background:#fff;border:1px solid #ece8f5;border-radius:16px;padding:18px 20px;box-shadow:0 3px 14px rgba(80,70,120,.05);margin-bottom:16px';
+  const h3s='margin:0 0 2px;font-size:15px;font-weight:800;color:#3a3742';
+  const css='font-size:12px;color:#a9a2b6;font-weight:600;margin-bottom:12px';
+  const sels='background:#f6f3fc;border:1px solid #e2dcf2;border-radius:8px;padding:5px 8px;font:inherit;font-weight:700;color:#8b6ee8;cursor:pointer';
+
+  let html='';
+  /* ---- 필터 ---- */
+  html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-size:13px;font-weight:700;color:#7b7488">'
+    +'<span>입학 대상 학기</span>'
+    +'<select onchange="jhSetSem(this.value)" style="'+sels+'">'
+    + jhSemOptions().map(id=>'<option value="'+id+'" '+(id===semId?'selected':'')+'>'+esc(semNameFromId(id))+'</option>').join('')
+    +'</select>'
+    +(session.role==='admin' ? '<span style="margin-left:8px">분원</span><select onchange="mgSetBranch(this.value)" style="'+sels+'"><option value="all" '+((!state.mgBranch||state.mgBranch==='all')?'selected':'')+'>전체</option>'+(db.branches||[]).map(b=>'<option value="'+b.id+'" '+(state.mgBranch===b.id?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '')
+    +'</div>';
+
+  /* ---- 요약 ---- */
+  html+='<div style="'+card+'"><h3 style="'+h3s+'">'+esc(semNm)+' 입학 대기 → 결과</h3>'
+    +'<div style="'+css+'">다음 학기 입학을 잡아둔 학생이 실제로 등록까지 갔는지</div>'
+    +'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">'
+    +'<div style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:12px 20px">'
+      +'<span style="font-size:13px;font-weight:700;opacity:.92">전체 대기</span>'
+      +'<span style="font-size:30px;font-weight:800;line-height:1">'+tot+'</span>'
+      +'<span style="font-size:14px;font-weight:700;opacity:.92">명</span></div>'
+    +[['등록 완료',enr,'#2fa878','#e6f7f0'],['미등록',ne,'#e2953f','#fdf3e6'],['아직 대기중',wt,'#1f8a95','#e4f4f5']]
+      .map(x=>'<div style="flex:1;min-width:120px;border:1px solid #ece8f5;border-radius:14px;padding:12px 16px;background:'+x[3]+'">'
+        +'<div style="font-size:12.5px;font-weight:700;color:#52514e">'+x[0]+'</div>'
+        +'<div style="font-size:26px;font-weight:800;color:'+x[2]+';line-height:1.15">'+x[1]+'<span style="font-size:12px;color:#a9a2b6;font-weight:700"> 명</span></div></div>').join('')
+    +'<div style="flex:1;min-width:120px;border:1px solid #ece8f5;border-radius:14px;padding:12px 16px;background:#faf8fe">'
+      +'<div style="font-size:12.5px;font-weight:700;color:#52514e">등록률</div>'
+      +'<div style="font-size:26px;font-weight:800;color:#8b6ee8;line-height:1.15">'+(rate==null?'—':rate+'<span style="font-size:13px;font-weight:700">%</span>')+'</div></div>'
+    +'</div>'
+    +(backN?'<div style="margin-top:12px;font-size:12px;color:#7b7488;background:#faf8fe;border:1px dashed #e2dcf2;border-radius:10px;padding:9px 12px;line-height:1.6">'
+      +'이 중 <b>'+backN+'명</b>은 예전에 등록 처리되면서 대기 기록이 지워졌던 학생입니다. 등록 이력으로 되살려 <b>소급</b>으로 표시했습니다.'
+      +' <span style="color:#a9a2b6">(대기했다가 미등록으로 바꾼 학생은 흔적이 남지 않아 되살릴 수 없습니다)</span></div>':'')
+    +'</div>';
+
+  /* ---- 분원별 ---- */
+  html+='<div style="'+card+'"><h3 style="'+h3s+'">분원별</h3><div style="'+css+'">'+esc(semNm)+' 기준</div>';
+  if(!brs.length){ html+='<div style="color:#a9a2b6;font-size:13px;padding:10px 0">표시할 분원이 없습니다.</div>'; }
+  else{
+    html+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:520px;font-size:12.5px">'
+      +'<thead><tr>'
+      +['분원','대기','등록','미등록','대기중','등록률'].map((t,i)=>'<th style="text-align:'+(i?'right':'left')+';font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap">'+t+'</th>').join('')
+      +'</tr></thead><tbody>';
+    brs.forEach(b=>{
+      const rs=rows.filter(r=>r.branchId===b.id);
+      const t=rs.length, e=nOf(rs,'enrolled'), n=nOf(rs,'notenr'), w=nOf(rs,'wait');
+      const rt=t?Math.round(e/t*100):null;
+      const td='padding:9px 10px;border-bottom:1px solid #f3f0fa;text-align:right;white-space:nowrap';
+      html+='<tr>'
+        +'<td style="'+td+';text-align:left;font-weight:800;color:#3a3742">'+esc(b.name)+'</td>'
+        +'<td style="'+td+'">'+t+'</td>'
+        +'<td style="'+td+';color:#2fa878;font-weight:800">'+e+'</td>'
+        +'<td style="'+td+';color:#e2953f;font-weight:800">'+n+'</td>'
+        +'<td style="'+td+';color:#1f8a95;font-weight:800">'+w+'</td>'
+        +'<td style="'+td+';font-weight:800">'+(rt==null?'<span style="color:#c9c3d6">—</span>':rt+'%')+'</td></tr>';
+    });
+    html+='<tr><td style="padding:10px;background:#f0ebfe;color:#5b41b5;font-weight:800;text-align:left;border-top:1px solid #ece8f5">합계</td>'
+      +[tot,enr,ne,wt,(rate==null?'—':rate+'%')].map(v=>'<td style="padding:10px;background:#f0ebfe;color:#5b41b5;font-weight:800;text-align:right;border-top:1px solid #ece8f5">'+v+'</td>').join('')
+      +'</tr></tbody></table></div>';
+  }
+  html+='</div>';
+
+  /* ---- 명단 ---- */
+  html+='<div style="'+card+'"><h3 style="'+h3s+'">학생 명단</h3><div style="'+css+'">'+rows.length+'명 · 상태별 정렬</div>';
+  if(!rows.length){
+    html+='<div style="padding:26px 0;text-align:center;color:#a9a2b6;font-size:13px">'
+      +esc(semNm)+' 입학 대상으로 잡힌 학생이 아직 없습니다.<br>'
+      +'<span style="font-size:12px">레벨테스트에서 <b>다음학기 대기</b>를 누르면 여기 쌓입니다.</span></div>';
+  } else {
+    const ord={wait:0,notenr:1,enrolled:2};
+    const sorted=rows.slice().sort((a,b)=> (ord[a.st]-ord[b.st]) || String(a.name).localeCompare(String(b.name),'ko'));
+    html+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:660px;font-size:12.5px">'
+      +'<thead><tr>'
+      +['학생','회원코드','분원','학교 / 학년','시험일','상태','비고'].map(t=>'<th style="text-align:left;font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap">'+t+'</th>').join('')
+      +'</tr></thead><tbody>';
+    sorted.forEach(r=>{
+      const td='padding:9px 10px;border-bottom:1px solid #f3f0fa;white-space:nowrap';
+      const sg=[r.school,gradeTxt(r.grade)].filter(Boolean).join(' · ');
+      html+='<tr>'
+        +'<td style="'+td+';font-weight:800;color:#3a3742">'+esc(r.name||'?')+'</td>'
+        +'<td style="'+td+';font-family:monospace;font-size:11px;color:#a9a2b6">'+esc(r.code||'—')+'</td>'
+        +'<td style="'+td+';color:#7b7488">'+esc(bName(r.branchId))+'</td>'
+        +'<td style="'+td+';color:#7b7488">'+esc(sg||'—')+'</td>'
+        +'<td style="'+td+';color:#a9a2b6">'+esc(r.date||'—')+'</td>'
+        +'<td style="'+td+'">'+jhStateChip(r)+'</td>'
+        +'<td style="'+td+';color:#a9a2b6;white-space:normal">'+esc(r.reason||'')+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+  html+='</div>';
+
+  /* ---- 다음 단계 안내 ---- */
+  html+='<div style="background:#faf8fe;border:1px dashed #e2dcf2;border-radius:14px;padding:14px 18px;font-size:12.5px;color:#7b7488;line-height:1.7">'
+    +'<b style="color:#5b41b5">다음 단계</b> — 설명회 회차·참석 인원과 개별전형 구분은 아직 안 들어왔습니다. '
+    +'레벨테스트 캘린더에서 날짜별로 <b>전형 여부</b>와 <b>설명회 진행</b>을 켜면 이 화면에 설명회 퍼널이 붙습니다.'
+    +'</div>';
+
+  c.innerHTML=html;
+}
 /* ---------- 대시보드: 인원 현황 (진짜 데이터 + CHESS/ACE) ---------- */
 function branchList(){ return session.role==='admin' ? db.branches : db.branches.filter(b=>b.id===session.branchId); }
 function rateCls(r){ return r<3?'lo':r<5?'mid':'hi'; }
@@ -1023,7 +1181,8 @@ async function waitRegisterConfirm(resId){
     await sb.from('student_movements').insert({ id:mvId, student_id:stu.id, branch_id:brId, semester_id:semId, type:'new', date:enrollDate, memo:'레벨테스트 대기→등록' });
     db.studentMovements&&db.studentMovements.push({ id:mvId, studentId:stu.id, branchId:brId, semesterId:semId, type:'new', date:enrollDate, memo:'레벨테스트 대기→등록' });
     // 레벨테스트 예약 상태를 '등록완료'로
-    await updateReservation(resId, { enrolled:'enrolled', not_enrolled_reason:null, wait_semester:null });
+    // 대기 학기를 지우지 않고 '실제로 등록한 학기'로 확정 → 전형 현황에서 대기 → 등록으로 잡힌다
+    await updateReservation(resId, { enrolled:'enrolled', not_enrolled_reason:null, wait_semester:semId });
     waitModalClose();
     toast(`${r.student_name||''} 신규생 등록 완료 (${className==='미배정'?'미배정':classLabelV}) ✓`);
     renderWonmuBody();
@@ -1046,7 +1205,10 @@ async function waitNotEnrolledConfirm(resId){
   if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
   const reason=($('waitNoReason')&&$('waitNoReason').value.trim())||'';
   if(!reason){ toast('미등록 사유를 입력하세요','err'); return; }
-  const ok=await updateReservation(resId, { enrolled:'not_enrolled', not_enrolled_reason:reason, wait_semester:null });
+  // 대기 학기 보존 — 어느 학기 대기였다가 안 왔는지가 전형 현황에 필요
+  const r0=reservations.find(x=>x.id===resId);
+  const keepSem=(r0&&r0.wait_semester)||nextSemId();
+  const ok=await updateReservation(resId, { enrolled:'not_enrolled', not_enrolled_reason:reason, wait_semester:keepSem });
   if(ok){ waitModalClose(); toast('미등록 처리 완료 ✓'); renderWonmuBody(); }
 }
 function renderWonmuHub(b){
@@ -1930,8 +2092,10 @@ async function setResEnrolled(id,en){
   const r=reservations.find(x=>x.id===id);
   const patch={enrolled:en};
   if(en!=='not_enrolled') patch.not_enrolled_reason=null;
-  if(en!=='waiting_next') patch.wait_semester=null;
-  else { if(!r||!r.wait_semester) patch.wait_semester=nextSemId(); }  // 다음학기대기 기본값 = 다음 학기
+  // ★ wait_semester는 지우지 않는다.
+  //   '어느 학기 대기였다가 등록·미등록했는지'가 전형 현황의 유일한 근거라,
+  //   지워버리면 대기 → 등록 전환을 영영 셀 수 없다.
+  if(en==='waiting_next' && (!r || !r.wait_semester)) patch.wait_semester=nextSemId();  // 다음학기대기 기본값 = 다음 학기
   // ★ 등록결과(등록완료·미등록·미통과·다음학기대기)를 정했다는 건 시험을 봤다는 뜻
   //   → 상태가 '예약'이면 '참석'으로 자동 승격. (parent_only·취소·노쇼는 의도된 상태라 안 건드림)
   const attendedOutcome = (en==='enrolled'||en==='not_enrolled'||en==='failed'||en==='waiting_next');
