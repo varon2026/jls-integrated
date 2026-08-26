@@ -685,8 +685,9 @@ function jhRows(semId){
 }
 /* 행 묶음 → 숫자. 전부 예약 기록에서 세어 나온다. */
 function jhCount(rs, semId){
-  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0, mid:0 };
+  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0, mid:0, back:0 };
   rs.forEach(r=>{
+    if(r.back) s.back++;   // 예약 기록이 없어 이동 기록으로 되살린 건
     if(isAttended(r)) s.att++;
     const o=jhOutcome(r, semId);
     if(o==='noshow') s.noshow++; else if(o==='cancel') s.cancel++; else if(o==='parent') s.parent++;
@@ -799,7 +800,8 @@ function renderJeonhyeongDash(c){
     +'<div style="flex:1.2;min-width:190px;display:flex;flex-direction:column;justify-content:center;gap:3px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:13px 18px">'
       +'<span style="font-size:12.5px;font-weight:700;opacity:.92">전형 응시</span>'
       +'<span style="font-size:31px;font-weight:800;line-height:1">'+S.book+'<span style="font-size:14px;font-weight:700;opacity:.92"> 명</span></span>'
-      +'<span style="font-size:11.5px;font-weight:700;opacity:.9">설명회 '+SB.book+' · 개별 '+SI.book+'</span></div>'
+      +'<span style="font-size:11.5px;font-weight:700;opacity:.9">설명회 '+SB.book+' · 개별 '+SI.book+'</span>'
+      +(S.back?'<span style="font-size:11px;font-weight:700;opacity:.82">예약 '+(S.book-S.back)+' · 기록 복원 '+S.back+'</span>':'')+'</div>'
     + kpi('등록 완료', S.enr,'명','#2fa878','#e6f7f0','')
     + kpi('미등록', S.notenr,'명','#e2953f','#fdf3e6','')
     + kpi('아직 대기중', S.wait,'명','#1f8a95','#e4f4f5','연락 필요')
@@ -809,7 +811,7 @@ function renderJeonhyeongDash(c){
     +'참석 '+S.att+' · 노쇼 '+S.noshow+' · 취소 '+S.cancel+' · 미통과 '+S.fail
     +(S.parent?' · 학부모만 '+S.parent:'')+(S.mid?' · 중간 등록 '+S.mid:'')+'</div>';
   if(backN) html+='<div style="margin-top:12px;font-size:12px;color:#7b7488;background:#faf8fe;border:1px dashed #e2dcf2;border-radius:10px;padding:9px 12px;line-height:1.6">'
-      +'<b>기록 복원 '+backN+'명</b> — 예전 버전이 등록 처리하면서 \'어느 학기 대기였다\'는 기록을 지웠던 학생입니다. 등록 이력으로 되살려 넣었습니다.</div>';
+      +'<b>기록 복원 '+backN+'명</b> — 예약 기록이 남아 있지 않아 등록 이력으로 되살린 학생입니다. 캘린더에는 안 보이므로, 캘린더 건수와 맞춰보실 때는 이 '+backN+'명을 빼고 세시면 됩니다.</div>';
   html+='</div>';
 
   /* ---- 분원 · 회차별 ----
