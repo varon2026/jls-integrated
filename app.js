@@ -797,7 +797,7 @@ function renderJeonhyeongDash(c){
     +'<div style="flex:1.2;min-width:190px;display:flex;flex-direction:column;justify-content:center;gap:3px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:13px 18px">'
       +'<span style="font-size:12.5px;font-weight:700;opacity:.92">전형 응시</span>'
       +'<span style="font-size:31px;font-weight:800;line-height:1">'+S.book+'<span style="font-size:14px;font-weight:700;opacity:.92"> 명</span></span>'
-      +'<span style="font-size:11.5px;font-weight:700;opacity:.9">설명회 '+SB.book+' · 개별 '+SI.book+'</span>'
+      +(briefs.length?'<span style="font-size:11.5px;font-weight:700;opacity:.9">설명회 '+SB.book+' · 개별 '+SI.book+'</span>':'')
       +'</div>'
     + kpi('등록 완료', S.enr,'명','#2fa878','#e6f7f0','')
     + kpi('미등록', S.notenr,'명','#e2953f','#fdf3e6','')
