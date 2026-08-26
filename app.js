@@ -628,16 +628,23 @@ function jhInWindow(semId, ds){ return jhWindow(semId).indexOf(String(ds||'').sl
 /* 등록한 학생이 반배정까지 끝났는가 —
    등록 처리 때 반을 안 고르면 '미배정'으로 저장된다. 그게 곧 '아직 확정 아님'이다. */
 function jhRecOf(r, semId){
-  const code=(r.code||'').trim();
-  let stu = code ? (db.students||[]).find(x=>x.code===code) : null;
-  if(!stu && !code){
-    const cand=(db.students||[]).filter(x=>x.name===(r.name||'').trim());
-    if(cand.length===1) stu=cand[0];
+  const code=(r.code||'').trim(), nm=(r.name||'').trim();
+  const isNew=x=> x.semesterId===semId && (x.kind||'regular')!=='exam' && x.status==='active'
+    && (x.origin==='new' || x.origin==='return');
+  // ① 회원코드로 학생을 찾고, 그 학생의 이 학기 신규생 기록
+  const stu = code ? (db.students||[]).find(x=>x.code===code) : null;
+  if(stu){
+    const rec=(db.semesterRecords||[]).find(x=> x.studentId===stu.id && isNew(x));
+    if(rec) return rec;
   }
-  if(!stu) return null;
-  return (db.semesterRecords||[]).find(x=> x.studentId===stu.id && x.semesterId===semId
-    && (x.kind||'regular')!=='exam' && x.status==='active'
-    && (x.origin==='new' || x.origin==='return')) || null;
+  // ② 학생이 둘로 갈린 경우 — 예약의 회원코드와 명단의 회원코드가 다르면 ①이 빈손으로 돌아온다.
+  //    같은 분원·같은 이름으로 신규생 기록이 딱 하나면 그 사람으로 본다(동명이인이면 포기).
+  if(nm){
+    const ids=new Set((db.students||[]).filter(x=>x.name===nm).map(x=>x.id));
+    const hits=(db.semesterRecords||[]).filter(x=> ids.has(x.studentId) && x.branchId===r.branchId && isNew(x));
+    if(hits.length===1) return hits[0];
+  }
+  return null;
 }
 function jhAssigned(r, semId){ const rec=jhRecOf(r, semId); return !!(rec && rec.className && rec.className!=='미배정'); }
 /* 한 명의 최종 상태.
@@ -681,7 +688,17 @@ function jhRows(semId){
     school:r.school||'', grade:r.grade||'', date:edDs(r.reserved_date),
     status:r.status||'', enrolled:r.enrolled||'', waitSem:r.wait_semester||'', reason:r.not_enrolled_reason||'',
     via:via });
-  const push=o=>{ const k=key(o.branchId,o.code,o.name); if(seen[k]) return; seen[k]=1; out.push(o); };
+  // 같은 학생 예약이 두 건이면(중복 예약 등) 결과가 더 진전된 쪽을 남긴다.
+  // 먼저 만난 걸 무조건 쓰면 '중복'으로 미등록 처리한 껍데기가 진짜 등록 건을 가려버린다.
+  const pri=r=> r.enrolled==='enrolled'?5 : r.enrolled==='waiting_next'?4
+    : r.enrolled==='not_enrolled'?3 : r.enrolled==='failed'?2
+    : (r.status==='canceled'||r.status==='noshow')?0 : 1;
+  const push=(o,src)=>{
+    const k=key(o.branchId,o.code,o.name), p=pri(src||{});
+    const cur=seen[k];
+    if(cur){ if(p>cur.p){ out[cur.i]=o; cur.p=p; } return; }
+    seen[k]={ i:out.length, p }; out.push(o);
+  };
   // 전형 대상 = 예약에 '다음 학기 입학용'으로 표시했거나, 다음학기 대기를 누른 학생.
   // 같은 날에도 그 학기에 바로 등록하는 학생이 섞이므로 날짜로는 가르지 않는다.
   reservations.forEach(r=>{
@@ -689,23 +706,29 @@ function jhRows(semId){
     // 대기 학기가 비어 있는 예약도 '다음 학기 대기'로 본다 —
     // 원무 대기명단이 쓰는 규칙과 똑같이 맞춰야 두 화면 인원이 어긋나지 않는다.
     const wsem = r.wait_semester || (r.enrolled==='waiting_next' ? nextSemId() : '');
-    if(edBriefOn(r.branch_id, r.reserved_date, semId)) push(mk(r,'brief'));
-    else if(r.admission_semester===semId)              push(mk(r,'btn'));
-    else if(wsem===semId)                              push(mk(r,'wait'));
+    if(edBriefOn(r.branch_id, r.reserved_date, semId)) push(mk(r,'brief'), r);
+    else if(r.admission_semester===semId)              push(mk(r,'btn'), r);
+    else if(wsem===semId)                              push(mk(r,'wait'), r);
   });
   // 예전 버전이 등록 처리하면서 대기 기록을 지운 학생 — 이동 기록으로 알아낸다.
   // 새 행을 만들지 않고 '그 학생의 예약'을 전형으로 잡는다. 예약이 아예 없으면 건너뛴다.
   (db.studentMovements||[]).forEach(m=>{
     if(m.memo!=='레벨테스트 대기→등록' || m.semesterId!==semId) return;
     const stu=getStudent(m.studentId)||{};
-    if(seen[key(m.branchId, stu.code, stu.name)]) return;
+    const mk2=key(m.branchId, stu.code, stu.name);
+    if(seen[mk2] && seen[mk2].p>=4) return;   // 이미 대기·등록 건으로 잡혀 있으면 그대로 둔다
     const cands=reservations.filter(x=> x.branch_id===m.branchId &&
       ((stu.code && x.student_code===stu.code) || (!stu.code && x.student_name===stu.name)));
     if(!cands.length) return;
+    // 예약이 여러 건이면 결과가 살아 있는 쪽을 먼저 고른다. 같으면 이동일 직전 시험.
     const mv=edDs(m.date);
-    const before=cands.filter(x=> edDs(x.reserved_date)<=mv).sort((a,b)=> edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1);
-    const res=before[0] || cands.sort((a,b)=> edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1)[0];
-    push(mk(res,'mv'));
+    const res=cands.slice().sort((a,b)=>{
+      const d=pri(b)-pri(a); if(d) return d;
+      const ab=edDs(a.reserved_date)<=mv, bb=edDs(b.reserved_date)<=mv;
+      if(ab!==bb) return ab?-1:1;
+      return edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1;
+    })[0];
+    push(mk(res,'mv'), res);
   });
   return out;
 }
