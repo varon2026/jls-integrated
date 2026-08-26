@@ -4715,15 +4715,15 @@ function reEnrollStudent(recId){
 }
 /* 전입 → 일반 신규 전환 — '전입' 표시를 취소하고 순수 신규로. 출발분원 정보 제거, 집계도 전입→신규로 이동 */
 /* 신규생 입학 취소 —
-   이 학기 등록 기록을 지우고, 레벨테스트 예약이 있으면 '다음학기 대기'로 되돌린다.
-   (원무 대기명단의 '등록 취소'와 같은 동작. 대기자가 0명이면 그 화면이 아예 안 떠서 여기에도 둔다) */
+   이 학기 등록 기록을 지우고, 레벨테스트 예약이 있으면 '미등록'으로 처리한다.
+   (대기자가 0명이면 대기명단 화면이 아예 안 떠서 취소할 데가 없어 여기에 둔다) */
 function cancelEnroll(recId){
   const rec=db.semesterRecords.find(r=>r.id===recId); if(!rec) return;
   const s=getStudent(rec.studentId)||{};
   const semNm=(db.semesters.find(x=>x.id===rec.semesterId)||{}).name || rec.semesterId;
   const cls=rec.classLabel||rec.className||'미배정';
   openConfirm('입학 취소',
-    `${s.name||''} (${s.code||''})\n\n${semNm} 등록을 취소합니다.\n· ${cls} 반에서 빠지고 신규생 명단에서 사라집니다.\n· 레벨테스트 예약이 있으면 '다음학기 대기'로 되돌아가 대기명단에 다시 뜹니다.\n\n되돌리려면 대기명단에서 다시 등록해야 합니다.`,
+    `${s.name||''} (${s.code||''})\n\n${semNm} 등록을 취소합니다.\n· ${cls} 반에서 빠지고 신규생 명단에서 사라집니다.\n· 레벨테스트 예약이 있으면 '미등록'으로 바뀝니다. (사유: 입학 취소)\n\n되돌리려면 레벨테스트에서 다시 처리해야 합니다.`,
     ()=>{
       const brId=rec.branchId, semId=rec.semesterId;
       db.semesterRecords = db.semesterRecords.filter(x=>x.id!==recId);
@@ -4731,22 +4731,23 @@ function cancelEnroll(recId){
         !(m.studentId===rec.studentId && m.branchId===brId && m.semesterId===semId && m.type==='new'));
       showSaving('입학 취소 중…');
       saveDB().then(async ok=>{
-        if(ok) await ltBackToWait(brId, semId, s);
+        if(ok) await ltMarkNotEnrolled(brId, semId, s);
         hideSaving(); closeModal();
         toast(ok?`${s.name||''} 입학 취소 완료`:'저장 실패', ok?'ok':'err'); render();
       });
     }, {yesLabel:'입학 취소', danger:true});
 }
-/* 레벨테스트 예약을 다시 '다음학기 대기'로 — 없으면 조용히 넘어간다 */
-async function ltBackToWait(brId, semId, stu){
+/* 레벨테스트 예약을 '미등록'으로 — 예약이 없으면 조용히 넘어간다.
+   대기 학기는 지우지 않는다. 그래야 전형 현황에서 '이 학기 미등록'으로 잡힌다. */
+async function ltMarkNotEnrolled(brId, semId, stu){
   try{
     let q=sb.from('level_test_reservations')
-      .update({ enrolled:'waiting_next', wait_semester:semId, not_enrolled_reason:null })
+      .update({ enrolled:'not_enrolled', wait_semester:semId, not_enrolled_reason:'입학 취소' })
       .eq('branch_id', brId).eq('enrolled','enrolled');
     q = (stu && stu.code) ? q.eq('student_code', stu.code) : q.eq('student_name', (stu&&stu.name)||'');
     const { error }=await q;
     if(error) throw error;
-  }catch(e){ console.warn('레벨테스트 예약 되돌리기 건너뜀', e); }
+  }catch(e){ console.warn('레벨테스트 예약 미등록 처리 건너뜀', e); }
 }
 function convertTransferInToNew(recId){
   const rec=db.semesterRecords.find(r=>r.id===recId);
