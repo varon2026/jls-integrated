@@ -791,6 +791,8 @@ const JH_CSS='<style>'
 +'.jh-step.s4 .k{color:#9c3a63}.jh-step.s4 .v{color:#c9457f}'
 +'.jh-step.s5{background:#fff1e6;border-color:#fadfc9}'
 +'.jh-step.s5 .k{color:#9a5520}.jh-step.s5 .v{color:#a85f22}'
++'.jh-step.s6{background:#faeef1;border-color:#f2dde2}'
++'.jh-step.s6 .k{color:#8d4a5c}.jh-step.s6 .v{color:#a9576c}'
 +'.jh-step .sub{color:#6b6385}.jh-step .sub b{color:#3a3742}'
 +'.jh-step.s1 .sub{color:rgba(255,255,255,.86)}'
 +'.jh-step .out,.jh-step .out b{color:#96324e}'
@@ -925,20 +927,16 @@ function renderJeonhyeongDash(c){
     +'<span class="why">이번 학기에 시험 보고 '+esc(semNm)+'에 등록하는 학생만'+(briefs.length?' · 설명회 '+briefs.length+'회':'')+'</span></div>'
     +'<div class="jh-flow">'
     + stepH('s1','예약', S.book, li('설명회',SB.book)+li('개별',SI.book))
-    + stepH('s2','응시', S.att,
-        '<span class="out">'+[['취소',S.cancel],['노쇼',S.noshow],['학부모만',S.parent],
-          ['불참',Math.max(0,S.absent-S.cancel-S.noshow-S.parent)]]
-          .filter(x=>x[1]).map(x=>x[0]+' <b>'+x[1]+'</b>').join(' · ')+'</span>'
-        +li('미등록',S.notenr,1)
+    + stepH('s2','응시', S.att, li('불참',S.absent,1)
         +(S.book?'<span>응시율 <b>'+Math.round(S.att/S.book*100)+'%</b></span>':''))
     + stepH('s3','결과 확정', S.decided, li('미통과',S.fail,1)+li('결과 미입력',S.open,1))
-    + stepH('s4','등록 확정', S.enrFix, li('명단 누락',S.enrMiss,1)+li('입학일 오류',S.enrBad,1)
-        +'<span>등록 처리 '+S.enr+'명</span>')
-    + stepH('s5','대기 중', S.wait, '<span>결제·연락 필요</span>'+li('미등록',S.notenr,1))
+    + stepH('s4','등록', S.enr, li('명단 누락',S.enrMiss,1)+li('입학일 오류',S.enrBad,1))
+    + stepH('s5','대기 중', S.wait, '<span>결제·연락 필요</span>')
+    + stepH('s6','미등록', S.notenr, '')
     +'</div>'
     +'<div class="jh-conv"><span class="t">등록 전환</span>'
-      +'<span class="d">결과 확정 <b>'+S.decided+'명</b> 중 <b>'+S.enr+'명</b> 등록'
-      +(S.wait?' · <b>'+S.wait+'명</b> 아직 연락 대상':'')+'</span>'
+      +'<span class="d">결과 확정 <b>'+S.decided+'명</b> = 등록 <b>'+S.enr+'</b>'
+      +' · 대기 <b>'+S.wait+'</b> · 미등록 <b>'+S.notenr+'</b></span>'
       +'<span class="big">'+(S.rate==null?'—':S.rate+'%')+'</span></div></div>';
 
   /* ---- 분원별 ----
