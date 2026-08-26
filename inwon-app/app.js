@@ -4722,21 +4722,41 @@ function cancelEnroll(recId){
   const s=getStudent(rec.studentId)||{};
   const semNm=(db.semesters.find(x=>x.id===rec.semesterId)||{}).name || rec.semesterId;
   const cls=rec.classLabel||rec.className||'미배정';
-  openConfirm('입학 취소',
-    `${s.name||''} (${s.code||''})\n\n${semNm} 등록을 취소합니다.\n· ${cls} 반에서 빠지고 신규생 명단에서 사라집니다.\n· 레벨테스트 예약이 있으면 '미등록'으로 바뀝니다. (사유: 입학 취소)\n\n되돌리려면 레벨테스트에서 다시 처리해야 합니다.`,
-    ()=>{
-      const brId=rec.branchId, semId=rec.semesterId;
-      db.semesterRecords = db.semesterRecords.filter(x=>x.id!==recId);
-      db.studentMovements = db.studentMovements.filter(m=>
-        !(m.studentId===rec.studentId && m.branchId===brId && m.semesterId===semId && m.type==='new'));
-      showSaving('입학 취소 중…');
-      saveDB().then(async ok=>{
-        if(ok) await ltMarkNotEnrolled(brId, semId, s);
-        hideSaving(); closeModal();
-        toast(ok?`${s.name||''} 입학 취소 완료`:'저장 실패', ok?'ok':'err'); render();
-      });
-    }, {yesLabel:'입학 취소', danger:true});
+  openModal(`
+    <div class="modal-head"><div><h3>입학 취소</h3></div>
+      <button class="modal-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:14.5px;font-weight:800;color:var(--ink)">${esc(s.name||'')} <span style="font-size:12px;font-weight:600;color:var(--ink-3)">${esc(s.code||'')}</span></div>
+      <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">${esc(semNm)} · ${esc(cls)}</div>
+      <div style="margin-top:14px;background:#FDECF1;border-left:3px solid #C0504D;border-radius:0 10px 10px 0;padding:12px 14px;font-size:13px;color:#8D3550;line-height:1.75">
+        <b>수업을 한 번도 듣지 않고 취소한 학생만</b> 이 버튼을 쓰세요.<br>
+        <b>하루라도 수업을 들었다면</b> 여기가 아니라 <b>학생관리 → 퇴원 처리</b>로 진행해야 합니다.<br>
+        여기서 취소하면 등록 기록 자체가 지워져서 <b>퇴원 통계에 안 잡힙니다.</b>
+      </div>
+      <div style="margin-top:12px;font-size:12.5px;color:var(--ink-2);line-height:1.9">
+        · <b>${esc(cls)}</b> 반에서 빠지고 신규생 명단에서 사라집니다.<br>
+        · 레벨테스트 예약이 있으면 <b>미등록</b>(사유: 입학 취소)으로 바뀝니다.<br>
+        · 전체명단 엑셀에 이 학생이 남아 있으면 <b>다음 업로드 때 다시 살아납니다.</b> 엑셀에서도 빼주세요.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">닫기</button>
+      <button class="btn" id="cancelEnrollYes" style="background:var(--neg);color:#fff;border-color:var(--neg)">입학 취소</button>
+    </div>`);
+  el('cancelEnrollYes').onclick = ()=>{
+    const brId=rec.branchId, semId=rec.semesterId;
+    db.semesterRecords = db.semesterRecords.filter(x=>x.id!==recId);
+    db.studentMovements = db.studentMovements.filter(m=>
+      !(m.studentId===rec.studentId && m.branchId===brId && m.semesterId===semId && m.type==='new'));
+    showSaving('입학 취소 중…');
+    saveDB().then(async ok=>{
+      if(ok) await ltMarkNotEnrolled(brId, semId, s);
+      hideSaving(); closeModal();
+      toast(ok?`${s.name||''} 입학 취소 완료`:'저장 실패', ok?'ok':'err'); render();
+    });
+  };
 }
+
 /* 레벨테스트 예약을 '미등록'으로 — 예약이 없으면 조용히 넘어간다.
    대기 학기는 지우지 않는다. 그래야 전형 현황에서 '이 학기 미등록'으로 잡힌다. */
 async function ltMarkNotEnrolled(brId, semId, stu){
