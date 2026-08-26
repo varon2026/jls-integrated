@@ -625,6 +625,20 @@ function jhPrevSem(semId){
 /* 전형 기간의 달 목록 ('2026-08' 형태) */
 function jhWindow(semId){ const p=jhPrevSem(semId); return p ? semesterYM(p).map(o=>o.ym) : []; }
 function jhInWindow(semId, ds){ return jhWindow(semId).indexOf(String(ds||'').slice(0,7))>=0; }
+/* 등록한 학생이 반배정까지 끝났는가 —
+   등록 처리 때 반을 안 고르면 '미배정'으로 저장된다. 그게 곧 '아직 확정 아님'이다. */
+function jhAssigned(r, semId){
+  const code=(r.code||'').trim();
+  let stu = code ? (db.students||[]).find(x=>x.code===code) : null;
+  if(!stu && !code){
+    const cand=(db.students||[]).filter(x=>x.name===(r.name||'').trim());
+    if(cand.length===1) stu=cand[0];
+  }
+  if(!stu) return false;
+  const rec=(db.semesterRecords||[]).find(x=> x.studentId===stu.id && x.semesterId===semId
+    && (x.kind||'regular')!=='exam' && x.status==='active');
+  return !!(rec && rec.className && rec.className!=='미배정');
+}
 /* 한 명의 최종 상태 */
 function jhOutcome(r, semId){
   if(r.status==='canceled')    return 'cancel';
@@ -688,13 +702,14 @@ function jhRows(semId){
 }
 /* 행 묶음 → 숫자. 전부 예약 기록에서 세어 나온다. */
 function jhCount(rs, semId){
-  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0 };
+  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0, enrFix:0, enrOpen:0 };
   rs.forEach(r=>{
     if(isAttended(r)) s.att++;
     const o=jhOutcome(r, semId);
     if(o==='noshow') s.noshow++; else if(o==='cancel') s.cancel++; else if(o==='parent') s.parent++;
     else if(o==='fail') s.fail++; else if(o==='wait') s.wait++;
-    else if(o==='enrolled') s.enr++; else if(o==='notenr') s.notenr++;
+    else if(o==='enrolled'){ s.enr++; if(jhAssigned(r, semId)) s.enrFix++; else s.enrOpen++; }
+    else if(o==='notenr') s.notenr++;
   });
   s.decided = s.wait + s.enr + s.notenr;      // 결과 확정 = 등록·대기·미등록이 정해진 인원
   s.absent  = Math.max(0, s.book - s.att);    // 취소·노쇼·연락 없이 안 온 인원
@@ -714,8 +729,8 @@ const JH_CSS='<style>'
 +'.jh-hd{padding:16px 20px 13px;border-bottom:1px solid #f3f0fa;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}'
 +'.jh-hd h3{margin:0;font-size:15px;font-weight:800;color:#3a3742}'
 +'.jh-hd .why{font-size:12px;color:#a9a2b6;font-weight:600}'
-+'.jh-flow{display:flex;gap:12px;flex-wrap:wrap;padding:16px 20px 18px}'
-+'.jh-step{flex:1 1 172px;min-width:158px;border-radius:15px;padding:14px 16px 15px;border:1px solid transparent}'
++'.jh-flow{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;padding:16px 20px 18px}'
++'.jh-step{border-radius:15px;padding:14px 16px 15px;border:1px solid transparent;min-width:0}'
 +'.jh-step .k{font-size:12.5px;font-weight:800}'
 +'.jh-step .v{font-size:32px;font-weight:800;letter-spacing:-.035em;line-height:1.15;margin-top:1px}'
 +'.jh-step .v small{font-size:12.5px;font-weight:800;margin-left:3px;letter-spacing:0;opacity:.62}'
@@ -730,6 +745,8 @@ const JH_CSS='<style>'
 +'.jh-step.s3 .k{color:#5b41b5}.jh-step.s3 .v{color:#6b4bd6}'
 +'.jh-step.s4{background:#fdeaf3;border-color:#f8d8e7}'
 +'.jh-step.s4 .k{color:#9c3a63}.jh-step.s4 .v{color:#c9457f}'
++'.jh-step.s5{background:#fff1e6;border-color:#fadfc9}'
++'.jh-step.s5 .k{color:#9a5520}.jh-step.s5 .v{color:#a85f22}'
 +'.jh-step .sub{color:#6b6385}.jh-step .sub b{color:#3a3742}'
 +'.jh-step.s1 .sub{color:rgba(255,255,255,.86)}'
 +'.jh-step .out,.jh-step .out b{color:#96324e}'
@@ -880,10 +897,13 @@ function renderJeonhyeongDash(c){
         +li('미등록',S.notenr,1)
         +(S.book?'<span>응시율 <b>'+Math.round(S.att/S.book*100)+'%</b></span>':''))
     + stepH('s3','결과 확정', S.decided, li('미통과',S.fail,1)+li('결과 미입력',S.open,1))
-    + stepH('s4','등록 완료', S.enr, li('연락 대상',S.wait)+li('미등록',S.notenr,1))
+    + stepH('s4','등록 확정', S.enrFix, (S.enrOpen?'<span>반 미정 <b>'+S.enrOpen+'</b></span>':'')
+        +'<span>등록 처리 '+S.enr+'명</span>')
+    + stepH('s5','대기 중', S.wait, '<span>결제·연락 필요</span>'+li('미등록',S.notenr,1))
     +'</div>'
     +'<div class="jh-conv"><span class="t">등록 전환</span>'
       +'<span class="d">결과 확정 <b>'+S.decided+'명</b> 중 <b>'+S.enr+'명</b> 등록'
+      +(S.enrOpen?' (반배정 완료 '+S.enrFix+' · 반 미정 '+S.enrOpen+')':'')
       +(S.wait?' · <b>'+S.wait+'명</b> 아직 연락 대상':'')+'</span>'
       +'<span class="big">'+(S.rate==null?'—':S.rate+'%')+'</span></div></div>';
 
@@ -897,7 +917,7 @@ function renderJeonhyeongDash(c){
      '<td class="sep'+(big?' k':'')+'">'+z(s2.book)+'</td><td>'+z(s2.att)+'</td>'
     +'<td>'+z(s2.absent)+'</td><td>'+z(s2.fail)+'</td>'
     +'<td class="sep'+(big?' k w':'')+'">'+z(s2.decided)+'</td>'
-    +'<td'+(big?' class="k e"':'')+'>'+z(s2.enr)+'</td>'
+    +'<td'+(big?' class="k e"':'')+'>'+z(s2.enrFix)+'</td><td>'+z(s2.enrOpen)+'</td>'
     +'<td>'+z(s2.wait)+'</td><td>'+z(s2.notenr)+'</td>'
     +'<td class="sep">'+(s2.rate==null?'<span class="z">—</span>':s2.rate+'%')+'</td>'
     +'<td>'+(s2.open?'<span class="flag">'+s2.open+'</span>':'<span class="z">·</span>')+'</td>';
@@ -913,13 +933,15 @@ function renderJeonhyeongDash(c){
     +'<span class="why">왼쪽에서 오른쪽으로 읽으면 학생이 어디까지 왔는지 보입니다</span></div>'
     +'<div style="overflow-x:auto"><table class="jh-t"><thead>'
     +'<tr class="grp"><th class="gl">&nbsp;</th><th class="sep" colspan="4">응 시</th>'
-    +'<th class="sep" colspan="4">전형 결과</th><th class="sep" colspan="2">&nbsp;</th></tr>'
+    +'<th class="sep" colspan="5">전형 결과</th><th class="sep" colspan="2">&nbsp;</th></tr>'
     +'<tr><th class="l">분원 / 회차</th>'
     +'<th class="sep">예약</th><th>응시</th><th title="취소·노쇼·연락 없이 안 온 인원">불참</th><th>미통과</th>'
-    +'<th class="sep" title="등록·대기·미등록이 정해진 인원. 미통과와 결과 미입력은 빠집니다.">확정</th><th>등록</th><th>대기</th><th>미등록</th>'
+    +'<th class="sep" title="등록·대기·미등록이 정해진 인원. 미통과와 결과 미입력은 빠집니다.">확정</th>'
+    +'<th title="반배정까지 끝난 학생">등록</th><th title="등록 처리는 했는데 반이 아직 미배정인 학생">반 미정</th>'
+    +'<th>대기</th><th>미등록</th>'
     +'<th class="sep">전환</th><th title="분원이 아직 결과를 넣지 않은 예약">미입력</th></tr>'
     +'</thead><tbody>';
-  const sec=t=>'<tr class="sec"><td colspan="11">'+t+'</td></tr>';
+  const sec=t=>'<tr class="sec"><td colspan="12">'+t+'</td></tr>';
   const trackRows=x=>{
     const md=d=>edDs(d).slice(5).replace('-','.');
     const ts=x.bl.map(e=>({key:'b'+(e.briefing_no||1), label:'설명회 '+(e.briefing_no||1)+'차', date:md(e.exam_date)}))
@@ -935,7 +957,7 @@ function renderJeonhyeongDash(c){
     + withBrief.map(x=>'<tr class="br"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>'+trackRows(x)).join('');
   if(onlyInd.length) html+=sec('개별전형만')
     + onlyInd.map(x=>'<tr class="br end"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>').join('');
-  if(!all.length) html+='<tr><td colspan="11" style="text-align:center;color:#a9a2b6;font-weight:400;height:60px">'
+  if(!all.length) html+='<tr><td colspan="12" style="text-align:center;color:#a9a2b6;font-weight:400;height:60px">'
     +esc(semNm)+' 전형으로 잡힌 학생이 아직 없습니다.</td></tr>';
   html+='<tr class="tot"><td class="l">합계</td>'+cells(S,1)+'</tr>';
   html+='</tbody></table></div>';
