@@ -673,6 +673,39 @@ function jhCount(rs){
   s.rate = s.decided ? Math.round(s.enr/s.decided*100) : null;
   return s;
 }
+/* 회차 딱지 — 설명회 / 개별 / 날짜 미지정 */
+function jhTrackChip(t){
+  if(t.kind==='none' || t.key===null) return '<span class="jh-tk none" title="이 학생이 시험 본 날짜가 아직 전형으로 표시되지 않았습니다. 캘린더에서 그 날짜의 스위치를 켜주세요.">날짜 미지정</span>';
+  if(t.kind==='ind' || t.key==='ind') return '<span class="jh-tk ind">개별</span>';
+  return '<span class="jh-tk brief">'+esc(t.label)+'</span>';
+}
+/* 전형 현황 표 — 줄 강조·마우스오버는 클래스로 (인라인 배경이 hover를 이기지 않게) */
+const JH_CSS='<style>'
++'.jh-t{border-collapse:collapse;width:100%;min-width:820px;font-size:12.5px}'
++'.jh-t th{text-align:right;font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap}'
++'.jh-t th.l{text-align:left}'
++'.jh-t td{padding:9px 10px;border-bottom:1px solid #f3f0fa;text-align:right;white-space:nowrap;color:#52514e}'
++'.jh-t td.l{text-align:left}'
++'.jh-t td.mut{color:#b8b2c6}'
++'.jh-t tr.br td{background:#faf8fe;font-weight:800;color:#3a3742}'
++'.jh-t tr.br td.cw{color:#1f8a95}.jh-t tr.br td.ce{color:#2fa878}.jh-t tr.br td.cn{color:#e2953f}'
++'.jh-t tr.sub td{color:#8b8496}'
++'.jh-t tr.sub td.l:first-child{padding-left:30px;position:relative}'
++'.jh-t tr.sub td.l:first-child::before{content:"";position:absolute;left:17px;top:-9px;bottom:50%;width:1px;background:#e2dcf2}'
++'.jh-t tr.sub td.l:first-child::after{content:"";position:absolute;left:17px;top:50%;width:7px;height:1px;background:#e2dcf2}'
++'.jh-t tr.sum td{background:#f0ebfe;color:#5b41b5;font-weight:800;border-top:1px solid #ece8f5;border-bottom:0}'
++'.jh-t tbody tr:hover td{background:#efe8fd}'
++'.jh-t tbody tr.sum:hover td{background:#e6dbfb}'
++'.jh-tk{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap}'
++'.jh-tk.brief{background:#f0ebfe;color:#5b41b5}.jh-tk.ind{background:#eaf2fc;color:#2f6cb5}.jh-tk.none{background:#fdf3e6;color:#e2953f}'
++'.jh-none{background:#f3f0fa;color:#a9a2b6;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px}'
++'.jh-l{border-collapse:collapse;width:100%;min-width:780px;font-size:12.5px}'
++'.jh-l th{text-align:left;font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap}'
++'.jh-l td{padding:9px 10px;border-bottom:1px solid #f3f0fa;white-space:nowrap;color:#7b7488}'
++'.jh-l td.nm{font-weight:800;color:#3a3742}.jh-l td.cd{font-family:monospace;font-size:11px;color:#a9a2b6}'
++'.jh-l td.rs{white-space:normal;color:#a9a2b6}'
++'.jh-l tbody tr:hover td{background:#faf8fe}'
++'</style>';
 function jhChip(bg,fg,txt,title){ return '<span'+(title?' title="'+esc(title)+'"':'')+' style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
 function jhStateChip(r){
   const back = r.back ? ' '+jhChip('#f3f0fa','#7b7488','기록 복원','예전에 등록 처리되면서 대기 기록이 지워진 학생입니다. 등록 이력으로 되살렸습니다.') : '';
@@ -704,7 +737,7 @@ function renderJeonhyeongDash(c){
   const css='font-size:12px;color:#a9a2b6;font-weight:600;margin-bottom:12px';
   const sels='background:#f6f3fc;border:1px solid #e2dcf2;border-radius:8px;padding:5px 8px;font:inherit;font-weight:700;color:#8b6ee8;cursor:pointer';
 
-  let html='';
+  let html=JH_CSS;
   html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-size:13px;font-weight:700;color:#7b7488">'
     +'<span>입학 대상 학기</span>'
     +'<select onchange="jhSetSem(this.value)" style="'+sels+'">'
@@ -754,45 +787,41 @@ function renderJeonhyeongDash(c){
       +'<b>기록 복원 '+backN+'명</b> — 예전 버전이 등록 처리하면서 \'어느 학기 대기였다\'는 기록을 지웠던 학생입니다. 등록 이력으로 되살려 넣었습니다.</div>';
   html+='</div>';
 
-  /* ---- 분원 · 회차별 ---- */
-  html+='<div style="'+card+'"><h3 style="'+h3s+'">분원 · 회차별</h3><div style="'+css+'">'+esc(semNm)+' 기준</div>';
-  const th=(t,i)=>'<th style="text-align:'+(i<2?'left':'right')+';font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap">'+t+'</th>';
-  html+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:800px;font-size:12.5px"><thead><tr>'
-    +['분원 / 회차','날짜','예약','참석','노쇼·취소','미통과','대기','등록','미등록','등록률'].map(th).join('')+'</tr></thead><tbody>';
-  const td='padding:9px 10px;border-bottom:1px solid #f3f0fa;text-align:right;white-space:nowrap';
-  const tdL=td+';text-align:left';
-  const dash='<span style="color:#c9c3d6">—</span>';
-  const line=(nameCell,dateCell,s,bold,bg)=>{
-    const c=(v,col)=>'<td style="'+td+(bg?';background:'+bg:'')+(col?';color:'+col:'')+(bold?';font-weight:800':'')+'">'+v+'</td>';
-    return '<tr>'+'<td style="'+tdL+(bg?';background:'+bg:'')+(bold?';font-weight:800;color:#3a3742':';padding-left:26px')+'">'+nameCell+'</td>'
-      +'<td style="'+tdL+(bg?';background:'+bg:'')+';color:#a9a2b6">'+dateCell+'</td>'
-      +c(s.book)+c(s.att)+c(s.noshow+s.cancel||dash)+c(s.fail||dash)
-      +c(s.wait, bold?'#1f8a95':'#7b7488')+c(s.enr, bold?'#2fa878':'#7b7488')+c(s.notenr, bold?'#e2953f':'#7b7488')
-      +c(s.rate==null?dash:s.rate+'%')+'</tr>';
-  };
+  /* ---- 분원 · 회차별 ----
+     분원 줄이 그 분원의 합계, 아래 들여쓴 줄이 내역이다.
+     회차가 하나뿐인 분원은 내역이 합계와 똑같아지므로 아래 줄을 그리지 않고
+     분원 줄에 회차 이름과 날짜만 붙인다(같은 숫자가 두 번 보이지 않게). */
+  html+='<div style="'+card+'"><h3 style="'+h3s+'">분원 · 회차별</h3>'
+    +'<div style="'+css+'">'+esc(semNm)+' 기준 · 굵은 줄이 분원 합계, 들여쓴 줄이 내역</div>';
+  html+='<div style="overflow-x:auto"><table class="jh-t"><thead><tr>'
+    +'<th class="l">분원 / 회차</th><th class="l">날짜</th>'
+    +['예약','참석','노쇼·취소','미통과','대기','등록','미등록','등록률'].map(t=>'<th>'+t+'</th>').join('')
+    +'</tr></thead><tbody>';
+  const jhDash='<span class="mut">—</span>';
+  const cells=s=>'<td>'+s.book+'</td><td>'+s.att+'</td>'
+    +'<td class="mut">'+((s.noshow+s.cancel)||jhDash)+'</td><td class="mut">'+(s.fail||jhDash)+'</td>'
+    +'<td class="cw">'+s.wait+'</td><td class="ce">'+s.enr+'</td><td class="cn">'+s.notenr+'</td>'
+    +'<td>'+(s.rate==null?jhDash:s.rate+'%')+'</td>';
   brs.forEach(b=>{
     const rs=rows.filter(r=>r.branchId===b.id);
+    if(!rs.length) return;                       // 이 학기에 아무것도 없는 분원은 줄을 안 그린다
     const bl=(byBr[b.id]||[]);
-    html+=line(esc(b.name),
-      bl.length?('설명회 '+bl.length+'회'):'<span style="background:#f3f0fa;color:#a9a2b6;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">설명회 미진행</span>',
-      jhCount(rs), true, '#faf8fe');
-    const tracks=bl.map(x=>({key:'b'+(x.briefing_no||1), label:'설명회 '+(x.briefing_no||1)+'차', date:edDs(x.exam_date), brief:true}))
-      .concat([{key:'ind', label:'개별', date:'수시', brief:false}, {key:null, label:'미지정', date:'—', brief:false}]);
-    tracks.forEach(tr=>{
-      const rs2=rs.filter(r=>{ const k=jhTrack(r.branchId,r.date,semId); return tr.key===null ? !k : (k && k.key===tr.key); });
-      if(!rs2.length) return;
-      const chip = tr.key===null
-        ? '<span title="이 학생이 시험 본 날짜가 아직 전형으로 표시되지 않았습니다. 캘린더에서 그 날짜의 스위치를 켜주세요." style="background:#fdf3e6;color:#e2953f;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">날짜 미지정</span>'
-        : tr.brief ? '<span style="background:#f0ebfe;color:#5b41b5;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">'+esc(tr.label)+'</span>'
-                   : '<span style="background:#eaf2fc;color:#2f6cb5;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">개별</span>';
-      html+=line(chip, esc(tr.date||'—'), jhCount(rs2), false, '');
+    const tracks=bl.map(x=>({key:'b'+(x.briefing_no||1), label:'설명회 '+(x.briefing_no||1)+'차', date:edDs(x.exam_date), kind:'brief'}))
+      .concat([{key:'ind', label:'개별', date:'수시', kind:'ind'}, {key:null, label:'날짜 미지정', date:'—', kind:'none'}])
+      .map(t=>{ t.rs=rs.filter(r=>{ const k=jhTrack(r.branchId,r.date,semId); return t.key===null ? !k : (k && k.key===t.key); }); return t; })
+      .filter(t=>t.rs.length);
+    const only = tracks.length===1 ? tracks[0] : null;
+    const col2 = only
+      ? jhTrackChip(only)+' <span class="mut">'+esc(only.date||'')+'</span>'
+      : (bl.length ? '설명회 '+bl.length+'회'
+                   : '<span class="jh-none">설명회 미진행</span>');
+    html+='<tr class="br"><td class="l">'+esc(b.name)+'</td><td class="l mut">'+col2+'</td>'+cells(jhCount(rs))+'</tr>';
+    if(!only) tracks.forEach(t=>{
+      html+='<tr class="sub"><td class="l">'+jhTrackChip(t)+'</td><td class="l mut">'+esc(t.date||'—')+'</td>'+cells(jhCount(t.rs))+'</tr>';
     });
   });
-  const sumTd='padding:10px;background:#f0ebfe;color:#5b41b5;font-weight:800;border-top:1px solid #ece8f5';
-  html+='<tr><td style="'+sumTd+';text-align:left">합계</td><td style="'+sumTd+';text-align:left">'+briefs.length+'회</td>'
-    +[S.book,S.att,(S.noshow+S.cancel),S.fail,S.wait,S.enr,S.notenr,(S.rate==null?'—':S.rate+'%')]
-      .map(v=>'<td style="'+sumTd+';text-align:right">'+v+'</td>').join('')
-    +'</tr></tbody></table></div>';
+  html+='<tr class="sum"><td class="l">합계</td><td class="l">설명회 '+briefs.length+'회</td>'+cells(S)+'</tr>';
+  html+='</tbody></table></div>';
   if(!days.length) html+='<div style="margin-top:12px;font-size:12px;color:#7b7488;background:#fdf3e6;border-left:3px solid #e2953f;border-radius:0 10px 10px 0;padding:10px 13px;line-height:1.65">'
     +'아직 이 학기 <b>전형으로 표시된 날짜가 없습니다.</b> 원무 › 레벨테스트 캘린더에서 시험 본 날짜를 골라 '
     +'<b>다음 학기 전형</b> 스위치를 켜주세요. 설명회를 한 날은 <b>설명회 진행</b>도 함께 켜면 됩니다. 지난 날짜도 소급해서 켤 수 있어요.</div>';
@@ -808,25 +837,22 @@ function renderJeonhyeongDash(c){
     const ord=r=> r.enrolled==='waiting_next'?0 : r.enrolled==='not_enrolled'?1 : r.enrolled==='enrolled'?2
               : r.enrolled==='failed'?3 : (r.status==='noshow'||r.status==='canceled')?5 : 4;
     const sorted=rows.slice().sort((a,b)=> (ord(a)-ord(b)) || String(a.name).localeCompare(String(b.name),'ko'));
-    html+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:760px;font-size:12.5px"><thead><tr>'
-      +['학생','회원코드','분원','전형','학교 / 학년','시험일','상태','비고'].map(t=>'<th style="text-align:left;font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap">'+t+'</th>').join('')
+    html+='<div style="overflow-x:auto"><table class="jh-l"><thead><tr>'
+      +['학생','회원코드','분원','전형','학교 / 학년','시험일','상태','비고'].map(t=>'<th>'+t+'</th>').join('')
       +'</tr></thead><tbody>';
     sorted.forEach(r=>{
-      const tdd='padding:9px 10px;border-bottom:1px solid #f3f0fa;white-space:nowrap';
       const sg=[r.school,gradeTxt(r.grade)].filter(Boolean).join(' · ');
       const tk=jhTrack(r.branchId,r.date,semId);
-      const tkHtml = !tk ? '<span style="color:#e2953f;font-size:11px;font-weight:700">날짜 미지정</span>'
-        : tk.brief ? '<span style="background:#f0ebfe;color:#5b41b5;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">'+esc(tk.label)+'</span>'
-                   : '<span style="background:#eaf2fc;color:#2f6cb5;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">개별</span>';
+      const tkHtml = jhTrackChip(tk ? {key:tk.key, kind:(tk.brief?'brief':'ind'), label:tk.label} : {key:null, kind:'none'});
       html+='<tr>'
-        +'<td style="'+tdd+';font-weight:800;color:#3a3742">'+esc(r.name||'?')+'</td>'
-        +'<td style="'+tdd+';font-family:monospace;font-size:11px;color:#a9a2b6">'+esc(r.code||'—')+'</td>'
-        +'<td style="'+tdd+';color:#7b7488">'+esc(bName(r.branchId))+'</td>'
-        +'<td style="'+tdd+'">'+tkHtml+'</td>'
-        +'<td style="'+tdd+';color:#7b7488">'+esc(sg||'—')+'</td>'
-        +'<td style="'+tdd+';color:#a9a2b6">'+esc(r.date||'—')+'</td>'
-        +'<td style="'+tdd+'">'+jhStateChip(r)+'</td>'
-        +'<td style="'+tdd+';color:#a9a2b6;white-space:normal">'+esc(r.reason||'')+'</td></tr>';
+        +'<td class="nm">'+esc(r.name||'?')+'</td>'
+        +'<td class="cd">'+esc(r.code||'—')+'</td>'
+        +'<td>'+esc(bName(r.branchId))+'</td>'
+        +'<td>'+tkHtml+'</td>'
+        +'<td>'+esc(sg||'—')+'</td>'
+        +'<td>'+esc(r.date||'—')+'</td>'
+        +'<td>'+jhStateChip(r)+'</td>'
+        +'<td class="rs">'+esc(r.reason||'')+'</td></tr>';
     });
     html+='</tbody></table></div>';
   }
