@@ -662,11 +662,10 @@ function jhRows(semId){
     school:r.school||'', grade:r.grade||'', date:edDs(r.reserved_date),
     status:r.status||'', enrolled:r.enrolled||'', waitSem:r.wait_semester||'', back:!!back, reason:r.not_enrolled_reason||'' });
   const push=o=>{ const k=key(o.branchId,o.code,o.name); if(seen[k]) return; seen[k]=1; out.push(o); };
-  // 설명회로 표시된 날 — 그날 시험 본 사람은 미통과·노쇼까지 설명회 성과에 넣는다
-  const briefDay={}; jhDays(semId).filter(x=>x.is_briefing).forEach(x=>{ briefDay[x.branch_id+'|'+edDs(x.exam_date)]=1; });
-  // 전형 대상 = 다음 학기 대기를 거친 학생. 개별전형은 따로 표시할 게 없다.
+  // 전형 대상 = 예약에 '다음 학기 입학용'으로 표시했거나, 다음학기 대기를 누른 학생.
+  // 같은 날에도 그 학기에 바로 등록하는 학생이 섞이므로 날짜로는 가르지 않는다.
   reservations.forEach(r=>{
-    if(r.wait_semester===semId || briefDay[r.branch_id+'|'+edDs(r.reserved_date)]) push(mk(r,false));
+    if(r.admission_semester===semId || r.wait_semester===semId) push(mk(r,false));
   });
   (db.studentMovements||[]).forEach(m=>{
     if(m.memo!=='레벨테스트 대기→등록' || m.semesterId!==semId) return;
@@ -790,32 +789,25 @@ function renderJeonhyeongDash(c){
     +'</div></div>';
 
   /* ---- 요약 ---- */
-  const kpi=(label,val,unit,color,bg)=>'<div style="flex:1;min-width:112px;border:1px solid #ece8f5;border-radius:14px;padding:12px 15px;background:'+bg+'">'
+  const kpi=(label,val,unit,color,bg,sub)=>'<div style="flex:1;min-width:132px;border:1px solid #ece8f5;border-radius:14px;padding:13px 16px;background:'+bg+'">'
     +'<div style="font-size:12.5px;font-weight:700;color:#52514e">'+label+'</div>'
-    +'<div style="font-size:25px;font-weight:800;color:'+color+';line-height:1.15">'+val+'<span style="font-size:12px;color:#a9a2b6;font-weight:700"> '+unit+'</span></div></div>';
+    +'<div style="font-size:27px;font-weight:800;color:'+color+';line-height:1.15">'+val+'<span style="font-size:12px;color:#a9a2b6;font-weight:700"> '+unit+'</span></div>'
+    +(sub?'<div style="font-size:11px;color:#a9a2b6;font-weight:700;margin-top:2px">'+sub+'</div>':'')+'</div>';
   html+='<div style="'+card+'"><h3 style="'+h3s+'">'+esc(semNm)+' 전형 결과</h3>'
-    +'<div style="'+css+'">예약 → 참석 → 합격 → 등록 · 숫자는 전부 예약 기록에서 자동 집계</div>'
-    +'<div style="display:flex;gap:11px;flex-wrap:wrap;align-items:stretch">'
-    +'<div style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:12px 20px">'
-      +'<span style="font-size:13px;font-weight:700;opacity:.92">예약</span>'
-      +'<span style="font-size:30px;font-weight:800;line-height:1">'+S.book+'</span>'
-      +'<span style="font-size:14px;font-weight:700;opacity:.92">명</span></div>'
-    + kpi('설명회 예약', SB.book,'명','#8b6ee8','#f6f3fc')
-    + kpi('개별 예약', SI.book,'명','#4f8fdd','#eaf2fc')
-    + kpi('참석', S.att,'명','#4f8fdd','#eaf2fc')
-    + kpi('노쇼·취소', S.noshow+S.cancel,'명','#e2557a','#fdecf1')
-    + kpi('미통과', S.fail,'명','#e2557a','#fdecf1')
-    + kpi('등록 완료', S.enr,'명','#2fa878','#e6f7f0')
-    + kpi('미등록', S.notenr,'명','#e2953f','#fdf3e6')
-    + kpi('아직 대기중', S.wait,'명','#1f8a95','#e4f4f5')
-    + kpi('등록률', (S.rate==null?'—':S.rate),(S.rate==null?'':'%'),'#8b6ee8','#faf8fe')
+    +'<div style="'+css+'">이번 학기에 시험 보고 <b>'+esc(semNm)+'에 등록</b>하는 학생만 — 학기 중간에 바로 등록한 건은 빠져 있습니다</div>'
+    +'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">'
+    +'<div style="flex:1.2;min-width:190px;display:flex;flex-direction:column;justify-content:center;gap:3px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:13px 18px">'
+      +'<span style="font-size:12.5px;font-weight:700;opacity:.92">전형 응시</span>'
+      +'<span style="font-size:31px;font-weight:800;line-height:1">'+S.book+'<span style="font-size:14px;font-weight:700;opacity:.92"> 명</span></span>'
+      +'<span style="font-size:11.5px;font-weight:700;opacity:.9">설명회 '+SB.book+' · 개별 '+SI.book+'</span></div>'
+    + kpi('등록 완료', S.enr,'명','#2fa878','#e6f7f0','')
+    + kpi('미등록', S.notenr,'명','#e2953f','#fdf3e6','')
+    + kpi('아직 대기중', S.wait,'명','#1f8a95','#e4f4f5','연락 필요')
+    + kpi('등록률', (S.rate==null?'—':S.rate),(S.rate==null?'':'%'),'#8b6ee8','#faf8fe','결과 정해진 '+S.decided+'명 기준')
     +'</div>'
-    +'<div style="margin-top:11px;font-size:11.5px;color:#a9a2b6;line-height:1.6">'
-    +'예약 '+S.book+'명 = 설명회 '+SB.book+' · 개별 '+SI.book
-    +' · 참석률 '+(S.book?Math.round(S.att/S.book*100):0)+'% · 합격 '+(S.att-S.fail)+'명'
-    +(S.mid?' · 중간 등록 '+S.mid+'명(전형 제외)':'')
-    +(S.parent?' · 학부모만 참석 '+S.parent+'명':'')
-    +' · 등록률은 결과가 정해진 '+S.decided+'명 기준</div>';
+    +'<div style="margin-top:11px;font-size:11.5px;color:#a9a2b6;line-height:1.7">'
+    +'참석 '+S.att+' · 노쇼 '+S.noshow+' · 취소 '+S.cancel+' · 미통과 '+S.fail
+    +(S.parent?' · 학부모만 '+S.parent:'')+(S.mid?' · 중간 등록 '+S.mid:'')+'</div>';
   if(backN) html+='<div style="margin-top:12px;font-size:12px;color:#7b7488;background:#faf8fe;border:1px dashed #e2dcf2;border-radius:10px;padding:9px 12px;line-height:1.6">'
       +'<b>기록 복원 '+backN+'명</b> — 예전 버전이 등록 처리하면서 \'어느 학기 대기였다\'는 기록을 지웠던 학생입니다. 등록 이력으로 되살려 넣었습니다.</div>';
   html+='</div>';
@@ -2191,6 +2183,44 @@ function edPanel(branchId, ds){
   }
   return h;
 }
+/* ── 예약마다 '다음 학기 입학용 시험'인지 표시 ──
+   같은 날에도 그 학기에 바로 등록할 학생과 다음 학기에 등록할 학생이 섞여서
+   날짜로는 가를 수 없다. 그래서 학생 한 명 단위로 켠다.
+   '다음학기 대기'를 누른 학생은 wait_semester로 이미 알 수 있어 자동으로 잡힌다. */
+function admSem(){ return nextSemId(state.semId); }
+function isAdmRes(r){ const sm=admSem(); return r.admission_semester===sm || r.wait_semester===sm; }
+function admLabel(r){ const e=edGet(r.branch_id, r.reserved_date); return (e&&e.is_briefing)?'설명회전형':'개별전형'; }
+function admToggleHtml(r){
+  const on=r.admission_semester===admSem(), auto=(!on && r.wait_semester===admSem());
+  const base='font:inherit;font-size:10.5px;font-weight:800;border-radius:20px;padding:3px 10px;white-space:nowrap;flex:none';
+  if(auto) return '<span title="다음학기 대기를 눌러서 자동으로 전형에 포함됩니다" style="'+base+';border:1px solid #cfeaea;background:#e4f4f5;color:#1f8a95">전형 자동</span>';
+  if(!curCanEdit()) return on?'<span style="'+base+';border:1px solid #8b6ee8;background:#8b6ee8;color:#fff">'+admLabel(r)+'</span>':'';
+  const st = on ? base+';border:1px solid #8b6ee8;background:#8b6ee8;color:#fff;cursor:pointer'
+                : base+';border:1px solid #e2dcf2;background:#fff;color:#a9a2b6;cursor:pointer';
+  return '<button style="'+st+'" title="이 학생이 다음 학기 입학을 목표로 본 시험이면 켜세요" onclick="event.stopPropagation();toggleAdmRes(\''+r.id+'\')">'+admLabel(r)+'</button>';
+}
+async function toggleAdmRes(id){
+  if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
+  const r=reservations.find(x=>x.id===id); if(!r) return;
+  const sm=admSem(), on=(r.admission_semester!==sm);
+  const ok=await updateReservation(id,{ admission_semester: on?sm:null });
+  if(ok){ toast(on?(admLabel(r)+'으로 표시 ✓'):'전형 표시를 껐어요'); renderWonmuBody(); }
+}
+/* 그날 예약 전체를 한 번에 켜고 끈다 — 설명회처럼 인원이 많을 때 */
+async function toggleAdmDay(branchId, ds){
+  if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
+  const sm=admSem();
+  const list=reservations.filter(r=> (branchId==='all'||r.branch_id===branchId) && edDs(r.reserved_date)===edDs(ds));
+  if(!list.length) return;
+  const allOn=list.every(r=> r.admission_semester===sm || r.wait_semester===sm);
+  showSaving(allOn?'전형 표시 해제 중…':'전형으로 표시 중…');
+  for(const r of list){
+    if(r.wait_semester===sm) continue;   // 대기로 이미 잡힌 건은 건드리지 않는다
+    if(allOn ? r.admission_semester===sm : r.admission_semester!==sm)
+      await updateReservation(r.id,{ admission_semester: allOn?null:sm });
+  }
+  hideSaving(); toast(allOn?'이 날 전형 표시를 껐어요':'이 날 예약을 전형으로 표시했어요 ✓'); renderWonmuBody();
+}
 function renderBooking(c){
   const today=new Date();
   if(bookState.y==null){ bookState.y=today.getFullYear(); bookState.m=today.getMonth(); }
@@ -2236,6 +2266,7 @@ function renderBooking(c){
   const dowKo=['일','월','화','수','목','금','토'][sd.getDay()];
   let list=`<div class="card"><div class="dl-top">
     <div class="d">${sd.getMonth()+1}월 ${sd.getDate()}일 <span>${dowKo}요일 · ${dayRes.length}건</span></div>
+    ${dayRes.length?`<button class="btn sm" style="border-color:#8b6ee8;color:#8b6ee8;background:#fff;flex:none;white-space:nowrap;padding:0 10px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer" onclick="toggleAdmDay('${bookState.branchId}','${bookState.sel}')" title="이 날 예약을 한 번에 전형으로 표시합니다">이 날 전체 전형</button>`:''}
     <button class="addbtn" onclick="openAddForm()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>새 예약</button>
   </div>`;
 
@@ -2269,7 +2300,7 @@ function renderBooking(c){
       <div class="time">${esc(String(r.reserved_time||'').slice(0,5))}</div>
       <div class="info"><div class="nm">${esc(r.student_name||'')}${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}</div>
       <div class="meta">${esc(meta)||'<span class="mut">정보 미입력</span>'}</div></div>
-      ${resBadge(r)}</div>`;
+      ${admToggleHtml(r)}${resBadge(r)}</div>`;
     if(bookState.editId===r.id){
       const st=r.status||'booked', en=r.enrolled||'pending';
       list+=`<div class="res-edit">
