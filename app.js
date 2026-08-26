@@ -873,7 +873,11 @@ function renderJeonhyeongDash(c){
     +'<span class="why">이번 학기에 시험 보고 '+esc(semNm)+'에 등록하는 학생만'+(briefs.length?' · 설명회 '+briefs.length+'회':'')+'</span></div>'
     +'<div class="jh-flow">'
     + stepH('s1','예약', S.book, li('설명회',SB.book)+li('개별',SI.book))
-    + stepH('s2','응시', S.att, li('취소·노쇼·불참',S.absent,1)
+    + stepH('s2','응시', S.att,
+        '<span class="out">'+[['취소',S.cancel],['노쇼',S.noshow],['학부모만',S.parent],
+          ['불참',Math.max(0,S.absent-S.cancel-S.noshow-S.parent)]]
+          .filter(x=>x[1]).map(x=>x[0]+' <b>'+x[1]+'</b>').join(' · ')+'</span>'
+        +li('미등록',S.notenr,1)
         +(S.book?'<span>응시율 <b>'+Math.round(S.att/S.book*100)+'%</b></span>':''))
     + stepH('s3','결과 확정', S.decided, li('미통과',S.fail,1)+li('결과 미입력',S.open,1))
     + stepH('s4','등록 완료', S.enr, li('연락 대상',S.wait)+li('미등록',S.notenr,1))
