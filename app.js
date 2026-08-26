@@ -625,14 +625,7 @@ function jhPrevSem(semId){
 /* 전형 기간의 달 목록 ('2026-08' 형태) */
 function jhWindow(semId){ const p=jhPrevSem(semId); return p ? semesterYM(p).map(o=>o.ym) : []; }
 function jhInWindow(semId, ds){ return jhWindow(semId).indexOf(String(ds||'').slice(0,7))>=0; }
-/* 대상 학기에 실제로 들어왔는가 — 학기 명단에 신규/복귀로 잡혀 있으면 그 학기 등록자 */
-function jhEnrolledIn(r, semId){
-  if(r.waitSem===semId) return true;
-  if(!r.code) return false;
-  const stu=(db.students||[]).find(s=>s.code===r.code); if(!stu) return false;
-  return (db.semesterRecords||[]).some(x=> x.studentId===stu.id && x.semesterId===semId && (x.origin==='new'||x.origin==='return'));
-}
-/* 한 명의 최종 상태. '등록'은 대상 학기에 들어온 경우만. 직전 학기에 바로 등록한 건은 '중간 등록'으로 뺀다. */
+/* 한 명의 최종 상태 */
 function jhOutcome(r, semId){
   if(r.status==='canceled')    return 'cancel';
   if(r.status==='noshow')      return 'noshow';
@@ -640,7 +633,7 @@ function jhOutcome(r, semId){
   if(r.enrolled==='failed')        return 'fail';
   if(r.enrolled==='waiting_next')  return 'wait';
   if(r.enrolled==='not_enrolled')  return 'notenr';
-  if(r.enrolled==='enrolled')      return jhEnrolledIn(r, semId) ? 'enrolled' : 'mid';
+  if(r.enrolled==='enrolled')      return 'enrolled';
   return 'none';
 }
 function jhDays(semId){ return examDays.filter(x=> x.is_admission && x.target_semester===semId); }
@@ -654,8 +647,7 @@ function jhTrack(branchId, ds, semId){
 }
 /* 설명회를 켠 날은 그날 예약이 통째로 그 학기 전형이다.
    설명회 자체가 '다음 학기 모집' 행사라서 학생별로 다시 켤 이유가 없다.
-   (그날 온 학생이 이번 학기에 바로 등록해버리면 결과가 '중간 등록'으로 빠지므로
-    등록률은 그대로 정확하다.) */
+   그날 온 학생을 '등록 완료'로 처리하면 다음 학기 신규생으로 자동 등록된다. */
 function edBriefOn(branchId, ds, semId){
   const e=edGet(branchId, ds);
   return !!(e && e.is_briefing && (!e.target_semester || e.target_semester===semId));
@@ -696,17 +688,17 @@ function jhRows(semId){
 }
 /* 행 묶음 → 숫자. 전부 예약 기록에서 세어 나온다. */
 function jhCount(rs, semId){
-  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0, mid:0 };
+  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0 };
   rs.forEach(r=>{
     if(isAttended(r)) s.att++;
     const o=jhOutcome(r, semId);
     if(o==='noshow') s.noshow++; else if(o==='cancel') s.cancel++; else if(o==='parent') s.parent++;
     else if(o==='fail') s.fail++; else if(o==='wait') s.wait++;
-    else if(o==='enrolled') s.enr++; else if(o==='notenr') s.notenr++; else if(o==='mid') s.mid++;
+    else if(o==='enrolled') s.enr++; else if(o==='notenr') s.notenr++;
   });
   s.decided = s.wait + s.enr + s.notenr;      // 다음 학기 대상 = 결과가 정해진 인원
   s.absent  = Math.max(0, s.book - s.att);    // 취소·노쇼·연락 없이 안 온 인원
-  s.open    = Math.max(0, s.att - s.fail - s.mid - s.decided); // 분원이 결과를 아직 안 넣은 건
+  s.open    = Math.max(0, s.att - s.fail - s.decided);        // 분원이 결과를 아직 안 넣은 건
   s.rate = s.decided ? Math.round(s.enr/s.decided*100) : null;
   return s;
 }
@@ -803,10 +795,43 @@ function jhStateChip(r, semId){
   if(o==='parent')   return jhChip('#f3f0fa','#7b7488','학부모만');
   if(o==='fail')     return jhChip('#fdecf1','#e2557a','미통과');
   if(o==='enrolled') return jhChip('#e6f7f0','#2fa878','등록 완료')+'';
-  if(o==='mid')      return jhChip('#eef0f5','#7b8494','중간 등록','이 시험을 보고 다음 학기가 아니라 그 학기 중간에 바로 등록한 학생입니다. 전형 등록률에는 넣지 않습니다.');
   if(o==='notenr')   return jhChip('#fdf3e6','#e2953f','미등록');
   if(o==='wait')     return jhChip('#e4f4f5','#1f8a95','대기중');
   return jhChip('#f6f3fc','#8b6ee8','결과 미정');
+}
+/* 예전에 '다음학기 대기'를 건너뛰고 레벨테스트에서 곧장 '등록 완료'를 눌러버린 학생 —
+   예약에는 등록 도장이 찍혔지만 학기 명단(semester_records)이 없어 인원 현황에 안 뜬다.
+   전형 현황을 열 때 찾아서 그 학기 신규생(미배정)으로 자동 등록해 준다. */
+let _jhFixing=false; const _jhFixed={};
+function jhStudentOf(r){
+  const code=(r.student_code||'').trim();
+  if(code) return (db.students||[]).find(x=>x.code===code)||null;
+  const cand=(db.students||[]).filter(x=>x.name===(r.student_name||'').trim());
+  return cand.length===1 ? cand[0] : null;
+}
+function jhHasRecord(r, semId){
+  const stu=jhStudentOf(r); if(!stu) return false;
+  return (db.semesterRecords||[]).some(x=> x.studentId===stu.id && x.semesterId===semId
+    && (x.kind||'regular')!=='exam' && x.status==='active');
+}
+async function jhFixMissingNew(semId){
+  if(_jhFixing || _jhFixed[semId] || !curCanEdit()) return;
+  const todo=reservations.filter(r=> r.enrolled==='enrolled'
+    && (r.admission_semester===semId || r.wait_semester===semId || edBriefOn(r.branch_id, r.reserved_date, semId))
+    && (r.student_name||'').trim()
+    && !jhHasRecord(r, semId));
+  _jhFixed[semId]=1;
+  if(!todo.length) return;
+  _jhFixing=true; showSaving(todo.length+'명 학기 명단에 넣는 중…');
+  let n=0;
+  for(const r of todo){
+    try{ await enrollNewFromRes(r, semId, jhFirstDay(semId), '미배정'); n++; }
+    catch(e){ console.error('자동 신규생 등록 실패', r.student_name, e); }
+  }
+  _jhFixing=false; hideSaving();
+  if(n) toast(n+'명을 '+semNameFromId(semId)+' 신규생(미배정)으로 등록했습니다 ✓');
+  const b=document.getElementById('dashBody');
+  if(b && state.view==='dashboard' && state.dashView==='jh') renderJeonhyeongDash(b);
 }
 function renderJeonhyeongDash(c){
   if(!bookState.loaded){
@@ -819,6 +844,7 @@ function renderJeonhyeongDash(c){
   const rows=jhRows(semId).filter(r=>inScope[r.branchId]);
   const days=jhDays(semId).filter(x=>inScope[x.branch_id]);
   const briefs=days.filter(x=>x.is_briefing).sort((a,b)=> edDs(a.exam_date)<edDs(b.exam_date)?-1:1);
+  jhFixMissingNew(semId);   // 명단이 빠진 등록자 자동 복구 (한 학기에 한 번)
   const S=jhCount(rows, semId);
   const isBrief=r=> jhTrack(r.branchId,r.date,semId).brief;
   const SB=jhCount(rows.filter(isBrief), semId), SI=jhCount(rows.filter(r=>!isBrief(r)), semId);
@@ -849,7 +875,7 @@ function renderJeonhyeongDash(c){
     + stepH('s1','예약', S.book, li('설명회',SB.book)+li('개별',SI.book))
     + stepH('s2','응시', S.att, li('취소·노쇼·불참',S.absent,1)
         +(S.book?'<span>응시율 <b>'+Math.round(S.att/S.book*100)+'%</b></span>':''))
-    + stepH('s3','다음학기 대상', S.decided, li('미통과',S.fail,1)+li('중간 등록',S.mid)+li('결과 미입력',S.open,1))
+    + stepH('s3','다음학기 대상', S.decided, li('미통과',S.fail,1)+li('결과 미입력',S.open,1))
     + stepH('s4','등록 완료', S.enr, li('연락 대상',S.wait)+li('미등록',S.notenr,1))
     +'</div>'
     +'<div class="jh-conv"><span class="t">등록 전환</span>'
@@ -1297,6 +1323,61 @@ function waitModalOpen(inner){
   document.body.appendChild(ov);
 }
 function waitModalClose(){ const m=$('waitModal'); if(m) m.remove(); }
+/* 전형 학생을 '그 학기 신규생'으로 실제 등록시킨다.
+   예약에 등록완료 도장만 찍으면 semester_records가 없어서 인원 현황·반배정표·
+   교재관리 어디에도 학생이 안 나온다. 등록은 반드시 이 함수를 거친다. */
+function jhFirstDay(semId){
+  const p=(semesterYM(semId)||[])[0];
+  return p ? p.ym+'-01' : new Date().toISOString().slice(0,10);
+}
+async function enrollNewFromRes(r, semId, enrollDate, pickCls){
+  const brId=r.branch_id||session.branchId, code=(r.student_code||'').trim();
+  let className='미배정', classLabelV='미배정', teacherV='미배정';
+  if(pickCls && pickCls!=='미배정'){
+    const ref=(db.semesterRecords||[]).find(x=>x.branchId===brId && x.semesterId===semId && x.className===pickCls);
+    className=pickCls; classLabelV=(ref&&ref.classLabel)||pickCls; teacherV=(ref&&ref.teacher)||'미배정';
+  }
+  // 학기가 아직 없으면 만든다 (레코드만 붕 뜨는 것 방지)
+  if(!(db.semesters||[]).some(x=>x.id===semId)){
+    const semNm=semNameFromId(semId);
+    const { error:eSem }=await sb.from('semesters').insert({id:semId, name:semNm});
+    if(eSem) throw eSem;
+    db.semesters.push({id:semId, name:semNm});
+  }
+  // 학생 찾기 — 회원코드 우선, 없으면 동명이인이 없을 때만 이름으로
+  let stu = code ? (db.students||[]).find(x=>x.code===code) : null;
+  if(!stu && !code){
+    const cand=(db.students||[]).filter(x=>x.name===(r.student_name||'').trim());
+    if(cand.length===1) stu=cand[0];
+  }
+  if(!stu){
+    stu={ id:uid('st'), code:code||null, name:r.student_name||'', school:r.school||'', grade:r.grade||'' };
+    const { error }=await sb.from('students').insert({id:stu.id,code:stu.code,name:stu.name,school:stu.school,grade:stu.grade});
+    if(error) throw error;
+    db.students.push(stu);
+  }
+  const dup=(db.semesterRecords||[]).some(x=>x.studentId===stu.id && x.branchId===brId
+    && x.semesterId===semId && (x.kind||'regular')!=='exam' && x.status==='active');
+  if(!dup){
+    const recId=uid('rec');
+    const { error:e2 }=await sb.from('semester_records').insert({
+      id:recId, student_id:stu.id, branch_id:brId, semester_id:semId,
+      class_name:className, class_label:classLabelV, teacher:teacherV, note:'신규생',
+      target_type:'HCMC', status:'active', origin:'new', enroll_date:enrollDate,
+      withdraw_date:'', transfer:false, transfer_in:false, transfer_to:null, kind:'regular'
+    });
+    if(e2) throw e2;
+    db.semesterRecords.push({ id:recId, studentId:stu.id, branchId:brId, semesterId:semId,
+      className, classLabel:classLabelV, teacher:teacherV, targetType:'HCMC',
+      status:'active', origin:'new', enrollDate, withdrawDate:'', transfer:false, transferIn:false, transferTo:null, kind:'regular' });
+    const mvId=uid('mv');
+    await sb.from('student_movements').insert({ id:mvId, student_id:stu.id, branch_id:brId, semester_id:semId, type:'new', date:enrollDate, memo:'레벨테스트 대기→등록' });
+    db.studentMovements&&db.studentMovements.push({ id:mvId, studentId:stu.id, branchId:brId, semesterId:semId, type:'new', date:enrollDate, memo:'레벨테스트 대기→등록' });
+  }
+  // 대기 학기를 지우지 않고 '실제로 등록한 학기'로 확정 → 전형 현황에서 등록으로 잡힌다
+  await updateReservation(r.id, { enrolled:'enrolled', not_enrolled_reason:null, wait_semester:semId });
+  return { name:r.student_name||'', className, classLabelV, dup };
+}
 /* [등록] 캘린더 팝업 → 신규생(미배정) 자동 등록 */
 function waitRegisterOpen(resId){
   const r=reservations.find(x=>x.id===resId); if(!r) return;
@@ -1329,54 +1410,13 @@ async function waitRegisterConfirm(resId){
   const r=reservations.find(x=>x.id===resId); if(!r){ waitModalClose(); return; }
   const enrollDate=($('waitRegDate')&&$('waitRegDate').value)||'';
   if(!enrollDate){ toast('입학일을 선택하세요','err'); return; }
-  const brId=session.branchId, semId=r.wait_semester||nextSemId();
-  const code=(r.student_code||'').trim();
-  // 등록 반 선택값 (없거나 '미배정'이면 미배정)
+  const semId=r.wait_semester||nextSemId();
   const pickCls=($('waitRegClass')&&$('waitRegClass').value)||'미배정';
-  let className='미배정', classLabelV='미배정', teacherV='미배정';
-  if(pickCls && pickCls!=='미배정'){
-    const ref=(db.semesterRecords||[]).find(x=>x.branchId===session.branchId && x.semesterId===semId && x.className===pickCls);
-    className=pickCls; classLabelV=(ref&&ref.classLabel)||pickCls; teacherV=(ref&&ref.teacher)||'미배정';
-  }
   try{
-    // 대기 학기가 아직 없으면 자동 생성 (레코드만 붕 뜨는 것 방지)
-    if(!(db.semesters||[]).some(s=>s.id===semId)){
-      const semNm=semNameFromId(semId);
-      const { error:eSem }=await sb.from('semesters').insert({id:semId, name:semNm});
-      if(eSem) throw eSem;
-      db.semesters.push({id:semId, name:semNm});
-    }
-    // 학생 upsert (회원코드 기준). 코드 없으면 새 학생으로.
-    let stu = code ? (db.students||[]).find(s=>s.code===code) : null;
-    if(!stu){
-      stu={ id:uid('st'), code:code||null, name:r.student_name||'', school:r.school||'', grade:r.grade||'' };
-      const { error }=await sb.from('students').insert({id:stu.id,code:stu.code,name:stu.name,school:stu.school,grade:stu.grade});
-      if(error) throw error;
-      db.students.push(stu);
-    }
-    // 이미 이 학기에 있으면 중복 방지
-    if((db.semesterRecords||[]).some(x=>x.studentId===stu.id && x.branchId===brId && x.semesterId===semId && (x.kind||'regular')!=='exam')){
-      toast('이미 이 학기에 등록된 학생입니다','err'); return;
-    }
-    const recId=uid('rec');
-    const { error:e2 }=await sb.from('semester_records').insert({
-      id:recId, student_id:stu.id, branch_id:brId, semester_id:semId,
-      class_name:className, class_label:classLabelV, teacher:teacherV, note:'신규생',
-      target_type:'HCMC', status:'active', origin:'new', enroll_date:enrollDate,
-      withdraw_date:'', transfer:false, transfer_in:false, transfer_to:null, kind:'regular'
-    });
-    if(e2) throw e2;
-    db.semesterRecords.push({ id:recId, studentId:stu.id, branchId:brId, semesterId:semId,
-      className, classLabel:classLabelV, teacher:teacherV, targetType:'HCMC',
-      status:'active', origin:'new', enrollDate, withdrawDate:'', transfer:false, transferIn:false, transferTo:null, kind:'regular' });
-    const mvId=uid('mv');
-    await sb.from('student_movements').insert({ id:mvId, student_id:stu.id, branch_id:brId, semester_id:semId, type:'new', date:enrollDate, memo:'레벨테스트 대기→등록' });
-    db.studentMovements&&db.studentMovements.push({ id:mvId, studentId:stu.id, branchId:brId, semesterId:semId, type:'new', date:enrollDate, memo:'레벨테스트 대기→등록' });
-    // 레벨테스트 예약 상태를 '등록완료'로
-    // 대기 학기를 지우지 않고 '실제로 등록한 학기'로 확정 → 전형 현황에서 대기 → 등록으로 잡힌다
-    await updateReservation(resId, { enrolled:'enrolled', not_enrolled_reason:null, wait_semester:semId });
+    const out=await enrollNewFromRes(r, semId, enrollDate, pickCls);
     waitModalClose();
-    toast(`${r.student_name||''} 신규생 등록 완료 (${className==='미배정'?'미배정':classLabelV}) ✓`);
+    toast(out.dup ? `${out.name} 학생은 이미 ${semNameFromId(semId)} 명단에 있어요 — 예약만 등록완료로 ✓`
+                  : `${out.name} 신규생 등록 완료 (${out.className==='미배정'?'미배정':out.classLabelV}) ✓`);
     renderWonmuBody();
   }catch(e){ console.error('대기→등록 실패', e); toast('등록 실패: '+(e.message||e),'err'); }
 }
@@ -2457,6 +2497,21 @@ async function submitReservation(){
 async function setResStatus(id,st){ const ok=await updateReservation(id,{status:st}); if(ok){ toast('상태 변경됨 ✓'); renderWonmuBody(); } }
 async function setResEnrolled(id,en){
   const r=reservations.find(x=>x.id===id);
+  // 전형(다음 학기 입학) 학생을 '등록 완료'로 바꾸면 예약 도장만 찍지 않고
+  // 그 학기 신규생 기록까지 같이 만든다 — 인원 현황에 안 뜨는 사고를 원천 차단.
+  if(en==='enrolled' && r && isAdmRes(r)){
+    if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
+    const semId=r.wait_semester||r.admission_semester||admSem();
+    showSaving(semNameFromId(semId)+' 신규생으로 등록하는 중…');
+    try{
+      const out=await enrollNewFromRes(r, semId, jhFirstDay(semId), '미배정');
+      hideSaving();
+      toast(out.dup ? '이미 '+semNameFromId(semId)+' 명단에 있어요 — 예약만 등록완료로 ✓'
+                    : (out.name||'')+' · '+semNameFromId(semId)+' 신규생 등록 완료 (미배정) ✓');
+      renderWonmuBody();
+    }catch(e){ hideSaving(); console.error('전형 등록 실패', e); toast('등록 실패: '+(e.message||e),'err'); }
+    return;
+  }
   const patch={enrolled:en};
   if(en!=='not_enrolled') patch.not_enrolled_reason=null;
   // ★ wait_semester는 지우지 않는다.
