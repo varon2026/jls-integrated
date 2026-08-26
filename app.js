@@ -997,6 +997,25 @@ const JH_BUCKETS=[['all','전체'],['wait','다음학기 대기'],['enr','등록
    레벨테스트에서 바로 등록을 눌러 학기 명단에 없는 학생. 두 갈래뿐이다:
    ① 다음 학기 등록이 맞다 → 그 학기 신규생(미배정)으로 넣는다
    ② 이번 학기 등록이 맞다 → 전형에서 빼서 이 명단에 다시 안 나오게 한다 */
+/* 실패를 토스트로 흘리지 않는다 — 무엇이 왜 안 됐는지 화면에 띄운다 */
+function jhErrModal(title, e){
+  const msg=(e && (e.message||e.details||e.hint||e.code)) ? [e.message,e.details,e.hint,e.code].filter(Boolean).join(' · ') : String(e||'');
+  console.error(title, e);
+  waitModalOpen(
+    '<div style="font-weight:800;font-size:16px;color:#b03a58">'+esc(title)+'</div>'
+   +'<div style="margin-top:10px;background:#fdecf1;border-radius:10px;padding:11px 13px;font-size:12.5px;color:#8d3550;line-height:1.7;word-break:break-all">'+esc(msg||'알 수 없는 오류')+'</div>'
+   +'<div style="font-size:11.5px;color:#a9a2b6;margin-top:9px;line-height:1.7">이 문구를 그대로 알려주시면 원인을 짚을 수 있습니다.</div>'
+   +'<div style="display:flex;justify-content:flex-end;margin-top:14px">'
+     +'<button style="border:1px solid #e2dcf2;background:#fff;border-radius:9px;padding:8px 14px;cursor:pointer;font:inherit;font-size:12.5px" onclick="waitModalClose()">닫기</button></div>');
+}
+/* 로컬 캐시를 믿지 않고 그 학기 명단을 DB에서 다시 읽는다 */
+async function jhReloadSemRecs(semId){
+  const t=TABLES.find(x=>x.key==='semesterRecords');
+  const { data, error }=await sb.from('semester_records').select('*').eq('semester_id', semId);
+  if(error) throw error;
+  const fresh=(data||[]).map(t.fromRow);
+  db.semesterRecords=(db.semesterRecords||[]).filter(x=>x.semesterId!==semId).concat(fresh);
+}
 function jhFixAsk(resId){
   const r=reservations.find(x=>x.id===resId); if(!r) return;
   if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
@@ -1019,20 +1038,29 @@ function jhFixAsk(resId){
 async function jhFixToNext(resId){
   waitModalClose();
   const r=reservations.find(x=>x.id===resId); if(!r) return;
-  const semId=jhSemId();
+  const semId=jhSemId(), nm=r.student_name||'';
   showSaving(semNameFromId(semId)+' 신규생으로 등록하는 중…');
   try{
-    const out=await enrollNewFromRes(r, semId, jhFirstDay(semId), '미배정');
+    await enrollNewFromRes(r, semId, jhFirstDay(semId), '미배정');
+    await jhReloadSemRecs(semId);        // 로컬 캐시 대신 DB를 다시 읽는다
     hideSaving();
-    toast((out.name||'')+' · '+semNameFromId(semId)+' 신규생 등록 ✓');
-  }catch(e){ hideSaving(); console.error('명단 누락 처리 실패', e); toast('등록 실패: '+(e.message||e),'err'); return; }
+  }catch(e){ hideSaving(); jhErrModal(nm+' 등록 실패', e); return; }
   jhRefresh();
+  toast(nm+' · '+semNameFromId(semId)+' 신규생 등록 ✓');
 }
 async function jhFixToCur(resId){
   waitModalClose();
-  const ok=await updateReservation(resId, { admission_semester:ADM_NONE, wait_semester:null });
-  if(ok) toast('전형에서 뺐습니다 — 이번 학기 등록으로 남습니다 ✓');
+  showSaving('전형에서 빼는 중…');
+  try{
+    const { data, error }=await sb.from('level_test_reservations')
+      .update({ admission_semester:ADM_NONE, wait_semester:null }).eq('id',resId).select();
+    if(error) throw error;
+    const i=reservations.findIndex(x=>x.id===resId);
+    if(i>=0 && data && data[0]) reservations[i]=data[0];
+    hideSaving();
+  }catch(e){ hideSaving(); jhErrModal('전형에서 빼기 실패', e); return; }
   jhRefresh();
+  toast('전형에서 뺐습니다 — 이번 학기 등록으로 남습니다 ✓');
 }
 /* 전부 다음 학기로 — 확인 한 번 받고 돌린다 */
 function jhFixAllAsk(){
@@ -1059,14 +1087,17 @@ async function jhFixAllRun(){
   const semId=jhSemId(), list=jhMissList(semId);
   let n=0, fail=0;
   showSaving('0 / '+list.length+' 등록 중…');
+  let lastErr=null;
   for(const r of list){
     try{ await enrollNewFromRes(r, semId, jhFirstDay(semId), '미배정'); n++; }
-    catch(e){ fail++; console.error('일괄 등록 실패', r.student_name, e); }
+    catch(e){ fail++; lastErr=e; console.error('일괄 등록 실패', r.student_name, e); }
     showSaving((n+fail)+' / '+list.length+' 등록 중…');
   }
+  try{ await jhReloadSemRecs(semId); }catch(e){ lastErr=lastErr||e; }
   hideSaving();
-  toast(fail ? (n+'명 등록 · '+fail+'명 실패 — 콘솔을 확인하세요') : (n+'명을 '+semNameFromId(semId)+' 신규생으로 등록했습니다 ✓'), fail?'err':'');
   jhRefresh();
+  if(fail) jhErrModal(n+'명 등록 · '+fail+'명 실패', lastErr);
+  else toast(n+'명을 '+semNameFromId(semId)+' 신규생으로 등록했습니다 ✓');
 }
 function jhRefresh(){
   const b=document.getElementById('dashBody');
@@ -3170,6 +3201,7 @@ window.calMove=calMove; window.selDay=selDay; window.openAddForm=openAddForm; wi
 window.submitReservation=submitReservation; window.setResStatus=setResStatus; window.jhSetQ=jhSetQ; window.jhSetLBr=jhSetLBr; window.jhSetLSt=jhSetLSt;
 window.jhFixAsk=jhFixAsk; window.jhFixToNext=jhFixToNext; window.jhFixToCur=jhFixToCur;
 window.jhFixAllAsk=jhFixAllAsk; window.jhFixAllRun=jhFixAllRun;
+window.jhErrModal=jhErrModal;
 window.setResEnrolled=setResEnrolled; window.resEnrollAsk=resEnrollAsk; window.resEnrollNext=resEnrollNext; window.resEnrollNow=resEnrollNow; window.setWaitSemester=setWaitSemester; window.saveResReason=saveResReason; window.saveResInfo=saveResInfo; window.deleteReservation=deleteReservation; window.askDelete=askDelete; window.confirmDelete=confirmDelete; window.cancelDelete=cancelDelete; window.toggleDelLog=toggleDelLog; window.moveReservation=moveReservation;
 $('loginBtn').addEventListener('click', doLogin);
 $('loginPw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
