@@ -652,6 +652,14 @@ function jhTrack(branchId, ds, semId){
   if(e) return { key:'b'+(e.briefing_no||1), brief:true, label:'설명회 '+(e.briefing_no||1)+'차', date:edDs(e.exam_date) };
   return { key:'ind', brief:false, label:'개별', date:'수시' };
 }
+/* 설명회를 켠 날은 그날 예약이 통째로 그 학기 전형이다.
+   설명회 자체가 '다음 학기 모집' 행사라서 학생별로 다시 켤 이유가 없다.
+   (그날 온 학생이 이번 학기에 바로 등록해버리면 결과가 '중간 등록'으로 빠지므로
+    등록률은 그대로 정확하다.) */
+function edBriefOn(branchId, ds, semId){
+  const e=edGet(branchId, ds);
+  return !!(e && e.is_briefing && (!e.target_semester || e.target_semester===semId));
+}
 /* 전형 대상자 = 전형 기간(직전 학기)의 예약 전부
    + 기간 밖이라도 전형 날짜로 지정됐거나 이 학기 대기로 잡힌 예약
    + 예약이 사라진 과거 등록자(이동 기록으로 복원) */
@@ -666,8 +674,9 @@ function jhRows(semId){
   // 전형 대상 = 예약에 '다음 학기 입학용'으로 표시했거나, 다음학기 대기를 누른 학생.
   // 같은 날에도 그 학기에 바로 등록하는 학생이 섞이므로 날짜로는 가르지 않는다.
   reservations.forEach(r=>{
-    if(r.admission_semester===semId)   push(mk(r,'btn'));
-    else if(r.wait_semester===semId)   push(mk(r,'wait'));
+    if(edBriefOn(r.branch_id, r.reserved_date, semId)) push(mk(r,'brief'));
+    else if(r.admission_semester===semId)              push(mk(r,'btn'));
+    else if(r.wait_semester===semId)                   push(mk(r,'wait'));
   });
   // 예전 버전이 등록 처리하면서 대기 기록을 지운 학생 — 이동 기록으로 알아낸다.
   // 새 행을 만들지 않고 '그 학생의 예약'을 전형으로 잡는다. 예약이 아예 없으면 건너뛴다.
@@ -732,11 +741,12 @@ const JH_CSS='<style>'
 +'.jh-l td.rs{white-space:normal;color:#a9a2b6}'
 +'.jh-l tbody tr:hover td{background:#faf8fe}'
 +'.jh-via{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap;background:#f3f0fa;color:#a9a2b6}'
-+'.jh-via.btn{background:#eaf2fc;color:#2f6cb5}.jh-via.wait{background:#e4f4f5;color:#1f8a95}.jh-via.mv{background:#fdf3e6;color:#e2953f}'
++'.jh-via.brief{background:#f0ebfe;color:#5b41b5}.jh-via.btn{background:#eaf2fc;color:#2f6cb5}.jh-via.wait{background:#e4f4f5;color:#1f8a95}.jh-via.mv{background:#fdf3e6;color:#e2953f}'
 +'</style>';
 function jhChip(bg,fg,txt,title){ return '<span'+(title?' title="'+esc(title)+'"':'')+' style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
 /* 이 학생이 왜 전형 명단에 들어왔는지 — 숫자가 안 맞을 때 바로 짚어낼 수 있게 */
 function jhViaChip(v){
+  if(v==='brief') return '<span class="jh-via brief" title="이 날은 설명회로 표시돼 있어서 그날 예약이 통째로 전형에 잡힙니다.">설명회 날</span>';
   if(v==='btn')  return '<span class="jh-via btn" title="레벨테스트 캘린더에서 이 예약의 전형 버튼을 켰습니다.">전형 버튼</span>';
   if(v==='wait') return '<span class="jh-via wait" title="이 학생은 다음학기 대기를 눌러 자동으로 전형에 잡혔습니다. 버튼을 따로 켜지 않아도 됩니다.">다음학기 대기</span>';
   if(v==='mv')   return '<span class="jh-via mv" title="예전 버전이 대기 기록을 지운 학생입니다. 학기 이동 기록(대기→등록)으로 찾아 넣었습니다.">이동 기록</span>';
@@ -2180,6 +2190,7 @@ function edPanel(branchId, ds){
     const st=edDayStats(branchId, ds);
     h+='<div style="margin:0 14px 12px;padding:11px 13px;background:#f0ebfe;border-radius:11px;font-size:11.5px;color:#5b41b5;line-height:1.7">'
       +'이 날 예약이 <b>'+esc(semNameFromId(sem))+' 설명회 '+(e.briefing_no||1)+'차</b>로 집계됩니다.<br>'
+      +'그날 예약은 <b>학생별 버튼을 누르지 않아도</b> 전부 이 설명회로 잡힙니다.<br>'
       +'예약 <b>'+st.book+'</b> · 참석 <b>'+st.att+'</b>'
       +(st.noshow?' · 노쇼 '+st.noshow:'')+(st.cancel?' · 취소 '+st.cancel:'')
       +(st.fail?' · 미통과 '+st.fail:'')+(st.wait?' · 대기 '+st.wait:'')
@@ -2197,11 +2208,15 @@ function edPanel(branchId, ds){
    날짜로는 가를 수 없다. 그래서 학생 한 명 단위로 켠다.
    '다음학기 대기'를 누른 학생은 wait_semester로 이미 알 수 있어 자동으로 잡힌다. */
 function admSem(){ return nextSemId(state.semId); }
-function isAdmRes(r){ const sm=admSem(); return r.admission_semester===sm || r.wait_semester===sm; }
+function isAdmRes(r){ const sm=admSem();
+  return edBriefOn(r.branch_id, r.reserved_date, sm) || r.admission_semester===sm || r.wait_semester===sm; }
 function admLabel(r){ const e=edGet(r.branch_id, r.reserved_date); return (e&&e.is_briefing)?'설명회전형':'개별전형'; }
 function admToggleHtml(r){
-  const on=r.admission_semester===admSem(), auto=(!on && r.wait_semester===admSem());
+  const sm=admSem(), on=r.admission_semester===sm;
   const base='font:inherit;font-size:10.5px;font-weight:800;border-radius:20px;padding:3px 10px;white-space:nowrap;flex:none';
+  if(edBriefOn(r.branch_id, r.reserved_date, sm))
+    return '<span title="설명회 진행일이라 이 날 예약은 전부 설명회전형으로 자동 집계됩니다" style="'+base+';border:1px solid #8b6ee8;background:#8b6ee8;color:#fff">설명회전형</span>';
+  const auto=(!on && r.wait_semester===sm);
   if(auto) return '<span title="다음학기 대기를 눌러서 자동으로 전형에 포함됩니다" style="'+base+';border:1px solid #cfeaea;background:#e4f4f5;color:#1f8a95">전형 자동</span>';
   if(!curCanEdit()) return on?'<span style="'+base+';border:1px solid #8b6ee8;background:#8b6ee8;color:#fff">'+admLabel(r)+'</span>':'';
   const st = on ? base+';border:1px solid #8b6ee8;background:#8b6ee8;color:#fff;cursor:pointer'
@@ -2275,7 +2290,7 @@ function renderBooking(c){
   const dowKo=['일','월','화','수','목','금','토'][sd.getDay()];
   let list=`<div class="card"><div class="dl-top">
     <div class="d">${sd.getMonth()+1}월 ${sd.getDate()}일 <span>${dowKo}요일 · ${dayRes.length}건</span></div>
-    ${dayRes.length?`<button class="btn sm" style="border-color:#8b6ee8;color:#8b6ee8;background:#fff;flex:none;white-space:nowrap;padding:0 10px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer" onclick="toggleAdmDay('${bookState.branchId}','${bookState.sel}')" title="이 날 예약을 한 번에 전형으로 표시합니다">이 날 전체 전형</button>`:''}
+    ${dayRes.length && !edBriefOn(bookState.branchId, bookState.sel, admSem())?`<button class="btn sm" style="border-color:#8b6ee8;color:#8b6ee8;background:#fff;flex:none;white-space:nowrap;padding:0 10px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer" onclick="toggleAdmDay('${bookState.branchId}','${bookState.sel}')" title="이 날 예약을 한 번에 전형으로 표시합니다">이 날 전체 전형</button>`:''}
     <button class="addbtn" onclick="openAddForm()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>새 예약</button>
   </div>`;
 
