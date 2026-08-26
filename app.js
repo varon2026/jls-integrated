@@ -636,18 +636,22 @@ function jhRecOf(r, semId){
   }
   if(!stu) return null;
   return (db.semesterRecords||[]).find(x=> x.studentId===stu.id && x.semesterId===semId
-    && (x.kind||'regular')!=='exam' && x.status==='active') || null;
+    && (x.kind||'regular')!=='exam' && x.status==='active'
+    && (x.origin==='new' || x.origin==='return')) || null;
 }
 function jhAssigned(r, semId){ const rec=jhRecOf(r, semId); return !!(rec && rec.className && rec.className!=='미배정'); }
-/* 한 명의 최종 상태 */
+/* 한 명의 최종 상태.
+   ★ 학기 신규생 명단에 이미 들어와 있으면 예약에 뭐라고 찍혀 있든 '등록'이다.
+     (분원이 대기로 둔 채 전체명단으로 올렸거나, 인원 현황에서 직접 넣은 경우가 있다) */
 function jhOutcome(r, semId){
   if(r.status==='canceled')    return 'cancel';
   if(r.status==='noshow')      return 'noshow';
   if(r.status==='parent_only') return 'parent';
+  if(jhRecOf(r, semId))            return 'enrolled';
   if(r.enrolled==='failed')        return 'fail';
   if(r.enrolled==='waiting_next')  return 'wait';
   if(r.enrolled==='not_enrolled')  return 'notenr';
-  if(r.enrolled==='enrolled')      return 'enrolled';
+  if(r.enrolled==='enrolled')      return 'enrolled';   // 명단엔 없음 → '명단 누락'으로 잡힌다
   return 'none';
 }
 function jhDays(semId){ return examDays.filter(x=> x.is_admission && x.target_semester===semId); }
@@ -837,7 +841,8 @@ function jhStateChip(r, semId){
   if(o==='enrolled'){
     const rec=jhRecOf(r, semId);
     if(!rec) return jhChip('#fdecf1','#b03a58','명단 누락','레벨테스트에서 바로 등록을 눌러 이 학기 명단에 학생이 없습니다. 예약을 다음학기 대기로 되돌린 뒤, 원무 대기명단에서 다시 등록해 주세요.');
-    return jhChip('#e6f7f0','#2fa878','등록 확정');
+    return jhChip('#e6f7f0','#2fa878','등록 확정','이 학기 신규생 명단에 들어와 있습니다'
+      +(r.enrolled==='waiting_next'?' (예약은 아직 다음학기 대기로 남아 있지만 명단이 우선입니다)':''));
   }
   if(o==='notenr')   return jhChip('#fdf3e6','#e2953f','미등록');
   if(o==='wait')     return jhChip('#e4f4f5','#1f8a95','대기중');
