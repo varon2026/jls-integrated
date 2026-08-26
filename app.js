@@ -662,6 +662,7 @@ function jhTrack(branchId, ds, semId){
 /* 설명회를 켠 날은 그날 예약이 통째로 그 학기 전형이다.
    설명회 자체가 '다음 학기 모집' 행사라서 학생별로 다시 켤 이유가 없다.
    그날 온 학생을 '등록 완료'로 처리하면 다음 학기 신규생으로 자동 등록된다. */
+const ADM_NONE='none';   // 설명회 날이라도 '이번 학기 등록이 맞다'고 못박은 예약
 function edBriefOn(branchId, ds, semId){
   const e=edGet(branchId, ds);
   return !!(e && e.is_briefing && (!e.target_semester || e.target_semester===semId));
@@ -672,7 +673,7 @@ function edBriefOn(branchId, ds, semId){
 function jhRows(semId){
   const out=[], seen={};
   const key=(br,code,nm)=> String(br)+'|'+(code?('#'+code):('@'+(nm||'')));
-  const mk=(r,via)=>({ branchId:r.branch_id, code:r.student_code||'', name:r.student_name||'',
+  const mk=(r,via)=>({ resId:r.id, branchId:r.branch_id, code:r.student_code||'', name:r.student_name||'',
     school:r.school||'', grade:r.grade||'', date:edDs(r.reserved_date),
     status:r.status||'', enrolled:r.enrolled||'', waitSem:r.wait_semester||'', reason:r.not_enrolled_reason||'',
     via:via });
@@ -680,6 +681,7 @@ function jhRows(semId){
   // 전형 대상 = 예약에 '다음 학기 입학용'으로 표시했거나, 다음학기 대기를 누른 학생.
   // 같은 날에도 그 학기에 바로 등록하는 학생이 섞이므로 날짜로는 가르지 않는다.
   reservations.forEach(r=>{
+    if(r.admission_semester===ADM_NONE) return;              // 전형에서 빼달라고 표시한 예약
     if(edBriefOn(r.branch_id, r.reserved_date, semId)) push(mk(r,'brief'));
     else if(r.admission_semester===semId)              push(mk(r,'btn'));
     else if(r.wait_semester===semId)                   push(mk(r,'wait'));
@@ -809,6 +811,11 @@ const JH_CSS='<style>'
 +'.jh-chip:hover{border-color:#c9b8f7;color:#5b41b5}'
 +'.jh-chip.on{background:#8b6ee8;border-color:#8b6ee8;color:#fff}.jh-chip.on b{color:rgba(255,255,255,.85)}'
 +'.jh-chip.zero{opacity:.42;cursor:default}.jh-chip.zero:hover{border-color:#e8e3f3;color:#7b7488}'
++'.jh-note{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 20px 12px;padding:11px 14px;background:#fdecf1;border-radius:11px;font-size:12px;font-weight:700;color:#8d3550;line-height:1.7}'
++'.jh-bulk{margin-left:auto;border:1px solid #b03a58;background:#b03a58;color:#fff;border-radius:9px;padding:7px 13px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}'
++'.jh-bulk:hover{background:#98304a}'
++'.jh-fix{border:1px solid #b03a58;background:#fff;color:#b03a58;border-radius:8px;padding:4px 11px;font:inherit;font-size:11.5px;font-weight:800;cursor:pointer}'
++'.jh-fix:hover{background:#fdecf1}'
 +'.jh-via{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap;background:#f3f0fa;color:#a9a2b6}'
 +'.jh-via.brief{background:#f0ebfe;color:#5b41b5}.jh-via.btn{background:#eaf2fc;color:#2f6cb5}.jh-via.wait{background:#e4f4f5;color:#1f8a95}.jh-via.mv{background:#fdf3e6;color:#e2953f}'
 +'</style>';
@@ -986,6 +993,85 @@ function jhBucket(r, semId){
 }
 const JH_BUCKETS=[['all','전체'],['wait','다음학기 대기'],['enr','등록 확정'],['miss','명단 누락'],
                   ['notenr','미등록'],['fail','미통과'],['none','결과 미정'],['off','취소·노쇼']];
+/* ---- '명단 누락' 되돌리기 ----
+   레벨테스트에서 바로 등록을 눌러 학기 명단에 없는 학생. 두 갈래뿐이다:
+   ① 다음 학기 등록이 맞다 → 그 학기 신규생(미배정)으로 넣는다
+   ② 이번 학기 등록이 맞다 → 전형에서 빼서 이 명단에 다시 안 나오게 한다 */
+function jhFixAsk(resId){
+  const r=reservations.find(x=>x.id===resId); if(!r) return;
+  if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
+  const semId=jhSemId(), nxtNm=semNameFromId(semId), curNm=semNameFromId(state.semId);
+  const btn='width:100%;text-align:left;border-radius:12px;padding:13px 15px;cursor:pointer;font:inherit;margin-top:9px';
+  waitModalOpen(
+    '<div style="font-weight:800;font-size:16.5px">'+esc(r.student_name||'학생')+' — 어느 학기 등록인가요?</div>'
+   +'<div style="font-size:12.5px;color:#7b7488;margin-top:4px">'+esc(bName(r.branch_id))+' · 시험일 '+esc(edDs(r.reserved_date))+'</div>'
+   +'<button style="'+btn+';border:1.5px solid #8b6ee8;background:#f6f3fc" onclick="jhFixToNext(\''+r.id+'\')">'
+     +'<div style="font-size:14px;font-weight:800;color:#5b41b5">'+esc(nxtNm)+' 신규생으로 등록</div>'
+     +'<div style="font-size:11.5px;color:#7b7488;line-height:1.6;margin-top:3px">'
+     +'인원 현황 '+esc(nxtNm)+'에 <b>미배정 신규생</b>으로 들어갑니다. 반은 전체명단을 올리면 자동으로 채워집니다.</div></button>'
+   +'<button style="'+btn+';border:1px solid #e2dcf2;background:#fff" onclick="jhFixToCur(\''+r.id+'\')">'
+     +'<div style="font-size:14px;font-weight:800;color:#3a3742">'+esc(curNm)+' 등록이 맞습니다</div>'
+     +'<div style="font-size:11.5px;color:#a9a2b6;line-height:1.6;margin-top:3px">'
+     +'전형에서 빼고 이 명단에 다시 나오지 않게 합니다. 이번 학기 등록은 그대로 남습니다.</div></button>'
+   +'<div style="display:flex;justify-content:flex-end;margin-top:14px">'
+     +'<button style="border:1px solid #e2dcf2;background:#fff;border-radius:9px;padding:8px 14px;cursor:pointer;font:inherit;font-size:12.5px" onclick="waitModalClose()">취소</button></div>');
+}
+async function jhFixToNext(resId){
+  waitModalClose();
+  const r=reservations.find(x=>x.id===resId); if(!r) return;
+  const semId=jhSemId();
+  showSaving(semNameFromId(semId)+' 신규생으로 등록하는 중…');
+  try{
+    const out=await enrollNewFromRes(r, semId, jhFirstDay(semId), '미배정');
+    hideSaving();
+    toast((out.name||'')+' · '+semNameFromId(semId)+' 신규생 등록 ✓');
+  }catch(e){ hideSaving(); console.error('명단 누락 처리 실패', e); toast('등록 실패: '+(e.message||e),'err'); return; }
+  jhRefresh();
+}
+async function jhFixToCur(resId){
+  waitModalClose();
+  const ok=await updateReservation(resId, { admission_semester:ADM_NONE, wait_semester:null });
+  if(ok) toast('전형에서 뺐습니다 — 이번 학기 등록으로 남습니다 ✓');
+  jhRefresh();
+}
+/* 전부 다음 학기로 — 확인 한 번 받고 돌린다 */
+function jhFixAllAsk(){
+  if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
+  const semId=jhSemId(), list=jhMissList(semId);
+  if(!list.length){ toast('처리할 학생이 없습니다'); return; }
+  const names=list.slice(0,12).map(x=>esc(x.student_name||'?')).join(', ')+(list.length>12?' 외 '+(list.length-12)+'명':'');
+  waitModalOpen(
+    '<div style="font-weight:800;font-size:16.5px">'+list.length+'명을 '+esc(semNameFromId(semId))+'로 등록할까요?</div>'
+   +'<div style="font-size:12.5px;color:#7b7488;line-height:1.8;margin-top:8px">'+names+'</div>'
+   +'<div style="margin-top:12px;background:#fdf3e6;color:#a05f18;border-radius:10px;padding:10px 13px;font-size:12px;font-weight:700;line-height:1.7">'
+   +'전부 <b>미배정 신규생</b>으로 들어갑니다. 이 중 <b>이번 학기에 등록한 학생이 섞여 있으면</b> 먼저 그 학생만 <b>처리</b>로 빼두세요.</div>'
+   +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">'
+     +'<button style="border:1px solid #e2dcf2;background:#fff;border-radius:9px;padding:9px 15px;cursor:pointer;font:inherit;font-size:12.5px" onclick="waitModalClose()">취소</button>'
+     +'<button style="border:1px solid #8b6ee8;background:#8b6ee8;color:#fff;border-radius:9px;padding:9px 15px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:800" onclick="jhFixAllRun()">'+list.length+'명 등록</button></div>');
+}
+function jhMissList(semId){
+  const scope={}; mgBranchList().forEach(b=>scope[b.id]=1);
+  return jhRows(semId).filter(r=> scope[r.branchId] && jhBucket(r,semId)==='miss')
+    .map(r=> reservations.find(x=>x.id===r.resId)).filter(Boolean);
+}
+async function jhFixAllRun(){
+  waitModalClose();
+  const semId=jhSemId(), list=jhMissList(semId);
+  let n=0, fail=0;
+  showSaving('0 / '+list.length+' 등록 중…');
+  for(const r of list){
+    try{ await enrollNewFromRes(r, semId, jhFirstDay(semId), '미배정'); n++; }
+    catch(e){ fail++; console.error('일괄 등록 실패', r.student_name, e); }
+    showSaving((n+fail)+' / '+list.length+' 등록 중…');
+  }
+  hideSaving();
+  toast(fail ? (n+'명 등록 · '+fail+'명 실패 — 콘솔을 확인하세요') : (n+'명을 '+semNameFromId(semId)+' 신규생으로 등록했습니다 ✓'), fail?'err':'');
+  jhRefresh();
+}
+function jhRefresh(){
+  const b=document.getElementById('dashBody');
+  if(b && state.view==='dashboard' && state.dashView==='jh') renderJeonhyeongDash(b);
+}
 function jhRenderList(){
   const wrap=document.getElementById('jhListWrap'); if(!wrap) return;
   const semId=_jhSem, F=jhL(), q=String(F.q||'').trim().toLowerCase();
@@ -995,11 +1081,16 @@ function jhRenderList(){
     && (!q || String(r.name||'').toLowerCase().includes(q) || String(r.code||'').toLowerCase().includes(q)));
   const cnt={all:base.length}; base.forEach(r=>{ const k=jhBucket(r,semId); cnt[k]=(cnt[k]||0)+1; });
   if(F.st!=='all' && !cnt[F.st]) F.st='all';
-  let h='<div class="jh-chips">'+JH_BUCKETS.map(([k,lab])=>{
+  let h='';
+  h+='<div class="jh-chips">'+JH_BUCKETS.map(([k,lab])=>{
     const n=cnt[k]||0;
     return '<button class="jh-chip'+(F.st===k?' on':'')+(n?'':' zero')+'"'+(n?'':' disabled')
       +' onclick="jhSetLSt(\''+k+'\')">'+lab+'<b>'+n+'</b></button>';
   }).join('')+'</div>';
+  if(F.st==='miss' && cnt.miss && curCanEdit())
+    h+='<div class="jh-note"><span style="flex:1 1 320px">이 학생들은 <b>레벨테스트에서 바로 등록</b>을 눌러 '+esc(semNameFromId(semId))+' 명단에 없습니다. '
+      +'오른쪽 <b>처리</b>를 눌러 학생마다 어느 학기 등록인지 정해 주세요.</span>'
+      +'<button class="jh-bulk" onclick="jhFixAllAsk()">'+cnt.miss+'명 전부 '+esc(semNameFromId(semId))+'로 등록</button></div>';
   const list=base.filter(r=> F.st==='all' || jhBucket(r,semId)===F.st);
   if(!list.length){
     h+='<div style="padding:30px 0;text-align:center;color:#a9a2b6;font-size:13px">'
@@ -1024,7 +1115,9 @@ function jhRenderList(){
       +'<td>'+esc(sg||'—')+'</td>'
       +'<td>'+esc(r.date||'—')+'</td>'
       +'<td>'+jhStateChip(r, semId)+'</td>'
-      +'<td class="rs">'+esc(r.reason||'')+'</td></tr>';
+      +'<td class="rs">'+(jhBucket(r,semId)==='miss' && curCanEdit()
+          ? '<button class="jh-fix" onclick="jhFixAsk(\''+r.resId+'\')">처리</button>'
+          : esc(r.reason||''))+'</td></tr>';
   });
   h+='</tbody></table></div>';
   wrap.innerHTML=h;
@@ -2348,6 +2441,7 @@ function edPanel(branchId, ds){
    '다음학기 대기'를 누른 학생은 wait_semester로 이미 알 수 있어 자동으로 잡힌다. */
 function admSem(){ return nextSemId(state.semId); }
 function isAdmRes(r){ const sm=admSem();
+  if(r.admission_semester===ADM_NONE) return false;
   return edBriefOn(r.branch_id, r.reserved_date, sm) || r.admission_semester===sm || r.wait_semester===sm; }
 function admLabel(r){ const e=edGet(r.branch_id, r.reserved_date); return (e&&e.is_briefing)?'설명회전형':'개별전형'; }
 function admToggleHtml(r){
@@ -3074,6 +3168,8 @@ window.addEventListener('message', async (e)=>{
 });
 window.calMove=calMove; window.selDay=selDay; window.openAddForm=openAddForm; window.editRes=editRes; window.branchFilterChange=branchFilterChange;
 window.submitReservation=submitReservation; window.setResStatus=setResStatus; window.jhSetQ=jhSetQ; window.jhSetLBr=jhSetLBr; window.jhSetLSt=jhSetLSt;
+window.jhFixAsk=jhFixAsk; window.jhFixToNext=jhFixToNext; window.jhFixToCur=jhFixToCur;
+window.jhFixAllAsk=jhFixAllAsk; window.jhFixAllRun=jhFixAllRun;
 window.setResEnrolled=setResEnrolled; window.resEnrollAsk=resEnrollAsk; window.resEnrollNext=resEnrollNext; window.resEnrollNow=resEnrollNow; window.setWaitSemester=setWaitSemester; window.saveResReason=saveResReason; window.saveResInfo=saveResInfo; window.deleteReservation=deleteReservation; window.askDelete=askDelete; window.confirmDelete=confirmDelete; window.cancelDelete=cancelDelete; window.toggleDelLog=toggleDelLog; window.moveReservation=moveReservation;
 $('loginBtn').addEventListener('click', doLogin);
 $('loginPw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
