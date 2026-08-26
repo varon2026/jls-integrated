@@ -3165,6 +3165,32 @@ async function changeMyPw(){
 window.accSetMode=accSetMode; window.openAccEdit=openAccEdit; window.onTitleChange=onTitleChange; window.createAccount=createAccount; window.saveAccountEdit=saveAccountEdit; window.resetAccountPw=resetAccountPw; window.delAccount=delAccount; window.changeMyPw=changeMyPw;
 
 /* ---------- 토스트 ---------- */
+/* 저장 중 화면 잠금 — 여러 건을 도는 동안 진행 상황을 보여준다.
+   (인원관리 앱에만 있던 함수라 루트 앱에서 호출하면 터졌다) */
+function showSaving(msg){
+  let ov=document.getElementById('savingOv');
+  if(!ov){
+    if(!document.getElementById('jhSpinCss')){
+      const st=document.createElement('style'); st.id='jhSpinCss';
+      st.textContent='@keyframes jhspin{to{transform:rotate(360deg)}}'
+        +'@media (prefers-reduced-motion:reduce){#savingOv .sp{animation:none}}';
+      document.head.appendChild(st);
+    }
+    ov=document.createElement('div'); ov.id='savingOv';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(20,20,30,.42);display:flex;'
+      +'align-items:center;justify-content:center;z-index:99998';
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:20px 26px;min-width:230px;'
+      +'box-shadow:0 16px 50px rgba(0,0,0,.25);text-align:center">'
+      +'<div class="sp" style="width:26px;height:26px;margin:0 auto 11px;border:3px solid #ece8f5;'
+      +'border-top-color:#8b6ee8;border-radius:50%;animation:jhspin .8s linear infinite"></div>'
+      +'<div class="msg" style="font-size:13.5px;font-weight:800;color:#3a3742"></div>'
+      +'<div style="font-size:11.5px;color:#a9a2b6;margin-top:5px">끝날 때까지 새로고침하지 마세요</div></div>';
+    document.body.appendChild(ov);
+  }
+  ov.querySelector('.msg').textContent=msg||'저장 중…';
+  ov.style.display='flex';
+}
+function hideSaving(){ const ov=document.getElementById('savingOv'); if(ov) ov.style.display='none'; }
 let tt; function toast(m,kind){ const t=$('toast'); t.textContent=m; t.className=(kind==='err'?'err ':'')+'show'; clearTimeout(tt); tt=setTimeout(()=>t.className='',1800); }
 
 /* ---------- 부팅 ---------- */
