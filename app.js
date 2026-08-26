@@ -696,7 +696,7 @@ function jhCount(rs, semId){
     else if(o==='fail') s.fail++; else if(o==='wait') s.wait++;
     else if(o==='enrolled') s.enr++; else if(o==='notenr') s.notenr++;
   });
-  s.decided = s.wait + s.enr + s.notenr;      // 다음 학기 대상 = 결과가 정해진 인원
+  s.decided = s.wait + s.enr + s.notenr;      // 결과 확정 = 등록·대기·미등록이 정해진 인원
   s.absent  = Math.max(0, s.book - s.att);    // 취소·노쇼·연락 없이 안 온 인원
   s.open    = Math.max(0, s.att - s.fail - s.decided);        // 분원이 결과를 아직 안 넣은 건
   s.rate = s.decided ? Math.round(s.enr/s.decided*100) : null;
@@ -875,11 +875,11 @@ function renderJeonhyeongDash(c){
     + stepH('s1','예약', S.book, li('설명회',SB.book)+li('개별',SI.book))
     + stepH('s2','응시', S.att, li('취소·노쇼·불참',S.absent,1)
         +(S.book?'<span>응시율 <b>'+Math.round(S.att/S.book*100)+'%</b></span>':''))
-    + stepH('s3','다음학기 대상', S.decided, li('미통과',S.fail,1)+li('결과 미입력',S.open,1))
+    + stepH('s3','결과 확정', S.decided, li('미통과',S.fail,1)+li('결과 미입력',S.open,1))
     + stepH('s4','등록 완료', S.enr, li('연락 대상',S.wait)+li('미등록',S.notenr,1))
     +'</div>'
     +'<div class="jh-conv"><span class="t">등록 전환</span>'
-      +'<span class="d">다음학기 대상 <b>'+S.decided+'명</b> 중 <b>'+S.enr+'명</b> 등록'
+      +'<span class="d">결과 확정 <b>'+S.decided+'명</b> 중 <b>'+S.enr+'명</b> 등록'
       +(S.wait?' · <b>'+S.wait+'명</b> 아직 연락 대상':'')+'</span>'
       +'<span class="big">'+(S.rate==null?'—':S.rate+'%')+'</span></div></div>';
 
@@ -912,7 +912,7 @@ function renderJeonhyeongDash(c){
     +'<th class="sep" colspan="4">전형 결과</th><th class="sep" colspan="2">&nbsp;</th></tr>'
     +'<tr><th class="l">분원 / 회차</th>'
     +'<th class="sep">예약</th><th>응시</th><th title="취소·노쇼·연락 없이 안 온 인원">불참</th><th>미통과</th>'
-    +'<th class="sep">대상</th><th>등록</th><th>대기</th><th>미등록</th>'
+    +'<th class="sep" title="등록·대기·미등록이 정해진 인원. 미통과와 결과 미입력은 빠집니다.">확정</th><th>등록</th><th>대기</th><th>미등록</th>'
     +'<th class="sep">전환</th><th title="분원이 아직 결과를 넣지 않은 예약">미입력</th></tr>'
     +'</thead><tbody>';
   const sec=t=>'<tr class="sec"><td colspan="11">'+t+'</td></tr>';
