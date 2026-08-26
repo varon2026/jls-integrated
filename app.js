@@ -704,7 +704,9 @@ function jhCount(rs, semId){
     else if(o==='fail') s.fail++; else if(o==='wait') s.wait++;
     else if(o==='enrolled') s.enr++; else if(o==='notenr') s.notenr++; else if(o==='mid') s.mid++;
   });
-  s.decided = s.wait + s.enr + s.notenr;
+  s.decided = s.wait + s.enr + s.notenr;      // 다음 학기 대상 = 결과가 정해진 인원
+  s.absent  = Math.max(0, s.book - s.att);    // 취소·노쇼·연락 없이 안 온 인원
+  s.open    = Math.max(0, s.att - s.fail - s.mid - s.decided); // 분원이 결과를 아직 안 넣은 건
   s.rate = s.decided ? Math.round(s.enr/s.decided*100) : null;
   return s;
 }
@@ -716,21 +718,52 @@ function jhTrackChip(t){
 }
 /* 전형 현황 표 — 줄 강조·마우스오버는 클래스로 (인라인 배경이 hover를 이기지 않게) */
 const JH_CSS='<style>'
-+'.jh-t{border-collapse:collapse;width:100%;min-width:820px;font-size:12.5px}'
-+'.jh-t th{text-align:right;font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap}'
-+'.jh-t th.l{text-align:left}'
-+'.jh-t td{padding:9px 10px;border-bottom:1px solid #f3f0fa;text-align:right;white-space:nowrap;color:#52514e}'
++'.jh-card{background:#fff;border:1px solid #ece8f5;border-radius:16px;box-shadow:0 3px 14px rgba(80,70,120,.05);margin-bottom:16px;overflow:hidden}'
++'.jh-hd{padding:16px 20px 13px;border-bottom:1px solid #f3f0fa;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}'
++'.jh-hd h3{margin:0;font-size:15px;font-weight:800;color:#3a3742}'
++'.jh-hd .why{font-size:12px;color:#a9a2b6;font-weight:600}'
++'.jh-flow{display:flex;flex-wrap:wrap;padding:4px 8px 12px}'
++'.jh-step{flex:1 1 158px;min-width:146px;padding:14px}'
++'.jh-step+.jh-step{border-left:1px solid #ece8f5}'
++'.jh-step .k{font-size:12px;font-weight:800;color:#7b7488}'
++'.jh-step .v{font-size:33px;font-weight:800;letter-spacing:-.035em;line-height:1.1;margin-top:2px;color:#3a3742}'
++'.jh-step .v small{font-size:12.5px;font-weight:800;color:#b8b2c6;margin-left:3px;letter-spacing:0}'
++'.jh-step .v.w{color:#5b41b5}.jh-step .v.e{color:#2fa878}'
++'.jh-step .sub{margin-top:9px;display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:#a9a2b6}'
++'.jh-step .sub b{font-weight:800;color:#7b7488}'
++'.jh-step .out,.jh-step .out b{color:#c04f70}'
++'.jh-conv{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:13px 20px;background:#f4f1fb;border-top:1px solid #ece8f5}'
++'.jh-conv .t{font-size:12.5px;font-weight:800;color:#5b41b5}'
++'.jh-conv .d{font-size:12.5px;color:#7b7488}.jh-conv .d b{font-weight:800;color:#3a3742}'
++'.jh-conv .big{margin-left:auto;font-size:21px;font-weight:800;color:#2fa878;letter-spacing:-.02em}'
++'.jh-t{border-collapse:collapse;width:100%;min-width:840px;font-size:13px}'
++'.jh-t .grp th{font-size:10px;font-weight:800;letter-spacing:.12em;color:#c2bcd0;padding:12px 12px 3px;text-align:center;border:0}'
++'.jh-t .grp th.gl{text-align:left}'
++'.jh-t thead tr:last-child th{font-size:11px;font-weight:800;color:#a9a2b6;text-align:right;padding:3px 12px 11px;border-bottom:1.5px solid #e8e3f3;white-space:nowrap}'
++'.jh-t thead tr:last-child th.l{text-align:left}'
++'.jh-t th.sep,.jh-t td.sep{border-left:1px solid #e8e3f3}'
++'.jh-t td{padding:0 12px;height:42px;border-bottom:1px solid #f2eff9;text-align:right;white-space:nowrap;color:#7b7488;font-weight:700}'
 +'.jh-t td.l{text-align:left}'
-+'.jh-t td.mut{color:#b8b2c6}'
-+'.jh-t tr.br td{background:#faf8fe;font-weight:800;color:#3a3742}'
-+'.jh-t tr.br td.cw{color:#1f8a95}.jh-t tr.br td.ce{color:#2fa878}.jh-t tr.br td.cn{color:#e2953f}'
-+'.jh-t tr.sub td{color:#8b8496}'
-+'.jh-t tr.sub td.l:first-child{padding-left:30px;position:relative}'
-+'.jh-t tr.sub td.l:first-child::before{content:"";position:absolute;left:17px;top:-9px;bottom:50%;width:1px;background:#e2dcf2}'
-+'.jh-t tr.sub td.l:first-child::after{content:"";position:absolute;left:17px;top:50%;width:7px;height:1px;background:#e2dcf2}'
-+'.jh-t tr.sum td{background:#f0ebfe;color:#5b41b5;font-weight:800;border-top:1px solid #ece8f5;border-bottom:0}'
-+'.jh-t tbody tr:hover td{background:#efe8fd}'
-+'.jh-t tbody tr.sum:hover td{background:#e6dbfb}'
++'.jh-t tbody tr:hover td{background:#faf8fe}'
++'.jh-t tr.sec td{height:32px;background:#f0ebfe;border-bottom:1px solid #e8e3f3;font-size:10.5px;font-weight:800;letter-spacing:.12em;color:#5b41b5;text-align:left}'
++'.jh-t tr.sec:hover td{background:#f0ebfe}'
++'.jh-t tr.br td{font-size:13.5px}'
++'.jh-t tr.br td.l{font-weight:800;color:#3a3742;font-size:14px}'
++'.jh-t tr.br td.k{font-size:15px;font-weight:800;color:#3a3742}'
++'.jh-t tr.br td.k.w{color:#5b41b5}.jh-t tr.br td.k.e{color:#2fa878}'
++'.jh-t tr.sub td{height:38px;font-size:12px;font-weight:400;color:#a9a2b6}'
++'.jh-t tr.sub td.l{padding-left:36px;position:relative}'
++'.jh-t tr.sub td.l::before{content:"";position:absolute;left:22px;top:-19px;height:38px;width:1px;background:#e8e3f3}'
++'.jh-t tr.sub td.l::after{content:"";position:absolute;left:22px;top:19px;width:7px;height:1px;background:#e8e3f3}'
++'.jh-t tr.sub.last td.l::before{height:19px}'
++'.jh-t tr.sub td.l em{font-style:normal;font-weight:700;color:#7b7488}'
++'.jh-t tr.sub td.l span{color:#c2bcd0;margin-left:7px;font-size:11px}'
++'.jh-t tr.end td{border-bottom:1px solid #e8e3f3}'
++'.jh-t tr.tot td{height:48px;background:#f4f1fb;border-bottom:0;color:#3a3742;font-weight:800;font-size:14px}'
++'.jh-t tr.tot td.k{font-size:16px}.jh-t tr.tot td.k.w{color:#5b41b5}.jh-t tr.tot td.k.e{color:#2fa878}'
++'.jh-t tr.tot:hover td{background:#f4f1fb}'
++'.jh-t .z{color:#c2bcd0;font-weight:400}'
++'.jh-t .flag{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 7px;background:#fdf3e6;color:#c9791f}'
 +'.jh-tk{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap}'
 +'.jh-tk.brief{background:#f0ebfe;color:#5b41b5}.jh-tk.ind{background:#eaf2fc;color:#2f6cb5}.jh-tk.none{background:#fdf3e6;color:#e2953f}'
 +'.jh-none{background:#f3f0fa;color:#a9a2b6;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px}'
@@ -793,82 +826,81 @@ function renderJeonhyeongDash(c){
     +(session.role==='admin' ? '<span style="margin-left:8px">분원</span><select onchange="mgSetBranch(this.value)" style="'+sels+'"><option value="all" '+((!state.mgBranch||state.mgBranch==='all')?'selected':'')+'>전체</option>'+(db.branches||[]).map(b=>'<option value="'+b.id+'" '+(state.mgBranch===b.id?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '')
     +'</div>';
 
-  /* ---- 설명회 진행 스트립 ---- */
+  /* ---- 위: 예약 → 응시 → 다음학기 대상 → 등록 4단계 ---- */
+  const stepH=(k,v,cls,sub)=>'<div class="jh-step"><div class="k">'+k+'</div>'
+    +'<div class="v'+(cls?' '+cls:'')+'">'+v+'<small>명</small></div>'
+    +'<div class="sub">'+sub+'</div></div>';
+  const li=(t,n,out)=> n? '<span'+(out?' class="out"':'')+'>'+t+' <b>'+n+'</b></span>' : '';
+  html+='<div class="jh-card">'
+    +'<div class="jh-hd"><h3>'+esc(semNm)+' 전형</h3>'
+    +'<span class="why">이번 학기에 시험 보고 '+esc(semNm)+'에 등록하는 학생만'+(briefs.length?' · 설명회 '+briefs.length+'회':'')+'</span></div>'
+    +'<div class="jh-flow">'
+    + stepH('예약', S.book, '', li('설명회',SB.book)+li('개별',SI.book))
+    + stepH('응시', S.att, '', li('취소·노쇼·불참',S.absent,1)
+        +(S.book?'<span>응시율 <b>'+Math.round(S.att/S.book*100)+'%</b></span>':''))
+    + stepH('다음학기 대상', S.decided, 'w', li('미통과',S.fail,1)+li('중간 등록',S.mid)+li('결과 미입력',S.open,1))
+    + stepH('등록 완료', S.enr, 'e', li('연락 대상',S.wait)+li('미등록',S.notenr,1))
+    +'</div>'
+    +'<div class="jh-conv"><span class="t">등록 전환</span>'
+      +'<span class="d">다음학기 대상 <b>'+S.decided+'명</b> 중 <b>'+S.enr+'명</b> 등록'
+      +(S.wait?' · <b>'+S.wait+'명</b> 아직 연락 대상':'')+'</span>'
+      +'<span class="big">'+(S.rate==null?'—':S.rate+'%')+'</span></div></div>';
+
+  /* ---- 분원별 ----
+     설명회를 한 분원을 먼저 묶고, 개별전형만 한 분원은 아래로 내린다.
+     설명회 분원은 회차 줄 + 개별 줄을 항상 그려서 줄 수가 들쭉날쭉하지 않게 한다. */
   const byBr={}; brs.forEach(b=>byBr[b.id]=[]);
   briefs.forEach(x=>{ if(byBr[x.branch_id]) byBr[x.branch_id].push(x); });
-  html+='<div style="'+card+';display:flex;align-items:center;gap:22px;flex-wrap:wrap">'
-    +'<div style="min-width:130px"><div style="font-size:12px;font-weight:800;color:#7b7488">설명회 진행</div>'
-    +'<div style="font-size:22px;font-weight:800;color:#3a3742">'+briefs.length+'<span style="font-size:12.5px;color:#a9a2b6;font-weight:700"> 회 · '+Object.keys(byBr).filter(k=>byBr[k].length).length+'개 분원</span></div></div>'
-    +'<div style="display:flex;gap:7px;flex-wrap:wrap;flex:1">'
-    + brs.map(b=>{ const L=byBr[b.id]||[]; const on=L.length>0;
-        const dots=(on?L:[0]).map(()=>'<i style="width:8px;height:8px;border-radius:50%;display:inline-block;'+(on?'background:#8b6ee8':'border:1.5px solid #c9c3d6;opacity:.6')+'"></i>').join('');
-        return '<span title="'+esc(L.map(x=>edDs(x.exam_date)).join(' · '))+'" style="display:flex;align-items:center;gap:8px;background:#faf8fe;border:1px '+(on?'solid':'dashed')+' #e2dcf2;border-radius:9px;padding:7px 12px">'
-          +'<span style="font-size:12px;font-weight:800;color:'+(on?'#3a3742':'#a9a2b6')+'">'+esc(String(b.name).replace(/분원$/,''))+'</span>'
-          +'<span style="display:flex;gap:3px">'+dots+'</span></span>'; }).join('')
-    +'</div></div>';
-
-  /* ---- 요약 ---- */
-  const kpi=(label,val,unit,color,bg,sub)=>'<div style="flex:1;min-width:132px;border:1px solid #ece8f5;border-radius:14px;padding:13px 16px;background:'+bg+'">'
-    +'<div style="font-size:12.5px;font-weight:700;color:#52514e">'+label+'</div>'
-    +'<div style="font-size:27px;font-weight:800;color:'+color+';line-height:1.15">'+val+'<span style="font-size:12px;color:#a9a2b6;font-weight:700"> '+unit+'</span></div>'
-    +(sub?'<div style="font-size:11px;color:#a9a2b6;font-weight:700;margin-top:2px">'+sub+'</div>':'')+'</div>';
-  html+='<div style="'+card+'"><h3 style="'+h3s+'">'+esc(semNm)+' 전형 결과</h3>'
-    +'<div style="'+css+'">이번 학기에 시험 보고 <b>'+esc(semNm)+'에 등록</b>하는 학생만 — 학기 중간에 바로 등록한 건은 빠져 있습니다</div>'
-    +'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">'
-    +'<div style="flex:1.2;min-width:190px;display:flex;flex-direction:column;justify-content:center;gap:3px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:13px 18px">'
-      +'<span style="font-size:12.5px;font-weight:700;opacity:.92">전형 응시</span>'
-      +'<span style="font-size:31px;font-weight:800;line-height:1">'+S.book+'<span style="font-size:14px;font-weight:700;opacity:.92"> 명</span></span>'
-      +(briefs.length?'<span style="font-size:11.5px;font-weight:700;opacity:.9">설명회 '+SB.book+' · 개별 '+SI.book+'</span>':'')
-      +'</div>'
-    + kpi('등록 완료', S.enr,'명','#2fa878','#e6f7f0','')
-    + kpi('미등록', S.notenr,'명','#e2953f','#fdf3e6','')
-    + kpi('아직 대기중', S.wait,'명','#1f8a95','#e4f4f5','연락 필요')
-    + kpi('등록률', (S.rate==null?'—':S.rate),(S.rate==null?'':'%'),'#8b6ee8','#faf8fe','결과 정해진 '+S.decided+'명 기준')
-    +'</div>'
-    +'<div style="margin-top:11px;font-size:11.5px;color:#a9a2b6;line-height:1.7">'
-    +'참석 '+S.att+' · 노쇼 '+S.noshow+' · 취소 '+S.cancel+' · 미통과 '+S.fail
-    +(S.parent?' · 학부모만 '+S.parent:'')+(S.mid?' · 중간 등록 '+S.mid:'')+'</div>';
-  html+='</div>';
-
-  /* ---- 분원 · 회차별 ----
-     분원 줄이 그 분원의 합계, 아래 들여쓴 줄이 내역이다.
-     회차가 하나뿐인 분원은 내역이 합계와 똑같아지므로 아래 줄을 그리지 않고
-     분원 줄에 회차 이름과 날짜만 붙인다(같은 숫자가 두 번 보이지 않게). */
-  html+='<div style="'+card+'"><h3 style="'+h3s+'">분원 · 회차별</h3>'
-    +'<div style="'+css+'">'+esc(semNm)+' 기준 · 굵은 줄이 분원 합계, 들여쓴 줄이 내역</div>';
-  html+='<div style="overflow-x:auto"><table class="jh-t"><thead><tr>'
-    +'<th class="l">분원 / 회차</th><th class="l">날짜</th>'
-    +[['예약',''],['참석',''],['노쇼·취소',''],['미통과',''],['중간 등록','다음 학기가 아니라 그 학기 중간에 바로 등록한 인원. 전형 등록률에서 제외됩니다.'],['대기',''],['등록',''],['미등록',''],['등록률','']].map(t=>'<th'+(t[1]?' title="'+esc(t[1])+'"':'')+'>'+t[0]+'</th>').join('')
-    +'</tr></thead><tbody>';
-  const jhDash='<span class="mut">—</span>';
-  const cells=s=>'<td>'+s.book+'</td><td>'+s.att+'</td>'
-    +'<td class="mut">'+((s.noshow+s.cancel)||jhDash)+'</td><td class="mut">'+(s.fail||jhDash)+'</td>'
-    +'<td class="mut">'+(s.mid||jhDash)+'</td>'
-    +'<td class="cw">'+s.wait+'</td><td class="ce">'+s.enr+'</td><td class="cn">'+s.notenr+'</td>'
-    +'<td>'+(s.rate==null?jhDash:s.rate+'%')+'</td>';
-  brs.forEach(b=>{
-    const rs=rows.filter(r=>r.branchId===b.id);
-    if(!rs.length) return;                       // 이 학기에 아무것도 없는 분원은 줄을 안 그린다
-    const bl=(byBr[b.id]||[]);
-    const tracks=bl.map(x=>({key:'b'+(x.briefing_no||1), label:'설명회 '+(x.briefing_no||1)+'차', date:edDs(x.exam_date), kind:'brief'}))
-      .concat([{key:'ind', label:'개별', date:'수시', kind:'ind'}])
-      .map(t=>{ t.rs=rs.filter(r=> jhTrack(r.branchId,r.date,semId).key===t.key); return t; })
-      .filter(t=>t.rs.length);
-    const only = tracks.length===1 ? tracks[0] : null;
-    const col2 = only
-      ? jhTrackChip(only)+' <span class="mut">'+esc(only.date||'')+'</span>'
-      : (bl.length ? '설명회 '+bl.length+'회'
-                   : '<span class="jh-none">설명회 미진행</span>');
-    html+='<tr class="br"><td class="l">'+esc(b.name)+'</td><td class="l mut">'+col2+'</td>'+cells(jhCount(rs, semId))+'</tr>';
-    if(!only) tracks.forEach(t=>{
-      html+='<tr class="sub"><td class="l">'+jhTrackChip(t)+'</td><td class="l mut">'+esc(t.date||'—')+'</td>'+cells(jhCount(t.rs, semId))+'</tr>';
-    });
-  });
-  html+='<tr class="sum"><td class="l">합계</td><td class="l">설명회 '+briefs.length+'회</td>'+cells(S)+'</tr>';
+  const z=n=>n?n:'<span class="z">·</span>';
+  const cells=(s2,big)=>
+     '<td class="sep'+(big?' k':'')+'">'+z(s2.book)+'</td><td>'+z(s2.att)+'</td>'
+    +'<td>'+z(s2.absent)+'</td><td>'+z(s2.fail)+'</td>'
+    +'<td class="sep'+(big?' k w':'')+'">'+z(s2.decided)+'</td>'
+    +'<td'+(big?' class="k e"':'')+'>'+z(s2.enr)+'</td>'
+    +'<td>'+z(s2.wait)+'</td><td>'+z(s2.notenr)+'</td>'
+    +'<td class="sep">'+(s2.rate==null?'<span class="z">—</span>':s2.rate+'%')+'</td>'
+    +'<td>'+(s2.open?'<span class="flag">'+s2.open+'</span>':'<span class="z">·</span>')+'</td>';
+  const brData=b=>{
+    const rs=rows.filter(r=>r.branchId===b.id), bl=(byBr[b.id]||[]);
+    return { b:b, rs:rs, bl:bl, t:jhCount(rs, semId) };
+  };
+  const all=brs.map(brData).filter(x=> x.rs.length || x.bl.length);
+  const byRate=(a,b)=> (b.t.rate==null?-1:b.t.rate)-(a.t.rate==null?-1:a.t.rate) || b.t.book-a.t.book;
+  const withBrief=all.filter(x=>x.bl.length).sort(byRate);
+  const onlyInd =all.filter(x=>!x.bl.length).sort(byRate);
+  html+='<div class="jh-card"><div class="jh-hd"><h3>분원별</h3>'
+    +'<span class="why">왼쪽에서 오른쪽으로 읽으면 학생이 어디까지 왔는지 보입니다</span></div>'
+    +'<div style="overflow-x:auto"><table class="jh-t"><thead>'
+    +'<tr class="grp"><th class="gl">&nbsp;</th><th class="sep" colspan="4">응 시</th>'
+    +'<th class="sep" colspan="4">전형 결과</th><th class="sep" colspan="2">&nbsp;</th></tr>'
+    +'<tr><th class="l">분원 / 회차</th>'
+    +'<th class="sep">예약</th><th>응시</th><th title="취소·노쇼·연락 없이 안 온 인원">불참</th><th>미통과</th>'
+    +'<th class="sep">대상</th><th>등록</th><th>대기</th><th>미등록</th>'
+    +'<th class="sep">전환</th><th title="분원이 아직 결과를 넣지 않은 예약">미입력</th></tr>'
+    +'</thead><tbody>';
+  const sec=t=>'<tr class="sec"><td colspan="11">'+t+'</td></tr>';
+  const trackRows=x=>{
+    const md=d=>edDs(d).slice(5).replace('-','.');
+    const ts=x.bl.map(e=>({key:'b'+(e.briefing_no||1), label:'설명회 '+(e.briefing_no||1)+'차', date:md(e.exam_date)}))
+      .concat([{key:'ind', label:'개별', date:'수시'}]);
+    return ts.map((t,i2)=>{
+      const rs=x.rs.filter(r=> jhTrack(r.branchId,r.date,semId).key===t.key);
+      return '<tr class="sub'+(i2===ts.length-1?' last end':'')+'">'
+        +'<td class="l"><em>'+esc(t.label)+'</em><span>'+esc(t.date)+'</span></td>'
+        +cells(jhCount(rs, semId))+'</tr>';
+    }).join('');
+  };
+  if(withBrief.length) html+=sec('설명회 진행')
+    + withBrief.map(x=>'<tr class="br"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>'+trackRows(x)).join('');
+  if(onlyInd.length) html+=sec('개별전형만')
+    + onlyInd.map(x=>'<tr class="br end"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>').join('');
+  if(!all.length) html+='<tr><td colspan="11" style="text-align:center;color:#a9a2b6;font-weight:400;height:60px">'
+    +esc(semNm)+' 전형으로 잡힌 학생이 아직 없습니다.</td></tr>';
+  html+='<tr class="tot"><td class="l">합계</td>'+cells(S,1)+'</tr>';
   html+='</tbody></table></div>';
-  if(!briefs.length) html+='<div style="margin-top:12px;font-size:12px;color:#a9a2b6;line-height:1.65">'
+  if(!briefs.length) html+='<div style="padding:12px 20px 16px;font-size:12px;color:#a9a2b6;line-height:1.65">'
     +'이 학기에 표시된 설명회가 없어 응시자가 전부 <b>개별</b>로 잡혔습니다. 설명회를 진행한 날이 있다면 '
-    +'분원 계정에서 그 날짜를 열어 <b>설명회 진행</b>을 켜면 여기서 회차별로 갈립니다.</div>';
+    +'분원 계정에서 그 날짜를 열어 <b>설명회 진행</b>을 켜주세요.</div>';
   html+='</div>';
 
   /* ---- 명단 ---- */
@@ -2230,21 +2262,6 @@ async function toggleAdmRes(id){
   const ok=await updateReservation(id,{ admission_semester: on?sm:null });
   if(ok){ toast(on?(admLabel(r)+'으로 표시 ✓'):'전형 표시를 껐어요'); renderWonmuBody(); }
 }
-/* 그날 예약 전체를 한 번에 켜고 끈다 — 설명회처럼 인원이 많을 때 */
-async function toggleAdmDay(branchId, ds){
-  if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
-  const sm=admSem();
-  const list=reservations.filter(r=> (branchId==='all'||r.branch_id===branchId) && edDs(r.reserved_date)===edDs(ds));
-  if(!list.length) return;
-  const allOn=list.every(r=> r.admission_semester===sm || r.wait_semester===sm);
-  showSaving(allOn?'전형 표시 해제 중…':'전형으로 표시 중…');
-  for(const r of list){
-    if(r.wait_semester===sm) continue;   // 대기로 이미 잡힌 건은 건드리지 않는다
-    if(allOn ? r.admission_semester===sm : r.admission_semester!==sm)
-      await updateReservation(r.id,{ admission_semester: allOn?null:sm });
-  }
-  hideSaving(); toast(allOn?'이 날 전형 표시를 껐어요':'이 날 예약을 전형으로 표시했어요 ✓'); renderWonmuBody();
-}
 function renderBooking(c){
   const today=new Date();
   if(bookState.y==null){ bookState.y=today.getFullYear(); bookState.m=today.getMonth(); }
@@ -2290,7 +2307,6 @@ function renderBooking(c){
   const dowKo=['일','월','화','수','목','금','토'][sd.getDay()];
   let list=`<div class="card"><div class="dl-top">
     <div class="d">${sd.getMonth()+1}월 ${sd.getDate()}일 <span>${dowKo}요일 · ${dayRes.length}건</span></div>
-    ${dayRes.length && !edBriefOn(bookState.branchId, bookState.sel, admSem())?`<button class="btn sm" style="border-color:#8b6ee8;color:#8b6ee8;background:#fff;flex:none;white-space:nowrap;padding:0 10px;border-radius:9px;font-size:11.5px;font-weight:800;cursor:pointer" onclick="toggleAdmDay('${bookState.branchId}','${bookState.sel}')" title="이 날 예약을 한 번에 전형으로 표시합니다">이 날 전체 전형</button>`:''}
     <button class="addbtn" onclick="openAddForm()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>새 예약</button>
   </div>`;
 
