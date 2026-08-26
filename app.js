@@ -627,18 +627,18 @@ function jhWindow(semId){ const p=jhPrevSem(semId); return p ? semesterYM(p).map
 function jhInWindow(semId, ds){ return jhWindow(semId).indexOf(String(ds||'').slice(0,7))>=0; }
 /* 등록한 학생이 반배정까지 끝났는가 —
    등록 처리 때 반을 안 고르면 '미배정'으로 저장된다. 그게 곧 '아직 확정 아님'이다. */
-function jhAssigned(r, semId){
+function jhRecOf(r, semId){
   const code=(r.code||'').trim();
   let stu = code ? (db.students||[]).find(x=>x.code===code) : null;
   if(!stu && !code){
     const cand=(db.students||[]).filter(x=>x.name===(r.name||'').trim());
     if(cand.length===1) stu=cand[0];
   }
-  if(!stu) return false;
-  const rec=(db.semesterRecords||[]).find(x=> x.studentId===stu.id && x.semesterId===semId
-    && (x.kind||'regular')!=='exam' && x.status==='active');
-  return !!(rec && rec.className && rec.className!=='미배정');
+  if(!stu) return null;
+  return (db.semesterRecords||[]).find(x=> x.studentId===stu.id && x.semesterId===semId
+    && (x.kind||'regular')!=='exam' && x.status==='active') || null;
 }
+function jhAssigned(r, semId){ const rec=jhRecOf(r, semId); return !!(rec && rec.className && rec.className!=='미배정'); }
 /* 한 명의 최종 상태 */
 function jhOutcome(r, semId){
   if(r.status==='canceled')    return 'cancel';
@@ -702,13 +702,18 @@ function jhRows(semId){
 }
 /* 행 묶음 → 숫자. 전부 예약 기록에서 세어 나온다. */
 function jhCount(rs, semId){
-  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0, enrFix:0, enrOpen:0 };
+  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0, enrFix:0, enrOpen:0, enrMiss:0 };
   rs.forEach(r=>{
     if(isAttended(r)) s.att++;
     const o=jhOutcome(r, semId);
     if(o==='noshow') s.noshow++; else if(o==='cancel') s.cancel++; else if(o==='parent') s.parent++;
     else if(o==='fail') s.fail++; else if(o==='wait') s.wait++;
-    else if(o==='enrolled'){ s.enr++; if(jhAssigned(r, semId)) s.enrFix++; else s.enrOpen++; }
+    else if(o==='enrolled'){ s.enr++;
+      const rec=jhRecOf(r, semId);
+      if(!rec) s.enrMiss++;                                                    // 학기 명단에 아예 없음
+      else if(rec.className && rec.className!=='미배정') s.enrFix++;            // 반배정까지 끝남
+      else s.enrOpen++;                                                        // 등록은 됐는데 반 미정
+    }
     else if(o==='notenr') s.notenr++;
   });
   s.decided = s.wait + s.enr + s.notenr;      // 결과 확정 = 등록·대기·미등록이 정해진 인원
@@ -784,6 +789,7 @@ const JH_CSS='<style>'
 +'.jh-t tr.tot:hover td{background:#f4f1fb}'
 +'.jh-t .z{color:#c2bcd0;font-weight:400}'
 +'.jh-t .flag{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 7px;background:#fdf3e6;color:#c9791f}'
++'.jh-t .miss{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 7px;background:#fdecf1;color:#b03a58}'
 +'.jh-tk{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap}'
 +'.jh-tk.brief{background:#f0ebfe;color:#5b41b5}.jh-tk.ind{background:#eaf2fc;color:#2f6cb5}.jh-tk.none{background:#fdf3e6;color:#e2953f}'
 +'.jh-none{background:#f3f0fa;color:#a9a2b6;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px}'
@@ -811,44 +817,15 @@ function jhStateChip(r, semId){
   if(o==='noshow')   return jhChip('#fdecf1','#e2557a','노쇼');
   if(o==='parent')   return jhChip('#f3f0fa','#7b7488','학부모만');
   if(o==='fail')     return jhChip('#fdecf1','#e2557a','미통과');
-  if(o==='enrolled') return jhChip('#e6f7f0','#2fa878','등록 완료')+'';
+  if(o==='enrolled'){
+    const rec=jhRecOf(r, semId);
+    if(!rec) return jhChip('#fdecf1','#b03a58','명단 누락','레벨테스트에서 바로 등록을 눌러 이 학기 명단에 학생이 없습니다. 예약을 다음학기 대기로 되돌린 뒤, 원무 대기명단에서 다시 등록해 주세요.');
+    if(!(rec.className && rec.className!=='미배정')) return jhChip('#fff1e6','#a85f22','반 미정');
+    return jhChip('#e6f7f0','#2fa878','등록 확정');
+  }
   if(o==='notenr')   return jhChip('#fdf3e6','#e2953f','미등록');
   if(o==='wait')     return jhChip('#e4f4f5','#1f8a95','대기중');
   return jhChip('#f6f3fc','#8b6ee8','결과 미정');
-}
-/* 예전에 '다음학기 대기'를 건너뛰고 레벨테스트에서 곧장 '등록 완료'를 눌러버린 학생 —
-   예약에는 등록 도장이 찍혔지만 학기 명단(semester_records)이 없어 인원 현황에 안 뜬다.
-   전형 현황을 열 때 찾아서 그 학기 신규생(미배정)으로 자동 등록해 준다. */
-let _jhFixing=false; const _jhFixed={};
-function jhStudentOf(r){
-  const code=(r.student_code||'').trim();
-  if(code) return (db.students||[]).find(x=>x.code===code)||null;
-  const cand=(db.students||[]).filter(x=>x.name===(r.student_name||'').trim());
-  return cand.length===1 ? cand[0] : null;
-}
-function jhHasRecord(r, semId){
-  const stu=jhStudentOf(r); if(!stu) return false;
-  return (db.semesterRecords||[]).some(x=> x.studentId===stu.id && x.semesterId===semId
-    && (x.kind||'regular')!=='exam' && x.status==='active');
-}
-async function jhFixMissingNew(semId){
-  if(_jhFixing || _jhFixed[semId] || !curCanEdit()) return;
-  const todo=reservations.filter(r=> r.enrolled==='enrolled'
-    && (r.admission_semester===semId || r.wait_semester===semId || edBriefOn(r.branch_id, r.reserved_date, semId))
-    && (r.student_name||'').trim()
-    && !jhHasRecord(r, semId));
-  _jhFixed[semId]=1;
-  if(!todo.length) return;
-  _jhFixing=true; showSaving(todo.length+'명 학기 명단에 넣는 중…');
-  let n=0;
-  for(const r of todo){
-    try{ await enrollNewFromRes(r, semId, jhFirstDay(semId), '미배정'); n++; }
-    catch(e){ console.error('자동 신규생 등록 실패', r.student_name, e); }
-  }
-  _jhFixing=false; hideSaving();
-  if(n) toast(n+'명을 '+semNameFromId(semId)+' 신규생(미배정)으로 등록했습니다 ✓');
-  const b=document.getElementById('dashBody');
-  if(b && state.view==='dashboard' && state.dashView==='jh') renderJeonhyeongDash(b);
 }
 function renderJeonhyeongDash(c){
   if(!bookState.loaded){
@@ -861,7 +838,6 @@ function renderJeonhyeongDash(c){
   const rows=jhRows(semId).filter(r=>inScope[r.branchId]);
   const days=jhDays(semId).filter(x=>inScope[x.branch_id]);
   const briefs=days.filter(x=>x.is_briefing).sort((a,b)=> edDs(a.exam_date)<edDs(b.exam_date)?-1:1);
-  jhFixMissingNew(semId);   // 명단이 빠진 등록자 자동 복구 (한 학기에 한 번)
   const S=jhCount(rows, semId);
   const isBrief=r=> jhTrack(r.branchId,r.date,semId).brief;
   const SB=jhCount(rows.filter(isBrief), semId), SI=jhCount(rows.filter(r=>!isBrief(r)), semId);
@@ -898,7 +874,7 @@ function renderJeonhyeongDash(c){
         +(S.book?'<span>응시율 <b>'+Math.round(S.att/S.book*100)+'%</b></span>':''))
     + stepH('s3','결과 확정', S.decided, li('미통과',S.fail,1)+li('결과 미입력',S.open,1))
     + stepH('s4','등록 확정', S.enrFix, (S.enrOpen?'<span>반 미정 <b>'+S.enrOpen+'</b></span>':'')
-        +'<span>등록 처리 '+S.enr+'명</span>')
+        +li('명단 누락',S.enrMiss,1)+'<span>등록 처리 '+S.enr+'명</span>')
     + stepH('s5','대기 중', S.wait, '<span>결제·연락 필요</span>'+li('미등록',S.notenr,1))
     +'</div>'
     +'<div class="jh-conv"><span class="t">등록 전환</span>'
@@ -918,6 +894,7 @@ function renderJeonhyeongDash(c){
     +'<td>'+z(s2.absent)+'</td><td>'+z(s2.fail)+'</td>'
     +'<td class="sep'+(big?' k w':'')+'">'+z(s2.decided)+'</td>'
     +'<td'+(big?' class="k e"':'')+'>'+z(s2.enrFix)+'</td><td>'+z(s2.enrOpen)+'</td>'
+    +'<td>'+(s2.enrMiss?'<span class="miss">'+s2.enrMiss+'</span>':'<span class="z">·</span>')+'</td>'
     +'<td>'+z(s2.wait)+'</td><td>'+z(s2.notenr)+'</td>'
     +'<td class="sep">'+(s2.rate==null?'<span class="z">—</span>':s2.rate+'%')+'</td>'
     +'<td>'+(s2.open?'<span class="flag">'+s2.open+'</span>':'<span class="z">·</span>')+'</td>';
@@ -933,15 +910,16 @@ function renderJeonhyeongDash(c){
     +'<span class="why">왼쪽에서 오른쪽으로 읽으면 학생이 어디까지 왔는지 보입니다</span></div>'
     +'<div style="overflow-x:auto"><table class="jh-t"><thead>'
     +'<tr class="grp"><th class="gl">&nbsp;</th><th class="sep" colspan="4">응 시</th>'
-    +'<th class="sep" colspan="5">전형 결과</th><th class="sep" colspan="2">&nbsp;</th></tr>'
+    +'<th class="sep" colspan="6">전형 결과</th><th class="sep" colspan="2">&nbsp;</th></tr>'
     +'<tr><th class="l">분원 / 회차</th>'
     +'<th class="sep">예약</th><th>응시</th><th title="취소·노쇼·연락 없이 안 온 인원">불참</th><th>미통과</th>'
     +'<th class="sep" title="등록·대기·미등록이 정해진 인원. 미통과와 결과 미입력은 빠집니다.">확정</th>'
     +'<th title="반배정까지 끝난 학생">등록</th><th title="등록 처리는 했는데 반이 아직 미배정인 학생">반 미정</th>'
+    +'<th title="레벨테스트에서 바로 등록을 눌러 학기 명단에 아예 없는 학생 — 대기로 되돌린 뒤 대기명단에서 다시 등록해야 합니다">누락</th>'
     +'<th>대기</th><th>미등록</th>'
     +'<th class="sep">전환</th><th title="분원이 아직 결과를 넣지 않은 예약">미입력</th></tr>'
     +'</thead><tbody>';
-  const sec=t=>'<tr class="sec"><td colspan="12">'+t+'</td></tr>';
+  const sec=t=>'<tr class="sec"><td colspan="13">'+t+'</td></tr>';
   const trackRows=x=>{
     const md=d=>edDs(d).slice(5).replace('-','.');
     const ts=x.bl.map(e=>({key:'b'+(e.briefing_no||1), label:'설명회 '+(e.briefing_no||1)+'차', date:md(e.exam_date)}))
@@ -957,7 +935,7 @@ function renderJeonhyeongDash(c){
     + withBrief.map(x=>'<tr class="br"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>'+trackRows(x)).join('');
   if(onlyInd.length) html+=sec('개별전형만')
     + onlyInd.map(x=>'<tr class="br end"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>').join('');
-  if(!all.length) html+='<tr><td colspan="12" style="text-align:center;color:#a9a2b6;font-weight:400;height:60px">'
+  if(!all.length) html+='<tr><td colspan="13" style="text-align:center;color:#a9a2b6;font-weight:400;height:60px">'
     +esc(semNm)+' 전형으로 잡힌 학생이 아직 없습니다.</td></tr>';
   html+='<tr class="tot"><td class="l">합계</td>'+cells(S,1)+'</tr>';
   html+='</tbody></table></div>';
@@ -2521,23 +2499,43 @@ async function submitReservation(){
   if(created){ bookState.adding=false; toast('예약이 등록됐어요 ✓'); renderWonmuBody(); if(created.id) openSms(created.id); }
 }
 async function setResStatus(id,st){ const ok=await updateReservation(id,{status:st}); if(ok){ toast('상태 변경됨 ✓'); renderWonmuBody(); } }
+/* '등록' 버튼은 이번 학기 등록이라는 뜻이다. 다음 학기에 올 학생을 여기서 등록하면
+   원무 대기명단에도, 다음 학기 신규생 명단에도 영영 안 들어간다.
+   그래서 누를 때마다 어느 학기인지 반드시 고르게 한다. */
+function resEnrollAsk(id){
+  const r=reservations.find(x=>x.id===id); if(!r) return;
+  if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
+  const curNm=semNameFromId(state.semId), nxtNm=semNameFromId(nextSemId(state.semId));
+  const adm=isAdmRes(r);
+  const btn='width:100%;text-align:left;border-radius:12px;padding:13px 15px;cursor:pointer;font:inherit;margin-top:9px';
+  waitModalOpen(
+    '<div style="font-weight:800;font-size:16.5px">'+esc(r.student_name||'학생')+' — 어느 학기 등록인가요?</div>'
+   +'<div style="font-size:12.5px;color:#7b7488;margin-top:4px">고른 학기에 따라 처리가 완전히 달라집니다.</div>'
+   +(adm?'<div style="margin-top:12px;background:#f0ebfe;color:#5b41b5;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700">이 예약은 <b>'+esc(nxtNm)+' 전형</b>으로 표시돼 있습니다.</div>':'')
+   +'<button style="'+btn+';border:1.5px solid #8b6ee8;background:#f6f3fc" onclick="resEnrollNext(\''+r.id+'\')">'
+     +'<div style="font-size:14px;font-weight:800;color:#5b41b5">'+esc(nxtNm)+'에 등록합니다</div>'
+     +'<div style="font-size:11.5px;color:#7b7488;line-height:1.6;margin-top:3px">'
+     +'<b>다음학기 대기</b>로 표시됩니다. 원무 › 레벨테스트 위쪽 <b>대기명단</b>에 뜨고,'
+     +' 반배정이 끝나면 거기서 <b>'+esc(nxtNm)+' 등록</b>을 눌러야 인원 현황 신규생으로 들어갑니다.</div></button>'
+   +'<button style="'+btn+';border:1px solid #e2dcf2;background:#fff" onclick="resEnrollNow(\''+r.id+'\')">'
+     +'<div style="font-size:14px;font-weight:800;color:#3a3742">'+esc(curNm)+'에 등록했습니다</div>'
+     +'<div style="font-size:11.5px;color:#a9a2b6;line-height:1.6;margin-top:3px">'
+     +'이번 학기 등록으로만 잡힙니다. <b>'+esc(nxtNm)+' 신규생 명단에는 들어가지 않습니다.</b></div></button>'
+   +'<div style="display:flex;justify-content:flex-end;margin-top:14px">'
+     +'<button style="border:1px solid #e2dcf2;background:#fff;border-radius:9px;padding:8px 14px;cursor:pointer;font:inherit;font-size:12.5px" onclick="waitModalClose()">취소</button></div>');
+}
+async function resEnrollNext(id){
+  waitModalClose();
+  await setResEnrolledRaw(id,'waiting_next');
+  toast('다음학기 대기로 표시했습니다 — 반배정 후 대기명단에서 등록하세요');
+}
+async function resEnrollNow(id){ waitModalClose(); await setResEnrolledRaw(id,'enrolled'); }
 async function setResEnrolled(id,en){
+  if(en==='enrolled'){ resEnrollAsk(id); renderWonmuBody(); return; }
+  return setResEnrolledRaw(id,en);
+}
+async function setResEnrolledRaw(id,en){
   const r=reservations.find(x=>x.id===id);
-  // 전형(다음 학기 입학) 학생을 '등록 완료'로 바꾸면 예약 도장만 찍지 않고
-  // 그 학기 신규생 기록까지 같이 만든다 — 인원 현황에 안 뜨는 사고를 원천 차단.
-  if(en==='enrolled' && r && isAdmRes(r)){
-    if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
-    const semId=r.wait_semester||r.admission_semester||admSem();
-    showSaving(semNameFromId(semId)+' 신규생으로 등록하는 중…');
-    try{
-      const out=await enrollNewFromRes(r, semId, jhFirstDay(semId), '미배정');
-      hideSaving();
-      toast(out.dup ? '이미 '+semNameFromId(semId)+' 명단에 있어요 — 예약만 등록완료로 ✓'
-                    : (out.name||'')+' · '+semNameFromId(semId)+' 신규생 등록 완료 (미배정) ✓');
-      renderWonmuBody();
-    }catch(e){ hideSaving(); console.error('전형 등록 실패', e); toast('등록 실패: '+(e.message||e),'err'); }
-    return;
-  }
   const patch={enrolled:en};
   if(en!=='not_enrolled') patch.not_enrolled_reason=null;
   // ★ wait_semester는 지우지 않는다.
@@ -3023,7 +3021,7 @@ window.addEventListener('message', async (e)=>{
   }
 });
 window.calMove=calMove; window.selDay=selDay; window.openAddForm=openAddForm; window.editRes=editRes; window.branchFilterChange=branchFilterChange;
-window.submitReservation=submitReservation; window.setResStatus=setResStatus; window.setResEnrolled=setResEnrolled; window.setWaitSemester=setWaitSemester; window.saveResReason=saveResReason; window.saveResInfo=saveResInfo; window.deleteReservation=deleteReservation; window.askDelete=askDelete; window.confirmDelete=confirmDelete; window.cancelDelete=cancelDelete; window.toggleDelLog=toggleDelLog; window.moveReservation=moveReservation;
+window.submitReservation=submitReservation; window.setResStatus=setResStatus; window.setResEnrolled=setResEnrolled; window.resEnrollAsk=resEnrollAsk; window.resEnrollNext=resEnrollNext; window.resEnrollNow=resEnrollNow; window.setWaitSemester=setWaitSemester; window.saveResReason=saveResReason; window.saveResInfo=saveResInfo; window.deleteReservation=deleteReservation; window.askDelete=askDelete; window.confirmDelete=confirmDelete; window.cancelDelete=cancelDelete; window.toggleDelLog=toggleDelLog; window.moveReservation=moveReservation;
 $('loginBtn').addEventListener('click', doLogin);
 $('loginPw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 $('logoutBtn').addEventListener('click', logout);
