@@ -686,9 +686,12 @@ function jhRows(semId){
   // 같은 날에도 그 학기에 바로 등록하는 학생이 섞이므로 날짜로는 가르지 않는다.
   reservations.forEach(r=>{
     if(r.admission_semester===ADM_NONE) return;              // 전형에서 빼달라고 표시한 예약
+    // 대기 학기가 비어 있는 예약도 '다음 학기 대기'로 본다 —
+    // 원무 대기명단이 쓰는 규칙과 똑같이 맞춰야 두 화면 인원이 어긋나지 않는다.
+    const wsem = r.wait_semester || (r.enrolled==='waiting_next' ? nextSemId() : '');
     if(edBriefOn(r.branch_id, r.reserved_date, semId)) push(mk(r,'brief'));
     else if(r.admission_semester===semId)              push(mk(r,'btn'));
-    else if(r.wait_semester===semId)                   push(mk(r,'wait'));
+    else if(wsem===semId)                              push(mk(r,'wait'));
   });
   // 예전 버전이 등록 처리하면서 대기 기록을 지운 학생 — 이동 기록으로 알아낸다.
   // 새 행을 만들지 않고 '그 학생의 예약'을 전형으로 잡는다. 예약이 아예 없으면 건너뛴다.
