@@ -953,7 +953,6 @@ function renderJeonhyeongDash(c){
     +'<td class="sep'+(big?' k w':'')+'">'+z(s2.decided)+'</td>'
     +'<td'+(big?' class="k e"':'')+'>'+z(s2.enrFix)+'</td>'
     +'<td>'+(s2.enrMiss?'<span class="miss">'+s2.enrMiss+'</span>':'<span class="z">·</span>')+'</td>'
-    +'<td>'+(s2.enrBad?'<span class="flag">'+s2.enrBad+'</span>':'<span class="z">·</span>')+'</td>'
     +'<td>'+z(s2.wait)+'</td><td>'+z(s2.notenr)+'</td>'
     +'<td class="sep">'+(s2.rate==null?'<span class="z">—</span>':s2.rate+'%')+'</td>'
     +'<td>'+(s2.open?'<span class="flag">'+s2.open+'</span>':'<span class="z">·</span>')+'</td>';
@@ -969,17 +968,16 @@ function renderJeonhyeongDash(c){
     +'<span class="why">왼쪽에서 오른쪽으로 읽으면 학생이 어디까지 왔는지 보입니다</span></div>'
     +'<div style="overflow-x:auto"><table class="jh-t"><thead>'
     +'<tr class="grp"><th class="gl">&nbsp;</th><th class="sep" colspan="4">응 시</th>'
-    +'<th class="sep" colspan="6">전형 결과</th><th class="sep" colspan="2">&nbsp;</th></tr>'
+    +'<th class="sep" colspan="5">전형 결과</th><th class="sep" colspan="2">&nbsp;</th></tr>'
     +'<tr><th class="l">분원 / 회차</th>'
     +'<th class="sep">예약</th><th>응시</th><th title="취소·노쇼·연락 없이 안 온 인원">불참</th><th>미통과</th>'
     +'<th class="sep" title="등록·대기·미등록이 정해진 인원. 미통과와 결과 미입력은 빠집니다.">확정</th>'
     +'<th title="대기명단에서 등록까지 누른 학생">등록</th>'
     +'<th title="레벨테스트에서 바로 등록을 눌러 학기 명단에 아예 없는 학생 — 대기로 되돌린 뒤 대기명단에서 다시 등록해야 합니다">누락</th>'
-    +'<th title="명단에는 있는데 입학일이 이 학기 달이 아니라 인원 현황에서 빠지는 학생">입학일</th>'
     +'<th>대기</th><th>미등록</th>'
     +'<th class="sep">전환</th><th title="분원이 아직 결과를 넣지 않은 예약">미입력</th></tr>'
     +'</thead><tbody>';
-  const sec=t=>'<tr class="sec"><td colspan="13">'+t+'</td></tr>';
+  const sec=t=>'<tr class="sec"><td colspan="12">'+t+'</td></tr>';
   const trackRows=x=>{
     const md=d=>edDs(d).slice(5).replace('-','.');
     const ts=x.bl.map(e=>({key:'b'+(e.briefing_no||1), label:'설명회 '+(e.briefing_no||1)+'차', date:md(e.exam_date)}))
@@ -995,7 +993,7 @@ function renderJeonhyeongDash(c){
     + withBrief.map(x=>'<tr class="br"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>'+trackRows(x)).join('');
   if(onlyInd.length) html+=sec('개별전형만')
     + onlyInd.map(x=>'<tr class="br end"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>').join('');
-  if(!all.length) html+='<tr><td colspan="13" style="text-align:center;color:#a9a2b6;font-weight:400;height:60px">'
+  if(!all.length) html+='<tr><td colspan="12" style="text-align:center;color:#a9a2b6;font-weight:400;height:60px">'
     +esc(semNm)+' 전형으로 잡힌 학생이 아직 없습니다.</td></tr>';
   html+='<tr class="tot"><td class="l">합계</td>'+cells(S,1)+'</tr>';
   html+='</tbody></table></div>';
