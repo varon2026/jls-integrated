@@ -4735,8 +4735,7 @@ function cancelEnroll(recId){
       </div>
       <div style="margin-top:12px;font-size:12.5px;color:var(--ink-2);line-height:1.9">
         · <b>${esc(cls)}</b> 반에서 빠지고 신규생 명단에서 사라집니다.<br>
-        · 레벨테스트 예약이 있으면 <b>미등록</b>(사유: 입학 취소)으로 바뀝니다.<br>
-        · 전체명단 엑셀에 이 학생이 남아 있으면 <b>다음 업로드 때 다시 살아납니다.</b> 엑셀에서도 빼주세요.
+        · 레벨테스트 예약이 있으면 <b>미등록</b>(사유: 입학 취소)으로 바뀝니다.
       </div>
     </div>
     <div class="modal-foot">
