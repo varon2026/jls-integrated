@@ -598,9 +598,9 @@ function renderMgmtDash(c){
    숫자는 전부 예약 데이터에서 세어 나온다 — 참석·노쇼·취소·미통과·등록은
    이미 예약마다 기록돼 있으므로 따로 입력받지 않는다.
 
-   과거 데이터 복원: 예전 코드가 등록·미등록 처리 때 wait_semester를 지워버려서
-   '어느 학기 대기였는지'가 사라진 건이 있다. 그중 대기→등록만은 studentMovements에
-   memo='레벨테스트 대기→등록' 으로 남아 있어 그걸로 되살린다(명단에 '기록 복원' 표시).
+   과거 데이터: 예전 코드가 등록 처리 때 wait_semester를 지워버려 '어느 학기 대기였는지'가
+   사라진 건이 있다. studentMovements의 memo='레벨테스트 대기→등록'으로 알아내서
+   그 학생의 '예약'을 전형으로 잡는다 — 새 행을 만들지 않아야 캘린더 건수와 맞는다.
    ============================================================================ */
 function jhRank(id){ const m=String(id||'').match(/sem_(\d+)_(\w+)/); if(!m) return 0; return (+m[1])*10+({spring:1,summer:2,fall:3,winter:4}[m[2]]||0); }
 function jhSemId(){ return state.jhSem || nextSemId(state.semId); }
@@ -658,36 +658,35 @@ function jhTrack(branchId, ds, semId){
 function jhRows(semId){
   const out=[], seen={};
   const key=(br,code,nm)=> String(br)+'|'+(code?('#'+code):('@'+(nm||'')));
-  const mk=(r,back)=>({ branchId:r.branch_id, code:r.student_code||'', name:r.student_name||'',
+  const mk=(r)=>({ branchId:r.branch_id, code:r.student_code||'', name:r.student_name||'',
     school:r.school||'', grade:r.grade||'', date:edDs(r.reserved_date),
-    status:r.status||'', enrolled:r.enrolled||'', waitSem:r.wait_semester||'', back:!!back, reason:r.not_enrolled_reason||'' });
+    status:r.status||'', enrolled:r.enrolled||'', waitSem:r.wait_semester||'', reason:r.not_enrolled_reason||'' });
   const push=o=>{ const k=key(o.branchId,o.code,o.name); if(seen[k]) return; seen[k]=1; out.push(o); };
   // 전형 대상 = 예약에 '다음 학기 입학용'으로 표시했거나, 다음학기 대기를 누른 학생.
   // 같은 날에도 그 학기에 바로 등록하는 학생이 섞이므로 날짜로는 가르지 않는다.
   reservations.forEach(r=>{
-    if(r.admission_semester===semId || r.wait_semester===semId) push(mk(r,false));
+    if(r.admission_semester===semId || r.wait_semester===semId) push(mk(r));
   });
+  // 예전 버전이 등록 처리하면서 대기 기록을 지운 학생 — 이동 기록으로 알아낸다.
+  // 새 행을 만들지 않고 '그 학생의 예약'을 전형으로 잡는다. 예약이 아예 없으면 건너뛴다.
   (db.studentMovements||[]).forEach(m=>{
     if(m.memo!=='레벨테스트 대기→등록' || m.semesterId!==semId) return;
     const stu=getStudent(m.studentId)||{};
     if(seen[key(m.branchId, stu.code, stu.name)]) return;
     const cands=reservations.filter(x=> x.branch_id===m.branchId &&
       ((stu.code && x.student_code===stu.code) || (!stu.code && x.student_name===stu.name)));
+    if(!cands.length) return;
     const mv=edDs(m.date);
     const before=cands.filter(x=> edDs(x.reserved_date)<=mv).sort((a,b)=> edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1);
-    const res=before[0] || cands.sort((a,b)=> edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1)[0] || null;
-    push({ branchId:m.branchId, code:stu.code||'', name:stu.name||'',
-      school:(res&&res.school)||stu.school||'', grade:(res&&res.grade)||stu.grade||'',
-      date:res?edDs(res.reserved_date):edDs(m.date),
-      status:'attended', enrolled:'enrolled', waitSem:semId, back:true, reason:'' });
+    const res=before[0] || cands.sort((a,b)=> edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1)[0];
+    push(mk(res));
   });
   return out;
 }
 /* 행 묶음 → 숫자. 전부 예약 기록에서 세어 나온다. */
 function jhCount(rs, semId){
-  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0, mid:0, back:0 };
+  const s={ book:rs.length, att:0, noshow:0, cancel:0, parent:0, fail:0, wait:0, enr:0, notenr:0, mid:0 };
   rs.forEach(r=>{
-    if(r.back) s.back++;   // 예약 기록이 없어 이동 기록으로 되살린 건
     if(isAttended(r)) s.att++;
     const o=jhOutcome(r, semId);
     if(o==='noshow') s.noshow++; else if(o==='cancel') s.cancel++; else if(o==='parent') s.parent++;
@@ -733,13 +732,12 @@ const JH_CSS='<style>'
 +'</style>';
 function jhChip(bg,fg,txt,title){ return '<span'+(title?' title="'+esc(title)+'"':'')+' style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
 function jhStateChip(r, semId){
-  const back = r.back ? ' '+jhChip('#f3f0fa','#7b7488','기록 복원','예전에 등록 처리되면서 대기 기록이 지워진 학생입니다. 등록 이력으로 되살렸습니다.') : '';
   const o=jhOutcome(r, semId);
   if(o==='cancel')   return jhChip('#f3f0fa','#a9a2b6','취소');
   if(o==='noshow')   return jhChip('#fdecf1','#e2557a','노쇼');
   if(o==='parent')   return jhChip('#f3f0fa','#7b7488','학부모만');
   if(o==='fail')     return jhChip('#fdecf1','#e2557a','미통과');
-  if(o==='enrolled') return jhChip('#e6f7f0','#2fa878','등록 완료')+back;
+  if(o==='enrolled') return jhChip('#e6f7f0','#2fa878','등록 완료')+'';
   if(o==='mid')      return jhChip('#eef0f5','#7b8494','중간 등록','이 시험을 보고 다음 학기가 아니라 그 학기 중간에 바로 등록한 학생입니다. 전형 등록률에는 넣지 않습니다.');
   if(o==='notenr')   return jhChip('#fdf3e6','#e2953f','미등록');
   if(o==='wait')     return jhChip('#e4f4f5','#1f8a95','대기중');
@@ -759,7 +757,6 @@ function renderJeonhyeongDash(c){
   const S=jhCount(rows, semId);
   const isBrief=r=> jhTrack(r.branchId,r.date,semId).brief;
   const SB=jhCount(rows.filter(isBrief), semId), SI=jhCount(rows.filter(r=>!isBrief(r)), semId);
-  const backN=rows.filter(r=>r.back).length;
 
   const card='background:#fff;border:1px solid #ece8f5;border-radius:16px;padding:18px 20px;box-shadow:0 3px 14px rgba(80,70,120,.05);margin-bottom:16px';
   const h3s='margin:0 0 2px;font-size:15px;font-weight:800;color:#3a3742';
@@ -801,7 +798,7 @@ function renderJeonhyeongDash(c){
       +'<span style="font-size:12.5px;font-weight:700;opacity:.92">전형 응시</span>'
       +'<span style="font-size:31px;font-weight:800;line-height:1">'+S.book+'<span style="font-size:14px;font-weight:700;opacity:.92"> 명</span></span>'
       +'<span style="font-size:11.5px;font-weight:700;opacity:.9">설명회 '+SB.book+' · 개별 '+SI.book+'</span>'
-      +(S.back?'<span style="font-size:11px;font-weight:700;opacity:.82">예약 '+(S.book-S.back)+' · 기록 복원 '+S.back+'</span>':'')+'</div>'
+      +'</div>'
     + kpi('등록 완료', S.enr,'명','#2fa878','#e6f7f0','')
     + kpi('미등록', S.notenr,'명','#e2953f','#fdf3e6','')
     + kpi('아직 대기중', S.wait,'명','#1f8a95','#e4f4f5','연락 필요')
@@ -810,8 +807,6 @@ function renderJeonhyeongDash(c){
     +'<div style="margin-top:11px;font-size:11.5px;color:#a9a2b6;line-height:1.7">'
     +'참석 '+S.att+' · 노쇼 '+S.noshow+' · 취소 '+S.cancel+' · 미통과 '+S.fail
     +(S.parent?' · 학부모만 '+S.parent:'')+(S.mid?' · 중간 등록 '+S.mid:'')+'</div>';
-  if(backN) html+='<div style="margin-top:12px;font-size:12px;color:#7b7488;background:#faf8fe;border:1px dashed #e2dcf2;border-radius:10px;padding:9px 12px;line-height:1.6">'
-      +'<b>기록 복원 '+backN+'명</b> — 예약 기록이 남아 있지 않아 등록 이력으로 되살린 학생입니다. 캘린더에는 안 보이므로, 캘린더 건수와 맞춰보실 때는 이 '+backN+'명을 빼고 세시면 됩니다.</div>';
   html+='</div>';
 
   /* ---- 분원 · 회차별 ----
@@ -850,9 +845,9 @@ function renderJeonhyeongDash(c){
   });
   html+='<tr class="sum"><td class="l">합계</td><td class="l">설명회 '+briefs.length+'회</td>'+cells(S)+'</tr>';
   html+='</tbody></table></div>';
-  if(!briefs.length) html+='<div style="margin-top:12px;font-size:12px;color:#7b7488;background:#faf8fe;border:1px dashed #e2dcf2;border-radius:10px;padding:10px 13px;line-height:1.65">'
-    +'설명회를 한 날이 아직 표시되지 않아 전부 <b>개별</b>로 잡혀 있습니다. 설명회를 진행한 날이 있으면 '
-    +'원무 › 레벨테스트 캘린더에서 그 날짜를 골라 <b>설명회 진행</b>만 켜주세요(지난 날짜도 됩니다). 개별전형은 따로 켤 게 없습니다.</div>';
+  if(!briefs.length) html+='<div style="margin-top:12px;font-size:12px;color:#a9a2b6;line-height:1.65">'
+    +'이 학기에 표시된 설명회가 없어 응시자가 전부 <b>개별</b>로 잡혔습니다. 설명회를 진행한 날이 있다면 '
+    +'분원 계정에서 그 날짜를 열어 <b>설명회 진행</b>을 켜면 여기서 회차별로 갈립니다.</div>';
   html+='</div>';
 
   /* ---- 명단 ---- */
@@ -2180,8 +2175,8 @@ function edPanel(branchId, ds){
       +'</div>';
   } else {
     h+='<div style="margin:0 14px 12px;padding:11px 13px;background:#faf8fe;border:1px dashed #e2dcf2;border-radius:11px;font-size:11.5px;color:#7b7488;line-height:1.7">'
-      +'<b>설명회를 진행한 날만</b> 켜주세요. 개별전형은 따로 켤 게 없습니다 —'
-      +' 학생이 <b>다음학기 대기</b>를 누르면 자동으로 개별전형으로 잡힙니다.</div>';
+      +'<b>설명회를 진행한 날이면</b> 켜주세요. 그러면 이 날 예약이 설명회전형으로 잡힙니다.<br>'
+      +'<b>개별전형으로 볼 학생은 아래 학생별 버튼을 눌러</b> 표시하세요. 다음학기 대기로 처리한 학생은 자동으로 잡힙니다.</div>';
   }
   return h;
 }
