@@ -590,26 +590,46 @@ function renderMgmtDash(c){
 
 /* ============================================================================
    전형 현황 — '다음 학기 입학을 목표로 본 레벨테스트'의 결과만 모아 본다.
-   대기 → 등록 / 미등록까지 추적. 학기 중간에 보고 바로 등록한 건은 여기 안 들어온다.
+   설명회 → 응시 → 합격 → 대기 → 등록까지. 학기 중간에 보고 바로 등록한 건은 안 들어온다.
 
-   과거 데이터 소급: 예전 코드가 등록·미등록 처리 때 wait_semester를 지워버려서
+   어느 전형인지는 학생이 아니라 '날짜'로 정해진다(lt_exam_days).
+   분원이 캘린더에서 그 날짜의 스위치를 켜두면 그날 예약자가 통째로 그 전형이 된다.
+
+   과거 데이터 복원: 예전 코드가 등록·미등록 처리 때 wait_semester를 지워버려서
    '어느 학기 대기였는지'가 사라진 건이 있다. 그중 대기→등록만은 studentMovements에
-   memo='레벨테스트 대기→등록' 으로 남아 있어 그걸로 되살린다(표에 '소급' 표시).
+   memo='레벨테스트 대기→등록' 으로 남아 있어 그걸로 되살린다(명단에 '기록 복원' 표시).
    대기→미등록은 아무 흔적이 없어 되살릴 수 없다 — 이후 처리분부터 잡힌다.
    ============================================================================ */
 function jhRank(id){ const m=String(id||'').match(/sem_(\d+)_(\w+)/); if(!m) return 0; return (+m[1])*10+({spring:1,summer:2,fall:3,winter:4}[m[2]]||0); }
 function jhSemId(){ return state.jhSem || nextSemId(state.semId); }
 function jhSetSem(v){ state.jhSem=v; render(); }
-/* 고를 수 있는 대상 학기 = 등록된 학기 + 실제 대기·등록 기록이 있는 학기 */
 function jhSemOptions(){
   const ids={};
   (db.semesters||[]).forEach(s=>{ if(s&&s.id) ids[s.id]=1; });
   reservations.forEach(r=>{ if(r.wait_semester) ids[r.wait_semester]=1; });
   (db.studentMovements||[]).forEach(m=>{ if(m.memo==='레벨테스트 대기→등록' && m.semesterId) ids[m.semesterId]=1; });
+  examDays.forEach(x=>{ if(x.target_semester) ids[x.target_semester]=1; });
   ids[nextSemId(state.semId)]=1;
   return Object.keys(ids).sort((a,b)=>jhRank(b)-jhRank(a));
 }
-/* 대상 학기의 전형 대상자 = 한 명당 한 행. 예약 기록이 우선, 없으면 이동 기록으로 소급. */
+/* 이 학기 전형으로 표시된 날짜들 (분원 무관) */
+function jhDays(semId){ return examDays.filter(x=> x.is_admission && x.target_semester===semId); }
+/* 날짜 → 전형 구분. 설정 안 된 날은 null */
+function jhTrack(branchId, ds, semId){
+  const e=examDays.find(x=> x.branch_id===branchId && edDs(x.exam_date)===edDs(ds) && x.is_admission && x.target_semester===semId);
+  if(!e) return null;
+  if(e.is_briefing) return { key:'b'+(e.briefing_no||1), no:(e.briefing_no||1), brief:true, label:'설명회 '+(e.briefing_no||1)+'차', date:edDs(e.exam_date), att:e.attendees };
+  return { key:'ind', no:99, brief:false, label:'개별', date:'', att:null };
+}
+/* 이 학기 전형 날짜에 실제로 시험 본 사람 (합격·미통과 모두) */
+function jhExamRows(semId){
+  const set={}; jhDays(semId).forEach(x=>{ set[x.branch_id+'|'+edDs(x.exam_date)]=1; });
+  return reservations.filter(r=>{
+    if(r.status==='parent_only'||r.status==='canceled'||r.status==='noshow') return false;
+    return !!set[r.branch_id+'|'+edDs(r.reserved_date)];
+  });
+}
+/* 대상 학기의 대기 → 결과. 한 명당 한 행. 예약 기록 우선, 없으면 이동 기록으로 복원. */
 function jhRows(semId){
   const out=[], seen={};
   const key=(br,code,nm)=> String(br)+'|'+(code?('#'+code):('@'+(nm||'')));
@@ -621,22 +641,29 @@ function jhRows(semId){
     if(!st) return;
     const k=key(r.branch_id, r.student_code, r.student_name); if(seen[k]) return; seen[k]=1;
     out.push({ branchId:r.branch_id, code:r.student_code||'', name:r.student_name||'',
-      school:r.school||'', grade:r.grade||'', date:String(r.reserved_date||'').slice(0,10),
+      school:r.school||'', grade:r.grade||'', date:edDs(r.reserved_date),
       st:st, back:false, reason:r.not_enrolled_reason||'' });
   });
   (db.studentMovements||[]).forEach(m=>{
     if(m.memo!=='레벨테스트 대기→등록' || m.semesterId!==semId) return;
     const stu=getStudent(m.studentId)||{};
     const k=key(m.branchId, stu.code, stu.name); if(seen[k]) return; seen[k]=1;
+    // 예약이 아직 남아 있으면 거기서 '시험 본 날'을 가져온다 → 어느 전형이었는지 판정 가능
+    const cands=reservations.filter(x=> x.branch_id===m.branchId &&
+      ((stu.code && x.student_code===stu.code) || (!stu.code && x.student_name===stu.name)));
+    const mv=edDs(m.date);
+    const before=cands.filter(x=> edDs(x.reserved_date)<=mv).sort((a,b)=> edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1);
+    const res=before[0] || cands.sort((a,b)=> edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1)[0] || null;
     out.push({ branchId:m.branchId, code:stu.code||'', name:stu.name||'',
-      school:stu.school||'', grade:stu.grade||'', date:String(m.date||'').slice(0,10),
+      school:(res&&res.school)||stu.school||'', grade:(res&&res.grade)||stu.grade||'',
+      date:res?edDs(res.reserved_date):edDs(m.date),
       st:'enrolled', back:true, reason:'' });
   });
   return out;
 }
-function jhChip(bg,fg,txt){ return '<span style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
+function jhChip(bg,fg,txt,title){ return '<span'+(title?' title="'+esc(title)+'"':'')+' style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
 function jhStateChip(r){
-  const back = r.back ? ' <span style="background:#f3f0fa;color:#9a93b0;font-size:10px;font-weight:800;border-radius:5px;padding:2px 6px">소급</span>' : '';
+  const back = r.back ? ' '+jhChip('#f3f0fa','#7b7488','기록 복원','예전에 등록 처리되면서 대기 기록이 지워진 학생입니다. 등록 이력으로 되살렸습니다.') : '';
   if(r.st==='enrolled') return jhChip('#e6f7f0','#2fa878','등록 완료')+back;
   if(r.st==='notenr')   return jhChip('#fdf3e6','#e2953f','미등록');
   return jhChip('#e4f4f5','#1f8a95','대기중');
@@ -650,10 +677,18 @@ function renderJeonhyeongDash(c){
   const semId=jhSemId(), semNm=semNameFromId(semId);
   const brs=mgBranchList(), inScope={}; brs.forEach(b=>inScope[b.id]=1);
   const rows=jhRows(semId).filter(r=>inScope[r.branchId]);
+  const exams=jhExamRows(semId).filter(r=>inScope[r.branch_id]);
+  const days=jhDays(semId).filter(x=>inScope[x.branch_id]);
+  const briefs=days.filter(x=>x.is_briefing).sort((a,b)=> edDs(a.exam_date)<edDs(b.exam_date)?-1:1);
+
   const nOf=(list,st)=>list.filter(r=>r.st===st).length;
   const tot=rows.length, enr=nOf(rows,'enrolled'), ne=nOf(rows,'notenr'), wt=nOf(rows,'wait');
   const backN=rows.filter(r=>r.back).length;
   const rate = tot ? Math.round(enr/tot*100) : null;
+  const attTot=briefs.reduce((a,x)=>a+(+x.attendees||0),0);
+  const examBrief=exams.filter(r=>{ const t=jhTrack(r.branch_id,r.reserved_date,semId); return t&&t.brief; }).length;
+  const examInd=exams.length-examBrief;
+  const passed=exams.filter(r=>r.enrolled!=='failed').length;
 
   const card='background:#fff;border:1px solid #ece8f5;border-radius:16px;padding:18px 20px;box-shadow:0 3px 14px rgba(80,70,120,.05);margin-bottom:16px';
   const h3s='margin:0 0 2px;font-size:15px;font-weight:800;color:#3a3742';
@@ -661,7 +696,6 @@ function renderJeonhyeongDash(c){
   const sels='background:#f6f3fc;border:1px solid #e2dcf2;border-radius:8px;padding:5px 8px;font:inherit;font-weight:700;color:#8b6ee8;cursor:pointer';
 
   let html='';
-  /* ---- 필터 ---- */
   html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-size:13px;font-weight:700;color:#7b7488">'
     +'<span>입학 대상 학기</span>'
     +'<select onchange="jhSetSem(this.value)" style="'+sels+'">'
@@ -670,52 +704,87 @@ function renderJeonhyeongDash(c){
     +(session.role==='admin' ? '<span style="margin-left:8px">분원</span><select onchange="mgSetBranch(this.value)" style="'+sels+'"><option value="all" '+((!state.mgBranch||state.mgBranch==='all')?'selected':'')+'>전체</option>'+(db.branches||[]).map(b=>'<option value="'+b.id+'" '+(state.mgBranch===b.id?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '')
     +'</div>';
 
+  /* ---- 설명회 진행 스트립 ---- */
+  const byBr={}; brs.forEach(b=>byBr[b.id]=[]);
+  briefs.forEach(x=>{ if(byBr[x.branch_id]) byBr[x.branch_id].push(x); });
+  html+='<div style="'+card+';display:flex;align-items:center;gap:22px;flex-wrap:wrap">'
+    +'<div style="min-width:130px"><div style="font-size:12px;font-weight:800;color:#7b7488">설명회 진행</div>'
+    +'<div style="font-size:22px;font-weight:800;color:#3a3742">'+briefs.length+'<span style="font-size:12.5px;color:#a9a2b6;font-weight:700"> 회 · '+Object.keys(byBr).filter(k=>byBr[k].length).length+'개 분원</span></div></div>'
+    +'<div style="display:flex;gap:7px;flex-wrap:wrap;flex:1">'
+    + brs.map(b=>{ const L=byBr[b.id]||[]; const on=L.length>0;
+        const dots=(on?L:[0]).map(()=>'<i style="width:8px;height:8px;border-radius:50%;display:inline-block;'+(on?'background:#8b6ee8':'border:1.5px solid #c9c3d6;opacity:.6')+'"></i>').join('');
+        return '<span title="'+esc(L.map(x=>edDs(x.exam_date)).join(' · '))+'" style="display:flex;align-items:center;gap:8px;background:#faf8fe;border:1px '+(on?'solid':'dashed')+' #e2dcf2;border-radius:9px;padding:7px 12px">'
+          +'<span style="font-size:12px;font-weight:800;color:'+(on?'#3a3742':'#a9a2b6')+'">'+esc(String(b.name).replace(/분원$/,''))+'</span>'
+          +'<span style="display:flex;gap:3px">'+dots+'</span></span>'; }).join('')
+    +'</div></div>';
+
   /* ---- 요약 ---- */
-  html+='<div style="'+card+'"><h3 style="'+h3s+'">'+esc(semNm)+' 입학 대기 → 결과</h3>'
-    +'<div style="'+css+'">다음 학기 입학을 잡아둔 학생이 실제로 등록까지 갔는지</div>'
+  const kpi=(label,val,unit,color,bg)=>'<div style="flex:1;min-width:118px;border:1px solid #ece8f5;border-radius:14px;padding:12px 16px;background:'+bg+'">'
+    +'<div style="font-size:12.5px;font-weight:700;color:#52514e">'+label+'</div>'
+    +'<div style="font-size:26px;font-weight:800;color:'+color+';line-height:1.15">'+val+'<span style="font-size:12px;color:#a9a2b6;font-weight:700"> '+unit+'</span></div></div>';
+  html+='<div style="'+card+'"><h3 style="'+h3s+'">'+esc(semNm)+' 전형 결과</h3>'
+    +'<div style="'+css+'">설명회 → 응시 → 대기 → 등록</div>'
     +'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">'
     +'<div style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#8b6ee8,#6f9ad6);color:#fff;border-radius:14px;padding:12px 20px">'
       +'<span style="font-size:13px;font-weight:700;opacity:.92">전체 대기</span>'
       +'<span style="font-size:30px;font-weight:800;line-height:1">'+tot+'</span>'
       +'<span style="font-size:14px;font-weight:700;opacity:.92">명</span></div>'
-    +[['등록 완료',enr,'#2fa878','#e6f7f0'],['미등록',ne,'#e2953f','#fdf3e6'],['아직 대기중',wt,'#1f8a95','#e4f4f5']]
-      .map(x=>'<div style="flex:1;min-width:120px;border:1px solid #ece8f5;border-radius:14px;padding:12px 16px;background:'+x[3]+'">'
-        +'<div style="font-size:12.5px;font-weight:700;color:#52514e">'+x[0]+'</div>'
-        +'<div style="font-size:26px;font-weight:800;color:'+x[2]+';line-height:1.15">'+x[1]+'<span style="font-size:12px;color:#a9a2b6;font-weight:700"> 명</span></div></div>').join('')
-    +'<div style="flex:1;min-width:120px;border:1px solid #ece8f5;border-radius:14px;padding:12px 16px;background:#faf8fe">'
-      +'<div style="font-size:12.5px;font-weight:700;color:#52514e">등록률</div>'
-      +'<div style="font-size:26px;font-weight:800;color:#8b6ee8;line-height:1.15">'+(rate==null?'—':rate+'<span style="font-size:13px;font-weight:700">%</span>')+'</div></div>'
-    +'</div>'
-    +(backN?'<div style="margin-top:12px;font-size:12px;color:#7b7488;background:#faf8fe;border:1px dashed #e2dcf2;border-radius:10px;padding:9px 12px;line-height:1.6">'
-      +'이 중 <b>'+backN+'명</b>은 예전에 등록 처리되면서 대기 기록이 지워졌던 학생입니다. 등록 이력으로 되살려 <b>소급</b>으로 표시했습니다.'
-      +' <span style="color:#a9a2b6">(대기했다가 미등록으로 바꾼 학생은 흔적이 남지 않아 되살릴 수 없습니다)</span></div>':'')
+    + kpi('설명회 참석', attTot||'—','명','#8b6ee8','#f6f3fc')
+    + kpi('전형 응시', exams.length,'명','#4f8fdd','#eaf2fc')
+    + kpi('등록 완료', enr,'명','#2fa878','#e6f7f0')
+    + kpi('미등록', ne,'명','#e2953f','#fdf3e6')
+    + kpi('아직 대기중', wt,'명','#1f8a95','#e4f4f5')
+    + kpi('등록률', (rate==null?'—':rate),(rate==null?'':'%'),'#8b6ee8','#faf8fe')
     +'</div>';
+  if(exams.length) html+='<div style="margin-top:10px;font-size:12px;color:#7b7488">응시 '+exams.length+'명 = 설명회 <b>'+examBrief+'</b> · 개별 <b>'+examInd+'</b> · 그중 합격 <b>'+passed+'</b>명</div>';
+  if(backN) html+='<div style="margin-top:12px;font-size:12px;color:#7b7488;background:#faf8fe;border:1px dashed #e2dcf2;border-radius:10px;padding:9px 12px;line-height:1.6">'
+      +'<b>기록 복원 '+backN+'명</b> — 예전 버전이 등록 처리하면서 \'어느 학기 대기였다\'는 기록을 지웠던 학생입니다. 등록 이력으로 되살려 넣었습니다.'
+      +' <span style="color:#a9a2b6">(대기했다가 미등록으로 바꾼 학생은 흔적이 남지 않아 되살릴 수 없습니다)</span></div>';
+  html+='</div>';
 
-  /* ---- 분원별 ---- */
-  html+='<div style="'+card+'"><h3 style="'+h3s+'">분원별</h3><div style="'+css+'">'+esc(semNm)+' 기준</div>';
-  if(!brs.length){ html+='<div style="color:#a9a2b6;font-size:13px;padding:10px 0">표시할 분원이 없습니다.</div>'; }
-  else{
-    html+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:520px;font-size:12.5px">'
-      +'<thead><tr>'
-      +['분원','대기','등록','미등록','대기중','등록률'].map((t,i)=>'<th style="text-align:'+(i?'right':'left')+';font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap">'+t+'</th>').join('')
-      +'</tr></thead><tbody>';
-    brs.forEach(b=>{
-      const rs=rows.filter(r=>r.branchId===b.id);
-      const t=rs.length, e=nOf(rs,'enrolled'), n=nOf(rs,'notenr'), w=nOf(rs,'wait');
-      const rt=t?Math.round(e/t*100):null;
-      const td='padding:9px 10px;border-bottom:1px solid #f3f0fa;text-align:right;white-space:nowrap';
-      html+='<tr>'
-        +'<td style="'+td+';text-align:left;font-weight:800;color:#3a3742">'+esc(b.name)+'</td>'
-        +'<td style="'+td+'">'+t+'</td>'
-        +'<td style="'+td+';color:#2fa878;font-weight:800">'+e+'</td>'
-        +'<td style="'+td+';color:#e2953f;font-weight:800">'+n+'</td>'
-        +'<td style="'+td+';color:#1f8a95;font-weight:800">'+w+'</td>'
-        +'<td style="'+td+';font-weight:800">'+(rt==null?'<span style="color:#c9c3d6">—</span>':rt+'%')+'</td></tr>';
+  /* ---- 분원 · 회차별 ---- */
+  html+='<div style="'+card+'"><h3 style="'+h3s+'">분원 · 회차별</h3><div style="'+css+'">'+esc(semNm)+' 기준</div>';
+  const th=(t,i)=>'<th style="text-align:'+(i<2?'left':'right')+';font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap">'+t+'</th>';
+  html+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:720px;font-size:12.5px"><thead><tr>'
+    +['분원 / 회차','날짜','설명회 참석','응시','대기','등록','미등록','대기중','등록률'].map(th).join('')+'</tr></thead><tbody>';
+  const td='padding:9px 10px;border-bottom:1px solid #f3f0fa;text-align:right;white-space:nowrap';
+  const tdL=td+';text-align:left';
+  const cell=(v,col)=>'<td style="'+td+(col?';color:'+col+';font-weight:800':'')+'">'+v+'</td>';
+  brs.forEach(b=>{
+    const rs=rows.filter(r=>r.branchId===b.id), ex=exams.filter(r=>r.branch_id===b.id);
+    const t=rs.length, e=nOf(rs,'enrolled'), n=nOf(rs,'notenr'), w=nOf(rs,'wait');
+    const bl=(byBr[b.id]||[]);
+    const at=bl.reduce((a,x)=>a+(+x.attendees||0),0);
+    html+='<tr style="background:#faf8fe"><td style="'+tdL+';font-weight:800;color:#3a3742">'+esc(b.name)+'</td>'
+      +'<td style="'+tdL+';color:#a9a2b6">'+(bl.length?('설명회 '+bl.length+'회'):'<span style="background:#f3f0fa;color:#a9a2b6;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">설명회 미진행</span>')+'</td>'
+      +cell(at||'<span style="color:#c9c3d6">—</span>')+cell(ex.length)+cell(t)
+      +cell(e,'#2fa878')+cell(n,'#e2953f')+cell(w,'#1f8a95')
+      +cell(t?Math.round(e/t*100)+'%':'<span style="color:#c9c3d6">—</span>')+'</tr>';
+    // 회차 줄
+    const tracks=bl.map(x=>({key:'b'+(x.briefing_no||1), label:'설명회 '+(x.briefing_no||1)+'차', date:edDs(x.exam_date), att:x.attendees}))
+      .concat([{key:'ind', label:'개별', date:'수시', att:null}]);
+    tracks.forEach(tr=>{
+      const inTr=(bid,ds)=>{ const k=jhTrack(bid,ds,semId); return k && k.key===tr.key; };
+      const rs2=rs.filter(r=>inTr(r.branchId,r.date)), ex2=ex.filter(r=>inTr(r.branch_id,r.reserved_date));
+      if(!rs2.length && !ex2.length && tr.key==='ind') return;   // 개별이 아예 없으면 줄 생략
+      const t2=rs2.length, e2=nOf(rs2,'enrolled'), n2=nOf(rs2,'notenr'), w2=nOf(rs2,'wait');
+      const chip = tr.key==='ind'
+        ? '<span style="background:#eaf2fc;color:#2f6cb5;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">개별</span>'
+        : '<span style="background:#f0ebfe;color:#5b41b5;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">'+esc(tr.label)+'</span>';
+      html+='<tr><td style="'+tdL+';padding-left:26px">'+chip+'</td>'
+        +'<td style="'+tdL+';color:#a9a2b6">'+esc(tr.date||'—')+'</td>'
+        +cell(tr.att==null?'<span style="color:#c9c3d6">—</span>':tr.att)+cell(ex2.length)+cell(t2)
+        +'<td style="'+td+';color:#7b7488">'+e2+'</td><td style="'+td+';color:#7b7488">'+n2+'</td><td style="'+td+';color:#7b7488">'+w2+'</td>'
+        +'<td style="'+td+';color:#7b7488">'+(t2?Math.round(e2/t2*100)+'%':'<span style="color:#c9c3d6">—</span>')+'</td></tr>';
     });
-    html+='<tr><td style="padding:10px;background:#f0ebfe;color:#5b41b5;font-weight:800;text-align:left;border-top:1px solid #ece8f5">합계</td>'
-      +[tot,enr,ne,wt,(rate==null?'—':rate+'%')].map(v=>'<td style="padding:10px;background:#f0ebfe;color:#5b41b5;font-weight:800;text-align:right;border-top:1px solid #ece8f5">'+v+'</td>').join('')
-      +'</tr></tbody></table></div>';
-  }
+  });
+  const sumTd='padding:10px;background:#f0ebfe;color:#5b41b5;font-weight:800;border-top:1px solid #ece8f5';
+  html+='<tr><td style="'+sumTd+';text-align:left">합계</td><td style="'+sumTd+';text-align:left">'+briefs.length+'회</td>'
+    +[attTot||'—',exams.length,tot,enr,ne,wt,(rate==null?'—':rate+'%')].map(v=>'<td style="'+sumTd+';text-align:right">'+v+'</td>').join('')
+    +'</tr></tbody></table></div>';
+  if(!days.length) html+='<div style="margin-top:12px;font-size:12px;color:#7b7488;background:#fdf3e6;border-left:3px solid #e2953f;border-radius:0 10px 10px 0;padding:10px 13px;line-height:1.65">'
+    +'아직 이 학기 <b>전형으로 표시된 날짜가 없습니다.</b> 원무 › 레벨테스트 캘린더에서 시험 본 날짜를 골라 '
+    +'<b>다음 학기 전형</b> 스위치를 켜주세요. 설명회를 한 날은 <b>설명회 진행</b>도 함께 켜면 됩니다. 지난 날짜도 소급해서 켤 수 있어요.</div>';
   html+='</div>';
 
   /* ---- 명단 ---- */
@@ -727,32 +796,29 @@ function renderJeonhyeongDash(c){
   } else {
     const ord={wait:0,notenr:1,enrolled:2};
     const sorted=rows.slice().sort((a,b)=> (ord[a.st]-ord[b.st]) || String(a.name).localeCompare(String(b.name),'ko'));
-    html+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:660px;font-size:12.5px">'
-      +'<thead><tr>'
-      +['학생','회원코드','분원','학교 / 학년','시험일','상태','비고'].map(t=>'<th style="text-align:left;font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap">'+t+'</th>').join('')
+    html+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:760px;font-size:12.5px"><thead><tr>'
+      +['학생','회원코드','분원','전형','학교 / 학년','시험일','상태','비고'].map(t=>'<th style="text-align:left;font-size:11px;font-weight:800;color:#a9a2b6;padding:9px 10px;background:#faf8fe;border-bottom:1px solid #ece8f5;white-space:nowrap">'+t+'</th>').join('')
       +'</tr></thead><tbody>';
     sorted.forEach(r=>{
-      const td='padding:9px 10px;border-bottom:1px solid #f3f0fa;white-space:nowrap';
+      const tdd='padding:9px 10px;border-bottom:1px solid #f3f0fa;white-space:nowrap';
       const sg=[r.school,gradeTxt(r.grade)].filter(Boolean).join(' · ');
+      const tk=jhTrack(r.branchId,r.date,semId);
+      const tkHtml = !tk ? '<span style="color:#c9c3d6">미지정</span>'
+        : tk.brief ? '<span style="background:#f0ebfe;color:#5b41b5;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">'+esc(tk.label)+'</span>'
+                   : '<span style="background:#eaf2fc;color:#2f6cb5;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px">개별</span>';
       html+='<tr>'
-        +'<td style="'+td+';font-weight:800;color:#3a3742">'+esc(r.name||'?')+'</td>'
-        +'<td style="'+td+';font-family:monospace;font-size:11px;color:#a9a2b6">'+esc(r.code||'—')+'</td>'
-        +'<td style="'+td+';color:#7b7488">'+esc(bName(r.branchId))+'</td>'
-        +'<td style="'+td+';color:#7b7488">'+esc(sg||'—')+'</td>'
-        +'<td style="'+td+';color:#a9a2b6">'+esc(r.date||'—')+'</td>'
-        +'<td style="'+td+'">'+jhStateChip(r)+'</td>'
-        +'<td style="'+td+';color:#a9a2b6;white-space:normal">'+esc(r.reason||'')+'</td></tr>';
+        +'<td style="'+tdd+';font-weight:800;color:#3a3742">'+esc(r.name||'?')+'</td>'
+        +'<td style="'+tdd+';font-family:monospace;font-size:11px;color:#a9a2b6">'+esc(r.code||'—')+'</td>'
+        +'<td style="'+tdd+';color:#7b7488">'+esc(bName(r.branchId))+'</td>'
+        +'<td style="'+tdd+'">'+tkHtml+'</td>'
+        +'<td style="'+tdd+';color:#7b7488">'+esc(sg||'—')+'</td>'
+        +'<td style="'+tdd+';color:#a9a2b6">'+esc(r.date||'—')+'</td>'
+        +'<td style="'+tdd+'">'+jhStateChip(r)+'</td>'
+        +'<td style="'+tdd+';color:#a9a2b6;white-space:normal">'+esc(r.reason||'')+'</td></tr>';
     });
     html+='</tbody></table></div>';
   }
   html+='</div>';
-
-  /* ---- 다음 단계 안내 ---- */
-  html+='<div style="background:#faf8fe;border:1px dashed #e2dcf2;border-radius:14px;padding:14px 18px;font-size:12.5px;color:#7b7488;line-height:1.7">'
-    +'<b style="color:#5b41b5">다음 단계</b> — 설명회 회차·참석 인원과 개별전형 구분은 아직 안 들어왔습니다. '
-    +'레벨테스트 캘린더에서 날짜별로 <b>전형 여부</b>와 <b>설명회 진행</b>을 켜면 이 화면에 설명회 퍼널이 붙습니다.'
-    +'</div>';
-
   c.innerHTML=html;
 }
 /* ---------- 대시보드: 인원 현황 (진짜 데이터 + CHESS/ACE) ---------- */
@@ -1769,6 +1835,7 @@ async function ensureReservations(){
   }catch(e){ console.error('예약 로드 실패', e); toast('예약을 불러오지 못했어요','err'); reservations=[]; }
   await loadLtResults();
   await loadDelLogs();
+  await loadExamDays();
   bookState.loaded=true;
 }
 let delLogs=[];   // 예약 삭제 기록 (감사용)
@@ -1909,6 +1976,140 @@ function gradeTxt(g){ g=String(g||'').trim(); if(!g) return ''; let m;
   if(m=g.match(/^고\s*등?\s*(\d)/)) return '고등'+m[1];
   return /^\d+$/.test(g)?g+'학년':g; }
 
+/* ============================================================================
+   전형·설명회 날짜 설정 (lt_exam_days)
+   레벨테스트 '날짜'에 성격을 붙인다. 학생마다 표시하지 않고 날짜 한 번만 표시하면
+   그날 예약자가 통째로 그 전형으로 잡힌다.
+     is_admission = 다음 학기 전형인가 (끄면 평소 레벨테스트)
+     is_briefing  = 그날 설명회도 했는가
+   '개별전형'은 별도 값이 아니라 전형 ON + 설명회 OFF 다. 분원은 그 단어를 볼 일이 없다.
+   표가 아직 없어도 앱은 그냥 돌아간다(설정만 안 보임).
+   ============================================================================ */
+let examDays=[];
+async function loadExamDays(){
+  try{
+    initSupabase();
+    const { data, error } = await sb.from('lt_exam_days').select('*');
+    if(error) throw error;
+    examDays = data||[];
+  }catch(e){ console.error('전형·설명회 설정 로드 실패(표 미생성일 수 있음)', e); examDays=[]; }
+}
+function edDs(d){ return String(d||'').slice(0,10); }
+function edGet(branchId, ds){
+  if(!branchId || branchId==='all') return null;
+  return examDays.find(x=> x.branch_id===branchId && edDs(x.exam_date)===edDs(ds)) || null;
+}
+/* 같은 분원·같은 대상 학기에서 이 날이 몇 번째 설명회인지 (날짜순) */
+function edNextNo(branchId, ds, semId){
+  const mine=edDs(ds);
+  const earlier=examDays.filter(x=> x.branch_id===branchId && x.is_briefing && x.target_semester===semId && edDs(x.exam_date)<mine).length;
+  return earlier+1;
+}
+async function edSave(branchId, ds, patch){
+  if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return false; }
+  const cur = edGet(branchId, ds) || { id:uid('ed'), branch_id:branchId, exam_date:edDs(ds),
+    is_admission:false, target_semester:null, is_briefing:false, briefing_no:null, attendees:null };
+  const row = Object.assign({}, cur, patch, { updated_at:new Date().toISOString() });
+  // 전형이 아니면 설명회도 대상 학기도 의미가 없다 → 같이 정리
+  if(!row.is_admission){ row.is_briefing=false; row.briefing_no=null; row.attendees=null; row.target_semester=null; }
+  if(!row.is_briefing){ row.briefing_no=null; row.attendees=null; }
+  try{
+    initSupabase();
+    const { error } = await sb.from('lt_exam_days').upsert(row, { onConflict:'branch_id,exam_date' });
+    if(error) throw error;
+    const i=examDays.findIndex(x=> x.branch_id===branchId && edDs(x.exam_date)===edDs(ds));
+    if(i>=0) examDays[i]=row; else examDays.push(row);
+    return true;
+  }catch(e){
+    console.error('전형·설명회 설정 저장 실패', e);
+    toast('저장 실패 — sql/lt_exam_days.sql 을 실행했는지 확인해 주세요','err');
+    return false;
+  }
+}
+async function edToggleAdmission(branchId, ds){
+  const c=edGet(branchId, ds), on=!(c && c.is_admission);
+  const ok=await edSave(branchId, ds, { is_admission:on, target_semester: on ? ((c&&c.target_semester)||nextSemId(state.semId)) : null });
+  if(ok){ toast(on?'다음 학기 전형으로 표시했어요 ✓':'전형 표시를 껐어요'); renderWonmuBody(); }
+}
+async function edSetSemester(branchId, ds, v){
+  const ok=await edSave(branchId, ds, { target_semester:v||null });
+  if(ok){ toast('입학 대상 학기 저장됨 ✓'); renderWonmuBody(); }
+}
+async function edToggleBriefing(branchId, ds){
+  const c=edGet(branchId, ds); if(!c || !c.is_admission){ toast('먼저 ‘다음 학기 전형’을 켜주세요','err'); return; }
+  const on=!c.is_briefing;
+  const ok=await edSave(branchId, ds, { is_briefing:on, briefing_no: on ? (c.briefing_no || edNextNo(branchId, ds, c.target_semester)) : null });
+  if(ok){ toast(on?'설명회로 표시했어요 ✓':'설명회 표시를 껐어요'); renderWonmuBody(); }
+}
+async function edSetNo(branchId, ds, v){
+  const n=parseInt(v,10);
+  const ok=await edSave(branchId, ds, { briefing_no: isNaN(n)?null:n });
+  if(ok){ toast('회차 저장됨 ✓'); renderWonmuBody(); }
+}
+async function edSetAttendees(branchId, ds, v){
+  const n=parseInt(String(v).replace(/[^\d]/g,''),10);
+  const ok=await edSave(branchId, ds, { attendees: isNaN(n)?null:n });
+  if(ok) toast('참석 인원 저장됨 ✓');
+}
+/* 캘린더 날짜 칸에 붙는 작은 딱지 */
+function edDayTag(branchId, ds){
+  const e=edGet(branchId, ds); if(!e || !e.is_admission) return '';
+  const s='display:inline-block;font-size:9.5px;font-weight:800;border-radius:5px;padding:1px 5px;line-height:1.5;margin-top:2px;white-space:nowrap';
+  if(e.is_briefing) return '<div style="'+s+';background:#8b6ee8;color:#fff">설명회'+(e.briefing_no?' '+e.briefing_no+'차':'')+'</div>';
+  return '<div style="'+s+';background:#eaf2fc;color:#2f6cb5">전형</div>';
+}
+/* 선택한 날짜의 설정 패널 (분원이 특정됐을 때만) */
+function edPanel(branchId, ds){
+  if(!branchId || branchId==='all'){
+    return '<div style="margin:0 14px 12px;padding:11px 13px;background:#faf8fe;border:1px dashed #e2dcf2;border-radius:11px;font-size:12px;color:#a9a2b6;line-height:1.6">'
+      +'전형·설명회 설정은 <b>분원을 하나 고른 뒤</b>에 할 수 있어요.</div>';
+  }
+  const e=edGet(branchId, ds) || {};
+  const adm=!!e.is_admission, brf=!!e.is_briefing;
+  const sem=e.target_semester || nextSemId(state.semId);
+  const box='margin:0 14px 12px;border:1px solid #ece8f5;border-radius:12px;background:#fff;overflow:hidden';
+  const rowS='display:flex;align-items:center;gap:10px;padding:11px 13px';
+  const labS='font-size:12.5px;font-weight:800;color:#3a3742;flex:1';
+  const sw=(on)=>'width:38px;height:21px;border-radius:11px;border:1px solid '+(on?'#8b6ee8':'#e2dcf2')+';background:'+(on?'#8b6ee8':'#f3f0fa')+';position:relative;flex:none;cursor:pointer;padding:0';
+  const knob=(on)=>'<span style="position:absolute;top:2px;left:'+(on?'19px':'2px')+';width:15px;height:15px;border-radius:50%;background:'+(on?'#fff':'#a9a2b6')+';display:block"></span>';
+  const subS='padding:0 13px 11px 24px;border-left:2px solid #f0ebfe;margin-left:13px;display:flex;flex-direction:column;gap:8px';
+  const selS='background:#f6f3fc;border:1px solid #e2dcf2;border-radius:8px;padding:5px 8px;font:inherit;font-size:12px;font-weight:700;color:#8b6ee8;cursor:pointer';
+  const inS='background:#faf8fe;border:1px solid #e2dcf2;border-radius:8px;padding:6px 9px;font:inherit;font-size:12px;font-weight:700;color:#3a3742;width:78px';
+  const flS='font-size:11.5px;font-weight:700;color:#7b7488;min-width:74px';
+
+  let h='<div style="'+box+'">';
+  h+='<div style="'+rowS+'"><span style="'+labS+'">다음 학기 전형</span>'
+    +'<button style="'+sw(adm)+'" onclick="edToggleAdmission(\''+branchId+'\',\''+ds+'\')" aria-label="다음 학기 전형 켜기/끄기">'+knob(adm)+'</button></div>';
+  if(adm){
+    h+='<div style="'+subS+'"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+      +'<span style="'+flS+'">입학 학기</span>'
+      +'<select style="'+selS+'" onchange="edSetSemester(\''+branchId+'\',\''+ds+'\',this.value)">'
+      // 지난 학기로 잡아둔 날짜도 그대로 보이게 — 목록에 없으면 앞에 끼워 넣는다
+      + (function(){ const L=waitSemList().slice(); if(!L.some(s=>s.id===sem)) L.unshift({id:sem, name:semNameFromId(sem)});
+          return L.map(s=>'<option value="'+s.id+'" '+(s.id===sem?'selected':'')+'>'+esc(s.name)+'</option>').join(''); })()
+      +'</select></div></div>';
+  }
+  h+='<div style="'+rowS+';border-top:1px solid #f3f0fa'+(adm?'':';opacity:.45')+'"><span style="'+labS+'">설명회 진행</span>'
+    +'<button style="'+sw(brf)+'" onclick="edToggleBriefing(\''+branchId+'\',\''+ds+'\')" aria-label="설명회 진행 켜기/끄기">'+knob(brf)+'</button></div>';
+  if(brf){
+    h+='<div style="'+subS+'">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="'+flS+'">회차</span>'
+      +'<select style="'+selS+'" onchange="edSetNo(\''+branchId+'\',\''+ds+'\',this.value)">'
+      + [1,2,3,4].map(n=>'<option value="'+n+'" '+(n===(e.briefing_no||1)?'selected':'')+'>'+n+'차</option>').join('')
+      +'</select></div>'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="'+flS+'">참석 인원</span>'
+      +'<input style="'+inS+'" type="text" inputmode="numeric" value="'+(e.attendees==null?'':e.attendees)+'" placeholder="예: 26"'
+      +' onchange="edSetAttendees(\''+branchId+'\',\''+ds+'\',this.value)"></div>'
+      +'<div style="font-size:11px;color:#a9a2b6;line-height:1.6">설명회만 오고 시험은 안 본 사람이 예약 명단엔 없어서, 참석 인원은 따로 적어 주셔야 해요.</div>'
+      +'</div>';
+  }
+  h+='</div>';
+  if(adm){
+    h+='<div style="margin:0 14px 12px;padding:10px 13px;background:#f0ebfe;border-radius:11px;font-size:11.5px;color:#5b41b5;line-height:1.6">'
+      +'이 날 예약된 학생이 <b>'+esc(semNameFromId(sem))+' '+(brf?('설명회 '+(e.briefing_no||1)+'차'):'개별전형')+'</b>으로 집계됩니다.</div>';
+  }
+  return h;
+}
 function renderBooking(c){
   const today=new Date();
   if(bookState.y==null){ bookState.y=today.getFullYear(); bookState.m=today.getMonth(); }
@@ -1943,7 +2144,7 @@ function renderBooking(c){
     const dow=new Date(bookState.y, bookState.m, d).getDay();
     const cls=[ 'day', dow===0?'sun':'', dow===6?'sat':'', ds===bookState.sel?'sel':'' ].filter(Boolean).join(' ');
     const n=cnt[ds];
-    cal+=`<div class="${cls}" onclick="selDay('${ds}')"><div class="dn">${d}</div>${n?`<div class="cnt">${n}건</div>`:''}</div>`;
+    cal+=`<div class="${cls}" onclick="selDay('${ds}')"><div class="dn">${d}</div>${n?`<div class="cnt">${n}건</div>`:''}${edDayTag(bookState.branchId, ds)}</div>`;
   }
   cal+=`</div></div>`;
 
@@ -1956,6 +2157,9 @@ function renderBooking(c){
     <div class="d">${sd.getMonth()+1}월 ${sd.getDate()}일 <span>${dowKo}요일 · ${dayRes.length}건</span></div>
     <button class="addbtn" onclick="openAddForm()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>새 예약</button>
   </div>`;
+
+  // 이 날짜의 성격(전형·설명회) 설정 — 그날 예약자가 통째로 이 전형으로 집계된다
+  list+=edPanel(bookState.branchId, bookState.sel);
 
   // 추가 폼
   if(bookState.adding){
