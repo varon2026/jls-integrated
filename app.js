@@ -658,14 +658,16 @@ function jhTrack(branchId, ds, semId){
 function jhRows(semId){
   const out=[], seen={};
   const key=(br,code,nm)=> String(br)+'|'+(code?('#'+code):('@'+(nm||'')));
-  const mk=(r)=>({ branchId:r.branch_id, code:r.student_code||'', name:r.student_name||'',
+  const mk=(r,via)=>({ branchId:r.branch_id, code:r.student_code||'', name:r.student_name||'',
     school:r.school||'', grade:r.grade||'', date:edDs(r.reserved_date),
-    status:r.status||'', enrolled:r.enrolled||'', waitSem:r.wait_semester||'', reason:r.not_enrolled_reason||'' });
+    status:r.status||'', enrolled:r.enrolled||'', waitSem:r.wait_semester||'', reason:r.not_enrolled_reason||'',
+    via:via });
   const push=o=>{ const k=key(o.branchId,o.code,o.name); if(seen[k]) return; seen[k]=1; out.push(o); };
   // 전형 대상 = 예약에 '다음 학기 입학용'으로 표시했거나, 다음학기 대기를 누른 학생.
   // 같은 날에도 그 학기에 바로 등록하는 학생이 섞이므로 날짜로는 가르지 않는다.
   reservations.forEach(r=>{
-    if(r.admission_semester===semId || r.wait_semester===semId) push(mk(r));
+    if(r.admission_semester===semId)   push(mk(r,'btn'));
+    else if(r.wait_semester===semId)   push(mk(r,'wait'));
   });
   // 예전 버전이 등록 처리하면서 대기 기록을 지운 학생 — 이동 기록으로 알아낸다.
   // 새 행을 만들지 않고 '그 학생의 예약'을 전형으로 잡는다. 예약이 아예 없으면 건너뛴다.
@@ -679,7 +681,7 @@ function jhRows(semId){
     const mv=edDs(m.date);
     const before=cands.filter(x=> edDs(x.reserved_date)<=mv).sort((a,b)=> edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1);
     const res=before[0] || cands.sort((a,b)=> edDs(a.reserved_date)<edDs(b.reserved_date)?1:-1)[0];
-    push(mk(res));
+    push(mk(res,'mv'));
   });
   return out;
 }
@@ -729,8 +731,17 @@ const JH_CSS='<style>'
 +'.jh-l td.nm{font-weight:800;color:#3a3742}.jh-l td.cd{font-family:monospace;font-size:11px;color:#a9a2b6}'
 +'.jh-l td.rs{white-space:normal;color:#a9a2b6}'
 +'.jh-l tbody tr:hover td{background:#faf8fe}'
++'.jh-via{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap;background:#f3f0fa;color:#a9a2b6}'
++'.jh-via.btn{background:#eaf2fc;color:#2f6cb5}.jh-via.wait{background:#e4f4f5;color:#1f8a95}.jh-via.mv{background:#fdf3e6;color:#e2953f}'
 +'</style>';
 function jhChip(bg,fg,txt,title){ return '<span'+(title?' title="'+esc(title)+'"':'')+' style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
+/* 이 학생이 왜 전형 명단에 들어왔는지 — 숫자가 안 맞을 때 바로 짚어낼 수 있게 */
+function jhViaChip(v){
+  if(v==='btn')  return '<span class="jh-via btn" title="레벨테스트 캘린더에서 이 예약의 전형 버튼을 켰습니다.">전형 버튼</span>';
+  if(v==='wait') return '<span class="jh-via wait" title="이 학생은 다음학기 대기를 눌러 자동으로 전형에 잡혔습니다. 버튼을 따로 켜지 않아도 됩니다.">다음학기 대기</span>';
+  if(v==='mv')   return '<span class="jh-via mv" title="예전 버전이 대기 기록을 지운 학생입니다. 학기 이동 기록(대기→등록)으로 찾아 넣었습니다.">이동 기록</span>';
+  return '<span class="jh-via">—</span>';
+}
 function jhStateChip(r, semId){
   const o=jhOutcome(r, semId);
   if(o==='cancel')   return jhChip('#f3f0fa','#a9a2b6','취소');
@@ -861,7 +872,7 @@ function renderJeonhyeongDash(c){
               : r.enrolled==='failed'?3 : (r.status==='noshow'||r.status==='canceled')?5 : 4;
     const sorted=rows.slice().sort((a,b)=> (ord(a)-ord(b)) || String(a.name).localeCompare(String(b.name),'ko'));
     html+='<div style="overflow-x:auto"><table class="jh-l"><thead><tr>'
-      +['학생','회원코드','분원','전형','학교 / 학년','시험일','상태','비고'].map(t=>'<th>'+t+'</th>').join('')
+      +['학생','회원코드','분원','전형','포함 이유','학교 / 학년','시험일','상태','비고'].map(t=>'<th>'+t+'</th>').join('')
       +'</tr></thead><tbody>';
     sorted.forEach(r=>{
       const sg=[r.school,gradeTxt(r.grade)].filter(Boolean).join(' · ');
@@ -872,6 +883,7 @@ function renderJeonhyeongDash(c){
         +'<td class="cd">'+esc(r.code||'—')+'</td>'
         +'<td>'+esc(bName(r.branchId))+'</td>'
         +'<td>'+tkHtml+'</td>'
+        +'<td>'+jhViaChip(r.via)+'</td>'
         +'<td>'+esc(sg||'—')+'</td>'
         +'<td>'+esc(r.date||'—')+'</td>'
         +'<td>'+jhStateChip(r, semId)+'</td>'
