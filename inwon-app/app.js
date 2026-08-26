@@ -2342,7 +2342,7 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
         <thead><tr>
           <th>학생명</th><th>회원코드</th><th>반</th><th>담임</th>
           <th>학교/학년</th><th>${(tab==='new'||tab==='transferIn')?'입학일':'퇴원일'}</th>
-          ${isInTab?`<th>메모</th>${tab==='transferIn'?'<th style="width:180px">전입 관리</th>':''}${tab==='transferOut'?'<th style="width:180px">전출 관리</th>':''}`:'<th style="width:130px">사유</th><th style="min-width:200px">메모</th>'}
+          ${isInTab?`<th>메모</th>${tab==='new'?'<th style="width:120px">입학 관리</th>':''}${tab==='transferIn'?'<th style="width:180px">전입 관리</th>':''}${tab==='transferOut'?'<th style="width:180px">전출 관리</th>':''}`:'<th style="width:130px">사유</th><th style="min-width:200px">메모</th>'}
         </tr></thead>
         <tbody>
         ${rows.map(r=>{
@@ -2354,7 +2354,11 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
           // (퇴원·전출 모달은 이미 같은 방식으로 자기 분원을 제외하고 있음)
           const _brOpts = (sel)=>(db.branches||[]).filter(b=>b.id!==branchId).map(b=>`<option value="${b.id}" ${b.id===sel?'selected':''}>${esc(b.name)}</option>`).join('');
           let _act='';
-          if(tab==='transferIn') _act = _canW
+          // 신규생 입학 취소 — 다음학기 대기명단이 비면 거기서 취소할 수 없어 여기에도 둔다
+          if(tab==='new') _act = _canW
+            ? `<td><button class="btn sm" style="border-color:var(--neg);color:var(--neg);flex:none;white-space:nowrap;padding:0 10px" onclick="cancelEnroll('${r.recId}')">입학 취소</button></td>`
+            : `<td></td>`;
+          else if(tab==='transferIn') _act = _canW
             ? `<td><div style="display:flex;gap:6px;align-items:center"><button class="btn sm" style="border-color:var(--brand);color:var(--brand);flex:none;white-space:nowrap;padding:0 8px" onclick="convertTransferInToNew('${r.recId}')">일반 신규로</button> <select class="wd-inline-sel" style="width:auto;flex:1;min-width:78px" onchange="setTransferBranch('${r.recId}',this.value)"><option value="">출발분원…</option>${_brOpts(r.transferTo)}</select></div></td>`
             : `<td style="color:var(--ink-3);font-size:12px">${r.transferTo?esc((getBranch(r.transferTo)||{}).name||''):''}</td>`;
           else if(tab==='transferOut') _act = _canW
@@ -4710,6 +4714,40 @@ function reEnrollStudent(recId){
     { inputType:'date', label:'복귀(재입회) 날짜', hint:'실제로 다시 등원한 날짜를 선택하세요. 퇴원일보다 뒤여야 합니다.', okLabel:'복귀 처리' });
 }
 /* 전입 → 일반 신규 전환 — '전입' 표시를 취소하고 순수 신규로. 출발분원 정보 제거, 집계도 전입→신규로 이동 */
+/* 신규생 입학 취소 —
+   이 학기 등록 기록을 지우고, 레벨테스트 예약이 있으면 '다음학기 대기'로 되돌린다.
+   (원무 대기명단의 '등록 취소'와 같은 동작. 대기자가 0명이면 그 화면이 아예 안 떠서 여기에도 둔다) */
+function cancelEnroll(recId){
+  const rec=db.semesterRecords.find(r=>r.id===recId); if(!rec) return;
+  const s=getStudent(rec.studentId)||{};
+  const semNm=(db.semesters.find(x=>x.id===rec.semesterId)||{}).name || rec.semesterId;
+  const cls=rec.classLabel||rec.className||'미배정';
+  openConfirm('입학 취소',
+    `${s.name||''} (${s.code||''})\n\n${semNm} 등록을 취소합니다.\n· ${cls} 반에서 빠지고 신규생 명단에서 사라집니다.\n· 레벨테스트 예약이 있으면 '다음학기 대기'로 되돌아가 대기명단에 다시 뜹니다.\n\n되돌리려면 대기명단에서 다시 등록해야 합니다.`,
+    ()=>{
+      const brId=rec.branchId, semId=rec.semesterId;
+      db.semesterRecords = db.semesterRecords.filter(x=>x.id!==recId);
+      db.studentMovements = db.studentMovements.filter(m=>
+        !(m.studentId===rec.studentId && m.branchId===brId && m.semesterId===semId && m.type==='new'));
+      showSaving('입학 취소 중…');
+      saveDB().then(async ok=>{
+        if(ok) await ltBackToWait(brId, semId, s);
+        hideSaving(); closeModal();
+        toast(ok?`${s.name||''} 입학 취소 완료`:'저장 실패', ok?'ok':'err'); render();
+      });
+    }, {yesLabel:'입학 취소', danger:true});
+}
+/* 레벨테스트 예약을 다시 '다음학기 대기'로 — 없으면 조용히 넘어간다 */
+async function ltBackToWait(brId, semId, stu){
+  try{
+    let q=sb.from('level_test_reservations')
+      .update({ enrolled:'waiting_next', wait_semester:semId, not_enrolled_reason:null })
+      .eq('branch_id', brId).eq('enrolled','enrolled');
+    q = (stu && stu.code) ? q.eq('student_code', stu.code) : q.eq('student_name', (stu&&stu.name)||'');
+    const { error }=await q;
+    if(error) throw error;
+  }catch(e){ console.warn('레벨테스트 예약 되돌리기 건너뜀', e); }
+}
 function convertTransferInToNew(recId){
   const rec=db.semesterRecords.find(r=>r.id===recId);
   if(!rec) return;
