@@ -781,35 +781,41 @@ const JH_CSS='<style>'
 +'.jh-conv .big.shaky{color:#c2bcd0}'
 +'.jh-conv .big.shaky::after{content:"?";font-size:13px;margin-left:2px;vertical-align:5px;color:#d9b483}'
 +'.jh-conv .d em{font-style:normal;color:#a05f18;font-weight:700;margin-left:6px}'
-+'.jh-t{border-collapse:collapse;width:100%;min-width:840px;font-size:13px}'
-+'.jh-t .grp th{font-size:10px;font-weight:800;letter-spacing:.12em;color:#c2bcd0;padding:12px 12px 3px;text-align:center;border:0}'
++'.jh-t{border-collapse:collapse;width:100%;min-width:900px;font-size:13px}'
++'.jh-t .grp th{font-size:10px;font-weight:800;letter-spacing:.11em;color:#c8c2d6;padding:14px 10px 4px;text-align:center;border:0}'
 +'.jh-t .grp th.gl{text-align:left}'
-+'.jh-t thead tr:last-child th{font-size:11px;font-weight:800;color:#a9a2b6;text-align:right;padding:3px 12px 11px;border-bottom:1.5px solid #e8e3f3;white-space:nowrap}'
++'.jh-t thead tr:last-child th{font-size:11px;font-weight:800;color:#a9a2b6;text-align:center;padding:3px 10px 11px;border-bottom:1.5px solid #ddd5ef;white-space:nowrap}'
 +'.jh-t thead tr:last-child th.l{text-align:left}'
 +'.jh-t th.sep,.jh-t td.sep{border-left:1px solid #e8e3f3}'
-+'.jh-t td{padding:0 12px;height:42px;border-bottom:1px solid #f2eff9;text-align:right;white-space:nowrap;color:#7b7488;font-weight:700}'
++'.jh-t td{padding:0 10px;height:40px;border-bottom:1px solid #f4f1fb;text-align:center;white-space:nowrap;color:#7b7488;font-weight:700}'
 +'.jh-t td.l{text-align:left}'
 +'.jh-t tbody tr:hover td{background:#faf8fe}'
-+'.jh-t tr.sec td{height:32px;background:#f0ebfe;border-bottom:1px solid #e8e3f3;font-size:10.5px;font-weight:800;letter-spacing:.12em;color:#5b41b5;text-align:left}'
-+'.jh-t tr.sec:hover td{background:#f0ebfe}'
-+'.jh-t tr.br td{font-size:13.5px}'
-+'.jh-t tr.br td.l{font-weight:800;color:#3a3742;font-size:14px}'
++'.jh-t tr.sec td{height:34px;padding-top:12px;background:none;border:0;font-size:10.5px;font-weight:800;letter-spacing:.11em;color:#c2bcd0;text-align:left}'
++'.jh-t tr.sec.first td{padding-top:2px}'
++'.jh-t tr.sec:hover td{background:none}'
++'.jh-t tr.br td{height:46px;font-size:13.5px;background:#f6f3fc;border-top:1px solid #fff;color:#6a6284}'
++'.jh-t tr.br td.l{font-weight:800;color:#3a3742;font-size:14.5px;text-align:left}'
 +'.jh-t tr.br td.k{font-size:15px;font-weight:800;color:#3a3742}'
-+'.jh-t tr.br td.k.w{color:#6b4bd6}.jh-t tr.br td.k.e{color:#c9457f}'
-+'.jh-t tr.sub td{height:38px;font-size:12px;font-weight:400;color:#a9a2b6}'
-+'.jh-t tr.sub td.l{padding-left:36px;position:relative}'
-+'.jh-t tr.sub td.l::before{content:"";position:absolute;left:22px;top:-19px;height:38px;width:1px;background:#e8e3f3}'
-+'.jh-t tr.sub td.l::after{content:"";position:absolute;left:22px;top:19px;width:7px;height:1px;background:#e8e3f3}'
-+'.jh-t tr.sub.last td.l::before{height:19px}'
++'.jh-t tbody tr:hover td{background:#faf8fe}'
++'.jh-t tr.br:hover td{background:#f2eefb}'
++'.jh-t td .v-enr{color:#8570e0}.jh-t td .v-wait{color:#3d93c2}.jh-t td .v-notenr{color:#c96b90}'
++'.jh-t tr.br td .v-enr,.jh-t tr.br td .v-wait,.jh-t tr.br td .v-notenr,'
++'.jh-t tr.tot td .v-enr,.jh-t tr.tot td .v-wait,.jh-t tr.tot td .v-notenr{font-weight:800}'
++'.jh-t td.k.w{font-size:15px;font-weight:800;color:#3a3742}'
++'.jh-t tr.sub td{height:36px;font-size:12.5px;font-weight:400;color:#a09ab2}'
++'.jh-t tr.sub td.l{padding-left:38px;position:relative;text-align:left;font-weight:700;color:#7b7488}'
++'.jh-t tr.sub td.l::before{content:"";position:absolute;left:24px;top:0;bottom:50%;width:1px;background:#ded8ea}'
++'.jh-t tr.sub td.l::after{content:"";position:absolute;left:24px;top:50%;width:7px;height:1px;background:#ded8ea}'
+
 +'.jh-t tr.sub td.l em{font-style:normal;font-weight:700;color:#7b7488}'
 +'.jh-t tr.sub td.l span{color:#c2bcd0;margin-left:7px;font-size:11px}'
 +'.jh-t tr.end td{border-bottom:1px solid #e8e3f3}'
-+'.jh-t tr.tot td{height:48px;background:#f4f1fb;border-bottom:0;color:#3a3742;font-weight:800;font-size:14px}'
-+'.jh-t tr.tot td.k{font-size:16px}.jh-t tr.tot td.k.w{color:#6b4bd6}.jh-t tr.tot td.k.e{color:#c9457f}'
-+'.jh-t tr.tot:hover td{background:#f4f1fb}'
-+'.jh-t .z{color:#c2bcd0;font-weight:400}'
-+'.jh-t .flag{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 7px;background:#fdf3e6;color:#c9791f}'
-+'.jh-t .miss{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 7px;background:#fdecf1;color:#b03a58}'
++'.jh-t tr.tot td{height:52px;background:#fff;border-top:2px solid #ddd5ef;border-bottom:0;color:#3a3742;font-weight:800;font-size:14.5px}'
++'.jh-t tr.tot td.k{font-size:16px}'
++'.jh-t tr.tot:hover td{background:#fff}'
++'.jh-t .z{color:#ded8ea;font-weight:400}'
++'.jh-t .flag{display:inline-block;font-size:12.5px;font-weight:800;color:#a05f18}'
++'.jh-t .miss{display:inline-block;font-size:12px;font-weight:800;border-radius:7px;padding:2px 8px;background:#fdecf1;color:#b03a58}'
 +'.jh-tk{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap}'
 +'.jh-tk.brief{background:#f0ebfe;color:#5b41b5}.jh-tk.ind{background:#eaf2fc;color:#2f6cb5}.jh-tk.none{background:#fdf3e6;color:#e2953f}'
 +'.jh-none{background:#f3f0fa;color:#a9a2b6;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px}'
@@ -895,24 +901,32 @@ const JH_CSS='<style>'
 +'#jhdPop .none{font-size:12.5px;font-weight:600;color:#a9a2b6;padding:6px 2px}'
 +'@media (max-width:640px){.jhd-row{grid-template-columns:1fr;gap:14px;justify-items:center}.jhd-s{width:100%}.jhd-dv{display:none}#jhdPop .nms{grid-template-columns:repeat(2,1fr)}}'
 +'.jh-t thead tr:last-child th{padding:0;border-bottom:1.5px solid #e8e3f3}'
-+'.jh-t thead tr:last-child th:not(.l){width:80px}'
-+'.jh-t thead tr:last-child th.l{width:auto;min-width:170px}'
-+'.jh-sb{width:100%;border:0;background:none;font:inherit;font-size:11px;font-weight:800;color:#a9a2b6;padding:4px 12px 10px;text-align:right;cursor:pointer;white-space:nowrap;border-radius:7px}'
-+'.jh-t thead tr:last-child th.l .jh-sb{text-align:left}'
-+'.jh-sb:hover{color:#5b41b5;background:#f6f3fc}'
-+'.jh-sb.on{color:#5b41b5}'
++'.jh-t thead tr:last-child th:not(.l){width:82px}'
++'.jh-t thead tr:last-child th.l{width:230px;text-align:left}'
++'.jh-sb{width:100%;border:0;background:none;font:inherit;font-size:11.5px;font-weight:800;color:#7b7488;padding:4px 10px 10px;text-align:center;cursor:pointer;white-space:nowrap;border-radius:8px}'
++'.jh-t thead tr:last-child th.l .jh-sb{text-align:left;width:auto;min-width:120px;padding-left:12px}'
++'.jh-sb:hover{color:#8570e0;background:#f6f3fc}'
++'.jh-sb.on{color:#8570e0}'
 +'.jh-sb i{font-style:normal;font-size:9px;margin-left:3px;vertical-align:1px}'
 +'.jh-go{color:inherit;text-decoration:none;border-bottom:1px dashed transparent;cursor:pointer}'
 +'.jh-go:hover{color:#5b41b5;border-bottom-color:#c9b8f7}'
-+'.jh-t td.dim{color:#c2bcd0;font-weight:400}'
-+'.jh-t tr.br td.dim,.jh-t tr.tot td.dim{color:#c2bcd0;font-weight:700}'
-+'.jh-t .flag.hi{background:#fbe2e9;color:#b03a58}'
-+'.jh-t tr.sub td{color:#7b7488}'
++'.jh-t td .rate{font-weight:800;color:#3a3742}'
++'.jh-t tr.br td .rate{font-size:15px}.jh-t tr.tot td .rate{font-size:17px}'
++'.jh-t td .rate.dim{color:#c2bcd0;font-weight:700}'
++'.jh-t td .rate.dim i{font-style:normal;font-size:10px;vertical-align:4px;margin-left:2px;color:#a05f18}'
+
++'.jh-t .flag.hi{background:#fdecf1;color:#b03a58;border-radius:7px;padding:2px 8px;font-size:12px}'
+
 +'.jh-lag{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 20px 4px;padding:11px 14px;background:#fdf3e6;border-radius:11px;font-size:12.5px;color:#8a5115}'
 +'.jh-lag>b{font-weight:800;color:#a05f18}'
 +'.jh-lag>span{background:#fff;border-radius:8px;padding:3px 10px;font-weight:700;color:#8a5115;white-space:nowrap}'
 +'.jh-lag>span em{font-style:normal;font-weight:800;color:#a05f18;margin-left:3px}'
 +'.jh-lag>i{flex:1 1 100%;font-style:normal;font-size:11.5px;color:#a98457;line-height:1.6}'
++'#jhTip{position:fixed;z-index:70;max-width:300px;background:#3a3550;color:#f3f0fa;'
++'border-radius:11px;padding:9px 12px;font-size:12px;font-weight:600;line-height:1.6;'
++'box-shadow:0 10px 30px rgba(58,53,80,.28);opacity:0;visibility:hidden;pointer-events:none;'
++'transform:translateY(3px);transition:opacity .12s,transform .12s}'
++'#jhTip.on{opacity:1;visibility:visible;transform:none}'
 +'</style>';
 function jhChip(bg,fg,txt,title){ return '<span'+(title?' title="'+esc(title)+'"':'')+' style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
 /* 이 학생이 왜 전형 명단에 들어왔는지 — 숫자가 안 맞을 때 바로 짚어낼 수 있게 */
@@ -1019,7 +1033,7 @@ function jhDonutRow(title, o, idx, cls){
     + st('wait','대기 중',o.wait,'명','','wait')
     + st('notenr','미등록',o.notenr,'명','','notenr')
     + '<div class="jhd-st'+(jhShaky(o)?' shaky':'')+'" data-k="rate"'
-      +(jhShaky(o)?' title="결과 미입력이 '+o.open+'명이라 아직 믿을 수 없는 수치입니다."':'')+'>'
+      +(jhShaky(o)?' data-why="결과 미입력 '+o.open+'명이 남아 있습니다. 이 학생들의 등록·대기·미등록이 정해지면 등록률이 크게 달라집니다."':'')+'>'
       +'<i>등록률</i><b>'+(o.rate==null?'—':o.rate+'%')+'</b></div>'
     +'</div><div class="jhd-legs">'
     + leg('fail','미통과',o.fail,'','dots')
@@ -1075,7 +1089,30 @@ function jhdBind(){
    결과 미입력이 확정 인원보다 많거나, 응시자의 5분의 1을 넘으면 아직 계산이 이르다.
    표와 도넛이 같은 규칙을 써야 두 화면이 어긋나지 않는다. */
 function jhShaky(s){ return s.open>0 && (s.open>=s.decided || s.open > s.att*0.2); }
-/* 분원별 표 정렬 — 기본은 예약 많은 순.
+/* data-why 가 붙은 요소에 마우스를 올리면 뜨는 말풍선.
+   브라우저 기본 title 은 1초 넘게 기다려야 뜨고 줄바꿈도 안 된다. */
+function jhTipEl(){ let e=document.getElementById('jhTip');
+  if(!e){ e=document.createElement('div'); e.id='jhTip'; e.setAttribute('role','tooltip'); document.body.appendChild(e); }
+  return e; }
+function jhTipHide(){ const e=document.getElementById('jhTip'); if(e) e.classList.remove('on'); }
+function jhTipShow(el){
+  const t=el.getAttribute('data-why'); if(!t) return;
+  const e=jhTipEl(); e.textContent=t; e.classList.add('on');
+  const r=el.getBoundingClientRect(), pr=e.getBoundingClientRect();
+  let left=Math.max(10, Math.min(r.left+r.width/2-pr.width/2, innerWidth-pr.width-10));
+  let top=r.bottom+9;
+  if(top+pr.height>innerHeight-10) top=Math.max(10, r.top-pr.height-9);
+  e.style.left=left+'px'; e.style.top=top+'px';
+}
+function jhTipBind(root){
+  if(!root) return;
+  jhTipHide();
+  root.addEventListener('mouseover', ev=>{ const t=ev.target.closest('[data-why]'); if(t) jhTipShow(t); });
+  root.addEventListener('mouseout',  ev=>{ if(ev.target.closest('[data-why]')) jhTipHide(); });
+  root.addEventListener('focusin',   ev=>{ const t=ev.target.closest('[data-why]'); if(t) jhTipShow(t); });
+  root.addEventListener('focusout',  jhTipHide);
+  addEventListener('scroll', jhTipHide, true);
+}/* 분원별 표 정렬 — 기본은 예약 많은 순.
    전환율로 줄 세우면 결과를 몇 명만 넣고 100%가 된 분원이 1등으로 올라온다. */
 function jhSort(){ if(!state.jhSort) state.jhSort={k:'book',d:-1}; return state.jhSort; }
 function jhSetSort(k){
@@ -1141,7 +1178,9 @@ function renderJeonhyeongDash(c){
       +'<span class="d">결과 확정 <b>'+S.decided+'명</b> = 등록 <b>'+S.enr+'</b>'
       +' · 대기 <b>'+S.wait+'</b> · 미등록 <b>'+S.notenr+'</b>'
       +(jhShaky(S)?' <em>결과 미입력 '+S.open+'명이 남아 있어 아직 확정 수치가 아닙니다</em>':'')+'</span>'
-      +'<span class="big'+(jhShaky(S)?' shaky':'')+'">'+(S.rate==null?'—':S.rate+'%')+'</span></div></div>';
+      +'<span class="big'+(jhShaky(S)?' shaky':'')+'"'
+      +(jhShaky(S)?' data-why="결과 미입력 '+S.open+'명이 남아 있습니다. 이 학생들의 등록·대기·미등록이 정해지면 전환율이 크게 달라집니다."':'')+'>'
+      +(S.rate==null?'—':S.rate+'%')+'</span></div></div>';
 
   /* ---- 분원별 ----
      설명회를 한 분원을 먼저 묶고, 개별전형만 한 분원은 아래로 내린다.
@@ -1159,17 +1198,23 @@ function renderJeonhyeongDash(c){
   const cells=(s2,big,brId,sub)=>{
     const k=big?' k':'';
     const dim = jhShaky(s2);   // 결과를 덜 넣었으면 전환율을 못 믿는다
+    /* 왜 못 믿는 수치인지 말풍선으로 알려준다 — 물음표만 띄우면 아무 소용이 없다 */
+    const why = dim ? ('결과 미입력 '+s2.open+'명이 남아 있습니다.'
+      + (s2.att?' 응시 '+s2.att+'명 중 '+Math.round(s2.open/s2.att*100)+'%':'')
+      + ' · 결과가 정해진 학생은 '+s2.decided+'명뿐입니다.'
+      + ' 이 '+s2.open+'명이 채워지면 전환율이 크게 달라집니다.') : '';
     return '<td class="sep'+k+'">'+z(s2.book)+'</td><td>'+z(s2.att)+'</td>'
       +'<td>'+z(s2.absent)+'</td>'
       +'<td class="sep">'+(s2.fail?hit(brId,'fail',s2.fail):'<span class="z">·</span>')+'</td>'
       +'<td>'+(s2.open?'<span class="flag'+(s2.open>=10?' hi':'')+'">'+s2.open+'</span>':'<span class="z">·</span>')+'</td>'
-      +'<td class="sep'+(big?' k e':'')+'">'+(s2.enrFix?hit(brId,'enr',s2.enrFix):'<span class="z">·</span>')+'</td>'
+      +'<td class="sep">'+(s2.enrFix?hit(brId,'enr','<span class="v-enr">'+s2.enrFix+'</span>'):'<span class="z">·</span>')+'</td>'
       +(showMiss?'<td>'+(s2.enrMiss?hit(brId,'miss','<span class="miss">'+s2.enrMiss+'</span>'):'<span class="z">·</span>')+'</td>':'')
-      +'<td>'+(s2.wait?hit(brId,'wait',s2.wait):'<span class="z">·</span>')+'</td>'
-      +'<td>'+(s2.notenr?hit(brId,'notenr',s2.notenr):'<span class="z">·</span>')+'</td>'
+      +'<td>'+(s2.wait?hit(brId,'wait','<span class="v-wait">'+s2.wait+'</span>'):'<span class="z">·</span>')+'</td>'
+      +'<td>'+(s2.notenr?hit(brId,'notenr','<span class="v-notenr">'+s2.notenr+'</span>'):'<span class="z">·</span>')+'</td>'
       +'<td'+(big?' class="k w"':'')+'>'+z(s2.decided)+'</td>'
-      +'<td class="sep'+(dim?' dim':'')+'"'+(dim?' title="결과 미입력이 '+s2.open+'명이라 아직 믿을 수 없는 수치입니다. 미입력부터 채워야 합니다."':'')+'>'
-      + ((s2.rate==null || (dim&&sub)) ? '<span class="z">—</span>' : s2.rate+'%')+'</td>';
+      +'<td>'+((s2.rate==null || (dim&&sub)) ? '<span class="z">—</span>'
+          : '<span class="rate'+(dim?' dim':'')+'"'+(dim?' data-why="'+esc(why)+'"':'')+'>'
+            + s2.rate+'%'+(dim?'<i>?</i>':'')+'</span>')+'</td>';
   };
   const brData=b=>{
     const rs=rows.filter(r=>r.branchId===b.id), bl=(byBr[b.id]||[]);
@@ -1192,7 +1237,7 @@ function renderJeonhyeongDash(c){
     +'<button class="jh-sb'+(SORT.k===k?' on':'')+'" onclick="jhSetSort(\''+k+'\')">'+lab
     +(SORT.k===k?'<i>'+(SORT.d<0?'▾':'▴')+'</i>':'')+'</button></th>';
   html+='<div class="jh-card"><div class="jh-hd"><h3>분원별</h3>'
-    +'<span class="why">숫자를 누르면 아래 학생 명단이 그 분원으로 걸립니다 · 제목을 누르면 정렬됩니다</span></div>';
+    +'<span class="why">숫자를 누르면 그 학생들이 아래 명단에 뜹니다 · 제목을 누르면 정렬됩니다</span></div>';
   if(lag.length) html+='<div class="jh-lag"><b>결과 미입력 '+S.open+'명</b>'
     + lag.map(x=>'<span>'+esc(x.b.name)+' <em>'+x.t.open+'</em></span>').join('')
     +'<i>응시는 했는데 등록·대기·미등록이 아직 안 정해진 학생입니다. 이게 남아 있으면 전환율이 실제보다 높게 나옵니다.</i></div>';
@@ -1212,7 +1257,8 @@ function renderJeonhyeongDash(c){
     + th('decided','확정',null,'등록·누락·대기·미등록을 더한 값. 미통과와 결과 미입력은 빠집니다.')
     + th('rate','전환','sep','등록 ÷ 확정')
     +'</tr></thead><tbody>';
-  const sec=t=>'<tr class="sec"><td colspan="'+NCOL+'">'+t+'</td></tr>';
+  let secN=0;
+  const sec=t=>'<tr class="sec'+((secN++)?'':' first')+'"><td colspan="'+NCOL+'">'+t+'</td></tr>';
   const trackRows=x=>{
     const md=d=>edDs(d).slice(5).replace('-','.');
     const ts=x.bl.map(e=>({key:'b'+(e.briefing_no||1), label:'설명회 '+(e.briefing_no||1)+'차', date:md(e.exam_date)}))
@@ -1254,6 +1300,7 @@ function renderJeonhyeongDash(c){
   c.innerHTML=html;
   jhRenderList();
   jhdBind();
+  jhTipBind(c);
 }
 /* 명단 필터 상태 — 다시 그려도 유지된다 */
 let _jhRows=[], _jhSem='';
