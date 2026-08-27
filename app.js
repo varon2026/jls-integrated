@@ -907,6 +907,8 @@ const JH_CSS='<style>'
 +'.jh-t thead tr:last-child th.l .jh-sb{text-align:left;width:auto;min-width:120px;padding-left:12px}'
 +'.jh-sb:hover{color:#8570e0;background:#f6f3fc}'
 +'.jh-sb.on{color:#8570e0}'
++'.jh-sb[data-why]{cursor:help}'
++'.jh-t .grp th span[data-why]{cursor:help;border-bottom:1px dotted #ddd5ef;padding-bottom:1px}'
 +'.jh-sb i{font-style:normal;font-size:9px;margin-left:3px;vertical-align:1px}'
 +'.jh-go{color:inherit;text-decoration:none;border-bottom:1px dashed transparent;cursor:pointer}'
 +'.jh-go:hover{color:#5b41b5;border-bottom-color:#c9b8f7}'
@@ -1095,6 +1097,26 @@ function jhdBind(){
   box.querySelectorAll('.jhd-row').forEach(r=> r.addEventListener('mouseleave', ()=>jhdHot(r,null)));
   addEventListener('scroll', jhdHide, true);
 }
+/* 열 제목에 마우스를 올리면 뜨는 설명. 표 자체가 스스로를 설명해야 한다 —
+   특히 '확정'은 이름만 보면 '다니는 게 확정된 인원'으로 읽히기 때문에 반드시 필요하다. */
+const JH_COLWHY={
+  book:'레벨테스트 예약한 인원',
+  att:'예약한 사람 중 응시한 인원',
+  absent:'예약은 했지만 참석하지 않은 인원',
+  fail:'시험은 응시했지만 점수가 되지 않아 등록 불가한 인원',
+  open:'시험 봤지만 분원에서 결과 입력 안 한 인원',
+  enrFix:'등록한 인원',
+  enrMiss:'레벨테스트에서 바로 등록을 눌러 이 학기 명단에 없는 인원',
+  wait:'다음학기 대기 한다고 이야기했지만 아직 반배정 안 된 인원',
+  notenr:'시험 결과가 나왔지만 등록 안 한 인원',
+  decided:'등록 + 대기 + 미등록 합친 인원. 전환율을 이 숫자로 나눕니다.',
+  rate:'결과 나온 학생 중 실제 등록한 비율 (등록 ÷ 확정)'
+};
+const JH_GRPWHY={
+  a:'시험장까지 온 인원을 세는 칸입니다.',
+  b:'둘은 성격이 다릅니다. 미통과는 학원이 안 받기로 한 학생이라 계속 확정 밖에 있고, 미입력은 분원이 결과만 넣으면 확정 안으로 들어옵니다.',
+  c:'결과가 나온 학생을 셋으로 나눈 것입니다. 확정은 이 셋(누락 포함)을 더한 값이고, 전환율은 등록을 확정으로 나눈 값입니다.'
+};
 /* 전환율을 아직 믿으면 안 되는 상태인가 —
    결과 미입력이 확정 인원보다 많거나, 응시자의 5분의 1을 넘으면 아직 계산이 이르다.
    표와 도넛이 같은 규칙을 써야 두 화면이 어긋나지 않는다. */
@@ -1243,8 +1265,12 @@ function renderJeonhyeongDash(c){
   const onlyInd =all.filter(x=>!x.bl.length).sort(bySort);
   /* 미입력이 남은 분원은 표 위에 따로 불러 준다 — 관리자가 제일 먼저 할 일이라서 */
   const lag=all.filter(x=>x.t.open>0).sort((a,b)=>b.t.open-a.t.open);
-  const th=(k,lab,cls,tip)=>'<th'+(cls?' class="'+cls+'"':'')+(tip?' title="'+esc(tip)+'"':'')+'>'
-    +'<button class="jh-sb'+(SORT.k===k?' on':'')+'" onclick="jhSetSort(\''+k+'\')">'+lab
+  const COLWHY = showMiss
+    ? Object.assign({}, JH_COLWHY, {decided:'등록 + 누락 + 대기 + 미등록 합친 인원. 전환율을 이 숫자로 나눕니다.'})
+    : JH_COLWHY;
+  const th=(k,lab,cls)=>'<th'+(cls?' class="'+cls+'"':'')+'>'
+    +'<button class="jh-sb'+(SORT.k===k?' on':'')+'" onclick="jhSetSort(\''+k+'\')"'
+    +(COLWHY[k]?' data-why="'+esc(COLWHY[k])+'"':'')+'>'+lab
     +(SORT.k===k?'<i>'+(SORT.d<0?'▾':'▴')+'</i>':'')+'</button></th>';
   html+='<div class="jh-card"><div class="jh-hd"><h3>분원별</h3>'
     +'<span class="why">숫자를 누르면 그 학생들이 아래 명단에 뜹니다 · 제목을 누르면 정렬됩니다</span></div>';
@@ -1253,19 +1279,19 @@ function renderJeonhyeongDash(c){
     +'<i>응시는 했는데 등록·대기·미등록이 아직 안 정해진 학생입니다. 이게 남아 있으면 전환율이 실제보다 높게 나옵니다.</i></div>';
   html+='<div style="overflow-x:auto"><table class="jh-t"><thead>'
     +'<tr class="grp"><th class="gl">&nbsp;</th>'
-    +'<th class="sep" colspan="3">예약 · 출결</th>'
-    +'<th class="sep" colspan="2">확정에서 빠짐</th>'
-    +'<th class="sep" colspan="'+(showMiss?5:4)+'">등록 확정 = 등록 '+(showMiss?'+ 누락 ':'')+'+ 대기 + 미등록</th>'
+    +'<th class="sep" colspan="3"><span data-why="'+esc(JH_GRPWHY.a)+'">예약 · 출결</span></th>'
+    +'<th class="sep" colspan="2"><span data-why="'+esc(JH_GRPWHY.b)+'">확정에서 빠짐</span></th>'
+    +'<th class="sep" colspan="'+(showMiss?5:4)+'"><span data-why="'+esc(JH_GRPWHY.c)+'">'
+    +'등록 확정 = 등록 '+(showMiss?'+ 누락 ':'')+'+ 대기 + 미등록</span></th>'
     +'<th class="sep">&nbsp;</th></tr>'
     +'<tr>'+th('name','분원 / 회차','l')
-    + th('book','예약','sep') + th('att','응시') + th('absent','불참',null,'취소·노쇼·연락 없이 안 온 인원')
-    + th('fail','미통과','sep')
-    + th('open','미입력',null,'응시했지만 분원이 아직 등록·대기·미등록을 안 정한 예약')
-    + th('enrFix','등록','sep','대기명단에서 등록까지 눌러 학기 명단에 들어온 학생')
-    + (showMiss? th('enrMiss','누락',null,'레벨테스트에서 바로 등록을 눌러 학기 명단에 아예 없는 학생 — 대기로 되돌린 뒤 대기명단에서 다시 등록해야 합니다'):'')
+    + th('book','예약','sep') + th('att','응시') + th('absent','불참')
+    + th('fail','미통과','sep') + th('open','미입력')
+    + th('enrFix','등록','sep')
+    + (showMiss? th('enrMiss','누락'):'')
     + th('wait','대기') + th('notenr','미등록')
-    + th('decided','확정',null,'등록·누락·대기·미등록을 더한 값. 미통과와 결과 미입력은 빠집니다.')
-    + th('rate','전환','sep','등록 ÷ 확정')
+    + th('decided','확정')
+    + th('rate','전환','sep')
     +'</tr></thead><tbody>';
   let secN=0;
   const sec=t=>'<tr class="sec'+((secN++)?'':' first')+'"><td colspan="'+NCOL+'">'+t+'</td></tr>';
