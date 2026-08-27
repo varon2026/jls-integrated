@@ -778,6 +778,9 @@ const JH_CSS='<style>'
 +'.jh-conv .d{font-size:12.5px;color:#7b7488}.jh-conv .d b{font-weight:800;color:#3a3742}'
 +'.jh-conv{background:linear-gradient(90deg,#f5f0ff,#fdf1f7)}'
 +'.jh-conv .big{margin-left:auto;font-size:22px;font-weight:800;color:#c9457f;letter-spacing:-.02em}'
++'.jh-conv .big.shaky{color:#c2bcd0}'
++'.jh-conv .big.shaky::after{content:"?";font-size:13px;margin-left:2px;vertical-align:5px;color:#d9b483}'
++'.jh-conv .d em{font-style:normal;color:#a05f18;font-weight:700;margin-left:6px}'
 +'.jh-t{border-collapse:collapse;width:100%;min-width:840px;font-size:13px}'
 +'.jh-t .grp th{font-size:10px;font-weight:800;letter-spacing:.12em;color:#c2bcd0;padding:12px 12px 3px;text-align:center;border:0}'
 +'.jh-t .grp th.gl{text-align:left}'
@@ -857,6 +860,8 @@ const JH_CSS='<style>'
 +'.jhd-st b{font-size:24px;font-weight:800;letter-spacing:-.035em;line-height:1.1;color:#3a3742;display:inline-block;transform-origin:left bottom;transition:transform .18s}'
 +'.jhd-st b small{font-size:11px;font-weight:800;color:#c2bcd0;margin-left:2px;letter-spacing:0}'
 +'.jhd-st.enr b{color:#8570e0}.jhd-st.wait b{color:#3d93c2}.jhd-st.notenr b{color:#c96b90}'
++'.jhd-st.shaky i,.jhd-st.shaky b{color:#c2bcd0}'
++'.jhd-st.shaky b::after{content:"?";font-size:13px;margin-left:3px;vertical-align:5px;color:#d9b483}'
 +'.jhd-ar{font-size:15px;color:#c2bcd0;padding:0 7px 7px}'
 +'.jhd-dv{width:1px;align-self:stretch;background:#ece8f5;margin:4px 8px 2px}'
 +'.jhd-legs{display:flex;flex-wrap:wrap;gap:2px 3px;border-top:1px solid #f3f0fa;margin-top:11px;padding-top:9px}'
@@ -1013,7 +1018,9 @@ function jhDonutRow(title, o, idx, cls){
     + st('enr','등록',o.enr,'명','','enr')
     + st('wait','대기 중',o.wait,'명','','wait')
     + st('notenr','미등록',o.notenr,'명','','notenr')
-    + '<div class="jhd-st" data-k="rate"><i>등록률</i><b>'+(o.rate==null?'—':o.rate+'%')+'</b></div>'
+    + '<div class="jhd-st'+(jhShaky(o)?' shaky':'')+'" data-k="rate"'
+      +(jhShaky(o)?' title="결과 미입력이 '+o.open+'명이라 아직 믿을 수 없는 수치입니다."':'')+'>'
+      +'<i>등록률</i><b>'+(o.rate==null?'—':o.rate+'%')+'</b></div>'
     +'</div><div class="jhd-legs">'
     + leg('fail','미통과',o.fail,'','dots')
     + leg('open','결과 미입력',o.open,'','#f1edf8')
@@ -1064,6 +1071,10 @@ function jhdBind(){
   box.querySelectorAll('.jhd-row').forEach(r=> r.addEventListener('mouseleave', ()=>jhdHot(r,null)));
   addEventListener('scroll', jhdHide, true);
 }
+/* 전환율을 아직 믿으면 안 되는 상태인가 —
+   결과 미입력이 확정 인원보다 많거나, 응시자의 5분의 1을 넘으면 아직 계산이 이르다.
+   표와 도넛이 같은 규칙을 써야 두 화면이 어긋나지 않는다. */
+function jhShaky(s){ return s.open>0 && (s.open>=s.decided || s.open > s.att*0.2); }
 /* 분원별 표 정렬 — 기본은 예약 많은 순.
    전환율로 줄 세우면 결과를 몇 명만 넣고 100%가 된 분원이 1등으로 올라온다. */
 function jhSort(){ if(!state.jhSort) state.jhSort={k:'book',d:-1}; return state.jhSort; }
@@ -1128,8 +1139,9 @@ function renderJeonhyeongDash(c){
     +'</div>'
     +'<div class="jh-conv"><span class="t">등록 전환</span>'
       +'<span class="d">결과 확정 <b>'+S.decided+'명</b> = 등록 <b>'+S.enr+'</b>'
-      +' · 대기 <b>'+S.wait+'</b> · 미등록 <b>'+S.notenr+'</b></span>'
-      +'<span class="big">'+(S.rate==null?'—':S.rate+'%')+'</span></div></div>';
+      +' · 대기 <b>'+S.wait+'</b> · 미등록 <b>'+S.notenr+'</b>'
+      +(jhShaky(S)?' <em>결과 미입력 '+S.open+'명이 남아 있어 아직 확정 수치가 아닙니다</em>':'')+'</span>'
+      +'<span class="big'+(jhShaky(S)?' shaky':'')+'">'+(S.rate==null?'—':S.rate+'%')+'</span></div></div>';
 
   /* ---- 분원별 ----
      설명회를 한 분원을 먼저 묶고, 개별전형만 한 분원은 아래로 내린다.
@@ -1144,9 +1156,9 @@ function renderJeonhyeongDash(c){
   /* 숫자를 누르면 아래 학생 명단이 그 분원·그 상태로 걸린다.
      명단 버튼과 1:1로 맞는 칸만 누를 수 있게 한다 — 숫자가 다르면 오히려 헷갈리니까. */
   const hit=(brId,bucket,inner)=> brId&&bucket ? '<a class="jh-go" href="#" onclick="return jhGo(\''+brId+'\',\''+bucket+'\')">'+inner+'</a>' : inner;
-  const cells=(s2,big,brId)=>{
+  const cells=(s2,big,brId,sub)=>{
     const k=big?' k':'';
-    const dim = s2.open>0 && s2.open>=s2.decided;   // 결과를 덜 넣은 분원의 전환율은 못 믿는다
+    const dim = jhShaky(s2);   // 결과를 덜 넣었으면 전환율을 못 믿는다
     return '<td class="sep'+k+'">'+z(s2.book)+'</td><td>'+z(s2.att)+'</td>'
       +'<td>'+z(s2.absent)+'</td>'
       +'<td class="sep">'+(s2.fail?hit(brId,'fail',s2.fail):'<span class="z">·</span>')+'</td>'
@@ -1157,7 +1169,7 @@ function renderJeonhyeongDash(c){
       +'<td>'+(s2.notenr?hit(brId,'notenr',s2.notenr):'<span class="z">·</span>')+'</td>'
       +'<td'+(big?' class="k w"':'')+'>'+z(s2.decided)+'</td>'
       +'<td class="sep'+(dim?' dim':'')+'"'+(dim?' title="결과 미입력이 '+s2.open+'명이라 아직 믿을 수 없는 수치입니다. 미입력부터 채워야 합니다."':'')+'>'
-      + (s2.rate==null?'<span class="z">—</span>':s2.rate+'%')+'</td>';
+      + ((s2.rate==null || (dim&&sub)) ? '<span class="z">—</span>' : s2.rate+'%')+'</td>';
   };
   const brData=b=>{
     const rs=rows.filter(r=>r.branchId===b.id), bl=(byBr[b.id]||[]);
@@ -1209,7 +1221,7 @@ function renderJeonhyeongDash(c){
       const rs=x.rs.filter(r=> jhTrack(r.branchId,r.date,semId).key===t.key);
       return '<tr class="sub'+(i2===ts.length-1?' last end':'')+'">'
         +'<td class="l"><em>'+esc(t.label)+'</em><span>'+esc(t.date)+'</span></td>'
-        +cells(jhCount(rs, semId), 0, x.b.id)+'</tr>';
+        +cells(jhCount(rs, semId), 0, x.b.id, 1)+'</tr>';
     }).join('');
   };
   const brRow=(x,cls)=>'<tr class="br'+(cls?' '+cls:'')+'"><td class="l">'
