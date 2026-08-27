@@ -773,30 +773,6 @@ const JH_CSS='<style>'
 +'.jh-hd{padding:16px 20px 13px;border-bottom:1px solid #f3f0fa;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}'
 +'.jh-hd h3{margin:0;font-size:15px;font-weight:800;color:#3a3742}'
 +'.jh-hd .why{font-size:12px;color:#a9a2b6;font-weight:600}'
-+'.jh-flow{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;padding:16px 20px 18px}'
-+'.jh-step{border-radius:15px;padding:14px 16px 15px;border:1px solid transparent;min-width:0}'
-+'.jh-step .k{font-size:12.5px;font-weight:800}'
-+'.jh-step .v{font-size:32px;font-weight:800;letter-spacing:-.035em;line-height:1.15;margin-top:1px}'
-+'.jh-step .v small{font-size:12.5px;font-weight:800;margin-left:3px;letter-spacing:0;opacity:.62}'
-+'.jh-step .sub{margin-top:9px;display:flex;flex-direction:column;gap:2px;font-size:11.5px;font-weight:700}'
-+'.jh-step .sub b{font-weight:800}'
-+'.jh-step.s1{background:linear-gradient(135deg,#9174ea,#b48bf2);border-color:transparent;color:#fff}'
-+'.jh-step.s1 .k{color:rgba(255,255,255,.9)}.jh-step.s1 .v{color:#fff}'
-+'.jh-step.s1 .sub{color:rgba(255,255,255,.86)}.jh-step.s1 .sub b{color:#fff}'
-+'.jh-step.s2{background:#e9f1fd;border-color:#d7e5fa}'
-+'.jh-step.s2 .k{color:#35597f}.jh-step.s2 .v{color:#3f74c4}'
-+'.jh-step.s3{background:#f0eafe;border-color:#e2d8fb}'
-+'.jh-step.s3 .k{color:#5b41b5}.jh-step.s3 .v{color:#6b4bd6}'
-+'.jh-step.s4{background:#fdeaf3;border-color:#f8d8e7}'
-+'.jh-step.s4 .k{color:#9c3a63}.jh-step.s4 .v{color:#c9457f}'
-+'.jh-step.s5{background:#fff1e6;border-color:#fadfc9}'
-+'.jh-step.s5 .k{color:#9a5520}.jh-step.s5 .v{color:#a85f22}'
-+'.jh-step.s6{background:#faeef1;border-color:#f2dde2}'
-+'.jh-step.s6 .k{color:#8d4a5c}.jh-step.s6 .v{color:#a9576c}'
-+'.jh-step .sub{color:#6b6385}.jh-step .sub b{color:#3a3742}'
-+'.jh-step.s1 .sub{color:rgba(255,255,255,.86)}'
-+'.jh-step .out,.jh-step .out b{color:#96324e}'
-+'.jh-step.s1 .out,.jh-step.s1 .out b{color:#ffe3ec}'
 +'.jh-conv{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:13px 20px;background:#f4f1fb;border-top:1px solid #ece8f5}'
 +'.jh-conv .t{font-size:12.5px;font-weight:800;color:#5b41b5}'
 +'.jh-conv .d{font-size:12.5px;color:#7b7488}.jh-conv .d b{font-weight:800;color:#3a3742}'
@@ -861,6 +837,58 @@ const JH_CSS='<style>'
 +'.jh-bulk.warn{border-color:#a05f18;background:#a05f18}.jh-bulk.warn:hover{background:#8a5115}'
 +'.jh-via{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap;background:#f3f0fa;color:#a9a2b6}'
 +'.jh-via.brief{background:#f0ebfe;color:#5b41b5}.jh-via.btn{background:#eaf2fc;color:#2f6cb5}.jh-via.wait{background:#e4f4f5;color:#1f8a95}.jh-via.mv{background:#fdf3e6;color:#e2953f}'
++'.jhd{padding:4px 0 2px}'
++'.jhd-row{display:grid;grid-template-columns:150px 1fr;gap:22px;align-items:center;padding:18px 24px;border-bottom:1px solid #f3f0fa}'
++'.jhd-row:last-child{border-bottom:0}'
++'.jhd-row.sum{background:#f6f3fc}'
++'.jhd-d{position:relative;width:138px;height:138px;justify-self:center}'
++'.jhd-d svg{display:block;transform:rotate(-90deg)}'
++'.jhd-seg{transition:opacity .16s;cursor:pointer}'
++'.jhd-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}'
++'.jhd-c i{font-style:normal;font-size:10.5px;font-weight:800;color:#a9a2b6;letter-spacing:.06em}'
++'.jhd-c b{font-size:27px;font-weight:800;letter-spacing:-.04em;line-height:1.1;color:#3a3742}'
++'.jhd-c b small{font-size:11.5px;font-weight:800;color:#c2bcd0;margin-left:2px;letter-spacing:0}'
++'.jhd-s{min-width:0}'
++'.jhd-t{font-size:14.5px;font-weight:800;letter-spacing:-.01em;color:#3a3742;margin-bottom:9px}'
++'.jhd-stats{display:flex;align-items:flex-end;gap:5px;flex-wrap:wrap}'
++'.jhd-st{display:flex;flex-direction:column;gap:1px;min-width:60px;padding:3px 9px 4px;border-radius:11px;transition:opacity .16s,background .16s;cursor:default;font-variant-numeric:tabular-nums}'
++'.jhd-st.hit{cursor:pointer}'
++'.jhd-st i{font-style:normal;font-size:10.5px;font-weight:800;color:#a9a2b6;letter-spacing:.02em;white-space:nowrap}'
++'.jhd-st b{font-size:24px;font-weight:800;letter-spacing:-.035em;line-height:1.1;color:#3a3742;display:inline-block;transform-origin:left bottom;transition:transform .18s}'
++'.jhd-st b small{font-size:11px;font-weight:800;color:#c2bcd0;margin-left:2px;letter-spacing:0}'
++'.jhd-st.enr b{color:#8570e0}.jhd-st.wait b{color:#3d93c2}.jhd-st.notenr b{color:#c96b90}'
++'.jhd-ar{font-size:15px;color:#c2bcd0;padding:0 7px 7px}'
++'.jhd-dv{width:1px;align-self:stretch;background:#ece8f5;margin:4px 8px 2px}'
++'.jhd-legs{display:flex;flex-wrap:wrap;gap:2px 3px;border-top:1px solid #f3f0fa;margin-top:11px;padding-top:9px}'
++'.jhd-leg{display:flex;align-items:center;gap:6px;padding:3px 9px;border-radius:8px;transition:opacity .16s,background .16s;cursor:pointer}'
++'.jhd-leg i{width:10px;height:10px;border-radius:3px;flex:none;outline:1px solid #ece8f5}'
++'.jhd-leg i.hatch{background:repeating-linear-gradient(45deg,#ddd7ec 0 2px,#f6f4fc 2px 5px)}'
++'.jhd-leg i.dots{background:radial-gradient(#bab0d8 1.1px,#e2dcf2 1.1px);background-size:4px 4px;outline-color:#ddd7ec}'
++'.jhd-leg em{font-style:normal;font-size:12px;font-weight:700;color:#a9a2b6;white-space:nowrap}'
++'.jhd-leg b{font-size:12.5px;font-weight:800;color:#7b7488}'
++'.jhd-leg.bad em,.jhd-leg.bad b{color:#b03a58}.jhd-leg.bad{background:#fdecf1}'
++'.jhd-leg.warn em,.jhd-leg.warn b{color:#a05f18}.jhd-leg.warn{background:#fdf3e6}'
++'.jhd-row.hov .jhd-seg{opacity:.2}.jhd-row.hov .jhd-seg.hot{opacity:1}'
++'.jhd-row.hov .jhd-st,.jhd-row.hov .jhd-leg{opacity:.34}'
++'.jhd-row.hov .jhd-st.hot,.jhd-row.hov .jhd-leg.hot{opacity:1;background:#faf8fe}'
++'.jhd-row.sum.hov .jhd-st.hot,.jhd-row.sum.hov .jhd-leg.hot{background:#fff}'
++'.jhd-row.hov .jhd-leg.bad.hot{background:#fbdde5}.jhd-row.hov .jhd-leg.warn.hot{background:#fbe9d3}'
++'.jhd-row .jhd-st.hot b{transform:scale(1.26)}'
++'#jhdPop{position:fixed;z-index:60;width:328px;max-width:calc(100vw - 24px);background:#fff;border:1px solid #ece8f5;border-radius:16px;box-shadow:0 14px 40px rgba(74,50,128,.16),0 2px 8px rgba(74,50,128,.08);padding:13px 14px 12px;opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .13s,transform .13s;visibility:hidden}'
++'#jhdPop.on{opacity:1;transform:none;visibility:visible}'
++'#jhdPop .ph{display:flex;align-items:center;gap:7px;padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid #f3f0fa}'
++'#jhdPop .ph i{width:10px;height:10px;border-radius:3px;flex:none;outline:1px solid #ece8f5}'
++'#jhdPop .ph i.hatch{background:repeating-linear-gradient(45deg,#ddd7ec 0 2px,#f6f4fc 2px 5px)}'
++'#jhdPop .ph i.dots{background:radial-gradient(#bab0d8 1.1px,#e2dcf2 1.1px);background-size:4px 4px}'
++'#jhdPop .ph em{font-style:normal;font-size:13px;font-weight:800;color:#3a3742}'
++'#jhdPop .ph b{margin-left:auto;font-size:12px;font-weight:800;color:#a9a2b6}'
++'#jhdPop .nms{display:grid;grid-template-columns:repeat(3,1fr);gap:3px 4px}'
++'#jhdPop .nm{display:flex;flex-direction:column;padding:4px 6px;border-radius:8px;background:#faf8fe;min-width:0}'
++'#jhdPop .nm b{font-size:12.5px;font-weight:700;color:#3a3742;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
++'#jhdPop .nm span{font-size:10px;font-weight:700;color:#c2bcd0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
++'#jhdPop .more{margin-top:8px;font-size:11.5px;font-weight:700;color:#a9a2b6;text-align:center}'
++'#jhdPop .none{font-size:12.5px;font-weight:600;color:#a9a2b6;padding:6px 2px}'
++'@media (max-width:640px){.jhd-row{grid-template-columns:1fr;gap:14px;justify-items:center}.jhd-s{width:100%}.jhd-dv{display:none}#jhdPop .nms{grid-template-columns:repeat(2,1fr)}}'
 +'</style>';
 function jhChip(bg,fg,txt,title){ return '<span'+(title?' title="'+esc(title)+'"':'')+' style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
 /* 이 학생이 왜 전형 명단에 들어왔는지 — 숫자가 안 맞을 때 바로 짚어낼 수 있게 */
@@ -887,6 +915,134 @@ function jhStateChip(r, semId){
   if(o==='notenr')   return jhChip('#fdf3e6','#e2953f','미등록');
   if(o==='wait')     return jhChip('#e4f4f5','#1f8a95','대기중');
   return jhChip('#f6f3fc','#8b6ee8','결과 미정');
+}
+/* ── 전형 도넛 ────────────────────────────────────────────
+   한 바퀴 = 예약. 조각 합이 예약과 맞아야 하므로 불참까지 넣는다.
+   예약·응시·등록·대기·미등록에 마우스를 올리면 그 학생 명단이 뜬다. */
+const JHD_SEG=[['enr','등록','#ab99f4',''],['wait','대기 중','#83d0ea',''],
+  ['notenr','미등록','#f4a2bb',''],['fail','미통과','','dots'],
+  ['open','결과 미입력','#f1edf8',''],['absent','불참','','hatch']];
+const JHD_NM={book:'예약',att:'응시',enr:'등록',wait:'대기 중',notenr:'미등록',
+  fail:'미통과',open:'결과 미입력',absent:'불참',miss:'명단 누락',baddate:'입학일 오류'};
+/* 명단 누락·입학일 오류는 등록 안에 들어 있는 값이라 등록 조각을 같이 밝힌다 */
+const JHD_HOT={ book:['enr','wait','notenr','fail','open','absent'],
+  att:['enr','wait','notenr','fail','open'], miss:['enr'], baddate:['enr'] };
+/* 학생 한 명이 도넛의 어느 조각인지 — jhCount와 같은 규칙 */
+function jhSeg(r, semId){
+  if(!isAttended(r)) return 'absent';
+  const o=jhOutcome(r, semId);
+  if(o==='enrolled') return 'enr';
+  if(o==='wait')   return 'wait';
+  if(o==='notenr') return 'notenr';
+  if(o==='fail')   return 'fail';
+  return 'open';
+}
+/* 칸마다 붙는 학생 명단 */
+function jhLists(rs, semId, brNm){
+  const L={book:[],att:[],enr:[],wait:[],notenr:[],fail:[],open:[],absent:[],miss:[],baddate:[]};
+  rs.forEach(r=>{
+    const p={ nm:r.name||'(이름 없음)', br:brNm[r.branchId]||'' };
+    const k=jhSeg(r, semId);
+    L[k].push(p); L.book.push(p);
+    if(k!=='absent') L.att.push(p);
+    if(k==='enr'){
+      const rec=jhRecOf(r, semId);
+      if(!rec) L.miss.push(p); else if(jhBadDate(rec, semId)) L.baddate.push(p);
+    }
+  });
+  return L;
+}
+let _jhdLists=[];
+function jhDonutSvg(o, uid){
+  const size=138, thick=22, r=(size-thick)/2, C=2*Math.PI*r, GAP=2.5, tot=o.book||1;
+  let off=0, arcs='';
+  JHD_SEG.forEach(a=>{
+    const k=a[0], n=o[k]||0; if(!n) return;
+    const len=Math.max(1, C*(n/tot)-GAP);
+    const paint = a[3]==='hatch' ? 'url(#jhdH'+uid+')' : a[3]==='dots' ? 'url(#jhdD'+uid+')' : a[2];
+    arcs+='<circle class="jhd-seg" data-k="'+k+'" cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none"'
+      +' stroke="'+paint+'" stroke-width="'+thick+'"'
+      +' stroke-dasharray="'+len.toFixed(2)+' '+(C-len).toFixed(2)+'"'
+      +' stroke-dashoffset="'+(-off).toFixed(2)+'"><title>'+esc(a[1])+' '+n+'명</title></circle>';
+    off += C*(n/tot);
+  });
+  return '<div class="jhd-d"><svg width="'+size+'" height="'+size+'" role="img" aria-label="'
+    + esc(JHD_SEG.map(a=>a[1]+' '+(o[a[0]]||0)).join(', '))+'">'
+    +'<defs><pattern id="jhdH'+uid+'" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
+    +'<rect width="6" height="6" fill="#f6f4fc"></rect>'
+    +'<line x1="0" y1="0" x2="0" y2="6" stroke="#ddd7ec" stroke-width="2.4"></line></pattern>'
+    +'<pattern id="jhdD'+uid+'" width="5" height="5" patternUnits="userSpaceOnUse">'
+    +'<rect width="5" height="5" fill="#e2dcf2"></rect>'
+    +'<circle cx="2.5" cy="2.5" r="1.15" fill="#bab0d8"></circle></pattern></defs>'
+    +'<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="#f1edf8" stroke-width="'+thick+'"></circle>'
+    + arcs + '</svg>'
+    +'<div class="jhd-c"><i>예약</i><b>'+o.book+'<small>명</small></b></div></div>';
+}
+function jhDonutRow(title, o, idx, cls){
+  const pcv=(n,t)=> t?Math.round(n/t*100)+'%':'—';
+  const st=(k,lab,v,unit,sub,c)=>'<div class="jhd-st hit'+(c?' '+c:'')+'" data-k="'+k+'">'
+    +'<i>'+lab+'</i><b>'+v+(unit?'<small>'+unit+'</small>':'')+(sub?'<small>'+sub+'</small>':'')+'</b></div>';
+  const leg=(k,lab,n,c,sw)=>'<div class="jhd-leg'+(c?' '+c:'')+'" data-k="'+k+'">'
+    +(sw? '<i class="'+(sw==='hatch'||sw==='dots'?sw:'')+'"'+(sw!=='hatch'&&sw!=='dots'?' style="background:'+sw+'"':'')+'></i>' : '')
+    +'<em>'+lab+'</em><b>'+n+'</b></div>';
+  return '<div class="jhd-row'+(cls?' '+cls:'')+'" data-r="'+idx+'">'+jhDonutSvg(o, idx)
+    +'<div class="jhd-s"><div class="jhd-t">'+esc(title)+'</div><div class="jhd-stats">'
+    + st('book','예약',o.book,'명')
+    + '<span class="jhd-ar">→</span>'
+    + st('att','응시',o.att,'명',' '+pcv(o.att,o.book))
+    + '<span class="jhd-dv"></span>'
+    + st('enr','등록',o.enr,'명','','enr')
+    + st('wait','대기 중',o.wait,'명','','wait')
+    + st('notenr','미등록',o.notenr,'명','','notenr')
+    + '<div class="jhd-st" data-k="rate"><i>등록률</i><b>'+(o.rate==null?'—':o.rate+'%')+'</b></div>'
+    +'</div><div class="jhd-legs">'
+    + leg('fail','미통과',o.fail,'','dots')
+    + leg('open','결과 미입력',o.open,'','#f1edf8')
+    + leg('absent','불참',o.absent,'','hatch')
+    + (o.enrMiss? leg('miss','명단 누락',o.enrMiss,'bad','') : '')
+    + (o.enrBad ? leg('baddate','입학일 오류',o.enrBad,'warn','') : '')
+    +'</div></div></div>';
+}
+/* 마우스 따라다니는 명단 팝오버 */
+const JHD_CAP=15;
+function jhdPop(){ let e=document.getElementById('jhdPop');
+  if(!e){ e=document.createElement('div'); e.id='jhdPop'; e.setAttribute('role','tooltip'); document.body.appendChild(e); }
+  return e; }
+function jhdHide(){ const e=document.getElementById('jhdPop'); if(e) e.classList.remove('on'); }
+function jhdShow(el, k, idx){
+  const arr=(_jhdLists[idx]||{})[k]; if(!arr){ jhdHide(); return; }
+  const sw = k==='absent'?'hatch' : k==='fail'?'dots' : (k==='enr'?'#ab99f4':k==='wait'?'#83d0ea':k==='notenr'?'#f4a2bb':k==='open'?'#f1edf8':'');
+  const p=jhdPop();
+  p.innerHTML='<div class="ph">'
+    + (sw? '<i class="'+(sw==='hatch'||sw==='dots'?sw:'')+'"'+(sw!=='hatch'&&sw!=='dots'?' style="background:'+sw+'"':'')+'></i>' : '')
+    + '<em>'+esc(JHD_NM[k]||k)+'</em><b>'+arr.length+'명</b></div>'
+    + (arr.length
+        ? '<div class="nms">'+arr.slice(0,JHD_CAP).map(x=>'<div class="nm"><b>'+esc(x.nm)+'</b><span>'+esc(x.br)+'</span></div>').join('')+'</div>'
+          + (arr.length>JHD_CAP? '<div class="more">외 '+(arr.length-JHD_CAP)+'명 · 아래 학생 명단에서 전체 보기</div>':'')
+        : '<div class="none">해당하는 학생이 없습니다.</div>');
+  p.classList.add('on');
+  const r=el.getBoundingClientRect(), pr=p.getBoundingClientRect();
+  let left=Math.max(12, Math.min(r.left+r.width/2-pr.width/2, innerWidth-pr.width-12));
+  let top=r.bottom+10;
+  if(top+pr.height>innerHeight-12) top=Math.max(12, r.top-pr.height-10);
+  p.style.left=left+'px'; p.style.top=top+'px';
+}
+function jhdHot(row, k, el){
+  row.classList.toggle('hov', !!k);
+  const segs=(k&&JHD_HOT[k])||(k?[k]:[]);
+  row.querySelectorAll('.jhd-seg').forEach(e=>e.classList.toggle('hot', segs.indexOf(e.dataset.k)>=0));
+  row.querySelectorAll('.jhd-st,.jhd-leg').forEach(e=>e.classList.toggle('hot', !!k && e.dataset.k===k));
+  if(k && el) jhdShow(el, k, +row.dataset.r); else jhdHide();
+}
+function jhdBind(){
+  const box=document.getElementById('jhDonut'); if(!box) return;
+  box.addEventListener('mouseover', e=>{
+    const row=e.target.closest('.jhd-row'); if(!row) return;
+    const t=e.target.closest('.jhd-seg,.jhd-st,.jhd-leg');
+    jhdHot(row, (t && t.dataset.k!=='rate') ? t.dataset.k : null, t);
+  });
+  box.querySelectorAll('.jhd-row').forEach(r=> r.addEventListener('mouseleave', ()=>jhdHot(r,null)));
+  addEventListener('scroll', jhdHide, true);
 }
 function renderJeonhyeongDash(c){
   if(!bookState.loaded){
@@ -917,22 +1073,18 @@ function renderJeonhyeongDash(c){
     +(session.role==='admin' ? '<span style="margin-left:8px">분원</span><select onchange="mgSetBranch(this.value)" style="'+sels+'"><option value="all" '+((!state.mgBranch||state.mgBranch==='all')?'selected':'')+'>전체</option>'+(db.branches||[]).map(b=>'<option value="'+b.id+'" '+(state.mgBranch===b.id?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select>' : '')
     +'</div>';
 
-  /* ---- 위: 예약 → 응시 → 다음학기 대상 → 등록 4단계 ---- */
-  const stepH=(cls,k,v,sub)=>'<div class="jh-step '+cls+'"><div class="k">'+k+'</div>'
-    +'<div class="v">'+v+'<small>명</small></div>'
-    +'<div class="sub">'+sub+'</div></div>';
-  const li=(t,n,out)=> n? '<span'+(out?' class="out"':'')+'>'+t+' <b>'+n+'</b></span>' : '';
+  /* ---- 위: 설명회 / 개별 / 합계 도넛 ---- */
+  const brNm={}; brs.forEach(b=>brNm[b.id]=b.name);
+  const briefRows=rows.filter(isBrief), indRows=rows.filter(r=>!isBrief(r));
+  _jhdLists=[ jhLists(briefRows, semId, brNm), jhLists(indRows, semId, brNm), jhLists(rows, semId, brNm) ];
   html+='<div class="jh-card">'
     +'<div class="jh-hd"><h3>'+esc(semNm)+' 전형</h3>'
-    +'<span class="why">이번 학기에 시험 보고 '+esc(semNm)+'에 등록하는 학생만'+(briefs.length?' · 설명회 '+briefs.length+'회':'')+'</span></div>'
-    +'<div class="jh-flow">'
-    + stepH('s1','예약', S.book, li('설명회',SB.book)+li('개별',SI.book))
-    + stepH('s2','응시', S.att, li('불참',S.absent,1)
-        +(S.book?'<span>응시율 <b>'+Math.round(S.att/S.book*100)+'%</b></span>':''))
-    + stepH('s3','결과 확정', S.decided, li('미통과',S.fail,1)+li('결과 미입력',S.open,1))
-    + stepH('s4','등록', S.enr, li('명단 누락',S.enrMiss,1)+li('입학일 오류',S.enrBad,1))
-    + stepH('s5','대기 중', S.wait, '<span>결제·연락 필요</span>')
-    + stepH('s6','미등록', S.notenr, '')
+    +'<span class="why">한 바퀴 = 예약 인원 · 숫자에 마우스를 올리면 그 학생 명단이 뜹니다'
+    +(briefs.length?' · 설명회 '+briefs.length+'회':'')+'</span></div>'
+    +'<div class="jhd" id="jhDonut">'
+    + jhDonutRow('설명회 전형', SB, 0)
+    + jhDonutRow('개별 전형',   SI, 1)
+    + jhDonutRow('합계',        S,  2, 'sum')
     +'</div>'
     +'<div class="jh-conv"><span class="t">등록 전환</span>'
       +'<span class="d">결과 확정 <b>'+S.decided+'명</b> = 등록 <b>'+S.enr+'</b>'
@@ -1015,6 +1167,7 @@ function renderJeonhyeongDash(c){
     +'</div><div id="jhListWrap"></div></div>';
   c.innerHTML=html;
   jhRenderList();
+  jhdBind();
 }
 /* 명단 필터 상태 — 다시 그려도 유지된다 */
 let _jhRows=[], _jhSem='';
