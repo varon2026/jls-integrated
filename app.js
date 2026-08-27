@@ -889,6 +889,25 @@ const JH_CSS='<style>'
 +'#jhdPop .more{margin-top:8px;font-size:11.5px;font-weight:700;color:#a9a2b6;text-align:center}'
 +'#jhdPop .none{font-size:12.5px;font-weight:600;color:#a9a2b6;padding:6px 2px}'
 +'@media (max-width:640px){.jhd-row{grid-template-columns:1fr;gap:14px;justify-items:center}.jhd-s{width:100%}.jhd-dv{display:none}#jhdPop .nms{grid-template-columns:repeat(2,1fr)}}'
++'.jh-t thead tr:last-child th{padding:0;border-bottom:1.5px solid #e8e3f3}'
++'.jh-t thead tr:last-child th:not(.l){width:80px}'
++'.jh-t thead tr:last-child th.l{width:auto;min-width:170px}'
++'.jh-sb{width:100%;border:0;background:none;font:inherit;font-size:11px;font-weight:800;color:#a9a2b6;padding:4px 12px 10px;text-align:right;cursor:pointer;white-space:nowrap;border-radius:7px}'
++'.jh-t thead tr:last-child th.l .jh-sb{text-align:left}'
++'.jh-sb:hover{color:#5b41b5;background:#f6f3fc}'
++'.jh-sb.on{color:#5b41b5}'
++'.jh-sb i{font-style:normal;font-size:9px;margin-left:3px;vertical-align:1px}'
++'.jh-go{color:inherit;text-decoration:none;border-bottom:1px dashed transparent;cursor:pointer}'
++'.jh-go:hover{color:#5b41b5;border-bottom-color:#c9b8f7}'
++'.jh-t td.dim{color:#c2bcd0;font-weight:400}'
++'.jh-t tr.br td.dim,.jh-t tr.tot td.dim{color:#c2bcd0;font-weight:700}'
++'.jh-t .flag.hi{background:#fbe2e9;color:#b03a58}'
++'.jh-t tr.sub td{color:#7b7488}'
++'.jh-lag{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 20px 4px;padding:11px 14px;background:#fdf3e6;border-radius:11px;font-size:12.5px;color:#8a5115}'
++'.jh-lag>b{font-weight:800;color:#a05f18}'
++'.jh-lag>span{background:#fff;border-radius:8px;padding:3px 10px;font-weight:700;color:#8a5115;white-space:nowrap}'
++'.jh-lag>span em{font-style:normal;font-weight:800;color:#a05f18;margin-left:3px}'
++'.jh-lag>i{flex:1 1 100%;font-style:normal;font-size:11.5px;color:#a98457;line-height:1.6}'
 +'</style>';
 function jhChip(bg,fg,txt,title){ return '<span'+(title?' title="'+esc(title)+'"':'')+' style="background:'+bg+';color:'+fg+';font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;white-space:nowrap">'+txt+'</span>'; }
 /* 이 학생이 왜 전형 명단에 들어왔는지 — 숫자가 안 맞을 때 바로 짚어낼 수 있게 */
@@ -1035,6 +1054,7 @@ function jhdHot(row, k, el){
   if(k && el) jhdShow(el, k, +row.dataset.r); else jhdHide();
 }
 function jhdBind(){
+  jhdHide();                       // 다시 그릴 때 떠 있던 명단은 닫는다
   const box=document.getElementById('jhDonut'); if(!box) return;
   box.addEventListener('mouseover', e=>{
     const row=e.target.closest('.jhd-row'); if(!row) return;
@@ -1043,6 +1063,26 @@ function jhdBind(){
   });
   box.querySelectorAll('.jhd-row').forEach(r=> r.addEventListener('mouseleave', ()=>jhdHot(r,null)));
   addEventListener('scroll', jhdHide, true);
+}
+/* 분원별 표 정렬 — 기본은 예약 많은 순.
+   전환율로 줄 세우면 결과를 몇 명만 넣고 100%가 된 분원이 1등으로 올라온다. */
+function jhSort(){ if(!state.jhSort) state.jhSort={k:'book',d:-1}; return state.jhSort; }
+function jhSetSort(k){
+  const S2=jhSort();
+  if(S2.k===k) S2.d = -S2.d;
+  else { S2.k=k; S2.d = (k==='name') ? 1 : -1; }
+  jhRefresh();
+}
+/* 표의 숫자 → 아래 학생 명단을 그 분원·그 상태로 걸고 내려간다 */
+function jhGo(brId, bucket){
+  const F=jhL();
+  F.br = (session.role==='admin') ? brId : 'all';
+  F.st = bucket;
+  jhRenderList();
+  const sel=document.querySelector('.jh-sel'); if(sel) sel.value=F.br;
+  const w=document.getElementById('jhListWrap');
+  if(w) w.scrollIntoView({behavior:'smooth', block:'center'});
+  return false;
 }
 function renderJeonhyeongDash(c){
   if(!bookState.loaded){
@@ -1093,41 +1133,74 @@ function renderJeonhyeongDash(c){
 
   /* ---- 분원별 ----
      설명회를 한 분원을 먼저 묶고, 개별전형만 한 분원은 아래로 내린다.
-     설명회 분원은 회차 줄 + 개별 줄을 항상 그려서 줄 수가 들쭉날쭉하지 않게 한다. */
+     설명회 분원은 회차 줄 + 개별 줄을 항상 그려서 줄 수가 들쭉날쭉하지 않게 한다.
+     열 순서는 학생이 걸어온 순서 그대로 —
+     예약 → 응시(불참 빠짐) → 미통과·미입력 빠짐 → 등록·누락·대기·미등록 = 확정 → 전환. */
   const byBr={}; brs.forEach(b=>byBr[b.id]=[]);
   briefs.forEach(x=>{ if(byBr[x.branch_id]) byBr[x.branch_id].push(x); });
+  const showMiss = S.enrMiss>0;                 // 누락이 하나도 없으면 열 자체를 뺀다
+  const NCOL = showMiss?12:11;
   const z=n=>n?n:'<span class="z">·</span>';
-  const cells=(s2,big)=>
-     '<td class="sep'+(big?' k':'')+'">'+z(s2.book)+'</td><td>'+z(s2.att)+'</td>'
-    +'<td>'+z(s2.absent)+'</td><td>'+z(s2.fail)+'</td>'
-    +'<td class="sep'+(big?' k w':'')+'">'+z(s2.decided)+'</td>'
-    +'<td'+(big?' class="k e"':'')+'>'+z(s2.enrFix)+'</td>'
-    +'<td>'+(s2.enrMiss?'<span class="miss">'+s2.enrMiss+'</span>':'<span class="z">·</span>')+'</td>'
-    +'<td>'+z(s2.wait)+'</td><td>'+z(s2.notenr)+'</td>'
-    +'<td class="sep">'+(s2.rate==null?'<span class="z">—</span>':s2.rate+'%')+'</td>'
-    +'<td>'+(s2.open?'<span class="flag">'+s2.open+'</span>':'<span class="z">·</span>')+'</td>';
+  /* 숫자를 누르면 아래 학생 명단이 그 분원·그 상태로 걸린다.
+     명단 버튼과 1:1로 맞는 칸만 누를 수 있게 한다 — 숫자가 다르면 오히려 헷갈리니까. */
+  const hit=(brId,bucket,inner)=> brId&&bucket ? '<a class="jh-go" href="#" onclick="return jhGo(\''+brId+'\',\''+bucket+'\')">'+inner+'</a>' : inner;
+  const cells=(s2,big,brId)=>{
+    const k=big?' k':'';
+    const dim = s2.open>0 && s2.open>=s2.decided;   // 결과를 덜 넣은 분원의 전환율은 못 믿는다
+    return '<td class="sep'+k+'">'+z(s2.book)+'</td><td>'+z(s2.att)+'</td>'
+      +'<td>'+z(s2.absent)+'</td>'
+      +'<td class="sep">'+(s2.fail?hit(brId,'fail',s2.fail):'<span class="z">·</span>')+'</td>'
+      +'<td>'+(s2.open?'<span class="flag'+(s2.open>=10?' hi':'')+'">'+s2.open+'</span>':'<span class="z">·</span>')+'</td>'
+      +'<td class="sep'+(big?' k e':'')+'">'+(s2.enrFix?hit(brId,'enr',s2.enrFix):'<span class="z">·</span>')+'</td>'
+      +(showMiss?'<td>'+(s2.enrMiss?hit(brId,'miss','<span class="miss">'+s2.enrMiss+'</span>'):'<span class="z">·</span>')+'</td>':'')
+      +'<td>'+(s2.wait?hit(brId,'wait',s2.wait):'<span class="z">·</span>')+'</td>'
+      +'<td>'+(s2.notenr?hit(brId,'notenr',s2.notenr):'<span class="z">·</span>')+'</td>'
+      +'<td'+(big?' class="k w"':'')+'>'+z(s2.decided)+'</td>'
+      +'<td class="sep'+(dim?' dim':'')+'"'+(dim?' title="결과 미입력이 '+s2.open+'명이라 아직 믿을 수 없는 수치입니다. 미입력부터 채워야 합니다."':'')+'>'
+      + (s2.rate==null?'<span class="z">—</span>':s2.rate+'%')+'</td>';
+  };
   const brData=b=>{
     const rs=rows.filter(r=>r.branchId===b.id), bl=(byBr[b.id]||[]);
     return { b:b, rs:rs, bl:bl, t:jhCount(rs, semId) };
   };
   const all=brs.map(brData).filter(x=> x.rs.length || x.bl.length);
-  const byRate=(a,b)=> (b.t.rate==null?-1:b.t.rate)-(a.t.rate==null?-1:a.t.rate) || b.t.book-a.t.book;
-  const withBrief=all.filter(x=>x.bl.length).sort(byRate);
-  const onlyInd =all.filter(x=>!x.bl.length).sort(byRate);
+  /* 정렬 — 기본은 예약 많은 순.
+     예전처럼 전환율로 줄 세우면 결과를 12명만 넣고 100%가 된 분원이 1등으로 올라온다. */
+  const SORT=jhSort();
+  const sv=(x,k)=> k==='name' ? x.b.name : (k==='rate' ? (x.t.rate==null?-1:x.t.rate) : (x.t[k]||0));
+  const bySort=(a,b)=>{
+    if(SORT.k==='name') return String(a.b.name).localeCompare(String(b.b.name),'ko')*SORT.d;
+    return ((sv(a,SORT.k)-sv(b,SORT.k))*SORT.d) || (b.t.book-a.t.book);
+  };
+  const withBrief=all.filter(x=>x.bl.length).sort(bySort);
+  const onlyInd =all.filter(x=>!x.bl.length).sort(bySort);
+  /* 미입력이 남은 분원은 표 위에 따로 불러 준다 — 관리자가 제일 먼저 할 일이라서 */
+  const lag=all.filter(x=>x.t.open>0).sort((a,b)=>b.t.open-a.t.open);
+  const th=(k,lab,cls,tip)=>'<th'+(cls?' class="'+cls+'"':'')+(tip?' title="'+esc(tip)+'"':'')+'>'
+    +'<button class="jh-sb'+(SORT.k===k?' on':'')+'" onclick="jhSetSort(\''+k+'\')">'+lab
+    +(SORT.k===k?'<i>'+(SORT.d<0?'▾':'▴')+'</i>':'')+'</button></th>';
   html+='<div class="jh-card"><div class="jh-hd"><h3>분원별</h3>'
-    +'<span class="why">왼쪽에서 오른쪽으로 읽으면 학생이 어디까지 왔는지 보입니다</span></div>'
-    +'<div style="overflow-x:auto"><table class="jh-t"><thead>'
-    +'<tr class="grp"><th class="gl">&nbsp;</th><th class="sep" colspan="4">응 시</th>'
-    +'<th class="sep" colspan="5">전형 결과</th><th class="sep" colspan="2">&nbsp;</th></tr>'
-    +'<tr><th class="l">분원 / 회차</th>'
-    +'<th class="sep">예약</th><th>응시</th><th title="취소·노쇼·연락 없이 안 온 인원">불참</th><th>미통과</th>'
-    +'<th class="sep" title="등록·대기·미등록이 정해진 인원. 미통과와 결과 미입력은 빠집니다.">확정</th>'
-    +'<th title="대기명단에서 등록까지 누른 학생">등록</th>'
-    +'<th title="레벨테스트에서 바로 등록을 눌러 학기 명단에 아예 없는 학생 — 대기로 되돌린 뒤 대기명단에서 다시 등록해야 합니다">누락</th>'
-    +'<th>대기</th><th>미등록</th>'
-    +'<th class="sep">전환</th><th title="분원이 아직 결과를 넣지 않은 예약">미입력</th></tr>'
-    +'</thead><tbody>';
-  const sec=t=>'<tr class="sec"><td colspan="12">'+t+'</td></tr>';
+    +'<span class="why">숫자를 누르면 아래 학생 명단이 그 분원으로 걸립니다 · 제목을 누르면 정렬됩니다</span></div>';
+  if(lag.length) html+='<div class="jh-lag"><b>결과 미입력 '+S.open+'명</b>'
+    + lag.map(x=>'<span>'+esc(x.b.name)+' <em>'+x.t.open+'</em></span>').join('')
+    +'<i>응시는 했는데 등록·대기·미등록이 아직 안 정해진 학생입니다. 이게 남아 있으면 전환율이 실제보다 높게 나옵니다.</i></div>';
+  html+='<div style="overflow-x:auto"><table class="jh-t"><thead>'
+    +'<tr class="grp"><th class="gl">&nbsp;</th>'
+    +'<th class="sep" colspan="3">예약 · 출결</th>'
+    +'<th class="sep" colspan="2">확정에서 빠짐</th>'
+    +'<th class="sep" colspan="'+(showMiss?5:4)+'">등록 확정 = 등록 '+(showMiss?'+ 누락 ':'')+'+ 대기 + 미등록</th>'
+    +'<th class="sep">&nbsp;</th></tr>'
+    +'<tr>'+th('name','분원 / 회차','l')
+    + th('book','예약','sep') + th('att','응시') + th('absent','불참',null,'취소·노쇼·연락 없이 안 온 인원')
+    + th('fail','미통과','sep')
+    + th('open','미입력',null,'응시했지만 분원이 아직 등록·대기·미등록을 안 정한 예약')
+    + th('enrFix','등록','sep','대기명단에서 등록까지 눌러 학기 명단에 들어온 학생')
+    + (showMiss? th('enrMiss','누락',null,'레벨테스트에서 바로 등록을 눌러 학기 명단에 아예 없는 학생 — 대기로 되돌린 뒤 대기명단에서 다시 등록해야 합니다'):'')
+    + th('wait','대기') + th('notenr','미등록')
+    + th('decided','확정',null,'등록·누락·대기·미등록을 더한 값. 미통과와 결과 미입력은 빠집니다.')
+    + th('rate','전환','sep','등록 ÷ 확정')
+    +'</tr></thead><tbody>';
+  const sec=t=>'<tr class="sec"><td colspan="'+NCOL+'">'+t+'</td></tr>';
   const trackRows=x=>{
     const md=d=>edDs(d).slice(5).replace('-','.');
     const ts=x.bl.map(e=>({key:'b'+(e.briefing_no||1), label:'설명회 '+(e.briefing_no||1)+'차', date:md(e.exam_date)}))
@@ -1136,14 +1209,16 @@ function renderJeonhyeongDash(c){
       const rs=x.rs.filter(r=> jhTrack(r.branchId,r.date,semId).key===t.key);
       return '<tr class="sub'+(i2===ts.length-1?' last end':'')+'">'
         +'<td class="l"><em>'+esc(t.label)+'</em><span>'+esc(t.date)+'</span></td>'
-        +cells(jhCount(rs, semId))+'</tr>';
+        +cells(jhCount(rs, semId), 0, x.b.id)+'</tr>';
     }).join('');
   };
+  const brRow=(x,cls)=>'<tr class="br'+(cls?' '+cls:'')+'"><td class="l">'
+    + hit(x.b.id,'all', esc(x.b.name))+'</td>'+cells(x.t,1,x.b.id)+'</tr>';
   if(withBrief.length) html+=sec('설명회 진행')
-    + withBrief.map(x=>'<tr class="br"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>'+trackRows(x)).join('');
+    + withBrief.map(x=>brRow(x)+trackRows(x)).join('');
   if(onlyInd.length) html+=sec('개별전형만')
-    + onlyInd.map(x=>'<tr class="br end"><td class="l">'+esc(x.b.name)+'</td>'+cells(x.t,1)+'</tr>').join('');
-  if(!all.length) html+='<tr><td colspan="12" style="text-align:center;color:#a9a2b6;font-weight:400;height:60px">'
+    + onlyInd.map(x=>brRow(x,'end')).join('');
+  if(!all.length) html+='<tr><td colspan="'+NCOL+'" style="text-align:center;color:#a9a2b6;font-weight:400;height:60px">'
     +esc(semNm)+' 전형으로 잡힌 학생이 아직 없습니다.</td></tr>';
   html+='<tr class="tot"><td class="l">합계</td>'+cells(S,1)+'</tr>';
   html+='</tbody></table></div>';
@@ -1151,7 +1226,6 @@ function renderJeonhyeongDash(c){
     +'이 학기에 표시된 설명회가 없어 응시자가 전부 <b>개별</b>로 잡혔습니다. 설명회를 진행한 날이 있다면 '
     +'분원 계정에서 그 날짜를 열어 <b>설명회 진행</b>을 켜주세요.</div>';
   html+='</div>';
-
   /* ---- 명단 ---- */
   /* ---- 학생 명단 : 상태 버튼 · 이름 검색 · 분원으로 걸러 본다 ---- */
   _jhRows=rows; _jhSem=semId;
