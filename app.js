@@ -922,6 +922,16 @@ const JH_CSS='<style>'
 +'.jh-lag>span{background:#fff;border-radius:8px;padding:3px 10px;font-weight:700;color:#8a5115;white-space:nowrap}'
 +'.jh-lag>span em{font-style:normal;font-weight:800;color:#a05f18;margin-left:3px}'
 +'.jh-lag>i{flex:1 1 100%;font-style:normal;font-size:11.5px;color:#a98457;line-height:1.6}'
++'.jh-pg{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:14px 20px 18px;border-top:1px solid #f3f0fa}'
++'.jh-pg.one{border-top:0;padding-top:10px}'
++'.jh-pg .cnt{margin-right:auto;font-size:12.5px;font-weight:700;color:#a9a2b6}'
++'.jh-pg .cnt b{color:#3a3742;font-weight:800}'
++'.jh-pb{min-width:34px;height:34px;border:1px solid #ece8f5;background:#fff;border-radius:9px;'
++'padding:0 10px;font:inherit;font-size:12.5px;font-weight:700;color:#7b7488;cursor:pointer;transition:.13s}'
++'.jh-pb:hover:not(:disabled){border-color:#c9b8f7;color:#8570e0;background:#faf8fe}'
++'.jh-pb.on{background:#8570e0;border-color:#8570e0;color:#fff}'
++'.jh-pb:disabled{opacity:.35;cursor:default}'
++'.jh-pg .gap{color:#c2bcd0;font-weight:700;padding:0 2px}'
 +'#jhTip{position:fixed;z-index:70;max-width:300px;background:#3a3550;color:#f3f0fa;'
 +'border-radius:11px;padding:9px 12px;font-size:12px;font-weight:600;line-height:1.6;'
 +'box-shadow:0 10px 30px rgba(58,53,80,.28);opacity:0;visibility:hidden;pointer-events:none;'
@@ -1304,10 +1314,14 @@ function renderJeonhyeongDash(c){
 }
 /* 명단 필터 상태 — 다시 그려도 유지된다 */
 let _jhRows=[], _jhSem='';
-function jhL(){ if(!state.jhList) state.jhList={q:'',br:'all',st:'all'}; return state.jhList; }
-function jhSetQ(v){ jhL().q=v; jhRenderList(); }
-function jhSetLBr(v){ jhL().br=v; jhRenderList(); }
-function jhSetLSt(v){ jhL().st=v; jhRenderList(); }
+const JH_PER=20;                       // 한 쪽에 20명
+function jhL(){ if(!state.jhList) state.jhList={q:'',br:'all',st:'all',pg:1}; if(!state.jhList.pg) state.jhList.pg=1; return state.jhList; }
+function jhSetQ(v){ jhL().q=v; jhL().pg=1; jhRenderList(); }
+function jhSetLBr(v){ jhL().br=v; jhL().pg=1; jhRenderList(); }
+function jhSetLSt(v){ jhL().st=v; jhL().pg=1; jhRenderList(); }
+function jhSetPg(n){ jhL().pg=n; jhRenderList();
+  const w=document.getElementById('jhListWrap');
+  if(w) w.scrollIntoView({behavior:'smooth', block:'start'}); }
 /* 학생 한 명이 어느 칸에 들어가는지 — 버튼과 딱 1:1 */
 function jhBucket(r, semId){
   const o=jhOutcome(r, semId);
@@ -1504,14 +1518,18 @@ function jhRenderList(){
   }
   const ord=r=>{ const k=jhBucket(r,semId); return ['miss','wait','enr','notenr','fail','none','off'].indexOf(k); };
   const sorted=list.slice().sort((a,b)=> (ord(a)-ord(b)) || String(a.name).localeCompare(String(b.name),'ko'));
+  // 20명씩 끊는다. 끝없이 스크롤하면 몇 번째 학생을 보고 있는지 알 수가 없다.
+  const pgN=Math.max(1, Math.ceil(sorted.length/JH_PER));
+  const pg=Math.min(Math.max(1, F.pg||1), pgN);  F.pg=pg;
+  const from=(pg-1)*JH_PER, page=sorted.slice(from, from+JH_PER);
   h+='<div style="overflow-x:auto"><table class="jh-l"><thead><tr><th class="no">#</th>'
     +['학생','회원코드','분원','전형','포함 이유','학교 / 학년','시험일','상태','비고'].map(t=>'<th>'+t+'</th>').join('')
     +'</tr></thead><tbody>';
-  sorted.forEach((r,i2)=>{
+  page.forEach((r,i2)=>{
     const sg=[r.school,gradeTxt(r.grade)].filter(Boolean).join(' · ');
     const tk=jhTrack(r.branchId,r.date,semId);
     h+='<tr>'
-      +'<td class="no">'+(i2+1)+'</td>'
+      +'<td class="no">'+(from+i2+1)+'</td>'
       +'<td class="nm">'+esc(r.name||'?')+'</td>'
       +'<td class="cd">'+esc(r.code||'—')+'</td>'
       +'<td>'+esc(bName(r.branchId))+'</td>'
@@ -1528,7 +1546,23 @@ function jhRenderList(){
         })()+'</td></tr>';
   });
   h+='</tbody></table></div>';
+  h+=jhPager(pg, pgN, sorted.length, from, page.length);
   wrap.innerHTML=h;
+}
+/* 쪽 번호 — 쪽이 많아도 줄이 넘치지 않게 앞뒤 두 개씩만 펼친다 */
+function jhPager(pg, pgN, total, from, shown){
+  if(total<=JH_PER) return '<div class="jh-pg one"><span class="cnt">전체 <b>'+total+'</b>명</span></div>';
+  const btn=(n,lab,on,dis)=> '<button class="jh-pb'+(on?' on':'')+'"'+(dis?' disabled':'')
+    +' onclick="jhSetPg('+n+')">'+lab+'</button>';
+  const nums=[]; const add=n=>{ if(nums.indexOf(n)<0 && n>=1 && n<=pgN) nums.push(n); };
+  add(1); for(let i=pg-2;i<=pg+2;i++) add(i); add(pgN);
+  nums.sort((a,b)=>a-b);
+  let mid=''; let last=0;
+  nums.forEach(n=>{ if(last && n-last>1) mid+='<span class="gap">…</span>'; mid+=btn(n,n,n===pg); last=n; });
+  return '<div class="jh-pg">'
+    +'<span class="cnt">전체 <b>'+total+'</b>명 중 <b>'+(from+1)+'–'+(from+shown)+'</b></span>'
+    + btn(pg-1,'← 이전',0,pg<=1) + mid + btn(pg+1,'다음 →',0,pg>=pgN)
+    +'</div>';
 }
 /* ---------- 대시보드: 인원 현황 (진짜 데이터 + CHESS/ACE) ---------- */
 function branchList(){ return session.role==='admin' ? db.branches : db.branches.filter(b=>b.id===session.branchId); }
