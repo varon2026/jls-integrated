@@ -2190,14 +2190,15 @@ function renderLtDetail(b){
   if(wonmuState.ltPeriod==null) wonmuState.ltPeriod=-1;
   let sel=wonmuState.ltPeriod; if(sel>=periods.length) sel=-1;
   const ymSet=periods.map(p=>p.ym);
-  const inScope=r=>{ const ym=String(r.reserved_date||'').slice(0,7); return sel<0?ymSet.includes(ym):ym===ymSet[sel]; };
+  // sel -2 = 전체 기간(학기 밖까지). 몇 년 전에 왔던 학생을 찾으려면 학기 울타리를 넘어야 한다.
+  const inScope=r=>{ if(sel===-2) return true; const ym=String(r.reserved_date||'').slice(0,7); return sel<0?ymSet.includes(ym):ym===ymSet[sel]; };
   const brs=branchList();
   const scopedAll=reservations.filter(r=> (session.role==='admin'||r.branch_id===session.branchId) && inScope(r));
   const tot=ltMetrics(scopedAll);
   const R=ltRates(tot);
   const brData=brs.map(x=>({b:x, m:ltMetrics(reservations.filter(r=>r.branch_id===x.id && inScope(r)))}));
   const maxBooked=Math.max(1,...brData.map(d=>d.m.booked));
-  const periodLabel=sel<0?'학기 전체':`${periods[sel].m}월`;
+  const periodLabel=sel===-2?'전체 기간':sel<0?'학기 전체':`${periods[sel].m}월`;
 
   let h=tabBar+`
   <div class="lt-top"><div><h2><span class="hic">${IC_CAL}</span>레벨테스트</h2><p>분원을 누르면 그 분원 캘린더(예약·출결)로 들어가요</p></div>
@@ -2205,7 +2206,7 @@ function renderLtDetail(b){
       <button class="lt-xlsxbtn" onclick="triggerExcelUpload()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>엑셀 등록</button>
       <button class="lt-inputbtn" onclick="openBranchCalendar('all')">＋ 예약 입력</button>
       ${session.role==='admin'?`<button class="lt-logbtn ${wonmuState.delLogOpen?'on':''}" onclick="toggleDelLog()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>삭제 기록${delLogs.length?` ${delLogs.length}`:''}</button>`:''}
-      <div class="pick"><span>기간</span><select onchange="ltSetPeriod(this.value)"><option value="-1" ${sel<0?'selected':''}>학기 전체</option>${periods.map((p,i)=>`<option value="${i}" ${i===sel?'selected':''}>${p.m}월</option>`).join('')}</select></div>
+      <div class="pick"><span>기간</span><select onchange="ltSetPeriod(this.value)"><option value="-1" ${sel===-1?'selected':''}>학기 전체</option><option value="-2" ${sel===-2?'selected':''}>전체 기간</option>${periods.map((p,i)=>`<option value="${i}" ${i===sel?'selected':''}>${p.m}월</option>`).join('')}</select></div>
     </div></div>`;
 
   // 삭제 기록 패널 (본사 전용) — 노쇼 지우기 조작 감사
@@ -2278,11 +2279,12 @@ function renderLtDetail(b){
     failed:base.filter(r=>r.enrolled==='failed').length,
     waitn:base.filter(r=>r.enrolled==='waiting_next').length,
     noshow:base.filter(r=>r.status==='noshow').length,
-    booked:base.filter(r=>(r.status||'booked')==='booked').length };
+    booked:base.filter(r=>(r.status||'booked')==='booked').length,
+    revisit:base.filter(r=>ltVisits(r).length>1).length };
   const chip=(k,label)=>`<span class="chip ${f===k?'on':''}" onclick="ltSetFilter('${k}')">${label} <span class="c">${cnt[k]}</span></span>`;
 
   h+=`<div class="lt-card"><div class="lt-ch"><div class="t">응시자 상세 <span class="hint">${periodLabel} · ${cnt.all}명</span></div><div class="lt-ch-r">`;
-  h+=`<div class="lt-search"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="ltSearchInput" placeholder="학생 이름·코드 검색" value="${esc(wonmuState.ltSearch||'')}" oninput="ltSetSearch(this.value)"><button class="lt-search-x" onclick="var i=document.getElementById('ltSearchInput'); if(i)i.value=''; ltSetSearch('')">✕</button></div>`;
+  h+=`<div class="lt-search"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="ltSearchInput" placeholder="이름 · 회원코드 · 연락처 검색" value="${esc(wonmuState.ltSearch||'')}" oninput="ltSetSearch(this.value)"><button class="lt-search-x" onclick="var i=document.getElementById('ltSearchInput'); if(i)i.value=''; ltSetSearch('')">✕</button></div>`;
   const gradeOptsH=[...new Set(base.map(r=>gradeTxt(r.grade)).filter(Boolean))].sort(gradeSort);
   const lg=wonmuState.ltGrade||'all';
   h+=`<div class="pick"><span>학년</span><select onchange="ltSetGrade(this.value)"><option value="all" ${lg==='all'?'selected':''}>전체 학년</option>${gradeOptsH.map(g=>`<option value="${esc(g)}" ${g===lg?'selected':''}>${esc(g)}</option>`).join('')}</select></div>`;
@@ -2290,7 +2292,7 @@ function renderLtDetail(b){
     h+=`<div class="pick"><span>분원</span><select onchange="ltSetListBranch(this.value)"><option value="all" ${lb==='all'?'selected':''}>전체 분원</option>${brs.map(b2=>`<option value="${b2.id}" ${b2.id===lb?'selected':''}>${esc(b2.name)}</option>`).join('')}</select></div>`;
   }
   h+=`</div></div>`;
-  h+=`<div class="chips">${chip('all','전체')}${chip('attended','참석')}${chip('enrolled','등록완료')}${chip('notenr','미등록')}${chip('failed','미통과')}${chip('waitn','다음학기 대기')}${chip('noshow','노쇼')}${chip('booked','예약대기')}</div>`;
+  h+=`<div class="chips">${chip('all','전체')}${chip('attended','참석')}${chip('enrolled','등록완료')}${chip('notenr','미등록')}${chip('failed','미통과')}${chip('waitn','다음학기 대기')}${chip('noshow','노쇼')}${chip('booked','예약대기')}${chip('revisit','재방문')}</div>`;
   h+=`<div id="apptblHost"></div>`;
   h+=`</div>`;
   b.innerHTML=h;
@@ -2302,17 +2304,20 @@ function ltFilteredRows(){
   if(!periods.length){ const t=new Date(); periods=[{y:t.getFullYear(),m:t.getMonth()+1,ym:`${t.getFullYear()}-${_pad(t.getMonth()+1)}`}]; }
   let sel=wonmuState.ltPeriod; if(sel==null)sel=-1; if(sel>=periods.length)sel=-1;
   const ymSet=periods.map(p=>p.ym);
-  const inScope=r=>{ const ym=String(r.reserved_date||'').slice(0,7); return sel<0?ymSet.includes(ym):ym===ymSet[sel]; };
+  const inScope=r=>{ if(sel===-2) return true; const ym=String(r.reserved_date||'').slice(0,7); return sel<0?ymSet.includes(ym):ym===ymSet[sel]; };
   const scopedAll=reservations.filter(r=> (session.role==='admin'||r.branch_id===session.branchId) && inScope(r));
   const lb=wonmuState.ltListBranch||'all';
   const base=scopedAll.filter(r=> lb==='all'?true:r.branch_id===lb);
   const f=wonmuState.ltFilter||'all';
-  const pred={ all:()=>true, attended:isAttended, enrolled:r=>r.enrolled==='enrolled', notenr:r=>r.enrolled==='not_enrolled', failed:r=>r.enrolled==='failed', waitn:r=>r.enrolled==='waiting_next', noshow:r=>r.status==='noshow', booked:r=>(r.status||'booked')==='booked' }[f]||(()=>true);
+  const pred={ all:()=>true, attended:isAttended, enrolled:r=>r.enrolled==='enrolled', notenr:r=>r.enrolled==='not_enrolled', failed:r=>r.enrolled==='failed', waitn:r=>r.enrolled==='waiting_next', noshow:r=>r.status==='noshow', booked:r=>(r.status||'booked')==='booked',
+                revisit:r=>ltVisits(r).length>1 }[f]||(()=>true);
   const q=(wonmuState.ltSearch||'').trim().toLowerCase();
   const lg=wonmuState.ltGrade||'all';
   return base.filter(pred)
     .filter(r=> lg==='all' || gradeTxt(r.grade)===lg)
-    .filter(r=> !q || String(r.student_name||'').toLowerCase().includes(q) || String(r.student_code||'').toLowerCase().includes(q))
+    .filter(r=> !q || String(r.student_name||'').toLowerCase().includes(q)
+             || String(r.student_code||'').toLowerCase().includes(q)
+             || (phNorm(q) && phNorm(r.parent_phone).includes(phNorm(q))))
     .sort((a,b)=> (String(a.reserved_date)+String(a.reserved_time||'')).localeCompare(String(b.reserved_date)+String(b.reserved_time||'')));
 }
 function renderApptbl(){
@@ -2325,17 +2330,18 @@ function renderApptbl(){
   let h='';
   if(!allRows.length){ h=`<div class="empty-msg">해당 조건의 응시자가 없어요.</div>`; }
   else{
-    h+=`<div class="apptbl-wrap"><table class="apptbl"><thead><tr><th>날짜 · 시간</th><th>분원</th><th>학생</th><th>학교 · 학년</th><th>상태</th><th>등록</th><th>성적</th><th>테스터 코멘트</th></tr></thead><tbody>`;
+    h+=`<div class="apptbl-wrap"><table class="apptbl"><thead><tr><th>날짜 · 시간</th><th>분원</th><th>학생</th><th>학교 · 학년</th><th>상태</th><th>등록</th><th>성적</th><th>테스터 코멘트</th><th class="csc">상담</th></tr></thead><tbody>`;
     rows.forEach(r=>{
       const dstr=String(r.reserved_date||'').slice(5).replace('-','/').replace(/^0/,'');
       const meta=[esc(r.school||''), gradeTxt(r.grade)].filter(Boolean).join(' · ')||'<span class="mut">·</span>';
       h+=`<tr><td class="dt">${dstr} <span>${esc(String(r.reserved_time||'').slice(0,5))}</span></td>
         <td class="subc">${esc(bName(r.branch_id))}</td>
-        <td class="stu stu-link" onclick="openResInCalendar('${r.id}')" title="캘린더에서 열기"><span class="stu-nm">${esc(r.student_name||'')}</span>${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}</td>
+        <td class="stu stu-link" onclick="openResInCalendar('${r.id}')" title="캘린더에서 열기"><span class="stu-nm">${esc(r.student_name||'')}</span>${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}${ltVisitTag(r)}</td>
         <td class="subc">${meta}</td>
         <td>${statusBadge(r)}</td><td class="enr-cell">${enrollEditCell(r)}</td>
         <td class="score">${scoreLinkCell(r)}</td>
-        <td class="cmt">${cmtCell(r)}</td></tr>`;
+        <td class="cmt">${cmtCell(r)}</td>
+        <td class="csc">${ltCsCell(r)}</td></tr>`;
     });
     h+=`</tbody></table></div>`;
     if(totalPages>1){
@@ -2617,9 +2623,55 @@ async function ensureReservations(){
     reservations = data||[];
   }catch(e){ console.error('예약 로드 실패', e); toast('예약을 불러오지 못했어요','err'); reservations=[]; }
   await loadLtResults();
+  await loadCounselLogs();
   await loadDelLogs();
   await loadExamDays();
   bookState.loaded=true;
+}
+/* ── 레벨테스트 상담 기록 ────────────────────────────────────────────
+   iMS 임시등록이 막혀서(2026-08-28) 등록 전 문의자의 상담을 남길 데가 없어졌다.
+   응시자 표를 새로 만들지 않고, 이미 있는 예약(level_test_reservations)에 상담만 얹는다.
+   사람은 '연락처 + 이름' 으로 묶는다 — 번호만으로 묶으면 형제자매가 한 사람이 된다. */
+let counselLogs=[];
+async function loadCounselLogs(){
+  try{
+    initSupabase();
+    const { data, error } = await sb.from('lt_counsel_logs').select('*');
+    if(error) throw error;
+    counselLogs = data||[];
+  }catch(e){ console.warn('상담 기록 로드 실패(표가 아직 없을 수 있음)', e.message||e); counselLogs=[]; }
+}
+const phNorm = p => String(p||'').replace(/\D/g,'');
+/* 같은 사람의 응시 전부 — 최근이 먼저 */
+function ltVisits(r){
+  const pn=phNorm(r.parent_phone), nm=(r.student_name||'').trim();
+  const same = pn
+    ? reservations.filter(x=> phNorm(x.parent_phone)===pn && (x.student_name||'').trim()===nm)
+    : reservations.filter(x=> x.branch_id===r.branch_id && (x.student_name||'').trim()===nm && (x.student_code||'')===(r.student_code||''));
+  return same.sort((a,b)=> String(b.reserved_date).localeCompare(String(a.reserved_date)));
+}
+/* 같은 번호를 쓰는 다른 이름 — 형제자매. 합치지 않고 옆에 걸어만 둔다. */
+function ltFamily(r){
+  const pn=phNorm(r.parent_phone); if(!pn) return [];
+  const nm=(r.student_name||'').trim();
+  return [...new Set(reservations.filter(x=> phNorm(x.parent_phone)===pn && (x.student_name||'').trim()!==nm)
+    .map(x=>(x.student_name||'').trim()).filter(Boolean))];
+}
+function ltLogsOf(resId){ return counselLogs.filter(c=>c.reservation_id===resId).sort((a,b)=> String(a.at).localeCompare(String(b.at))); }
+function ltLogCount(r){ return ltVisits(r).reduce((n,x)=> n+ltLogsOf(x.id).length, 0); }
+async function saveCounselLog(row){
+  if(!curCanEdit()){ toast('뷰어 계정은 수정 권한이 없습니다','err'); return false; }
+  try{
+    initSupabase();
+    const { data, error } = await sb.from('lt_counsel_logs').insert(row).select();
+    if(error) throw error;
+    if(data && data[0]) counselLogs.push(data[0]);
+    return true;
+  }catch(e){
+    console.error('상담 저장 실패', e);
+    toast('저장 실패: '+(e.message||e)+' — sql/lt_counsel_logs.sql 을 실행했는지 확인하세요','err');
+    return false;
+  }
 }
 let delLogs=[];   // 예약 삭제 기록 (감사용)
 async function loadDelLogs(){
@@ -2631,6 +2683,102 @@ async function loadDelLogs(){
   }catch(e){ console.error('삭제기록 로드 실패', e); delLogs=[]; }  // 테이블 없거나 실패해도 앱은 계속
 }
 
+/* ── 재방문 감지 ─────────────────────────────────────────────────────
+   연락처를 다 치는 순간 폼 아래에 인라인으로 뜬다. 모달로 띄우면 예약 넣는 흐름이 끊긴다. */
+/* 같은 사람이 두 번 이상 왔으면 이름 옆에 표시. 형제자매는 합치지 않고 옆에 걸어만 둔다. */
+function ltVisitTag(r){
+  let h='';
+  const v=ltVisits(r).length;
+  if(v>1) h+='<span class="lt-re">재방문 '+v+'회</span>';
+  const fam=ltFamily(r);
+  if(fam.length) h+='<span class="lt-fam" title="같은 연락처를 쓰는 다른 학생입니다">가족 '+esc(fam[0])+(fam.length>1?' 외 '+(fam.length-1):'')+'</span>';
+  return h;
+}
+function ltCsCell(r){
+  const n=ltLogCount(r);
+  return n ? '<button class="lt-cs" onclick="event.stopPropagation();openCounselFor(\''+r.id+'\')">상담 '+n+'건</button>'
+           : '<button class="lt-cs empty" onclick="event.stopPropagation();openCounselFor(\''+r.id+'\')">＋ 기록</button>';
+}
+function ltRevisitCheck(){
+  const host=$('bkRevisit'); if(!host) return;
+  const pn=phNorm(($('bk_phone')||{}).value), nm=String((($('bk_name')||{}).value)||'').trim();
+  if(pn.length<8){ host.innerHTML=''; return; }
+  const brId = bookState.branchId && bookState.branchId!=='all' ? bookState.branchId : session.branchId;
+  const same = reservations.filter(r=> phNorm(r.parent_phone)===pn && (session.role==='admin'||r.branch_id===brId));
+  if(!same.length){ host.innerHTML=''; return; }
+  const mine = same.filter(r=> (r.student_name||'').trim()===nm);
+  const fam  = [...new Set(same.filter(r=>(r.student_name||'').trim()!==nm).map(r=>(r.student_name||'').trim()).filter(Boolean))];
+  if(mine.length){
+    const last = mine.slice().sort((a,b)=> String(b.reserved_date).localeCompare(String(a.reserved_date)))[0];
+    const n = mine.reduce((c,r)=> c+ltLogsOf(r.id).length, 0);
+    host.innerHTML = '<div class="lt-hit"><span class="ic">!</span>'
+      +'<div class="tx"><b>'+esc(nm)+' 학생, 전에 왔던 기록이 있습니다</b>'
+      +'<p>응시 '+mine.length+'회 · 최근 '+esc(edDs(last.reserved_date))+(n?' · 상담 '+n+'건':'')+'</p></div>'
+      +'<div class="ac"><button class="lt-hit-b" onclick="openCounselFor(\''+last.id+'\')">지난 이력 보기</button>'
+      +'<button class="lt-hit-b gh" onclick="ltRevisitDismiss()">다른 학생입니다</button></div></div>';
+  }else{
+    const first = same.find(r=> (r.student_name||'').trim()===fam[0]);
+    host.innerHTML = '<div class="lt-hit fam"><span class="ic">!</span>'
+      +'<div class="tx"><b>같은 번호로 '+fam.map(esc).join(', ')+' 기록이 있습니다</b>'
+      +'<p>형제자매면 그대로 진행하세요. 두 사람은 따로 관리됩니다.</p></div>'
+      +(first?'<div class="ac"><button class="lt-hit-b gh" onclick="openCounselFor(\''+first.id+'\')">'+esc(fam[0])+' 이력 보기</button></div>':'')+'</div>';
+  }
+}
+function ltRevisitDismiss(){ const h=$('bkRevisit'); if(h) h.innerHTML=''; }
+
+/* ── 상담 이력 모달 ─────────────────────────────────────────────────── */
+let csKind='전화';
+function csSetKind(k){ csKind=k; document.querySelectorAll('#csKinds .k').forEach(b=>b.classList.toggle('on', b.dataset.k===k)); }
+function csClose(){ const m=$('csModal'); if(m) m.remove(); }
+function openCounselFor(resId){
+  const r=reservations.find(x=>x.id===resId); if(!r){ toast('예약을 찾을 수 없습니다','err'); return; }
+  const visits=ltVisits(r), fam=ltFamily(r), latest=visits[0]||r;
+  const tot=visits.reduce((n,x)=>n+ltLogsOf(x.id).length,0);
+  const body = visits.map(v=>{
+    const lg=ltLogsOf(v.id);
+    const meta=[esc(v.school||''), gradeTxt(v.grade)].filter(Boolean).join(' · ');
+    const lv=levelOf(v), pt=scoreOf(v);
+    return '<div class="cs-ev '+(v.enrolled==='enrolled'?'enr':v.enrolled==='not_enrolled'?'not':v.status==='noshow'?'no':v.enrolled==='waiting_next'?'wait':'')+'">'
+      +'<div class="cs-eh"><b>'+esc(edDs(v.reserved_date))+'</b><span>'+esc(String(v.reserved_time||'').slice(0,5))+'</span>'
+      + statusBadge(v) + enrBadgeStatic(v) +'</div>'
+      +'<div class="cs-em">'+(meta||'·')+(pt!=null?' · '+esc(lv||'')+' '+pt+'점':'')+'</div>'
+      +(lg.length?'<div class="cs-logs">'+lg.map(l=>'<div class="cs-log">'
+          +'<div class="h"><span class="k">'+esc(l.kind||'')+'</span><span class="w">'+esc(l.at||'')+(l.staff?' · '+esc(l.staff):'')+'</span></div>'
+          +'<p>'+esc(l.memo||'')+'</p></div>').join('')+'</div>':'')
+      +'</div>';
+  }).join('');
+  const kinds=['전화','문자','방문','기타'].map(k=>'<button class="k'+(k===csKind?' on':'')+'" data-k="'+k+'" onclick="csSetKind(\''+k+'\')">'+k+'</button>').join('');
+  csClose();
+  const m=document.createElement('div'); m.id='csModal'; m.className='cs-modal';
+  m.innerHTML='<div class="cs-back" onclick="csClose()"></div><div class="cs-panel">'
+    +'<div class="cs-head"><div><div class="cs-t">'+esc(r.student_name||'')+'</div>'
+    +'<div class="cs-sub">'+[esc(r.school||''),gradeTxt(r.grade),esc(r.parent_phone||'')].filter(Boolean).join(' · ')
+    +' · 응시 '+visits.length+'회 · 상담 '+tot+'건'+(fam.length?' · 가족 '+fam.map(esc).join(', '):'')+'</div></div>'
+    +'<button class="cs-x" onclick="csClose()">✕</button></div>'
+    +'<div class="cs-body"><div class="cs-tl">'+body+'</div>'
+    +(curCanEdit()?'<div class="cs-add"><div class="r1" id="csKinds">'+kinds+'</div>'
+      +'<textarea id="csMemo" placeholder="상담 내용을 적어주세요. ('+esc(edDs(latest.reserved_date))+' 응시 건에 붙습니다)"></textarea>'
+      +'<div class="r2"><button class="cs-save" onclick="csSubmit(\''+latest.id+'\')">상담 기록 남기기</button></div></div>':'')
+    +'</div></div>';
+  document.body.appendChild(m);
+  const ta=$('csMemo'); if(ta) ta.focus();
+}
+/* 등록 여부를 읽기 전용 뱃지로 (표의 드롭다운과 달리 모달에선 고르지 않는다) */
+function enrBadgeStatic(r){
+  const m={enrolled:['등록완료','b-enr'],not_enrolled:['미등록','b-not'],failed:['미통과','b-fail'],waiting_next:['다음학기 대기','b-wait']}[r.enrolled];
+  return m ? '<span class="cs-en '+m[1]+'">'+m[0]+'</span>' : '';
+}
+async function csSubmit(resId){
+  const ta=$('csMemo'); const memo=String((ta&&ta.value)||'').trim();
+  if(!memo){ toast('상담 내용을 적어주세요','err'); if(ta) ta.focus(); return; }
+  const r=reservations.find(x=>x.id===resId); if(!r) return;
+  const d=new Date();
+  const at = d.getFullYear()+'-'+_pad(d.getMonth()+1)+'-'+_pad(d.getDate())+' '+_pad(d.getHours())+':'+_pad(d.getMinutes());
+  const ok = await saveCounselLog({ id:uid('cl'), reservation_id:r.id, branch_id:r.branch_id,
+    phone_norm:phNorm(r.parent_phone)||null, student_name:r.student_name||null,
+    at, kind:csKind, staff:(session&&(session.teacherName||session.username))||null, memo });
+  if(ok){ toast('상담 기록을 남겼습니다 ✓'); openCounselFor(resId); renderWonmuBody(); }
+}
 /* ---------- 시험채점 전체화면 오버레이 (grader.html을 iframe으로 꽉 차게) ---------- */
 function openExam(){
   const _gq='sem='+encodeURIComponent(state.semId||'')+'&role='+encodeURIComponent(session.role||'')+'&branch='+encodeURIComponent(session.branchId||'')+'&user='+encodeURIComponent(session.teacherName||session.username||'')+'&v='+Date.now();
@@ -2989,12 +3137,12 @@ function renderBooking(c){
       <div class="af-grid">
         ${session.role==='admin'?`<label class="af-f af-2"><span>분원</span><select id="bk_branch">${brOpts}</select></label>`:''}
         <label class="af-f"><span>시간</span><input id="bk_time" type="time" value="16:00"></label>
-        <label class="af-f"><span>학생코드</span><input id="bk_code"></label>
-        <label class="af-f"><span>학생 이름 *</span><input id="bk_name" placeholder="이름"></label>
-        <label class="af-f"><span>학부모 연락처</span><input id="bk_phone" placeholder="010-0000-0000"></label>
+        <label class="af-f"><span>학생 이름 *</span><input id="bk_name" placeholder="이름" oninput="ltRevisitCheck()"></label>
+        <label class="af-f"><span>학부모 연락처 *</span><input id="bk_phone" placeholder="010-0000-0000" oninput="ltRevisitCheck()"></label>
         <label class="af-f"><span>학교</span><input id="bk_school" placeholder="○○중"></label>
         <label class="af-f"><span>학년</span><input id="bk_grade" placeholder="초등2"></label>
         <label class="af-f af-2"><span>메모</span><input id="bk_memo" placeholder="선택"></label>
+        <div class="af-2" id="bkRevisit"></div>
       </div>
       <div class="af-act"><button class="af-cancel" onclick="openAddForm()">취소</button><button class="af-save" onclick="submitReservation()">예약 등록</button></div>
     </div>`;
@@ -3007,9 +3155,9 @@ function renderBooking(c){
     const meta=[ r.school, gradeTxt(r.grade) ].filter(Boolean).join(' · ');
     list+=`<div class="slot-wrap"><div class="slot" onclick="editRes('${r.id}')">
       <div class="time">${esc(String(r.reserved_time||'').slice(0,5))}</div>
-      <div class="info"><div class="nm">${esc(r.student_name||'')}${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}</div>
-      <div class="meta">${esc(meta)||'<span class="mut">정보 미입력</span>'}</div></div>
-      ${admToggleHtml(r)}${resBadge(r)}</div>`;
+      <div class="info"><div class="nm">${esc(r.student_name||'')}${r.student_code?`<span class="code">${esc(r.student_code)}</span>`:''}${ltVisitTag(r)}</div>
+      <div class="meta">${esc(meta)||'<span class="mut">정보 미입력</span>'}${r.parent_phone?` · ${esc(r.parent_phone)}`:''}</div></div>
+      ${admToggleHtml(r)}${resBadge(r)}${ltCsCell(r)}</div>`;
     if(bookState.editId===r.id){
       const st=r.status||'booked', en=r.enrolled||'pending';
       list+=`<div class="res-edit">
@@ -3096,11 +3244,15 @@ async function submitReservation(){
   if(!branchId){ toast('분원을 선택하세요','err'); return; }
   if(!time){ toast('시간을 입력하세요','err'); return; }
   if(!name){ toast('학생 이름을 입력하세요','err'); return; }
+  // 연락처는 필수다. iMS 임시등록이 막힌 뒤로 이 사람을 다시 알아볼 유일한 열쇠다.
+  const phone = g('phone');
+  if(!phone){ toast('학부모 연락처를 입력하세요 — 나중에 이 학생을 찾을 수 없습니다','err');
+              const el=$('bk_phone'); if(el) el.focus(); return; }
   const obj={
     branch_id: branchId,
-    student_code: g('code')||null,
+    student_code: null,          // 회원코드는 등록 확정 후에나 생긴다 — 예약 때는 받지 않는다
     student_name: name,
-    parent_phone: g('phone')||null,
+    parent_phone: phone,
     school: g('school')||null,
     grade: g('grade')||null,
     reserved_date: bookState.sel,

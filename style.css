@@ -779,3 +779,87 @@ tr.sum .col-now{background:#f5f1fc}
   /* 분원별 막대: 이름칸 축소 */
   .wscope .frow{grid-template-columns:66px 1fr 78px;gap:8px}
 }
+
+
+/* ── 레벨테스트 상담 이력 ─────────────────────────────────────────────
+   iMS 임시등록이 막혀서 등록 전 문의자의 상담을 여기에 남긴다.
+   응시자 표를 새로 만들지 않고 기존 예약 위에 얹었다. */
+.lt-re{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;border-radius:6px;
+  padding:2px 7px;background:#f0ebfe;color:#6b4bd6;white-space:nowrap;vertical-align:1px}
+.lt-fam{display:inline-block;margin-left:5px;font-size:10.5px;font-weight:700;border-radius:6px;
+  padding:2px 7px;background:#f6f3fc;color:#a9a2b6;white-space:nowrap;vertical-align:1px}
+.apptbl th.csc,.apptbl td.csc{width:96px;text-align:center;white-space:nowrap}
+.lt-cs{border:1px solid #ece8f5;background:#fff;border-radius:8px;padding:4px 10px;
+  font:inherit;font-size:11.5px;font-weight:800;color:#6b4bd6;cursor:pointer;white-space:nowrap;transition:.13s}
+.lt-cs:hover{background:#f0ebfe;border-color:#8b6ee8}
+.lt-cs.empty{color:#c2bcd0;font-weight:700}
+.lt-cs.empty:hover{color:#6b4bd6}
+.slot .lt-cs{margin-left:6px}
+
+/* 예약 폼 재방문 안내 — 모달로 띄우면 예약 넣는 흐름이 끊긴다 */
+.lt-hit{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-radius:13px;
+  background:#f0ebfe;padding:13px 15px;margin-top:2px}
+.lt-hit.fam{background:#f6f3fc}
+.lt-hit .ic{width:30px;height:30px;border-radius:50%;background:#8b6ee8;color:#fff;flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800}
+.lt-hit.fam .ic{background:#a9a2b6}
+.lt-hit .tx{flex:1 1 260px;min-width:0}
+.lt-hit .tx b{font-size:13.5px;font-weight:800;color:#6b4bd6}
+.lt-hit.fam .tx b{color:#7b7488}
+.lt-hit .tx p{font-size:12.5px;color:#7b7488;margin:2px 0 0}
+.lt-hit .ac{display:flex;gap:7px}
+.lt-hit-b{border:0;background:#8b6ee8;color:#fff;border-radius:9px;padding:8px 14px;
+  font:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+.lt-hit-b:hover{background:#6b4bd6}
+.lt-hit-b.gh{background:#fff;border:1px solid #ece8f5;color:#7b7488}
+.lt-hit-b.gh:hover{background:#faf8fe;color:#3a3742}
+
+/* 상담 이력 모달 */
+.cs-modal{position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;padding:24px}
+.cs-back{position:absolute;inset:0;background:rgba(45,35,70,.42)}
+.cs-panel{position:relative;background:#fff;border-radius:20px;width:640px;max-width:100%;max-height:88vh;
+  display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 50px rgba(74,50,128,.2)}
+.cs-head{padding:18px 22px 15px;border-bottom:1px solid #f3f0fa;display:flex;align-items:flex-start;
+  justify-content:space-between;gap:12px}
+.cs-t{font-size:17px;font-weight:800;color:#3a3742;letter-spacing:-.01em}
+.cs-sub{font-size:12.5px;color:#7b7488;margin-top:3px}
+.cs-x{border:0;background:none;font-size:16px;color:#c2bcd0;cursor:pointer;line-height:1;padding:2px 4px}
+.cs-x:hover{color:#3a3742}
+.cs-body{padding:6px 22px 18px;overflow-y:auto}
+.cs-tl{position:relative;padding-left:22px}
+.cs-tl::before{content:"";position:absolute;left:5px;top:14px;bottom:12px;width:2px;background:#ece8f5;border-radius:2px}
+.cs-ev{position:relative;padding:15px 0 3px}
+.cs-ev::before{content:"";position:absolute;left:-17px;top:21px;width:12px;height:12px;border-radius:50%;
+  background:#ded8ea;box-shadow:0 0 0 3px #fff}
+.cs-ev.enr::before{background:#8b6ee8}
+.cs-ev.not::before{background:#c9791f}
+.cs-ev.no::before{background:#c9457f}
+.cs-ev.wait::before{background:#3d93c2}
+.cs-eh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cs-eh b{font-size:14.5px;font-weight:800;color:#3a3742}
+.cs-eh span{font-size:12px;color:#a9a2b6;font-weight:700}
+.cs-en{font-size:11px;font-weight:800;border-radius:7px;padding:2px 8px}
+.cs-en.b-enr{background:#f0ebfe;color:#6b4bd6}
+.cs-en.b-not{background:#fdf3e6;color:#c9791f}
+.cs-en.b-fail{background:#fdecf1;color:#c9457f}
+.cs-en.b-wait{background:#e4f1f9;color:#3d93c2}
+.cs-em{font-size:12.5px;color:#7b7488;margin-top:3px}
+.cs-logs{margin-top:9px;display:flex;flex-direction:column;gap:6px}
+.cs-log{background:#f6f3fc;border-radius:11px;padding:10px 12px}
+.cs-log .h{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:4px}
+.cs-log .k{font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;background:#fff;color:#6b4bd6}
+.cs-log .w{font-size:11px;color:#a9a2b6;font-weight:700}
+.cs-log p{font-size:12.5px;color:#3a3742;line-height:1.7;white-space:pre-line;margin:0}
+.cs-add{margin-top:12px;border:1px dashed #8b6ee8;border-radius:12px;padding:12px;background:#faf8fe}
+.cs-add .r1{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px}
+.cs-add .k{border:1px solid #ece8f5;background:#fff;border-radius:8px;padding:5px 11px;
+  font:inherit;font-size:12px;font-weight:700;color:#7b7488;cursor:pointer}
+.cs-add .k.on{background:#8b6ee8;border-color:#8b6ee8;color:#fff}
+.cs-add textarea{width:100%;min-height:62px;border:1px solid #ece8f5;border-radius:9px;padding:9px 11px;
+  font:inherit;font-size:13px;color:#3a3742;background:#fff;resize:vertical}
+.cs-add textarea:focus{outline:2px solid #8b6ee8;outline-offset:-1px}
+.cs-add .r2{display:flex;justify-content:flex-end;margin-top:8px}
+.cs-save{border:0;background:#8b6ee8;color:#fff;border-radius:9px;padding:8px 16px;
+  font:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+.cs-save:hover{background:#6b4bd6}
+@media (max-width:640px){ .cs-panel{max-height:92vh} .apptbl th.csc,.apptbl td.csc{width:auto} }
