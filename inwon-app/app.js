@@ -240,7 +240,7 @@ let dbSnapshot = null;      // 마지막으로 서버와 동기화된 상태(dif
 const TABLES = [
   { key:'branches',           table:'branches',             toRow:b=>({id:b.id,name:b.name}),
     fromRow:r=>({id:r.id,name:r.name}) },
-{ key:'users', table:'users', toRow:u=>({id:u.id,username:u.username,password:u.password,role:u.role,branch_id:u.branchId,teacher_name:u.teacherName||null}),
+{ key:'users', table:'users', toRow:u=>{ const r={id:u.id,username:u.username,role:u.role,branch_id:u.branchId,teacher_name:u.teacherName||null}; if(u.password!==undefined) r.password=u.password; return r; },
     fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,menus:r.menus}) },
   { key:'semesters',          table:'semesters',            toRow:s=>({id:s.id,name:s.name}),
     fromRow:r=>({id:r.id,name:r.name}) },
@@ -505,6 +505,40 @@ let session = null;
 function loadSession(){ try{ session = JSON.parse(sessionStorage.getItem(SESSION_KEY)); }catch(e){ session=null; } }
 function setSession(s){ session = s; sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
 function clearSession(){ session=null; sessionStorage.removeItem(SESSION_KEY); }
+
+/* ---------- 로그인 · 비밀번호 (확인은 전부 서버에서) ----------
+   users 표에서 비밀번호를 걷어냈다. sql/auth_stage1.sql 을 아직 안 돌렸으면
+   RPC가 없으므로 예전 방식으로 자동 폴백한다. */
+function rpcMissing(e){
+  const m = String((e && (e.message || e.hint)) || '');
+  return (e && e.code === 'PGRST202') || /Could not find the function|schema cache|does not exist/i.test(m);
+}
+function pwColumnExists(){ return (((db && db.users) || []).some(u => u.password !== undefined)); }
+let _actorPw = null;                      // 이번 탭에서만 기억
+async function actorPw(){
+  if(_actorPw) return _actorPw;
+  const p = window.prompt('본인 확인 — 로그인 비밀번호를 입력하세요:');
+  if(p == null || !p) return null;
+  _actorPw = p; return p;
+}
+/* 비밀번호 지정 — true / 취소하면 null */
+async function setUserPwSafe(targetId, newPw){
+  if(!sb){ try{ initSupabase(); }catch(e){ throw e; } }
+  const me = db.users.find(u=>u.id===session.userId) || {};
+  try{
+    const ap = await actorPw(); if(ap == null) return null;
+    const { error } = await sb.rpc('jls_set_password', {
+      p_actor_login: me.username, p_actor_password: ap,
+      p_target_id: String(targetId), p_new: newPw });
+    if(error){ _actorPw = null; if(rpcMissing(error)) throw 'legacy'; throw error; }
+    return true;
+  }catch(e){
+    if(e !== 'legacy') throw e;
+    const { error } = await sb.from('users').update({ password:newPw }).eq('id', targetId);
+    if(error) throw error;
+    return true;
+  }
+}
 /* menus 배열 → 인원현황 세부권한 6종. 세부 지정이 전혀 없으면 null(=전체 허용, 기존 동작 유지).
    구버전 키(inwon.hyeon/stu/counsel/set)도 새 6종으로 매핑(하위호환). */
 function inwonPermsFromMenus(menusArr){
@@ -1139,14 +1173,27 @@ function changeMyPassword(){
   const nw2 = el('pwNew2').value.trim();
   const me = db.users.find(u=>u.id===session.userId);
   if(!me){ toast('세션이 만료되었습니다. 다시 로그인하세요.','err'); return; }
-  if(me.password !== cur){ toast('현재 비밀번호가 올바르지 않습니다','err'); return; }
   if(!nw){ toast('새 비밀번호를 입력하세요','err'); return; }
   if(nw.length < 4){ toast('비밀번호는 4자 이상이어야 합니다','err'); return; }
   if(nw !== nw2){ toast('새 비밀번호가 서로 다릅니다','err'); return; }
   if(nw === cur){ toast('현재 비밀번호와 동일합니다','err'); return; }
-  me.password = nw;
   showSaving('비밀번호 변경 중…');
-  saveDB().then(ok=>{ hideSaving(); toast(ok?'비밀번호가 변경되었습니다':'저장 실패, 다시 시도하세요', ok?'ok':'err'); render(); });
+  (async ()=>{
+    try{
+      if(!sb) initSupabase();
+      const { error } = await sb.rpc('jls_change_password', { p_login:me.username, p_old:cur, p_new:nw });
+      if(error){ if(rpcMissing(error)) throw 'legacy'; throw error; }
+      _actorPw = nw; hideSaving(); toast('비밀번호가 변경되었습니다','ok'); render();
+    }catch(e){
+      if(e==='legacy'){
+        if(me.password !== cur){ hideSaving(); toast('현재 비밀번호가 올바르지 않습니다','err'); return; }
+        me.password = nw;
+        const ok = await saveDB(); hideSaving();
+        toast(ok?'비밀번호가 변경되었습니다':'저장 실패, 다시 시도하세요', ok?'ok':'err'); render(); return;
+      }
+      console.error(e); hideSaving(); toast((e&&e.message)||'변경 실패','err');
+    }
+  })();
 }
 
 // 하위 계정 비밀번호 초기화 (admin→분원, 분원→담임·조교)
@@ -1158,9 +1205,10 @@ function resetAccountPassword(userId){
     const nw = (val||'').trim();
     if(!nw){ toast('비밀번호를 입력하세요','err'); return; }
     if(nw.length < 4){ toast('비밀번호는 4자 이상이어야 합니다','err'); return; }
-    u.password = nw;
     showSaving('비밀번호 저장 중…');
-    saveDB().then(ok=>{ hideSaving(); toast(ok?`${label} 비밀번호가 변경되었습니다`:'저장 실패', ok?'ok':'err'); closeModal(); render(); });
+    setUserPwSafe(u.id, nw)
+      .then(r=>{ hideSaving(); if(r===null) return; toast(`${label} 비밀번호가 변경되었습니다`,'ok'); closeModal(); render(); })
+      .catch(e=>{ console.error(e); hideSaving(); toast('저장 실패: '+((e&&e.message)||''),'err'); });
   });
 }
 function myAccountCard(){
@@ -1186,12 +1234,36 @@ function renderMyAccount(){
 /* ============================================================================
    5. 로그인 / 로그아웃
    ============================================================================ */
-function doLogin(){
+async function doLogin(){
   const u = el('loginId').value.trim();
   const p = el('loginPw').value;
-  const user = db.users.find(x=>x.username===u && x.password===p);
-  if(!user){ el('loginErr').textContent = '아이디 또는 비밀번호가 올바르지 않습니다.'; return; }
-  setSession({ userId:user.id, username:user.username, role:user.role, branchId:user.branchId, teacherName:user.teacherName||null });
+  if(!u||!p){ el('loginErr').textContent='아이디와 비밀번호를 입력하세요.'; return; }
+  const lb = el('loginBtn');
+  if(lb){ lb.disabled=true; lb.textContent='확인 중…'; }
+  const done=()=>{ if(lb){ lb.disabled=false; lb.textContent='로그인'; } };
+  el('loginErr').textContent='';
+  let row=null;
+  try{
+    if(!sb) initSupabase();
+    const { data, error } = await sb.rpc('jls_login', { p_login:u, p_password:p });
+    if(error){ if(rpcMissing(error)) throw 'legacy'; throw error; }
+    row = data || null;
+  }catch(e){
+    if(e==='legacy'){
+      try{ if(!db) await loadDB(); }
+      catch(err){ done(); el('loginErr').textContent='서버 연결에 실패했습니다.'; return; }
+      const f=(db.users||[]).find(x=>x.username===u && x.password!=null && x.password===p);
+      row = f ? {id:f.id,username:f.username,role:f.role,branch_id:f.branchId,teacher_name:f.teacherName} : null;
+    }else{
+      done(); el('loginErr').textContent=(e&&e.message)||'로그인에 실패했습니다.'; return;
+    }
+  }
+  if(!row){ done(); el('loginErr').textContent='아이디 또는 비밀번호가 올바르지 않습니다.'; return; }
+  try{ if(!db) await loadDB(); }
+  catch(e){ done(); el('loginErr').textContent='데이터를 불러오지 못했습니다.'; return; }
+  done();
+  _actorPw = p;
+  setSession({ userId:row.id, username:row.username, role:row.role, branchId:row.branch_id, teacherName:row.teacher_name||null });
   el('loginErr').textContent='';
   el('loginPw').value='';
   enterApp();
@@ -5132,8 +5204,12 @@ function createBranchAccount(){
     if(!nm){ toast('새 분원명을 입력하세요','err'); return; }
     branchId=uid('br'); db.branches.push({id:branchId,name:nm});
   }
-  db.users.push({id:uid('u'),username:user,password:pw,role:'branch',branchId});
-  saveDB(); toast('분원 계정 생성 완료','ok'); render();
+  const nid=uid('u');
+  const nu={id:nid,username:user,role:'branch',branchId};
+  if(pwColumnExists()) nu.password=pw;   // 2단계 SQL 전이면 칼럼이 NOT NULL 일 수 있다
+  db.users.push(nu);
+  saveDB().then(()=>setUserPwSafe(nid,pw)).then(()=>{ toast('분원 계정 생성 완료','ok'); render(); })
+    .catch(e=>{ console.error(e); toast('비밀번호 저장 실패: '+((e&&e.message)||''),'err'); render(); });
 }
 function deleteAccount(uid){
   const u=db.users.find(x=>x.id===uid);
@@ -5239,8 +5315,12 @@ function createAssistantAccount(){
   if(!name){ toast('조교 이름을 입력하세요','err'); return; }
   if(!user||!pw){ toast('아이디와 비밀번호를 입력하세요','err'); return; }
   if(db.users.some(u=>u.username===user)){ toast('이미 존재하는 아이디입니다','err'); return; }
-  db.users.push({ id:uid('u'), username:user, password:pw, role:'assistant', branchId, teacherName:name });
-  saveDB(); toast(`${name} 조교 계정 생성 완료`,'ok'); render();
+  const nid=uid('u');
+  const nu={ id:nid, username:user, role:'assistant', branchId, teacherName:name };
+  if(pwColumnExists()) nu.password=pw;
+  db.users.push(nu);
+  saveDB().then(()=>setUserPwSafe(nid,pw)).then(()=>{ toast(`${name} 조교 계정 생성 완료`,'ok'); render(); })
+    .catch(e=>{ console.error(e); toast('비밀번호 저장 실패: '+((e&&e.message)||''),'err'); render(); });
 }
  
  
@@ -5286,8 +5366,12 @@ function createTeacherAccount(){
   if(!tname){ toast('담임 선생님을 선택하세요','err'); return; }
   if(!user||!pw){ toast('아이디와 비밀번호를 입력하세요','err'); return; }
   if(db.users.some(u=>u.username===user)){ toast('이미 존재하는 아이디입니다','err'); return; }
-  db.users.push({ id:uid('u'), username:user, password:pw, role:'teacher', branchId, teacherName:tname });
-  saveDB(); toast(`${tname} 선생님 계정 생성 완료`,'ok'); render();
+  const nid=uid('u');
+  const nu={ id:nid, username:user, role:'teacher', branchId, teacherName:tname };
+  if(pwColumnExists()) nu.password=pw;
+  db.users.push(nu);
+  saveDB().then(()=>setUserPwSafe(nid,pw)).then(()=>{ toast(`${tname} 선생님 계정 생성 완료`,'ok'); render(); })
+    .catch(e=>{ console.error(e); toast('비밀번호 저장 실패: '+((e&&e.message)||''),'err'); render(); });
 }
 
 /* ============================================================================
@@ -5561,13 +5645,16 @@ function confirmReset(){
     return;
   }
 
+  /* 로그인 전에는 서버에서 아무것도 안 받아온다 */
   const lb = el('loginBtn');
+  loadSession();
+  if(!session){ showLogin(); return; }
   lb.disabled = true; lb.textContent = '서버 연결 중…';
   try{
     await loadDB();
-    loadSession();
     lb.disabled = false; lb.textContent = '로그인';
-    if(session){ enterApp(); } else { showLogin(); }
+    if(db.users.some(u=>u.id===session.userId)) enterApp();
+    else { clearSession(); showLogin(); }
   }catch(e){
     console.error(e);
     lb.disabled = false; lb.textContent = '로그인';

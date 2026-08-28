@@ -1028,6 +1028,7 @@ const SUB_ACCOUNTS={
 };
 const BRANCHES=['남동탄 분원','수원 분원','장안 분원','서수원 분원','운정 1분원','운정 2분원'];
 let curUser=null,curBranch=null,allEntries=[],receiptB64=null,pendingFile=null,chatHistory=[];
+let curPw=null;   // 이번 탭에서만 기억. 저장하지 않는다
 
 function showLoading(v){document.getElementById('loading-overlay').classList[v?'add':'remove']('show')}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),5000)}
@@ -1044,10 +1045,26 @@ async function doLogin(){
   const btn=document.getElementById('login-btn');
   btn.disabled=true;btn.textContent='로그인 중...';
   document.getElementById('lerr').textContent='';
-  const{data,error}=await sb.from('users').select('*').eq('id',id).eq('password',pw).single();
+  // 비밀번호 대조는 서버 함수에서만 한다 (sql/auth_stage1.sql).
+  // 아직 SQL을 안 돌렸으면 RPC가 없으므로 예전 방식으로 폴백한다.
+  let data=null;
+  try{
+    const r=await sb.rpc('jls_login',{p_login:id,p_password:pw});
+    if(r.error) throw r.error;
+    data=r.data||null;
+  }catch(e){
+    const m=String((e&&(e.message||e.hint))||'');
+    if((e&&e.code==='PGRST202')||/Could not find the function|schema cache|does not exist/i.test(m)){
+      const r=await sb.from('users').select('*').eq('id',id).eq('password',pw).single();
+      data=r.error?null:r.data;
+    }else{
+      btn.disabled=false;btn.textContent='로그인';
+      document.getElementById('lerr').textContent=m||'로그인에 실패했습니다';return;
+    }
+  }
   btn.disabled=false;btn.textContent='로그인';
-  if(error||!data){document.getElementById('lerr').textContent='아이디 또는 비밀번호가 틀렸습니다';return}
-  curUser=data;curBranch=data.branches[0];
+  if(!data){document.getElementById('lerr').textContent='아이디 또는 비밀번호가 틀렸습니다';return}
+  curUser=data;curPw=pw;curBranch=data.branches[0];
   document.getElementById('login-screen').style.display='none';
   document.getElementById('layout').style.display='flex';
   initApp();
@@ -2789,12 +2806,23 @@ async function changePw(){
   if(!cur||!nw||!nw2){err.textContent='모든 항목을 입력하세요';return}
   if(nw!==nw2){err.textContent='새 비밀번호가 일치하지 않습니다';return}
   if(nw.length<4){err.textContent='4자 이상이어야 합니다';return}
-  if(cur!==curUser.password){err.textContent='현재 비밀번호가 틀렸습니다';return}
   showLoading(true);
+  try{
+    const r=await sb.rpc('jls_change_password',{p_login:curUser.id,p_old:cur,p_new:nw});
+    if(r.error) throw r.error;
+    showLoading(false);curPw=nw;toast('비밀번호가 변경되었습니다');closePw();return;
+  }catch(e){
+    const m=String((e&&(e.message||e.hint))||'');
+    if(!((e&&e.code==='PGRST202')||/Could not find the function|schema cache|does not exist/i.test(m))){
+      showLoading(false);err.textContent=m||'변경에 실패했습니다';return;
+    }
+  }
+  // 폴백 (SQL 실행 전)
+  if(cur!==curUser.password){showLoading(false);err.textContent='현재 비밀번호가 틀렸습니다';return}
   const{error}=await sb.from('users').update({password:nw}).eq('id',curUser.id);
   showLoading(false);
   if(error){err.textContent='오류: '+error.message;return}
-  curUser.password=nw;toast('비밀번호가 변경되었습니다');closePw();
+  curUser.password=nw;curPw=nw;toast('비밀번호가 변경되었습니다');closePw();
 }
 function toggleChat(){document.getElementById('chat-panel').classList.toggle('hidden')}
 async function sendChat(){
