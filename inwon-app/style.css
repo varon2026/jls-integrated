@@ -325,6 +325,26 @@ table.rank-table tbody tr:last-child td{border-bottom:none}
 .cc-mark.na{color:var(--ink-3);background:var(--line-2);opacity:.5;font-size:11px}
 .cc-mark.mistag{color:var(--warn);background:var(--warn-soft);cursor:pointer;font-size:12px}
 .cc-mark.mistag:hover{transform:scale(1.08)}
+.cc-mark.reject{color:#b0761e;background:#faf0de;cursor:pointer;font-size:13px;
+  box-shadow:inset 0 0 0 1px #ecd9b4}
+.cc-mark.reject:hover{transform:scale(1.08)}
+
+/* 상담 셀 우클릭 메뉴 — '이건 상담이 아니다' 를 그 자리에서 표시 */
+.cc-menu{position:fixed;z-index:2200;min-width:214px;background:#fff;
+  border:1px solid var(--line);border-radius:12px;padding:6px;
+  box-shadow:0 14px 38px rgba(60,50,90,.18),0 2px 8px rgba(60,50,90,.08);
+  opacity:0;visibility:hidden;transform:translateY(3px);transition:opacity .1s,transform .1s}
+.cc-menu.on{opacity:1;visibility:visible;transform:none}
+.cc-mh{padding:7px 10px 8px;font-size:11.5px;font-weight:800;color:var(--ink-3);
+  border-bottom:1px solid var(--line-2);margin-bottom:4px}
+.cc-mi{display:block;width:100%;border:0;background:none;text-align:left;
+  padding:9px 10px;border-radius:8px;font:inherit;font-size:13px;font-weight:600;
+  color:var(--ink);cursor:pointer}
+.cc-mi:hover{background:var(--surface-2)}
+.cc-mi.warn{color:#b0761e}.cc-mi.warn:hover{background:#faf0de}
+.cc-mi.ok{color:var(--pos)}.cc-mi.ok:hover{background:var(--pos-soft)}
+.cc-mn{padding:7px 10px 5px;margin-top:3px;border-top:1px solid var(--line-2);
+  font-size:11px;line-height:1.6;color:var(--ink-3)}
 
 .table-foot{display:grid;grid-template-columns:repeat(6,1fr);
   background:var(--surface-2);border-top:1px solid var(--line)}

@@ -165,6 +165,7 @@ function confirmDeleteSemester(){
     db.studentMovements    = keep(db.studentMovements);
     db.uploadBatches       = keep(db.uploadBatches);
     db.teacherChanges      = keep(db.teacherChanges);
+    db.counselRejects      = keep(db.counselRejects);
     showSaving('학기 데이터 삭제 중…');
     saveDB().then(ok=>{
       hideSaving(); closeModal();
@@ -261,14 +262,20 @@ const TABLES = [
     fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,stage:r.stage}) },
     { key:'qappScores', table:'qapp_scores', toRow:s=>({id:s.id,branch_id:s.branchId,semester_id:s.semesterId,student_code:s.studentCode,student_name:s.studentName,class_label:s.classLabel,gubun:s.gubun,hoi:s.hoi,lesson:s.lesson,textbook:s.textbook,teacher:s.teacher,jumsu:s.jumsu,baejeom:s.baejeom,eungsi:s.eungsi,tonggwa:s.tonggwa,yeyak:s.yeyak,exam_date:s.examDate,fingerprint:s.fingerprint}),
     fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,studentCode:r.student_code,studentName:r.student_name,classLabel:r.class_label,gubun:r.gubun,hoi:r.hoi,lesson:r.lesson,textbook:r.textbook,teacher:r.teacher,jumsu:r.jumsu,baejeom:r.baejeom,eungsi:r.eungsi,tonggwa:r.tonggwa,yeyak:r.yeyak,examDate:r.exam_date,fingerprint:r.fingerprint}) },
+    /* 상담 인정 제외(△). sql/counsel_rejects.sql 을 아직 안 돌렸어도 앱이 죽지 않게 optional */
+    { key:'counselRejects', table:'counsel_rejects', optional:true,
+    toRow:r=>({id:r.id,student_id:r.studentId,branch_id:r.branchId,semester_id:r.semesterId,stage:r.stage,content_key:r.contentKey,created_at:r.createdAt||null}),
+    fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,stage:r.stage,contentKey:r.content_key,createdAt:r.created_at}) },
     { key:'teacherOverrides', table:'teacher_overrides', toRow:o=>({id:o.id,branch_id:o.branchId,semester_id:o.semesterId,class_label:o.classLabel,gubun:o.gubun,teacher:o.teacher}),
     fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,classLabel:r.class_label,gubun:r.gubun,teacher:r.teacher}) },
 ];
 
+const MISSING_TABLES = new Set();   // 아직 Supabase에 안 만든 optional 표
 function blankDB(){
   return { users:[], branches:[], semesters:[], students:[],
            semesterRecords:[], counselingHistories:[], studentMovements:[],
-           uploadBatches:[], teacherChanges:[], segments:[], mcExemptions:[] };
+           uploadBatches:[], teacherChanges:[], segments:[], mcExemptions:[],
+           counselRejects:[] };
 }
 let db = null;
 
@@ -287,19 +294,26 @@ function initSupabase(){
 async function loadDB(){
   initSupabase();
   db = blankDB();
+  MISSING_TABLES.clear();
   const PAGE = 1000;
   for(const t of TABLES){
     let all = [];
     let from = 0;
+    let gone = false;
     while(true){
       const { data, error } = await sb.from(t.table).select('*').range(from, from+PAGE-1);
+      if(error && t.optional){
+        // 아직 만들지 않은 표 — 기능만 잠깐 쉬고 나머지는 그대로 쓴다
+        console.warn('optional table missing', t.table, error.message||error);
+        MISSING_TABLES.add(t.key); gone = true; break;
+      }
       if(error){ console.error('load fail', t.table, error); throw error; }
       const chunk = data || [];
       all = all.concat(chunk);
       if(chunk.length < PAGE) break;   // 마지막 페이지 (1000개 미만이면 끝)
       from += PAGE;
     }
-    db[t.key] = all.map(t.fromRow);
+    db[t.key] = gone ? [] : all.map(t.fromRow);
   }
   // 기존 데이터 보정: classLabel이 원본 형식(대괄호 포함)이면 깔끔한 라벨로 변환
   (db.semesterRecords||[]).forEach(r=>{
@@ -437,6 +451,7 @@ async function saveDB(){
   const bkChangedRecs = [];   // 교재관리로 반영할 바뀐 명단(재원/퇴원) 행
   try{
     for(const t of TABLES){
+      if(t.optional && MISSING_TABLES.has(t.key)) continue;   // 표가 아직 없으면 저장도 건너뛴다
       const cur = db[t.key] || [];
       const prev = (dbSnapshot && dbSnapshot[t.key]) || [];
       const curById = new Map(cur.map(x=>[x.id,x]));
@@ -818,11 +833,67 @@ function toggleExemption(studentId, branchId, semId, stage){
   }
   saveDB();
 }
+/* ── 상담 인정 제외 (△) ───────────────────────────────────────────
+   IMS 상담이력은 대괄호 태그만 있으면 무조건 완료(○)로 잡힌다. 그런데 막상 열어보면
+   [MC3]부재중 이거나 기본 양식만 붙여넣은 것도 많다. 사람이 보고 '이건 상담이 아니다'
+   라고 표시하면 △ 가 되고 상담률에서 빠진다.
+
+   표시는 '그때 그 내용'에 붙는다(contentKey). 다음 업로드에서 그 단계 내용이 바뀌면
+   지문이 달라져 표시가 저절로 풀린다 → 분원이 제대로 다시 쓰면 ○ 로 돌아온다.
+   같은 파일을 다시 올려 내용이 그대로면 △ 가 그대로 유지된다. */
+function csKey(txt){
+  const t = String(txt||'').replace(/\s+/g,' ').trim();
+  let h = 5381;
+  for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0;
+  return h.toString(36) + '.' + t.length;
+}
+/* 한 단계에는 상담 기록이 한 건만 남는다(업로드가 같은 단계를 덮어쓴다) */
+function counselOf(studentId, branchId, semId, stage){
+  return (db.counselingHistories||[]).find(c=>
+    c.studentId===studentId && c.branchId===branchId &&
+    c.semesterId===semId && c.type===stage);
+}
+function csRejected(studentId, branchId, semId, stage){
+  const c = counselOf(studentId, branchId, semId, stage);
+  if(!c) return null;
+  const k = csKey(c.content);
+  return (db.counselRejects||[]).find(r=>
+    r.studentId===studentId && r.branchId===branchId &&
+    r.semesterId===semId && r.stage===stage && r.contentKey===k) || null;
+}
 /* 학생이 특정 단계 완료했는지 */
 function isDone(studentId, branchId, semId, stage){
+  if(csRejected(studentId, branchId, semId, stage)) return false;   // 사람이 인정 안 한 건
   return db.counselingHistories.some(c=>
     c.studentId===studentId && c.branchId===branchId &&
     c.semesterId===semId && c.type===stage && !c.mistag);  // 오기재 의심은 완료로 치지 않음
+}
+/* 인정 제외는 분원 관리자와 통합관리(원장)가 할 수 있다 */
+function canCsJudge(){ return session && (session.role==='branch' || session.role==='admin'); }
+async function onCsReject(studentId, stage){
+  if(!canCsJudge()){ toast('권한이 없습니다','err'); return; }
+  const branchId = activeBranchId(), semId = state.semId;
+  const c = counselOf(studentId, branchId, semId, stage);
+  if(!c){ toast('상담 기록이 없습니다','err'); return; }
+  if(csRejected(studentId, branchId, semId, stage)) return;
+  (db.counselRejects||(db.counselRejects=[])).push({
+    id:uid('cr'), studentId, branchId, semesterId:semId, stage,
+    contentKey:csKey(c.content), createdAt:nowStamp() });
+  const ok = await saveDB();
+  render();
+  toast(ok===false ? '저장에 실패했습니다' : '상담 인정에서 제외했습니다 — 상담률에 안 잡힙니다');
+}
+async function onCsRestore(studentId, stage){
+  if(!canCsJudge()){ toast('권한이 없습니다','err'); return; }
+  const branchId = activeBranchId(), semId = state.semId;
+  const before = (db.counselRejects||[]).length;
+  db.counselRejects = (db.counselRejects||[]).filter(r=> !(
+    r.studentId===studentId && r.branchId===branchId &&
+    r.semesterId===semId && r.stage===stage));
+  if(db.counselRejects.length===before) return;
+  const ok = await saveDB();
+  render();
+  toast(ok===false ? '저장에 실패했습니다' : '다시 상담으로 인정했습니다');
 }
 /* 학생의 상담 이력(특정 단계) */
 function historiesOf(studentId, branchId, semId, stage){
@@ -2080,16 +2151,25 @@ const cells = STAGES.map(stg=>{
         const why = (stg==='HC1'||stg==='HC2') ? '대상 아님(기존생)' : '대상 아님(입학 전 회차)';
         return `<td class="cc"><span class="cc-mark na" title="${why}">–</span></td>`;
       }
+      const dat = `data-sid="${rec.studentId}" data-stg="${stg}" data-nm="${esc(stu.name)}"`;
+      // 사람이 '상담 아님'으로 표시한 건 — 상담률에서 빠진다
+      if(csRejected(rec.studentId, branchId, semId, stg)){
+        return `<td class="cc"><span class="cc-mark reject" ${dat} data-cs="reject"
+          title="상담으로 인정하지 않음 — 상담률에서 빠집니다&#10;클릭: 내용 보기 · 우클릭: 다시 인정"
+          onclick="openCounseling('${rec.studentId}','${stg}','${esc(stu.name)}')">△</span></td>`;
+      }
       const done = isDone(rec.studentId, branchId, semId, stg);
       if(done){
-        return `<td class="cc"><span class="cc-mark done" title="상담 내용 보기"
+        return `<td class="cc"><span class="cc-mark done" ${dat} data-cs="done"
+          title="클릭: 상담 내용 보기 · 우클릭: 메뉴"
           onclick="openCounseling('${rec.studentId}','${stg}','${esc(stu.name)}')">○</span></td>`;
       }
       const hasMistag = db.counselingHistories.some(c=>
         c.studentId===rec.studentId && c.branchId===branchId &&
         c.semesterId===semId && c.type===stg && c.mistag);
       if(hasMistag){
-        return `<td class="cc"><span class="cc-mark mistag" title="대괄호 회차 오기재 의심 — 내용 확인"
+        return `<td class="cc"><span class="cc-mark mistag" ${dat} data-cs="mistag"
+          title="대괄호 회차 오기재 의심 — 내용 확인&#10;클릭: 내용 보기 · 우클릭: 메뉴"
           onclick="openCounseling('${rec.studentId}','${stg}','${esc(stu.name)}')">⚠</span></td>`;
       }
       // 미완료(✕). 정규반 MC면 분원관리자가 클릭해서 면제(–)로 바꿀 수 있음.
@@ -2139,7 +2219,8 @@ return `<td class="cc"><span class="cc-mark undone" title="미완료">✕</span>
       <div class="table-foot">${footCells}${footTotal}</div>
     </div>
     <div style="margin-top:14px;font-size:12px;color:var(--ink-3)">
-      ○ 완료(클릭 시 상담 내용) · ✕ 미완료 · ⚠ 회차 오기재 의심(대괄호 잘못 표기) · – 상담 대상 아님(기존생은 HC 제외)
+      ○ 완료(클릭 시 상담 내용) · △ 상담 인정 안 함(상담률 제외) · ✕ 미완료 · ⚠ 회차 오기재 의심(대괄호 잘못 표기) · – 상담 대상 아님(기존생은 HC 제외)<br>
+      부재중이거나 양식만 붙여넣은 상담은 <b>○ 를 우클릭</b>해서 △ 로 내릴 수 있습니다. 다음 업로드에서 그 내용이 바뀌면 자동으로 ○ 로 돌아옵니다.
     </div>`;
   el('content').innerHTML = html;
 }
@@ -2152,6 +2233,47 @@ function onToggleExempt(studentId, stage){
   toggleExemption(studentId, branchId, state.semId, stage);
   render();
 }
+/* ── 상담 셀 우클릭 메뉴 ─────────────────────────────────────────
+   ○ 를 눌러 열어보고 '이건 상담이 아니다' 싶으면 그 자리에서 바로 △ 로 내린다. */
+function ccMenuEl(){
+  let e = document.getElementById('ccMenu');
+  if(!e){ e = document.createElement('div'); e.id='ccMenu'; e.className='cc-menu'; document.body.appendChild(e); }
+  return e;
+}
+function ccMenuClose(){ const e=document.getElementById('ccMenu'); if(e) e.classList.remove('on'); }
+function ccMenuOpen(mark, x, y){
+  const sid = mark.dataset.sid, stg = mark.dataset.stg, nm = mark.dataset.nm||'';
+  const kind = mark.dataset.cs;
+  const e = ccMenuEl();
+  const rows = [
+    `<button class="cc-mi" onclick="ccMenuClose();openCounseling('${sid}','${stg}','${nm}')">상담 내용 보기</button>`
+  ];
+  if(canCsJudge()){
+    rows.push(kind==='reject'
+      ? `<button class="cc-mi ok" onclick="ccMenuClose();onCsRestore('${sid}','${stg}')">다시 상담으로 인정</button>`
+      : `<button class="cc-mi warn" onclick="ccMenuClose();onCsReject('${sid}','${stg}')">상담 인정 안 함</button>`);
+  }
+  e.innerHTML = `<div class="cc-mh">${nm} · ${stg}</div>` + rows.join('')
+    + (canCsJudge() && kind!=='reject'
+        ? '<div class="cc-mn">부재중이거나 양식만 붙여넣은 건 여기서 빼주세요.<br>상담률에 안 잡힙니다.</div>'
+        : '');
+  e.classList.add('on');
+  const r = e.getBoundingClientRect();
+  e.style.left = Math.max(8, Math.min(x, innerWidth  - r.width  - 8)) + 'px';
+  e.style.top  = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+}
+document.addEventListener('contextmenu', ev=>{
+  const mark = ev.target.closest && ev.target.closest('.cc-mark[data-cs]');
+  if(!mark) return;
+  ev.preventDefault();
+  ccMenuOpen(mark, ev.clientX, ev.clientY);
+});
+document.addEventListener('mousedown', ev=>{
+  if(!(ev.target.closest && ev.target.closest('#ccMenu'))) ccMenuClose();
+});
+document.addEventListener('keydown', ev=>{ if(ev.key==='Escape') ccMenuClose(); });
+addEventListener('scroll', ccMenuClose, true);
+addEventListener('resize', ccMenuClose);
 /* 학생 시험 통과/미통과 상세 팝업 (상담표에서 학생명 클릭) */
 function openStudentExams(code, name){
   const branchId = activeBranchId();
