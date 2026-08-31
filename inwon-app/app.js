@@ -1952,7 +1952,17 @@ function banLevelLabel(cn){
 function banIsChess(lv){ return /^(IS|DS|LS|MS)/.test(String(lv||'').toUpperCase()); }
 function banTeacher(t){ const m=String(t||'').match(/^([A-Za-z]+)/); return m?m[1]:String(t||''); }
 function banSchoolGrade(st){ let s=String((st&&st.school)||'').replace('초등학교','초').replace('중학교','중').replace('고등학교','고'); if(s.startsWith('수원')&&s.length>3) s=s.slice(2); const g=String((st&&st.grade)||''); const gm=g.match(/(\d+)/); return s+(gm?gm[1]:''); }
-function banLvRank(lv){ const order=['IS','DS','LS','MS','PA','A','MA','HA','HM','HB','B']; const m=String(lv||'').toUpperCase().match(/^([A-Za-z]+)(\d*)/); const pre=m?m[1]:lv; const oi=order.indexOf(pre); return (oi<0?99:oi)*100+(m&&m[2]?parseInt(m[2],10):0); }
+/* 레벨 정렬 순서. 실제 레벨명이 LSA2·DSC1 처럼 글자가 더 붙어 있어서
+   예전엔 indexOf가 전부 빗나갔고, CHESS 반이 죄다 '모르는 레벨'로 맨 뒤로 밀렸다.
+   → 가장 긴 접두어부터 맞춘다 (LSA1 은 'LS'가 아니라 'LSA'로 잡힘). */
+const BAN_LV_ORDER=['IS','DSA','DSB','DSC','DSD','DS','LSA','LSB','LSC','LSD','LS','MSA','MSB','MS','PA','A','MA','HA','HM','HB','B'];
+function banLvRank(lv){
+  const s=String(lv||'').toUpperCase();
+  let oi=-1, pre='';
+  BAN_LV_ORDER.forEach((p,i)=>{ if(s.startsWith(p) && p.length>pre.length){ pre=p; oi=i; } });
+  const m=s.slice(pre.length).match(/^(\d+)/);
+  return (oi<0?99:oi)*100 + (m?parseInt(m[1],10):0);
+}
 function banBranchId(){ if(session.role!=='admin') return session.branchId; return state.banBranch || (db.branches[0]&&db.branches[0].id); }
 function banSetBranch(v){ state.banBranch=v; renderBanTable(); }
 function renderBanTable(){
@@ -1977,7 +1987,7 @@ function renderBanTable(){
   let h='<div class="page-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div><h2>'+esc(brName)+' 반배정표</h2><div class="sub">'+esc((db.semesters.find(s=>s.id===semId)||{}).name||'')+' · 현재 재원 기준 · 신규/복귀 연두</div></div><div style="flex:1"></div>'+brSel+'<button class="btn sm" style="border:1px solid var(--brand);color:var(--brand);background:#fff" onclick="downloadBanXlsx()">⬇ 엑셀</button></div>'+stuSearchPanelHTML()+'<div id="banArea">';
   if(!bus.length){ h+='<div style="padding:40px;text-align:center;color:var(--ink-3)">이 분원·학기에 배정된 반이 없어요. (반이름에 시간대/요일 정보가 있어야 부가 잡혀요)</div>'; }
   bus.forEach(([label,grp])=>{
-    const classes=[...grp.classes.entries()].sort((a,b)=>banLvRank(banLevel(a[0]))-banLvRank(banLevel(b[0])));
+    const classes=[...grp.classes.entries()].sort((a,b)=> (banLvRank(banLevel(a[0]))-banLvRank(banLevel(b[0]))) || String(a[1].label).localeCompare(String(b[1].label)));
     let bChess=0,bAce=0,bTot=0;
     const ROWS=Math.max(15, ...classes.map(c=>c[1].students.length));
     const lvBg=c2=>c2.chess?'#cfe0f5':'#e6d3f5', tcBg=c2=>c2.chess?'#e5eefb':'#f0e6fb', lvFg=c2=>c2.chess?'#1c4f8a':'#5a2a8a';

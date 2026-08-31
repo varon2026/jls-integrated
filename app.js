@@ -429,7 +429,17 @@ function banSchoolGrade(st){
   if(s.startsWith('수원')&&s.length>3) s=s.slice(2);
   const g=String((st&&st.grade)||''); const gm=g.match(/(\d+)/); return s+(gm?gm[1]:'');
 }
-function banLvRank(lv){ const order=['IS','DS','LS','MS','PA','A','MA','HA','HM','HB','B']; const m=String(lv||'').toUpperCase().match(/^([A-Za-z]+)(\d*)/); const pre=m?m[1]:lv; const oi=order.indexOf(pre); return (oi<0?99:oi)*100+(m&&m[2]?parseInt(m[2],10):0); }
+/* 레벨 정렬 순서. 실제 레벨명이 LSA2·DSC1 처럼 글자가 더 붙어 있어서
+   예전엔 indexOf가 전부 빗나갔고, CHESS 반이 죄다 '모르는 레벨'로 맨 뒤로 밀렸다.
+   → 가장 긴 접두어부터 맞춘다 (LSA1 은 'LS'가 아니라 'LSA'로 잡힘). */
+const BAN_LV_ORDER=['IS','DSA','DSB','DSC','DSD','DS','LSA','LSB','LSC','LSD','LS','MSA','MSB','MS','PA','A','MA','HA','HM','HB','B'];
+function banLvRank(lv){
+  const s=String(lv||'').toUpperCase();
+  let oi=-1, pre='';
+  BAN_LV_ORDER.forEach((p,i)=>{ if(s.startsWith(p) && p.length>pre.length){ pre=p; oi=i; } });
+  const m=s.slice(pre.length).match(/^(\d+)/);
+  return (oi<0?99:oi)*100 + (m?parseInt(m[1],10):0);
+}
 function banScope(){ if(session.role!=='admin') return session.branchId; return (state.banBranch && state.banBranch!=='all') ? state.banBranch : (state.banBranch||(db.branches[0]&&db.branches[0].id)); }
 function banSetBranch(v){ state.banBranch=v; render(); }
 function renderBanDash(c){
@@ -459,7 +469,7 @@ function renderBanDash(c){
     +'</div><div id="banArea">';
   if(!bus.length){ h+='<div style="padding:40px;text-align:center;color:#a9a2b6">이 분원·학기에 배정된 반이 없어요. (반이름에 시간대/요일 정보가 있어야 부가 잡혀요)</div>'; }
   bus.forEach(([label,grp])=>{
-    const classes=[...grp.classes.entries()].sort((a,b)=>banLvRank(a[1].level)-banLvRank(b[1].level));
+    const classes=[...grp.classes.entries()].sort((a,b)=> (banLvRank(a[1].level)-banLvRank(b[1].level)) || String(a[1].label).localeCompare(String(b[1].label)));
     let bChess=0,bAce=0,bTot=0;
     const ROWS=Math.max(15, ...classes.map(c=>c[1].students.length));
     h+='<div style="margin-bottom:22px"><div style="font-weight:800;font-size:13.5px;color:#2a2440;background:'+(label===BAN_NOBU?'#fde8e8':'#e7ecf3')+';padding:6px 12px;border-radius:6px;margin-bottom:6px">'+esc(label)+(label===BAN_NOBU?' — 반이름을 <b>[레벨]시간대/요일/…</b> 형식으로 고치면 제 자리로 들어갑니다':'')+'</div>';
