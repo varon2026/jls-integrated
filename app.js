@@ -401,6 +401,7 @@ function renderDashHome(c){
    ============================================================================ */
 /* 반이름 대괄호[레벨] 뒤를 '/'로 쪼갬: [IS2]SU1/MWF/IS2/J → ['SU1','MWF','IS2','J'] */
 function banParts(cn){ return String(cn||'').replace(/^\s*\[[^\]]*\]/,'').split('/').map(x=>x.trim()).filter(Boolean); }
+const BAN_NOBU='부 미지정 · 반이름에서 시간대를 못 읽었습니다';
 function banBu(className){
   const parts=banParts(className);
   const code=parts[0]||'';           // 시간대 코드(SU1/SM3 등) — 대괄호 뒤 첫 조각
@@ -439,7 +440,9 @@ function renderBanDash(c){
   const recs=db.semesterRecords.filter(r=>r.branchId===brId && r.semesterId===semId && r.status==='active' && (r.kind||'regular')!=='exam');
   const buMap=new Map();   // buLabel → {order, classes:Map(className→{level,teacher,room,students[]})}
   recs.forEach(r=>{
-    const bu=banBu(r.className); if(!bu) return;
+    /* 부를 못 읽어도 버리지 않는다 — 예전엔 여기서 return 해버려서 그 반 학생 전원이
+       반배정표에서 통째로 사라졌고, 총원만 조용히 줄었다. 이제 '부 미지정'으로 모아 보여준다. */
+    const bu=banBu(r.className) || {order:999, label:BAN_NOBU};
     if(!buMap.has(bu.label)) buMap.set(bu.label,{order:bu.order, classes:new Map()});
     const grp=buMap.get(bu.label);
     if(!grp.classes.has(r.className)) grp.classes.set(r.className,{level:banLevel(r.className),label:banLevelLabel(r.className),chess:banIsChess(banLevel(r.className)),teacher:banTeacher(r.teacher),room:banRoom(r.className),students:[]});
@@ -459,7 +462,7 @@ function renderBanDash(c){
     const classes=[...grp.classes.entries()].sort((a,b)=>banLvRank(a[1].level)-banLvRank(b[1].level));
     let bChess=0,bAce=0,bTot=0;
     const ROWS=Math.max(15, ...classes.map(c=>c[1].students.length));
-    h+='<div style="margin-bottom:22px"><div style="font-weight:800;font-size:13.5px;color:#2a2440;background:#e7ecf3;padding:6px 12px;border-radius:6px;margin-bottom:6px">'+esc(label)+'</div>';
+    h+='<div style="margin-bottom:22px"><div style="font-weight:800;font-size:13.5px;color:#2a2440;background:'+(label===BAN_NOBU?'#fde8e8':'#e7ecf3')+';padding:6px 12px;border-radius:6px;margin-bottom:6px">'+esc(label)+(label===BAN_NOBU?' — 반이름을 <b>[레벨]시간대/요일/…</b> 형식으로 고치면 제 자리로 들어갑니다':'')+'</div>';
     h+='<div style="overflow:auto"><table style="border-collapse:collapse;font-size:11.5px;table-layout:fixed"><colgroup><col style="width:30px">'+classes.map(()=>'<col style="width:66px"><col style="width:46px">').join('')+'</colgroup><tbody>';
     // 레벨/담임/교실 — CHESS=파랑, ACE=보라 계열로 구분
     const lvBg=c2=>c2.chess?'#cfe0f5':'#e6d3f5', tcBg=c2=>c2.chess?'#e5eefb':'#f0e6fb';
@@ -482,7 +485,7 @@ function renderBanDash(c){
     gChess+=bChess; gAce+=bAce; gTot+=bTot;
   });
   h+='</div>';
-  if(bus.length) h+='<div style="margin-top:8px;padding:12px 16px;background:#faf8ff;border:1px solid #ece8f5;border-radius:12px;font-weight:800;font-size:14px;color:#2f3138">전체 · CHESS <span style="color:#c24a4a">'+gChess+'</span>명 · ACE <span style="color:#356fb2">'+gAce+'</span>명 · <span style="color:#8b6ee8">총 '+gTot+'명</span></div>';
+  if(bus.length) h+='<div style="margin-top:8px;padding:12px 16px;background:#faf8ff;border:1px solid #ece8f5;border-radius:12px;font-weight:800;font-size:14px;color:#2f3138">전체 · CHESS <span style="color:#c24a4a">'+gChess+'</span>명 · ACE <span style="color:#356fb2">'+gAce+'</span>명 · <span style="color:#8b6ee8">총 '+gTot+'명</span> <span style="font-weight:700;color:#a9a2b6">· 이 학기 이 분원 재원 '+recs.length+'명</span></div>';
   c.innerHTML=h;
 }
 function banIsChess(lv){ return /^(IS|DS|LS|MS)/.test(String(lv||'').toUpperCase()); }

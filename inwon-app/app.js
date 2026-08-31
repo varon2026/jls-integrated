@@ -1931,6 +1931,7 @@ function transferWarnBox(semId){
    반이름 예: [IS2]SU1/MWF/IS2/J → 레벨 IS2 · 부(SU1+MWF) · 교실 J · (ACE는 끝자락에 학년)
    ============================================================================ */
 function banParts(cn){ return String(cn||'').replace(/^\s*\[[^\]]*\]/,'').split('/').map(x=>x.trim()).filter(Boolean); }
+const BAN_NOBU='부 미지정 · 반이름에서 시간대를 못 읽었습니다';
 function banBu(cn){
   const parts=banParts(cn); const code=parts[0]||''; const dayseg=(parts[1]||'').toUpperCase();
   const day=/TT/.test(dayseg)?'TT':(/MWF/.test(dayseg)?'MWF':''); const mm=code.match(/(\d)/); const num=mm?parseInt(mm[1],10):0;
@@ -1961,7 +1962,9 @@ function renderBanTable(){
   const recs=db.semesterRecords.filter(r=>r.branchId===brId && r.semesterId===semId && r.status==='active' && (r.kind||'regular')!=='exam');
   const buMap=new Map();
   recs.forEach(r=>{
-    const bu=banBu(r.className); if(!bu) return;
+    /* 부를 못 읽어도 버리지 않는다 — 예전엔 여기서 return 해버려서 그 반 학생 전원이
+       반배정표에서 통째로 사라졌고, 총원만 조용히 줄었다. 이제 '부 미지정'으로 모아 보여준다. */
+    const bu=banBu(r.className) || {order:999, label:BAN_NOBU};
     if(!buMap.has(bu.label)) buMap.set(bu.label,{order:bu.order, classes:new Map()});
     const grp=buMap.get(bu.label);
     if(!grp.classes.has(r.className)) grp.classes.set(r.className,{label:banLevelLabel(r.className),chess:banIsChess(banLevel(r.className)),teacher:banTeacher(r.teacher),room:banRoom(r.className),students:[]});
@@ -1978,7 +1981,7 @@ function renderBanTable(){
     let bChess=0,bAce=0,bTot=0;
     const ROWS=Math.max(15, ...classes.map(c=>c[1].students.length));
     const lvBg=c2=>c2.chess?'#cfe0f5':'#e6d3f5', tcBg=c2=>c2.chess?'#e5eefb':'#f0e6fb', lvFg=c2=>c2.chess?'#1c4f8a':'#5a2a8a';
-    h+='<div style="margin-bottom:22px"><div style="font-weight:800;font-size:13.5px;color:#2a2440;background:#e7ecf3;padding:6px 12px;border-radius:6px;margin-bottom:6px">'+esc(label)+'</div><div style="overflow:auto"><table style="border-collapse:collapse;font-size:11.5px;table-layout:fixed"><colgroup><col style="width:30px">'+classes.map(()=>'<col style="width:66px"><col style="width:46px">').join('')+'</colgroup><tbody>';
+    h+='<div style="margin-bottom:22px"><div style="font-weight:800;font-size:13.5px;color:#2a2440;background:'+(label===BAN_NOBU?'#fde8e8':'#e7ecf3')+';padding:6px 12px;border-radius:6px;margin-bottom:6px">'+esc(label)+(label===BAN_NOBU?' — 반이름을 <b>[레벨]시간대/요일/…</b> 형식으로 고치면 제 자리로 들어갑니다':'')+'</div><div style="overflow:auto"><table style="border-collapse:collapse;font-size:11.5px;table-layout:fixed"><colgroup><col style="width:30px">'+classes.map(()=>'<col style="width:66px"><col style="width:46px">').join('')+'</colgroup><tbody>';
     h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:var(--brand)">레벨</th>'+classes.map(c=>'<th colspan="2" style="border:1px solid #cfc9de;background:'+lvBg(c[1])+';color:'+lvFg(c[1])+';padding:3px 4px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(c[1].label)+'</th>').join('')+'</tr>';
     h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:var(--brand)">담임</th>'+classes.map(c=>'<td colspan="2" style="border:1px solid #cfc9de;background:'+tcBg(c[1])+';text-align:center;font-weight:700;padding:3px 8px">'+esc(c[1].teacher)+'</td>').join('')+'</tr>';
     h+='<tr><th style="border:1px solid #cfc9de;background:#f6f3fc;padding:3px 6px;font-size:11px;color:var(--brand)">교실</th>'+classes.map(c=>'<td colspan="2" style="border:1px solid #cfc9de;background:#eef;text-align:center;font-weight:700;padding:3px 8px">'+esc(c[1].room)+'</td>').join('')+'</tr>';
@@ -1995,7 +1998,7 @@ function renderBanTable(){
     gChess+=bChess; gAce+=bAce; gTot+=bTot;
   });
   h+='</div>';
-  if(bus.length) h+='<div style="margin-top:8px;padding:12px 16px;background:#faf8ff;border:1px solid var(--line);border-radius:12px;font-weight:800;font-size:14px">전체 · CHESS <span style="color:#c24a4a">'+gChess+'</span>명 · ACE <span style="color:#356fb2">'+gAce+'</span>명 · <span style="color:var(--brand)">총 '+gTot+'명</span></div>';
+  if(bus.length) h+='<div style="margin-top:8px;padding:12px 16px;background:#faf8ff;border:1px solid var(--line);border-radius:12px;font-weight:800;font-size:14px">전체 · CHESS <span style="color:#c24a4a">'+gChess+'</span>명 · ACE <span style="color:#356fb2">'+gAce+'</span>명 · <span style="color:var(--brand)">총 '+gTot+'명</span> <span style="font-weight:700;color:var(--ink-3)">· 이 학기 이 분원 재원 '+recs.length+'명</span></div>';
   el('content').innerHTML=h;
   state.stuSearchBranch = brId;   // 반배정표가 보는 분원 기준으로 검색
   renderStuSearch();
