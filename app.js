@@ -53,6 +53,25 @@ function waitSemList(){
   return out;
 }
 
+/* ---------- 예약(레벨테스트) 기준 학기 ----------
+   대기 학기는 '오늘'이 아니라 '시험 본 날'을 기준으로 계산해야 한다.
+   8월(여름학기)에 시험 본 학생을 9월에 다음학기 대기로 잡으면,
+   오늘 기준으로는 현재학기가 가을이라 다음 학기가 겨울이 돼버렸다. */
+function resSemIdOf(r){
+  const m = String((r && r.reserved_date) || '').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(!m) return currentSemester().id;
+  return semesterOfDate(new Date(+m[1], +m[2]-1, +m[3])).id;
+}
+function resNextSemId(r){ return nextSemId(resSemIdOf(r)); }
+/* 그 예약 기준 대기 학기 선택지 (이미 저장된 학기가 밖에 있으면 앞에 끼워 넣는다) */
+function waitSemListFor(r){
+  const out=[]; let id=resSemIdOf(r);
+  for(let i=0;i<4;i++){ id=nextSemId(id); out.push({id, name:semNameFromId(id)}); }
+  const cur = r && r.wait_semester;
+  if(cur && !out.some(x=>x.id===cur)) out.unshift({id:cur, name:semNameFromId(cur)});
+  return out;
+}
+
 /* ---------- 데이터 레이어 (기존 포팅, 읽기 전용) ---------- */
 const TABLES = [
   { key:'branches', table:'branches', fromRow:r=>({id:r.id,name:r.name}) },
@@ -791,7 +810,7 @@ function jhRows(semId){
     if(r.admission_semester===ADM_NONE) return;              // 전형에서 빼달라고 표시한 예약
     // 대기 학기가 비어 있는 예약도 '다음 학기 대기'로 본다 —
     // 원무 대기명단이 쓰는 규칙과 똑같이 맞춰야 두 화면 인원이 어긋나지 않는다.
-    const wsem = r.wait_semester || (r.enrolled==='waiting_next' ? nextSemId() : '');
+    const wsem = r.wait_semester || (r.enrolled==='waiting_next' ? resNextSemId(r) : '');
     if(edBriefOn(r.branch_id, r.reserved_date, semId)) push(mk(r,'brief'), r);
     else if(r.admission_semester===semId)              push(mk(r,'btn'), r);
     else if(wsem===semId)                              push(mk(r,'wait'), r);
@@ -1948,10 +1967,15 @@ function waitAlertBanner(){
   </div>`;
   if(!waitOpen) return `<div class="wait-alert">${head}</div>`;
   const rows=due.sort((a,b)=>String(a.student_name||'').localeCompare(String(b.student_name||''))).map(r=>{
-    const wsem=r.wait_semester||nextSemId();
-    const meta=[semNameFromId(wsem), r.school, gradeTxt(r.grade)].filter(Boolean).join(' · ');
+    const wsem=r.wait_semester||resNextSemId(r);
+    const meta=[r.school, gradeTxt(r.grade)].filter(Boolean).join(' · ');
+    /* 학기를 여기서 바로 고칠 수 있게 드롭다운으로 둔다 — 잘못 잡힌 걸 발견하는 자리가 여기다 */
+    const semSel=`<select class="wa-sem" onchange="setWaitSemester('${r.id}',this.value)" title="대기 학기">`
+      + waitSemListFor(r).map(x=>`<option value="${x.id}" ${x.id===wsem?'selected':''}>${esc(x.name)}</option>`).join('')
+      + `</select>`;
     return `<div class="wa-item" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span class="wa-nm">${esc(r.student_name||'')}</span>
+      ${semSel}
       <span class="wa-meta">${esc(meta)}</span>
       ${r.parent_phone?`<span class="wa-ph">${esc(r.parent_phone)}</span>`:''}
       <span style="flex:1"></span>
@@ -1998,7 +2022,7 @@ async function waitCancelConfirm(studentId){
     if(rec){ const { error }=await sb.from('semester_records').delete().eq('id',rec.id); if(error) throw error; db.semesterRecords=db.semesterRecords.filter(x=>x.id!==rec.id); }
     if(mv){ const { error:e2 }=await sb.from('student_movements').delete().eq('id',mv.id); if(e2) throw e2; db.studentMovements=db.studentMovements.filter(x=>x.id!==mv.id); }
     const res=reservations.find(r=> r.branch_id===brId && ((stu.code && r.student_code===stu.code) || r.student_name===stu.name));
-    if(res){ await updateReservation(res.id, {enrolled:'waiting_next', wait_semester: semId||nextSemId(), not_enrolled_reason:null}); }
+    if(res){ await updateReservation(res.id, {enrolled:'waiting_next', wait_semester: semId||resNextSemId(res), not_enrolled_reason:null}); }
     waitModalClose();
     toast(`${stu.name||''} 등록 취소 — 대기명단으로 복귀 ✓`);
     renderWonmuBody();
@@ -2089,7 +2113,7 @@ async function enrollNewFromRes(r, semId, enrollDate, pickCls){
 /* [등록] 캘린더 팝업 → 신규생(미배정) 자동 등록 */
 function waitRegisterOpen(resId){
   const r=reservations.find(x=>x.id===resId); if(!r) return;
-  const semId=r.wait_semester||nextSemId();
+  const semId=r.wait_semester||resNextSemId(r);
   const yms=(semesterYM(semId)||[]).map(p=>p.ym);
   const defDate=(yms[0]||'')+'-01';
   // 이 학기(가을)에 이미 만들어진 반 목록 (전체명단 업로드됐으면 채워짐)
@@ -2118,7 +2142,7 @@ async function waitRegisterConfirm(resId){
   const r=reservations.find(x=>x.id===resId); if(!r){ waitModalClose(); return; }
   const enrollDate=($('waitRegDate')&&$('waitRegDate').value)||'';
   if(!enrollDate){ toast('입학일을 선택하세요','err'); return; }
-  const semId=r.wait_semester||nextSemId();
+  const semId=r.wait_semester||resNextSemId(r);
   const pickCls=($('waitRegClass')&&$('waitRegClass').value)||'미배정';
   try{
     const out=await enrollNewFromRes(r, semId, enrollDate, pickCls);
@@ -2147,7 +2171,7 @@ async function waitNotEnrolledConfirm(resId){
   if(!reason){ toast('미등록 사유를 입력하세요','err'); return; }
   // 대기 학기 보존 — 어느 학기 대기였다가 안 왔는지가 전형 현황에 필요
   const r0=reservations.find(x=>x.id===resId);
-  const keepSem=(r0&&r0.wait_semester)||nextSemId();
+  const keepSem=(r0&&r0.wait_semester)||resNextSemId(r0);
   const ok=await updateReservation(resId, { enrolled:'not_enrolled', not_enrolled_reason:reason, wait_semester:keepSem });
   if(ok){ waitModalClose(); toast('미등록 처리 완료 ✓'); renderWonmuBody(); }
 }
@@ -3274,7 +3298,7 @@ function renderBooking(c){
           <button class="${en==='waiting_next'?'on b-wait':''}" onclick="setResEnrolled('${r.id}','waiting_next')">다음학기 대기</button>
         </div></div>
         ${en==='failed'?`<div class="re-hint">성적 미달로 등록 불가 — 등록률 계산에서 제외돼요. 점수는 채점 결과가 자동 표시됩니다.</div>`:''}
-        ${en==='waiting_next'?`<div class="re-row"><span class="re-l">대기 학기</span><select id="bk_wait_${r.id}" class="re-in" onchange="setWaitSemester('${r.id}',this.value)">${waitSemList().map(s=>`<option value="${s.id}" ${s.id===(r.wait_semester||nextSemId())?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div class="re-hint wait">시험은 통과, 다음 학기 등록 예정 — 해당 학기가 되면 로그인 시 상단에 연락 대상으로 떠요. (이번 학기 등록률엔 미등록으로 포함)</div>`:''}
+        ${en==='waiting_next'?`<div class="re-row"><span class="re-l">대기 학기</span><select id="bk_wait_${r.id}" class="re-in" onchange="setWaitSemester('${r.id}',this.value)">${waitSemListFor(r).map(s=>`<option value="${s.id}" ${s.id===(r.wait_semester||resNextSemId(r))?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div class="re-hint wait">시험은 통과, 다음 학기 등록 예정 — 해당 학기가 되면 로그인 시 상단에 연락 대상으로 떠요. (이번 학기 등록률엔 미등록으로 포함)</div>`:''}
         ${en==='not_enrolled'?`<div class="re-row"><span class="re-l">미등록 사유</span><input id="bk_reason_${r.id}" class="re-in" value="${esc(r.not_enrolled_reason||'')}" placeholder="예: 거리·시간·비용"><button class="re-save" onclick="saveResReason('${r.id}')">저장</button></div>`:''}
         <div class="re-row"><span class="re-l">날짜 이동</span><input id="bk_date_${r.id}" class="re-in re-date" type="date" value="${esc(String(r.reserved_date||'').slice(0,10))}"><input id="bk_time_${r.id}" class="re-in re-time" type="time" value="${esc(String(r.reserved_time||'').slice(0,5))}"><button class="re-save" onclick="moveReservation('${r.id}')">이동</button></div>
         <div class="re-row"><span class="re-l">레벨테스트</span><button class="re-score" onclick="openScoreTest('${r.id}')">채점하기</button>${ltResults[r.id]?`<button class="re-score-view" onclick="openScoreView('${ltResults[r.id].id}')">성적표 보기</button>`:''}</div>
@@ -3398,14 +3422,14 @@ async function setResEnrolledRaw(id,en){
   // ★ wait_semester는 지우지 않는다.
   //   '어느 학기 대기였다가 등록·미등록했는지'가 전형 현황의 유일한 근거라,
   //   지워버리면 대기 → 등록 전환을 영영 셀 수 없다.
-  if(en==='waiting_next' && (!r || !r.wait_semester)) patch.wait_semester=nextSemId();  // 다음학기대기 기본값 = 다음 학기
+  if(en==='waiting_next' && (!r || !r.wait_semester)) patch.wait_semester=resNextSemId(r);  // 기본값 = 시험 본 학기의 다음 학기
   // ★ 등록결과(등록완료·미등록·미통과·다음학기대기)를 정했다는 건 시험을 봤다는 뜻
   //   → 상태가 '예약'이면 '참석'으로 자동 승격. (parent_only·취소·노쇼는 의도된 상태라 안 건드림)
   const attendedOutcome = (en==='enrolled'||en==='not_enrolled'||en==='failed'||en==='waiting_next');
   if(attendedOutcome && r && (!r.status || r.status==='booked')) patch.status='attended';
   const ok=await updateReservation(id,patch); if(ok){ toast('등록 여부 변경됨 ✓'); renderWonmuBody(); }
 }
-async function setWaitSemester(id,sem){ const ok=await updateReservation(id,{wait_semester:sem||null}); if(ok) toast('대기 학기 저장됨 ✓'); }
+async function setWaitSemester(id,sem){ const ok=await updateReservation(id,{wait_semester:sem||null}); if(ok){ toast('대기 학기 저장됨 ✓'); renderWonmuBody(); } }
 async function saveResReason(id){ const el=$('bk_reason_'+id); const v=el?el.value.trim():''; const ok=await updateReservation(id,{not_enrolled_reason:v||null}); if(ok) toast('사유 저장됨 ✓'); }
 async function saveResInfo(id){
   const g=k=>{ const e=$(k+id); return e?e.value.trim():''; };
