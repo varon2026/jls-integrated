@@ -1077,14 +1077,22 @@ function transferMatch(semId){
 }
 
 /* 한 담임의 반별 집계 */
+/* 반 카드 — 상담률 분모는 퇴원생까지 포함한다.
+   담임 전체 진행률(rateRecordsOf)과 반 상세 표가 이미 퇴원생을 넣고 세는데
+   반 카드만 재원생으로 세고 있어서, 반 카드가 전부 100%인데 담임 전체는 97%인
+   상황이 생겼다. 빠진 학생이 어느 카드에도 안 나와서 화면에서 찾을 수가 없었다.
+   학생 수는 그대로 재원생만 센다 — 인원 통계와 어긋나면 안 되므로 퇴원은 따로 적는다. */
 function classesOf(branchId, semId, teacher){
-  const recs = activeRecordsOf(branchId, semId).filter(r=>r.teacher===teacher);
+  const recs = recordsOf(branchId, semId).filter(r=>r.teacher===teacher);
   const map = new Map();
   recs.forEach(r=>{ if(!map.has(r.className)) map.set(r.className,[]); map.get(r.className).push(r); });
   return [...map.entries()].map(([className, crecs])=>{
     const rates = calcRates(crecs, branchId, semId);
-    const label = crecs[0].classLabel || classLabel(className) || className;
-    return { className, label, recs:crecs, studentCount:crecs.length, rates };
+    const act = crecs.filter(r=>r.status==='active');
+    const base = act[0] || crecs[0];
+    const label = base.classLabel || classLabel(className) || className;
+    return { className, label, recs:crecs, studentCount:act.length,
+             withdrawCount:crecs.length-act.length, rates };
   }).sort((a,b)=> a.label.localeCompare(b.label,'ko'));
 }
 /* ============================================================================
@@ -2136,7 +2144,7 @@ const trecs = activeRecordsOf(branchId, semId).filter(r=>r.teacher===teacher);
       <div class="card-top">
         <div>
           <div class="card-name">${esc(cls.label)} ${tag}</div>
-          <div class="card-sub">학생 ${cls.studentCount}명</div>
+          <div class="card-sub">학생 ${cls.studentCount}명${cls.withdrawCount?`<span style="color:var(--warn)"> · 퇴원 ${cls.withdrawCount}명 포함</span>`:''}</div>
         </div>
         <div class="card-rate">
           <div class="r num" style="color:${rateColor(r.totalRate)}">${r.totalRate}%</div>
@@ -2258,11 +2266,15 @@ const cells = STAGES.map(stg=>{
           onclick="openCounseling('${rec.studentId}','${stg}','${esc(stu.name)}')">⚠</span></td>`;
       }
       // 미완료(✕). 정규반 MC면 분원관리자가 클릭해서 면제(–)로 바꿀 수 있음.
+      // 퇴원생인데 회차가 아직 잡혀 있으면 왜 잡히는지 같이 알려준다.
+      const wdWhy = (rec.status==='withdraw' && isMc)
+        ? `&#10;퇴원생 — 퇴원한 달(${rec.withdrawDate||'날짜 없음'})까지의 회차는 상담 대상입니다`
+        : '';
       if(isMc && !isExam && canEditExempt()){
-        return `<td class="cc"><span class="cc-mark undone editable" title="미완료 — 클릭하면 내신반으로 이관(면제)"
+        return `<td class="cc"><span class="cc-mark undone editable" title="미완료 — 클릭하면 내신반으로 이관(면제)${wdWhy}"
           onclick="onToggleExempt('${rec.studentId}','${stg}')">✕</span></td>`;
       }
-return `<td class="cc"><span class="cc-mark undone" title="미완료">✕</span></td>`;
+return `<td class="cc"><span class="cc-mark undone" title="미완료${wdWhy}">✕</span></td>`;
     }).join('');
     return `<tr>
       <td><div class="st-name">${esc(stu.name)}${originBadge}${moveBadge}</div></td>
@@ -5465,7 +5477,7 @@ const rates = calcRates(rateRecordsOfTeacher(branchId, semId, teacher), branchId
       <div class="card-top">
         <div>
           <div class="card-name">${esc(cls.label)} ${tag}</div>
-          <div class="card-sub">학생 ${cls.studentCount}명</div>
+          <div class="card-sub">학생 ${cls.studentCount}명${cls.withdrawCount?`<span style="color:var(--warn)"> · 퇴원 ${cls.withdrawCount}명 포함</span>`:''}</div>
         </div>
         <div class="card-rate">
           <div class="r num" style="color:${rateColor(r.totalRate)}">${r.totalRate}%</div>
