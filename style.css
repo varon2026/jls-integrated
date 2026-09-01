@@ -871,3 +871,10 @@ tr.sum .col-now{background:#f5f1fc}
   padding:3px 8px; cursor:pointer;
 }
 .wa-sem:hover{ border-color:#1f8a95; }
+
+/* 응시자 상세 · 등록 칸 밑의 학기 표시 — '등록완료' 넉 자로는 어느 학기인지 모른다 */
+.enr-sem{margin-top:4px;font-size:11px;font-weight:700;line-height:1.4;white-space:nowrap}
+.enr-sem.wait{color:#1f8a95}
+.enr-sem.enr {color:#5b41b5}
+.enr-sem.now {color:#8b8496}
+.enr-sem.not {color:#c0504d}

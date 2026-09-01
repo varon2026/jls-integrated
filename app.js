@@ -2264,7 +2264,22 @@ function enrollEditCell(r){
   if(r.status==='canceled'||r.status==='noshow'||r.status==='parent_only') return '<span class="mut">–</span>';
   const en=r.enrolled||'pending';
   const opts=[['pending','대기'],['enrolled','등록완료'],['not_enrolled','미등록'],['failed','미통과'],['waiting_next','다음학기 대기']];
-  return `<select class="enr-sel enr-${en}" onchange="setResEnrolled('${r.id}',this.value)">${opts.map(o=>`<option value="${o[0]}" ${o[0]===en?'selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
+  const sel=`<select class="enr-sel enr-${en}" onchange="setResEnrolled('${r.id}',this.value)">${opts.map(o=>`<option value="${o[0]}" ${o[0]===en?'selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
+  /* 어느 학기 얘기인지 드롭다운 밑에 적는다.
+     '등록완료' 넉 자만 있으면 8월 응시자가 여름 등록인지 가을 등록인지 알 수 없고,
+     대기를 거쳐 온 학생인지도 안 보인다. 대기를 거치면 wait_semester 가 남아 있다
+     (등록 처리할 때 일부러 안 지운다) — 그걸로 경로를 그린다. */
+  const nm = id => esc(semNameFromId(id));
+  let note='';
+  if(en==='waiting_next' && r.wait_semester)
+    note=`<div class="enr-sem wait">${nm(r.wait_semester)} 대기</div>`;
+  else if(en==='enrolled')
+    note = r.wait_semester
+      ? `<div class="enr-sem enr">대기 → ${nm(r.wait_semester)} 등록</div>`
+      : `<div class="enr-sem now">${nm(resSemIdOf(r))} 등록</div>`;
+  else if(en==='not_enrolled' && r.wait_semester)
+    note=`<div class="enr-sem not">${nm(r.wait_semester)} 대기 → 미등록</div>`;
+  return sel+note;
 }
 function scoreLinkCell(r){
   const res=ltResults[r.id];
