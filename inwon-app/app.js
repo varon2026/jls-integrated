@@ -4240,6 +4240,7 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
     const autoSem = detectSemesterFromRows(rows.slice(1), idx);
     if(autoSem){ semId = ensureSemester(autoSem); }
     let added=0, updated=0, excluded=0, examAdded=0;
+    let adoptedTmp=0;   // 레벨테스트 임시코드 → 진짜 회원코드로 붙인 학생 수
     // ★ 업로드 되돌리기용 추적 — 이 업로드가 새로 만든/덮어쓴 것을 기록
     const addedRecIds=new Set(), addedStuIds=new Set(), addedMvIds=[], updBefore=new Map();
     rows.slice(1).forEach(r=>{
@@ -4297,6 +4298,18 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
       if(opts.forceNew && !enrollDate) enrollDate = today();   // 신규생 일괄: 날짜 없으면 오늘
       // 학생 DB upsert (회원코드 기준)
       let stu = db.students.find(s=>s.code===code);
+      if(!stu){
+        /* 레벨테스트에서 먼저 등록돼 '임시-…' 코드로 들어와 있는 학생인지 본다.
+           (예약 시점엔 회원코드가 없어서 임시코드가 붙는다)
+           이름이 같은 임시 학생이 딱 한 명일 때만 진짜 회원코드를 붙인다 —
+           동명이인이면 손대지 않고 새 학생으로 둔다. */
+        let cand = db.students.filter(x=> /^임시-/.test(x.code||'') && x.name===name);
+        if(school && cand.length>1){
+          const bySchool = cand.filter(x=> (x.school||'')===school);
+          if(bySchool.length) cand = bySchool;
+        }
+        if(cand.length===1){ stu=cand[0]; stu.code=code; if(school) stu.school=school; adoptedTmp++; }
+      }
       if(!stu){ stu={id:uid('st'),code,name,school,grade}; db.students.push(stu); addedStuIds.add(stu.id); }
       else {
         stu.name=name; if(school)stu.school=school;
@@ -4369,7 +4382,7 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
       const semName = (db.semesters.find(s=>s.id===semId)||{}).name || semId;
       state.semId = semId; // 판별된 학기로 자동 전환
       state.addSemesterMode = false; // 배너 해제
-      toast(`✅ ${semName}에 저장 · 정규 신규 ${added}, 갱신 ${updated}${examAdded?`, 내신반 ${examAdded}`:''}${excluded?`, 제외 ${excluded}`:''}`,'ok');
+      toast(`✅ ${semName}에 저장 · 정규 신규 ${added}, 갱신 ${updated}${examAdded?`, 내신반 ${examAdded}`:''}${excluded?`, 제외 ${excluded}`:''}${adoptedTmp?`, 회원코드 연결 ${adoptedTmp}`:''}`,'ok');
     } else {
       toast('❌ 저장 실패 — 다시 업로드해 주세요','err');
     }

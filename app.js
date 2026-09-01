@@ -2026,6 +2026,14 @@ function jhFirstDay(semId){
   const p=(semesterYM(semId)||[])[0];
   return p ? p.ym+'-01' : new Date().toISOString().slice(0,10);
 }
+/* 회원코드가 아직 없는 학생용 임시 코드. 전체명단이 올라오면 진짜 코드로 교체된다. */
+function tempStudentCode(){
+  for(let i=0;i<50;i++){
+    const c='임시-'+Math.random().toString(36).slice(2,8).toUpperCase();
+    if(!(db.students||[]).some(x=>x.code===c)) return c;
+  }
+  return '임시-'+Date.now().toString(36).toUpperCase();
+}
 async function enrollNewFromRes(r, semId, enrollDate, pickCls){
   const brId=r.branch_id||session.branchId, code=(r.student_code||'').trim();
   let className='미배정', classLabelV='미배정', teacherV='미배정';
@@ -2047,7 +2055,11 @@ async function enrollNewFromRes(r, semId, enrollDate, pickCls){
     if(cand.length===1) stu=cand[0];
   }
   if(!stu){
-    stu={ id:uid('st'), code:code||null, name:r.student_name||'', school:r.school||'', grade:r.grade||'' };
+    /* 레벨테스트 예약에는 회원코드가 없다(iMS 임시등록 중단). 그런데 students.code 는 필수라
+       비워두면 저장이 통째로 실패한다 → '임시-…' 코드를 발급해 둔다.
+       나중에 전체명단에 진짜 회원코드가 올라오면 학사관리 업로드가 같은 학생으로 붙이고
+       임시코드를 진짜 회원코드로 바꿔준다 (importRoster). */
+    stu={ id:uid('st'), code:code||tempStudentCode(), name:r.student_name||'', school:r.school||'', grade:r.grade||'' };
     const { error }=await sb.from('students').insert({id:stu.id,code:stu.code,name:stu.name,school:stu.school,grade:stu.grade});
     if(error) throw error;
     db.students.push(stu);
