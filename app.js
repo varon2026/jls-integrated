@@ -2266,6 +2266,39 @@ function cmtCell(r){
   if(r.status==='parent_only') return '<span class="mut">학부모만 참석 (시험 미응시)</span>';
   return '<span class="mut">·</span>';
 }
+/* 등록 학기 칩 — 누르면 그 자리에서 고를 수 있게 바뀐다 */
+function semChip(r){
+  const en=r.enrolled||'pending', w=r.wait_semester;
+  if(en==='waiting_next'){
+    const sem=w||resNextSemId(r);
+    return `<span class="sem-chip wait" title="${esc(semNameFromId(sem)+' 입학 대기 · 눌러서 바꾸기')}"`
+         + ` onclick="semChipEdit('${r.id}')">${esc(seasonWord(sem)+' 대기')}<i class="pen">✎</i></span>`;
+  }
+  if(en==='not_enrolled'){   // 결과가 끝난 건이라 읽기만
+    return `<span class="sem-chip off" title="${esc(semNameFromId(w)+' 입학 대기였다가 미등록')}">`
+         + `${esc(seasonWord(w)+' 대기 → 미등록')}</span>`;
+  }
+  const label = w ? ('대기 → '+seasonWord(w)) : (seasonWord(resSemIdOf(r))+' 등록');
+  const title = w ? ('다음학기 대기를 거쳐 '+semNameFromId(w)+'에 등록 · 눌러서 바꾸기')
+                  : (semNameFromId(resSemIdOf(r))+'에 바로 등록 (대기 안 거침) · 눌러서 바꾸기');
+  return `<span class="sem-chip${w?' wait':''}" title="${esc(title)}" onclick="semChipEdit('${r.id}')">`
+       + esc(label) + `<i class="pen">✎</i></span>`;
+}
+function semChipEdit(id){
+  const host=$('semc_'+id); const r=reservations.find(x=>x.id===id);
+  if(!host||!r) return;
+  const wn = (r.enrolled==='waiting_next');   // 대기 중이면 '대기 안 거침'은 말이 안 된다
+  const opts=(wn?[]:[['', semNameFromId(resSemIdOf(r))+' 등록 (대기 안 거침)']])
+    .concat(waitSemListFor(r).map(x=>[x.id, wn ? (x.name+' 입학 대기') : ('대기 → '+x.name+' 등록')]));
+  host.innerHTML = `<select class="sem-sel" onchange="setWaitSemester('${id}',this.value)" onblur="semChipDone('${id}')">`
+    + opts.map(o=>`<option value="${o[0]}" ${o[0]===(r.wait_semester||'')?'selected':''}>${esc(o[1])}</option>`).join('')
+    + `</select>`;
+  const sel=host.querySelector('select'); if(sel) sel.focus();
+}
+function semChipDone(id){
+  const host=$('semc_'+id); const r=reservations.find(x=>x.id===id);
+  if(host&&r) host.innerHTML=semChip(r);
+}
 /* 상세 목록에서 등록 여부를 바로 바꾸는 드롭다운 (캘린더 안 들어가고) */
 function enrollEditCell(r){
   if(r.status==='canceled'||r.status==='noshow'||r.status==='parent_only') return '<span class="mut">–</span>';
@@ -2276,25 +2309,12 @@ function enrollEditCell(r){
      '등록완료' 넉 자만 있으면 8월 응시자가 여름 등록인지 가을 등록인지 알 수 없고,
      대기를 거쳐 온 학생인지도 안 보인다. 대기를 거치면 wait_semester 가 남아 있다
      (등록 처리할 때 일부러 안 지운다) — 그걸로 경로를 그린다. */
-  const nm = id => esc(semNameFromId(id));
+  /* 학기는 한 번 정하면 거의 안 바꾸는 값이라, 셀렉트를 늘 열어두면 표만 밀린다.
+     평소엔 작은 칩으로 읽기만 하고 누를 때만 목록이 열린다. 세 경우 모두 같은 모양이라
+     줄 높이가 들쭉날쭉하지 않는다. */
   let note='';
-  if(en==='waiting_next' && r.wait_semester)
-    note=`<div class="enr-sem wait">${nm(r.wait_semester)} 대기</div>`;
-  else if(en==='enrolled'){
-    /* 어느 학기 등록인지 여기서 바로 고칠 수 있게 드롭다운으로 둔다.
-       '다음학기 대기'를 잘못 눌러 엉뚱한 학기 전형에 박힌 학생을, 예전엔 화면에서
-       되돌릴 방법이 없어 SQL로 고쳐야 했다. 대기를 안 거친 등록(= 시험 본 그 학기에
-       바로 등록)은 전형 대상이 아니므로 전형 현황에서도 빠진다. */
-    const own = resSemIdOf(r);
-    const list = waitSemListFor(r);
-    const optsS = [['', nm(own)+' 등록 (대기 안 거침)']]
-      .concat(list.map(x=>[x.id, '대기 → '+esc(x.name)+' 등록']));
-    note = `<select class="enr-sem-sel" title="이 등록이 어느 학기 것인지" onchange="setWaitSemester('${r.id}',this.value)">`
-      + optsS.map(o=>`<option value="${o[0]}" ${o[0]===(r.wait_semester||'')?'selected':''}>${o[1]}</option>`).join('')
-      + `</select>`;
-  }
-  else if(en==='not_enrolled' && r.wait_semester)
-    note=`<div class="enr-sem not">${nm(r.wait_semester)} 대기 → 미등록</div>`;
+  if((en==='waiting_next' || en==='enrolled' || (en==='not_enrolled' && r.wait_semester)))
+    note = `<span class="sem-c" id="semc_${r.id}">${semChip(r)}</span>`;
   return sel+note;
 }
 function scoreLinkCell(r){
@@ -3984,7 +4004,7 @@ window.jhFixAsk=jhFixAsk; window.jhFixToNext=jhFixToNext; window.jhFixToCur=jhFi
 window.jhFixAllAsk=jhFixAllAsk; window.jhFixAllRun=jhFixAllRun;
 window.jhFixDate=jhFixDate; window.jhFixDateAll=jhFixDateAll;
 window.jhErrModal=jhErrModal;
-window.setResEnrolled=setResEnrolled; window.resEnrollAsk=resEnrollAsk; window.resEnrollNext=resEnrollNext; window.resEnrollNow=resEnrollNow; window.setWaitSemester=setWaitSemester; window.saveResReason=saveResReason; window.saveResInfo=saveResInfo; window.deleteReservation=deleteReservation; window.askDelete=askDelete; window.confirmDelete=confirmDelete; window.cancelDelete=cancelDelete; window.toggleDelLog=toggleDelLog; window.moveReservation=moveReservation;
+window.semChipEdit=semChipEdit; window.semChipDone=semChipDone; window.setResEnrolled=setResEnrolled; window.resEnrollAsk=resEnrollAsk; window.resEnrollNext=resEnrollNext; window.resEnrollNow=resEnrollNow; window.setWaitSemester=setWaitSemester; window.saveResReason=saveResReason; window.saveResInfo=saveResInfo; window.deleteReservation=deleteReservation; window.askDelete=askDelete; window.confirmDelete=confirmDelete; window.cancelDelete=cancelDelete; window.toggleDelLog=toggleDelLog; window.moveReservation=moveReservation;
 $('loginBtn').addEventListener('click', doLogin);
 $('loginPw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 $('logoutBtn').addEventListener('click', logout);
