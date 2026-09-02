@@ -701,16 +701,23 @@ function renderMgmtDash(c){
    그 학생의 '예약'을 전형으로 잡는다 — 새 행을 만들지 않아야 캘린더 건수와 맞는다.
    ============================================================================ */
 function jhRank(id){ const m=String(id||'').match(/sem_(\d+)_(\w+)/); if(!m) return 0; return (+m[1])*10+({spring:1,summer:2,fall:3,winter:4}[m[2]]||0); }
-function jhSemId(){ return state.jhSem || nextSemId(state.semId); }
 function jhSetSem(v){ state.jhSem=v; render(); }
+/* 전형 학기 탭 — '전형 데이터가 실제로 있는 학기'만 만든다.
+   예전엔 db.semesters(학기 표)를 통째로 넣었는데, 겨울 등록을 한 번 잘못 누르면
+   그 순간 semesters에 겨울학기 행이 생기고 빈 겨울 탭이 영영 박혀 있었다.
+   근거는 셋뿐이다 — 대기 학기가 찍힌 예약 / 대기→등록 이동기록 / 전형·설명회로 켠 날짜. */
 function jhSemOptions(){
   const ids={};
-  (db.semesters||[]).forEach(s=>{ if(s&&s.id) ids[s.id]=1; });
   reservations.forEach(r=>{ if(r.wait_semester) ids[r.wait_semester]=1; });
   (db.studentMovements||[]).forEach(m=>{ if(m.memo==='레벨테스트 대기→등록' && m.semesterId) ids[m.semesterId]=1; });
   examDays.forEach(x=>{ if(x.target_semester) ids[x.target_semester]=1; });
-  ids[nextSemId(state.semId)]=1;
-  return Object.keys(ids).sort((a,b)=>jhRank(b)-jhRank(a));
+  if(state.jhSem) ids[state.jhSem]=1;                       // 지금 보고 있는 탭은 남긴다
+  const out=Object.keys(ids).sort((a,b)=>jhRank(b)-jhRank(a));
+  return out.length ? out : [nextSemId(state.semId)];       // 하나도 없으면 다음 학기 하나만
+}
+function jhSemId(){
+  const opts=jhSemOptions();
+  return (state.jhSem && opts.indexOf(state.jhSem)>=0) ? state.jhSem : opts[0];
 }
 /* 대상 학기의 직전 학기 = 전형을 치르는 기간.
    2026 가을 입학이면 2026 여름학기(6·7·8월)에 본 시험이 그 전형이다. */
