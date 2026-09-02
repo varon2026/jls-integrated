@@ -179,7 +179,7 @@ function levelCode(cn){
   const prefix=m[1].toUpperCase(), digit=m[2];
   if(digit)return prefix+digit;                      // 대괄호에 숫자 있음(표준: [DSA1]) → 그대로
   // 수원 케이스: 대괄호엔 숫자 없음([DSD]) → 본문(대괄호 밖)에서 '접두어+숫자' 찾기 (예: DSD2(1) → DSD2)
-  const body=cn.replace(/^\s*\[[^\]]*\]/,'');
+  const body=cn.replace(/^\s*\[[^\]\/]*\]?/,'');
   const bm=body.match(new RegExp(prefix+'([0-9])','i'));
   return bm?prefix+bm[1]:prefix;                     // 못 찾으면 접두어만(예: HB)
 }
@@ -281,7 +281,8 @@ function classesForExam(br){
   return [...m.values()].sort((a,b)=>lvSort(a.levelCode,b.levelCode)||a.className.localeCompare(b.className));
 }
 /* 반 이름에서 요일·담임 등 세부 표기만 뽑아 보기 좋게 (레벨 대괄호는 뺌) */
-function classDetail(cn){return String(cn||'').replace(/^\s*\[[^\]]*\]\s*/,'').trim()||cn;}
+function classDetail(cn){return String(cn||'').replace(/^\s*\[[^\]\/]*\]?\s*/,'').trim()||cn;}
+/* 닫는 대괄호를 빼먹은 반이름('[MA1(4~6) / FA3 / …')도 레벨을 떼고 뒤만 보여준다 */
 /* 표시용: 반 라벨 맨 앞의 요일 표기(월수금 3부·화목 1부 등)만 제거. 레벨명은 그대로 둠 */
 function noDays(s){
   s=String(s||'');

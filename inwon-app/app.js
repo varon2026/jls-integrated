@@ -2061,7 +2061,10 @@ function transferWarnBox(semId){
    반배정표 — 현재 재원명단을 부(시간대)/반별로 배치. 신규·복귀는 연두.
    반이름 예: [IS2]SU1/MWF/IS2/J → 레벨 IS2 · 부(SU1+MWF) · 교실 J · (ACE는 끝자락에 학년)
    ============================================================================ */
-function banParts(cn){ return String(cn||'').replace(/^\s*\[[^\]]*\]/,'').split('/').map(x=>x.trim()).filter(Boolean); }
+/* 반이름 앞의 [레벨] 을 떼어낸다. 닫는 대괄호를 빼먹은 반이름이 자주 들어와서
+   ']' 가 없으면 첫 '/' 앞까지를 레벨로 보고 떼어낸다 —
+   '[MA1(4~6) / FA3 / …' 도 '[MA1(4~6)] / FA3 / …' 과 똑같이 읽힌다. */
+function banParts(cn){ return String(cn||'').replace(/^\s*\[[^\]\/]*\]?/,'').split('/').map(x=>x.trim()).filter(Boolean); }
 const BAN_NOBU='부 미지정 · 반이름에서 시간대를 못 읽었습니다';
 /* 시간대(FA3·SU1)와 요일(MWF·TTH)을 '몇 번째 조각인지'가 아니라 '생김새'로 찾는다.
    반이름에 닫는 대괄호가 빠지면([MA1(4~6) / FA3 / MWF / …) 조각이 한 칸씩 밀려
@@ -2073,8 +2076,11 @@ function banBu(className){
   const day = /^TT/i.test(daySeg) ? 'TT' : (/^MW/i.test(daySeg) ? 'MWF' : '');
   const mm = timeSeg.match(/(\d)/); const num = mm?parseInt(mm[1],10):0;
   if(!day||!num) return null;
-  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:num+'부 · 월수금 · '+t}; }
-  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:'화목 · '+t};
+  // 시간표에 없는 부 번호가 오면(화목인데 3·4부 등) 시간만 비우고 요일·부는 그대로 보여준다.
+  // 예전엔 '화목 · ' 처럼 구분점만 덩그러니 남았다.
+  const join=a=>a.filter(Boolean).join(' · ');
+  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:join([num+'부','월수금',t])}; }
+  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:join(['화목',t])};
 }
 /* 닫는 대괄호가 빠진 반이름도 레벨은 읽어준다: '[MA1(4~6) / FA3 / …' → 'MA1(4~6)' */
 function banLevel(cn){
@@ -2083,14 +2089,24 @@ function banLevel(cn){
   m=s.match(/^\s*\[([^/\]]+)/);  if(m) return m[1].trim();
   return s;
 }
-function banRoom(cn){ const body=String(cn||'').replace(/^\s*\[[^\]]*\]/,''); const segs=body.split('/'); const last=(segs.length?segs[segs.length-1]:'').trim(); return (/^[A-Za-z]{1,2}$/.test(last) && !/^(mw|wf|tt)$/i.test(last)) ? last : ''; }  // 강의실=알파벳 1~2글자만. 요일(MWF/TTH)·숫자·이상한 값은 빈칸
+function banRoom(cn){ const p=banParts(cn); const last=(p.length?p[p.length-1]:'').trim(); return (/^[A-Za-z]{1,2}$/.test(last) && !/^(mw|wf|tt)$/i.test(last)) ? last : ''; }  // 강의실=알파벳 1~2글자만. 요일(MWF/TTH/TT)·숫자·이상한 값은 빈칸
+/* 반이름 안의 학년 조각 → 한 가지 코드로. 초5·E5 / 중1·M1 을 같은 것으로 본다.
+   (고등부는 없다 — 초5·초6·중1·중2·중3 다섯 가지뿐) */
+const BAN_GRADES={E5:'E5',E6:'E6',M1:'M1',M2:'M2',M3:'M3',
+  '초5':'E5','초6':'E6','중1':'M1','중2':'M2','중3':'M3',
+  '초등5':'E5','초등6':'E6','중등1':'M1','중등2':'M2','중등3':'M3'};
+function banGrade(seg){ const s=String(seg||'').trim().toUpperCase().replace(/\s+/g,''); return BAN_GRADES[s]||''; }
+/* 표시용 레벨명 — CHESS는 레벨만(DSA2(1)), ACE는 레벨_학년(PA1(4-6)_E6).
+   학년은 '뒤에서 두 번째 조각'이 아니라 생김새로 찾는다. 예전엔 과목 칸(독해&문법)이
+   붙었냐 안 붙었냐로 같은 반이 'A1(4~6)_E6' 과 'A1(4~6)' 두 이름으로 갈렸다. */
 function banLevelLabel(cn){
   const lv=banLevel(cn);
-  if(banIsChess(lv)) return lv;                       // CHESS: 레벨만 (예: DSA2(1), DSB1)
-  const p=banParts(cn); const seg=p.length>=2?p[p.length-2]:'';
-  if(seg && seg.toUpperCase().startsWith(lv.toUpperCase())) return seg;   // 이미 '레벨_학년'이면 그대로 (A2_M1)
-  if(seg && /^[A-Za-z]?\d/.test(seg)) return lv+'_'+seg;                  // 학년코드면 레벨_코드 (PA1(4-6)_E6)
-  return lv;
+  if(banIsChess(lv)) return lv;                       // CHESS: 레벨만
+  const p=banParts(cn);
+  const core=p.find(x=> lv && x.toUpperCase().startsWith(lv.toUpperCase()));
+  if(core) return core;                               // 이미 '레벨_학년' 조각이 있으면 그대로
+  const g=p.map(banGrade).find(Boolean);
+  return g ? lv+'_'+g : lv;
 }
 function banIsChess(lv){ return /^(IS|DS|LS|MS)/.test(String(lv||'').toUpperCase()); }
 function banTeacher(t){ const m=String(t||'').match(/^([A-Za-z]+)/); return m?m[1]:String(t||''); }
@@ -4249,15 +4265,15 @@ function gradeOrder(key){
 function classLabel(raw){
   const s = String(raw||'');
   const level = classLevel(s);
-  const body = s.replace(/^\[[^\]]*\]/,'');
-  const parts = body.split('/').map(x=>x.trim()).filter(Boolean);
+  const parts = banParts(s);   // 닫는 대괄호가 빠진 반이름도 같은 규칙으로 쪼갠다
   // 반 코어 이름: (구형식) 레벨로 시작하는 조각 우선 → 없으면 (신형식) 레벨(개월수)_학년 조립
   let core = parts.find(p=> level && p.toUpperCase().startsWith(level.toUpperCase()));
   if(!core) core = banLevelLabel(s);   // 신형식: CHESS="DSB1", ACE="PA1(4-6)_E6"
   if(!core) core = level || s;
   // 요일 (MWF=월수금, TTH=화목)
-  const dayPart = parts.find(p=> /^(MWF|TTH|TTHS|MTWTF|MW|WF|MWTF)$/i.test(p));
-  const dayMap = {MWF:'월수금', TTH:'화목', MW:'월수', WF:'수금', MWTF:'월화수금', MTWTF:'매일'};
+  // TT·TTH 둘 다 화목. 예전엔 TTH만 알아서 'TT'로 적은 반은 요일이 통째로 빠졌다.
+  const dayPart = parts.find(p=> /^(MWF|TTH|TTHS|TT|MTWTF|MW|WF|MWTF)$/i.test(p));
+  const dayMap = {MWF:'월수금', TTH:'화목', TTHS:'화목', TT:'화목', MW:'월수', WF:'수금', MWTF:'월화수금', MTWTF:'매일'};
   const day = dayPart ? (dayMap[dayPart.toUpperCase()] || dayPart) : '';
   // 시간대 (SU1, SP2 등 학기약자+숫자 → n부). 체스반 등은 없을 수 있음.
   const timePart = parts.find(p=> /^[A-Z]{2}\d+$/i.test(p));
@@ -6727,7 +6743,7 @@ function passTeacherRow(teacher, sortAgg, byGubun, branchId){
 
   // 선택된 반 (없으면 전체)
   const selClass = state.passTeacherClass[teacher] || '';
-  const shortName = c=>{ const m=c.match(/\[([^\]]+)\]/); return m?m[1]:c; };
+  const shortName = c=> banLevel(c) || c;   // 닫는 대괄호가 빠져도 레벨만 뽑는다
 
   // 반 태그 (클릭 필터) — "전체" + 각 반
   const tag = (label, cls, active)=>`<span onclick="event.stopPropagation();selectPassTeacherClass('${encodeURIComponent(teacher)}','${encodeURIComponent(cls)}')" style="font-size:11.5px;padding:4px 11px;border-radius:8px;cursor:pointer;${active?'background:#7C5CFF;color:#fff':'background:#F1ECFC;color:#5B4B8A'}">${esc(label)}</span>`;
