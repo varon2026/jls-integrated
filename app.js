@@ -349,7 +349,7 @@ function enterApp(){
   state.semId = sems.some(s=>s.id===cur.id)?cur.id:(sems[0]?sems[0].id:null);
   $('semSelect').innerHTML=sems.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
   $('semSelect').value=state.semId;
-  $('semSelect').onchange=()=>{ state.semId=$('semSelect').value; state.dashMonthIdx=null; render(); };
+  $('semSelect').onchange=()=>{ setSemester($('semSelect').value); };
   // 유저 표시
   const roleLabel={admin:'본사 · 관리자',branch:'분원 · 관리자',teacher:'선생님',assistant:'보조'}[session.role]||session.role;
   $('sbAvatar').textContent=(session.teacherName||session.username||'U').slice(0,1);
@@ -377,6 +377,20 @@ function buildSidebar(){
   $('sbNav').innerHTML=h;
 }
 function nav(v){ if(v==='wonmu') wonmuState.view='hub'; if(v==='chongmu' && typeof chongmuView!=='undefined') chongmuView='hub'; state.view=v; buildSidebar(); render(); window.scrollTo(0,0); closeSidebar(); }
+/* 학기를 바꾸면 지금 보고 있는 화면이 그 학기를 따라가야 한다.
+   화면마다 따로 들고 있던 기간·대상학기도 여기서 같이 풀어준다. */
+function setSemester(id){
+  if(!id) return;
+  state.semId=id;
+  const sel=$('semSelect'); if(sel && sel.value!==id) sel.value=id;
+  state.dashMonthIdx=null;
+  state.mgFrom=null; state.mgTo=null;                            // 경영 분석 기간 → 새 학기 기준으로 다시
+  if(typeof nextSemId==='function') state.jhSem=nextSemId(id);   // 전형 입학 대상 학기도 한 칸 뒤로
+  // 교재·운영비는 학기와 상관없는 전체화면 앱 — 굳이 다시 띄워 하던 작업을 날리지 않는다
+  if(state.view==='chongmu' && typeof chongmuView!=='undefined' && chongmuView!=='hub') return;
+  render();
+}
+window.setSemester=setSemester;
 /* ---- 모바일 사이드바 토글 (햄버거) ---- */
 function toggleSidebar(){ const sb=$('sidebar'), bd=$('sbBackdrop'); if(!sb) return; const open=!sb.classList.contains('open'); sb.classList.toggle('open',open); if(bd) bd.classList.toggle('show',open); }
 function closeSidebar(){ const sb=$('sidebar'), bd=$('sbBackdrop'); if(sb) sb.classList.remove('open'); if(bd) bd.classList.remove('show'); }
@@ -386,7 +400,7 @@ window.toggleSidebar=toggleSidebar; window.closeSidebar=closeSidebar;
 function render(){
   jhdHide();                       // 화면을 옮기면 떠 있던 전형 명단은 닫는다
   const c=$('content'); const v=state.view;
-  $('semPick').style.display = (v==='dashboard')?'flex':'none';
+  $('semPick').style.display='flex';        // 학기는 어느 화면에서나 고를 수 있다
   if(v==='dashboard'){ renderDashHome(c); }
   else if(v==='accounts'){ $('crumbs').innerHTML='<span class="mut">설정 › </span><b>계정 관리</b>'; renderAccounts(c); }
   else if(v==='wonmu'){ $('crumbs').innerHTML='<b>원무</b>'; renderWonmu(c); }
@@ -408,7 +422,6 @@ function renderDashHome(c){
     +'<button onclick="setDashView(\'jh\')" style="'+btn(state.dashView==='jh')+'">전형 현황</button>'
     +'<button onclick="setDashView(\'ban\')" style="'+btn(state.dashView==='ban')+'">반배정표</button>'
     +'</div><div id="dashBody"></div>';
-  $('semPick').style.display=(state.dashView==='inwon'||state.dashView==='ban')?'flex':'none';
   const body=$('dashBody');
   if(state.dashView==='mgmt') renderMgmtDash(body);
   else if(state.dashView==='jh') renderJeonhyeongDash(body);
@@ -641,8 +654,10 @@ function renderMgmtDash(c){
   const allM=mgAllMonths();
   const _now=new Date(); const nowY=_now.getFullYear(), nowM=_now.getMonth()+1;
   if(!state.mgFrom||!state.mgTo){ const cur=semCalMonths(state.semId);
-    state.mgFrom = cur.length ? {y:cur[0].y,m:cur[0].m} : {y:nowY,m:nowM};   // 시작: 현재 학기 시작 달
-    state.mgTo   = {y:nowY, m:nowM};                                          // 끝: 현재 월
+    state.mgFrom = cur.length ? {y:cur[0].y,m:cur[0].m} : {y:nowY,m:nowM};   // 시작: 고른 학기 시작 달
+    // 끝: 오늘 · 지난 학기를 고르면 그 학기 마지막 달까지만 (안 그러면 엉뚱하게 길어진다)
+    const last = cur.length ? cur[cur.length-1] : null;
+    state.mgTo = (last && (last.y*100+last.m) < nowY*100+nowM) ? {y:last.y,m:last.m} : {y:nowY,m:nowM};
   }
   let fromK=mgKey(state.mgFrom), toK=mgKey(state.mgTo); if(fromK>toK){ const t=fromK; fromK=toK; toK=t; }
   const monthsList=mgEnumMonths(fromK,toK); const capped=monthsList.length>12; if(capped) fromK=monthsList[monthsList.length-12];  // 최대 12개월

@@ -1347,7 +1347,10 @@ function enterApp(){
   el('appView').style.display='block';
   applyReadOnlyBanner();
   const cur = currentSemester();
-  state.semId = db.semesters.some(s=>s.id===cur.id) ? cur.id : (db.semesters[0] ? db.semesters[0].id : null);
+  // 통합앱 iframe으로 열렸으면 거기서 고른 학기를 그대로 이어받는다 (?sem=...)
+  const _qs = new URLSearchParams(location.search).get('sem');
+  state.semId = (_qs && db.semesters.some(s=>s.id===_qs)) ? _qs
+    : (db.semesters.some(s=>s.id===cur.id) ? cur.id : (db.semesters[0] ? db.semesters[0].id : null));
   buildShell();
  const _P=curInwonPerms()||INWON_PALL;
   const branchHome = (_P.roster||_P.closing)?'#/branch' : _P.students?'#/students' : _P.segments?'#/segments-edit' : _P.data?'#/data' : '#/branch';

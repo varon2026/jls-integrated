@@ -197,6 +197,8 @@ function renderInwonNative(b){
 /* ---- 메인 렌더 (임베드·전체화면) — 인원현황 = 상담앱(로컬 사본)을 화면 꽉 채워 그대로 ---- */
 /* 같은 폴더 안 사본이라 같은 origin → 로그인 세션이 그대로 공유됨(자동 로그인, push 불필요) */
 const INWON_APP_URL = 'inwon-app/index.html';
+/* 통합앱에서 고른 학기를 그대로 물려준다 — 안 넘기면 상담앱이 늘 최신 학기로 뜬다 */
+function inwonSrc(){ return INWON_APP_URL+'?embed=1&sem='+encodeURIComponent((typeof state!=='undefined'&&state.semId)||''); }
 // 인원현황 세부메뉴(현황/학생/상담/설정) 권한 계산 → inwon-app에 전달
 function inwonSubPerms(){
   const m = (typeof userMenus==='function'?userMenus():[]) || [];
@@ -219,14 +221,14 @@ function renderInwon(b){
   // ② 전체화면 오버레이 (바깥 통합 사이드바를 덮고 상담앱이 화면 전체)
   const teacher = session && session.role==='teacher';   // 담임은 통합 홈으로 나갈 데가 없음 → 상단 바 없이 iframe만
   b.innerHTML = teacher
-    ? `<div class="iw-fs"><iframe class="iw-fs-frame" id="inwonFrame" src="${INWON_APP_URL}?embed=1" title="담임 화면" allow="clipboard-write"></iframe></div>`
+    ? `<div class="iw-fs"><iframe class="iw-fs-frame" id="inwonFrame" src="${inwonSrc()}" title="담임 화면" allow="clipboard-write"></iframe></div>`
     : `<div class="iw-fs">
         <div class="iw-fs-bar">
           <button class="iw-fs-back" onclick="wonmuGo('hub')">‹ 통합 홈</button>
           <span class="iw-fs-title">인원현황 · 학사관리</span>
-          <a class="iw-fs-open" href="${INWON_APP_URL}" target="_blank" rel="noopener">새 탭으로 열기 ↗</a>
+          <a class="iw-fs-open" href="${inwonSrc().replace('embed=1&','')}" target="_blank" rel="noopener">새 탭으로 열기 ↗</a>
         </div>
-        <iframe class="iw-fs-frame" id="inwonFrame" src="${INWON_APP_URL}?embed=1" title="인원현황 · 학사관리" allow="clipboard-write"></iframe>
+        <iframe class="iw-fs-frame" id="inwonFrame" src="${inwonSrc()}" title="인원현황 · 학사관리" allow="clipboard-write"></iframe>
       </div>`;
   inwonHookSso();
 
