@@ -1666,16 +1666,22 @@ function incompleteWhy(rec, stg, branchId, semId){
   if(rec.status==='withdraw')                         return `퇴원 ${rec.withdrawDate||'날짜 없음'} — 퇴원한 달까지의 회차는 대상`;
   return '재원생 미완료';
 }
+/* 이유가 있는 미완료만 모아 보여준다.
+   그냥 안 한 것(✕)은 반 상담표에 이미 다 보인다. 그걸 여기 또 늘어놓으면
+   상담을 하나도 안 한 담임 화면에 89줄이 깔리고, 정작 설명이 필요한 줄이 묻힌다.
+   여기 남기는 건 '반 카드만 봐서는 왜 빠졌는지 모를' 것들뿐이다. */
 function incompletePanel(recs, branchId, semId, teacher){
+  const PLAIN = '재원생 미완료';
   const map = new Map();
   recs.forEach(rec=>{
     STAGES.forEach(stg=>{
       if(!isTarget(rec, stg, semId)) return;
       if(isDone(rec.studentId, branchId, semId, stg)) return;
-      const st = getStudent(rec.studentId) || {};
       const why = incompleteWhy(rec, stg, branchId, semId);
+      if(why === PLAIN) return;                    // 그냥 안 한 건 반 상담표에서 본다
+      const st = getStudent(rec.studentId) || {};
       const key = rec.id + '|' + why;
-      if(!map.has(key)) map.set(key, { name:st.name||'?', code:st.code||'',
+      if(!map.has(key)) map.set(key, { name:st.name||'?',
         label:rec.classLabel || classLabel(rec.className) || rec.className || '',
         className:rec.className||'', status:rec.status, wd:rec.withdrawDate||'', why, stages:[] });
       map.get(key).stages.push(stg);
@@ -1683,9 +1689,9 @@ function incompletePanel(recs, branchId, semId, teacher){
   });
   const rows = [...map.values()].sort((a,b)=> a.name.localeCompare(b.name,'ko'));
   const cnt = rows.reduce((n,r)=> n + r.stages.length, 0);
-  if(!cnt) return `<div class="sect-head"><h3>미완료 상세</h3></div>
-    <div class="panel"><div class="pd" style="padding:14px 2px">빠진 회차가 없습니다. 전부 완료됐어요.</div></div>`;
-  const body = rows.map(r=>`<tr class="clickable" onclick="go('branch/class/${encodeURIComponent(teacher)}/${encodeURIComponent(r.className)}')">
+  if(!cnt) return '';                              // 설명할 게 없으면 아예 안 그린다
+  const CAP = 40;
+  const body = rows.slice(0,CAP).map(r=>`<tr class="clickable" onclick="go('branch/class/${encodeURIComponent(teacher)}/${encodeURIComponent(r.className)}')">
       <td class="st-name">${esc(r.name)}</td>
       <td>${esc(r.label)}</td>
       <td>${r.status==='withdraw'
@@ -1694,10 +1700,12 @@ function incompletePanel(recs, branchId, semId, teacher){
       <td><b>${r.stages.join(', ')}</b></td>
       <td style="color:var(--ink-2);font-size:12.5px">${esc(r.why)}</td>
     </tr>`).join('');
-  return `<div class="sect-head"><h3>미완료 상세</h3><span class="cnt">${cnt}건 · 줄을 누르면 그 반 상담표로</span></div>
+  const more = rows.length>CAP ? `<div class="pd" style="padding:8px 2px">외 ${rows.length-CAP}명</div>` : '';
+  return `<div class="sect-head"><h3>이유가 있는 미완료</h3>
+      <span class="cnt">${cnt}건 · 퇴원·내신반·△ 처럼 반 상담표만 봐선 모를 것들</span></div>
     <div class="table-wrap"><div class="table-scroll"><table class="grid">
       <thead><tr><th>학생</th><th>반</th><th>상태</th><th>빠진 회차</th><th>왜 대상인가</th></tr></thead>
-      <tbody>${body}</tbody></table></div></div>`;
+      <tbody>${body}</tbody></table></div>${more}</div>`;
 }
 const goArrow = `<span class="go">상세<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></span>`;
 function backLink(label, target){
