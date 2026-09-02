@@ -3137,7 +3137,12 @@ function renderClosing(branchId){
   } else if(tab==='level'){
     const m = new Map();
     recs.forEach(r=>{ const lv=classLevel(r.className||'')||'기타'; if(!m.has(lv)) m.set(lv,[]); m.get(lv).push(r); });
-    groups = [...m.entries()].map(([name,recs])=>({name,recs})).sort((a,b)=> a.name.localeCompare(b.name));
+    groups = [...m.entries()].map(([name,rs])=>({name, recs:rs, baseRecs:rs.slice(), moveEvents:[]}));
+    // 레벨이 바뀌는 반이동도 강사별과 똑같이 월초에 반영 (이동월까지는 이전 레벨)
+    applyClassMoves(groups, branchId, semId, months, recs,
+      info=>({ from:classLevel(info.fromClass||'')||'기타', to:classLevel(info.toClass||'')||'기타' }),
+      t=>({ name:t, recs:[], baseRecs:[], moveEvents:[] }));
+    groups.sort((a,b)=> a.name.localeCompare(b.name));
     firstCol = '레벨';
   } else { // grade
     const m = new Map();
@@ -3157,6 +3162,66 @@ function renderClosing(branchId){
   el('content').style.maxWidth = 'none';   // 인원마감표는 화면 폭 전체 사용 (현재 열까지 스크롤 없이)
 }
 
+/* ── 반 이동을 그룹의 '월초'에 반영 (강사별·레벨별 공용) ──────────────────────
+   이동한 달까지는 이전 그룹 소속, 다음 달 월초부터 새 그룹. 표의 신규·퇴원 칸엔 안 뜨고
+   월초만 움직인다. groups[].baseRecs / moveEvents 를 제자리에서 고친다.
+   keyOf(info, rec) → {from, to} : 그 이동이 어느 그룹에서 어느 그룹으로 가는지
+                                   (강사별=담임 이름, 레벨별=반 레벨)
+   makeGroup(name)  → 이동 때문에 새로 생기는 그룹(그 그룹에 지금은 아무도 없는 경우) */
+function applyClassMoves(groups, branchId, semId, months, recs, keyOf, makeGroup){
+  /* 같은 이동이 두 번 저장돼 있으면 한 건으로 본다. 두 번 세면 받는 쪽 +2, 보낸 쪽 −2가
+     되어 '월초 −1명' 같은 숫자가 나온다(합계만 맞고 줄별로 어긋남).
+     판정은 반 이름이 아니라 '담임 전이'로 한다 — 같은 이동인데도 저장된 반 이름 문자열이
+     서로 다른 경우가 있어서, 반 이름으로 맞추면 중복을 놓친다. */
+  const _seen=new Set();
+  const classMoves=(db.studentMovements||[]).filter(mv=>{
+    if(!(mv.type==='classChange' && mv.branchId===branchId && mv.semesterId===semId)) return false;
+    let i={}; try{ i=JSON.parse(mv.memo||'{}'); }catch(e){}
+    const k=[mv.studentId, mv.date||'', i.fromTeacher||'', i.toTeacher||''].join('|');
+    if(_seen.has(k)) return false;
+    _seen.add(k); return true;
+  });
+  if(!classMoves.length) return groups;
+  const byName=new Map(groups.map(g=>[g.name,g]));
+  const ensureG=(t)=>{ let g=byName.get(t); if(!g){ g=makeGroup(t); byName.set(t,g); groups.push(g); } return g; };
+  const monthAfter=(mo)=>{ const i=months.indexOf(mo); return (i>=0 && i<months.length-1) ? months[i+1] : null; };
+  const byStudent=new Map();
+  classMoves.forEach(mv=>{
+    let info={}; try{ info=JSON.parse(mv.memo||'{}'); }catch(e){ info={}; }
+    const rec=recs.find(r=> r.studentId===mv.studentId); if(!rec) return;   // 현재 명단(새 반)에 있는 그 학생
+    const k=keyOf(info, rec)||{};
+    if(!k.from || !k.to || k.from===k.to) return;      // 같은 그룹 안에서의 이동은 월초가 안 바뀐다
+    const mMonth=monthOfDate(mv.date); if(!months.includes(mMonth)) return;
+    if(!byStudent.has(mv.studentId)) byStudent.set(mv.studentId, []);
+    byStudent.get(mv.studentId).push({ mv, info, fromT:k.from, toT:k.to, mMonth });
+  });
+  byStudent.forEach((list0, studentId)=>{
+    const rec=recs.find(r=> r.studentId===studentId); if(!rec) return;
+    let list=list0.slice().sort((a,b)=> String(a.mv.date||'').localeCompare(String(b.mv.date||'')));
+    /* 날짜가 서로 다르게 저장된 중복도 잡는다. A→B 다음에 또 A→B 는 있을 수 없다
+       (사이에 B→A 가 있어야 가능). 연속으로 같은 전이가 나오면 뒤엣것은 버린다. */
+    list=list.filter((x,k)=> k===0 || !(x.fromT===list[k-1].fromT && x.toT===list[k-1].toT));
+    const nm=getStudent(studentId), nmT=nm&&nm.name?nm.name:'';
+    const chess=isChess(rec.className);
+    /* 거쳐 간 그룹 전부에서 일단 빼고, 월초 명단은 '맨 처음 그룹'에게만 준다.
+       한 학생이 학기 중 두 번 이상 옮기면(A→B→C) 중간 B는 거쳐 갔을 뿐이라
+       월초 명단엔 없어야 하는데, 예전엔 기록을 읽는 순서에 따라 들어갔다 나갔다 했다. */
+    list.forEach(x=>{
+      const a=ensureG(x.fromT), b=ensureG(x.toT);
+      a.baseRecs=a.baseRecs.filter(r=> r.studentId!==studentId);
+      b.baseRecs=b.baseRecs.filter(r=> r.studentId!==studentId);
+    });
+    ensureG(list[0].fromT).baseRecs.push(rec);
+    list.forEach(x=>{
+      const aff=monthAfter(x.mMonth);   // 월초가 바뀌는(하이라이트) 달 = 이동월 다음 달
+      const fl=x.info.fromLabel||x.info.fromClass||x.fromT, tl=x.info.toLabel||x.info.toClass||x.toT;
+      const base={ month:x.mMonth, affMonth:aff, studentId, isChess:chess, name:nmT, from:fl, to:tl };
+      ensureG(x.fromT).moveEvents.push(Object.assign({}, base, {dir:'out'}));
+      ensureG(x.toT).moveEvents.push(Object.assign({}, base, {dir:'in'}));
+    });
+  });
+  return groups;
+}
 /* 담임 변경을 반영한 강사별 그룹 생성 (날짜 정확히 쪼개기).
    변경 없는 반: 현재 담임에 통째로 (모든 월 담당).
    변경된 반: 변경월은 둘 다 담당하되 그 달을 변경일 기준으로 날짜 쪼갬.
@@ -3214,60 +3279,9 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
   //    새 반(담임)의 월초 계산엔 이동월 다음 달부터 포함. 표의 신규/퇴원/전출입 컬럼엔 안 뜨고, 월초만 변동.
   //    (현재 재원 수/명단은 학생의 현재 반=새 반 기준 그대로 — recs는 안 건드리고 baseRecs만 조정)
   const groups = [...groupMap.values()].map(g=>({ name:g.name, recs:g.recs, baseRecs:g.recs.slice(), activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs, moveEvents:[] }));
-  /* 같은 이동이 두 번 저장돼 있으면 한 건으로 본다. 두 번 세면 받는 담임 +2, 보낸 담임 −2가
-     되어 '월초 −1명' 같은 숫자가 나온다(합계만 맞고 담임별 줄이 어긋남).
-     판정은 반 이름이 아니라 '담임 전이'로 한다 — 같은 이동인데도 저장된 반 이름 문자열이
-     서로 다른 경우가 있어서, 반 이름으로 맞추면 중복을 놓친다. */
-  const _mvSeen = new Set();
-  const classMoves = (db.studentMovements||[]).filter(mv=>{
-    if(!(mv.type==='classChange' && mv.branchId===branchId && mv.semesterId===semId)) return false;
-    let i={}; try{ i=JSON.parse(mv.memo||'{}'); }catch(e){}
-    const k=[mv.studentId, mv.date||'', i.fromTeacher||'', i.toTeacher||''].join('|');
-    if(_mvSeen.has(k)) return false;
-    _mvSeen.add(k); return true;
-  });
-  if(classMoves.length){
-    const byName = new Map(groups.map(g=>[g.name,g]));
-    const ensureG = (t)=>{ let g=byName.get(t); if(!g){ g={ name:t, recs:[], baseRecs:[], activeMonths:new Set(months), splits:[], currentRecs:[], moveEvents:[] }; byName.set(t,g); groups.push(g);} return g; };
-    const monthAfter = (mo)=>{ const i=months.indexOf(mo); return (i>=0 && i<months.length-1) ? months[i+1] : null; };
-    /* 학생 한 명이 학기 중에 두 번 이상 옮기면(A→B→C) 중간 담임 B가 어긋났다.
-       B는 '거쳐 간 담임'이라 월초 명단엔 없어야 하는데, 이동 기록을 읽는 순서에 따라
-       들어갔다 나갔다 했다(같은 날 A→B→A 같은 경우엔 원래 담임 A가 한 명 빠졌다).
-       → 학생별로 모아 날짜순으로 처리하고, 월초 명단은 '맨 처음 담임'에게만 준다. */
-    const mvByStudent = new Map();
-    classMoves.forEach(mv=>{
-      let info={}; try{ info=JSON.parse(mv.memo||'{}'); }catch(e){ info={}; }
-      const fromT=info.fromTeacher, toT=info.toTeacher; if(!fromT||!toT||fromT===toT) return;
-      const mMonth = monthOfDate(mv.date); if(!months.includes(mMonth)) return;
-      if(!mvByStudent.has(mv.studentId)) mvByStudent.set(mv.studentId, []);
-      mvByStudent.get(mv.studentId).push({ mv, info, fromT, toT, mMonth });
-    });
-    mvByStudent.forEach((list0, studentId)=>{
-      let list = list0;
-      const rec = recs.find(r=> r.studentId===studentId); if(!rec) return;   // 현재 명단(새 반)에 있는 그 학생
-      list.sort((a,b)=> String(a.mv.date||'').localeCompare(String(b.mv.date||'')));
-      /* 날짜가 서로 다르게 저장된 중복도 잡는다. A→B 다음에 또 A→B 는 있을 수 없다
-         (사이에 B→A 가 있어야 가능). 연속으로 같은 담임 전이가 나오면 뒤엣것은 버린다. */
-      list = list.filter((x,k)=> k===0 || !(x.fromT===list[k-1].fromT && x.toT===list[k-1].toT));
-      const nm = getStudent(studentId), nmT = nm&&nm.name?nm.name:'';
-      const chess = isChess(rec.className);
-      // 거쳐 간 담임 전부에서 일단 빼고 — 월초 명단은 맨 처음 담임에게만
-      list.forEach(x=>{
-        const a=ensureG(x.fromT), b=ensureG(x.toT);
-        a.baseRecs = a.baseRecs.filter(r=> r.studentId!==studentId);
-        b.baseRecs = b.baseRecs.filter(r=> r.studentId!==studentId);
-      });
-      ensureG(list[0].fromT).baseRecs.push(rec);
-      // 이동월 다음 달 월초가 담임 사이에서 ±1 (표의 신규·퇴원 칸엔 안 뜨고 월초만 움직임)
-      list.forEach(x=>{
-        const aff = monthAfter(x.mMonth);
-        const fl=x.info.fromLabel||x.info.fromClass||x.fromT, tl=x.info.toLabel||x.info.toClass||x.toT;
-        const base={ month:x.mMonth, affMonth:aff, studentId, isChess:chess, name:nmT, from:fl, to:tl };
-        ensureG(x.fromT).moveEvents.push(Object.assign({}, base, {dir:'out'}));
-        ensureG(x.toT).moveEvents.push(Object.assign({}, base, {dir:'in'}));
-      });
-    });
-  }
+  applyClassMoves(groups, branchId, semId, months, recs,
+    info=>({ from:info.fromTeacher, to:info.toTeacher }),
+    t=>({ name:t, recs:[], baseRecs:[], activeMonths:new Set(months), splits:[], currentRecs:[], moveEvents:[] }));
   return groups.sort((a,b)=> b.recs.length - a.recs.length);
 }
 /* moveEvents → monthlyClosing용 {out,in} 맵 (div: 'all'|'chess'|'ace') */
