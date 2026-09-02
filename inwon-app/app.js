@@ -776,7 +776,8 @@ const baseNew = monthStart + newThis + tiThis;
     } else {
       cells.push({ month:m, monthStart:0, newThis:0, transferIn:0, baseNew:0, withdraw:0, transfer:0, rate:0, blank:true, startMoveIn:0, startMoveOut:0 });
     }
-    carry = baseNew - wdThis - trThis + moveInThis - moveOutThis;
+    // 다음 달 월초 — 사람 수라 음수가 될 수 없다. 데이터가 어긋나도 '−1명'은 내보내지 않는다.
+    carry = Math.max(0, baseNew - wdThis - trThis + moveInThis - moveOutThis);
     prevMoveIn = moveInThis; prevMoveOut = moveOutThis;
   });
  const totWithdraw = cells.reduce((a,c)=>a+(c.blank?0:c.withdraw),0);
@@ -3213,7 +3214,17 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
   //    새 반(담임)의 월초 계산엔 이동월 다음 달부터 포함. 표의 신규/퇴원/전출입 컬럼엔 안 뜨고, 월초만 변동.
   //    (현재 재원 수/명단은 학생의 현재 반=새 반 기준 그대로 — recs는 안 건드리고 baseRecs만 조정)
   const groups = [...groupMap.values()].map(g=>({ name:g.name, recs:g.recs, baseRecs:g.recs.slice(), activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs, moveEvents:[] }));
-  const classMoves = (db.studentMovements||[]).filter(mv=> mv.type==='classChange' && mv.branchId===branchId && mv.semesterId===semId);
+  /* 같은 학생·같은 날짜·같은 반 이동이 두 번 저장돼 있으면 한 건으로 본다.
+     예전엔 그대로 두 번 세어서 월초가 2씩 움직였다 — 받는 담임은 +2, 보낸 담임은 −2가 되어
+     '월초 −1명' 같은 숫자가 나왔다. (합계만 맞고 담임별 줄이 어긋남) */
+  const _mvSeen = new Set();
+  const classMoves = (db.studentMovements||[]).filter(mv=>{
+    if(!(mv.type==='classChange' && mv.branchId===branchId && mv.semesterId===semId)) return false;
+    let i={}; try{ i=JSON.parse(mv.memo||'{}'); }catch(e){}
+    const k=[mv.studentId, mv.date||'', i.fromClass||'', i.toClass||''].join('|');
+    if(_mvSeen.has(k)) return false;
+    _mvSeen.add(k); return true;
+  });
   if(classMoves.length){
     const byName = new Map(groups.map(g=>[g.name,g]));
     const ensureG = (t)=>{ let g=byName.get(t); if(!g){ g={ name:t, recs:[], baseRecs:[], activeMonths:new Set(months), splits:[], currentRecs:[], moveEvents:[] }; byName.set(t,g); groups.push(g);} return g; };
@@ -3903,7 +3914,16 @@ function renderStudentManagement(){
       </div>
       <button class="btn primary" style="width:100%" onclick="moveStudent()">반 이동 등록</button>
       ${(()=>{
-        const moves=(db.studentMovements||[]).filter(m=>m.type==='classChange' && m.branchId===branchId && m.semesterId===semId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+        // 같은 학생·같은 날·같은 반 이동이 두 번 저장된 건 한 줄로만 보여준다.
+        // (두 줄로 보이면 '하나 지워야 하나?' 싶어 이동 취소를 누르게 되는데, 그러면 반이 되돌아간다)
+        const _hSeen=new Set();
+        const moves=(db.studentMovements||[]).filter(m=>{
+          if(!(m.type==='classChange' && m.branchId===branchId && m.semesterId===semId)) return false;
+          let i={}; try{ i=JSON.parse(m.memo||'{}'); }catch(e){}
+          const k=[m.studentId, m.date||'', i.fromClass||'', i.toClass||''].join('|');
+          if(_hSeen.has(k)) return false;
+          _hSeen.add(k); return true;
+        }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
         if(!moves.length) return '';
         return `<div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:8px">반 이동 이력</div>
           ${moves.map(m=>{ let info={}; try{info=JSON.parse(m.memo||'{}');}catch(e){}
@@ -5307,6 +5327,14 @@ function moveStudent(){
   const toLabel = target ? (target.classLabel||toCn) : toCn;
   const toTeacher = target ? (target.teacher||'') : '';
   const fromLabel = rec.classLabel||fromCn, fromTeacher = rec.teacher||'';
+  // 같은 학생을 같은 날 같은 반으로 옮긴 기록이 이미 있으면 또 만들지 않는다 (인원마감 이중 계산 방지)
+  const dupMv = (db.studentMovements||[]).some(m=>{
+    if(!(m.type==='classChange' && m.studentId===studentId && m.branchId===branchId
+      && m.semesterId===semId && (m.date||'')===date)) return false;
+    let i={}; try{ i=JSON.parse(m.memo||'{}'); }catch(e){}
+    return i.fromClass===fromCn && i.toClass===toCn;
+  });
+  if(dupMv){ toast('이미 같은 날짜로 저장된 반 이동입니다','err'); return; }
   db.studentMovements.push({ id:uid('mv'), studentId, branchId, semesterId:semId, type:'classChange', date,
     memo:JSON.stringify({fromClass:fromCn,fromLabel,toClass:toCn,toLabel,fromTeacher,toTeacher}) });
   rec.className=toCn; rec.classLabel=toLabel; rec.teacher=toTeacher;   // MC/상담기록은 studentId 기준이라 자동으로 따라옴
