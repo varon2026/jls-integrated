@@ -1587,6 +1587,50 @@ function incompleteTag(n){
   if(n===0) return `<span class="incomplete-tag zero">미완료 0명</span>`;
   return `<span class="incomplete-tag">미완료 ${n}명</span>`;
 }
+
+/* 미완료가 왜 남았는지 한 줄씩 밝힌다.
+   반 카드가 전부 100%인데 담임 전체는 94% 같은 상황에서, 빠진 게 누구이고
+   왜 그 회차가 대상인지 화면에서 알 방법이 없었다. 물어봐야만 알 수 있으면 안 된다. */
+function incompleteWhy(rec, stg, branchId, semId){
+  if(csRejected(rec.studentId, branchId, semId, stg)) return '상담 인정 안 함(△) — 사람이 내린 것';
+  if((rec.kind||'regular')==='exam')                  return '정규반에서 내신반으로 이관된 회차 (✕ 클릭하면 이관 해제)';
+  if(stg==='HC1'||stg==='HC2')                        return '신규·복귀생이라 HC 대상';
+  if(rec.status==='withdraw')                         return `퇴원 ${rec.withdrawDate||'날짜 없음'} — 퇴원한 달까지의 회차는 대상`;
+  return '재원생 미완료';
+}
+function incompletePanel(recs, branchId, semId, teacher){
+  const map = new Map();
+  recs.forEach(rec=>{
+    STAGES.forEach(stg=>{
+      if(!isTarget(rec, stg, semId)) return;
+      if(isDone(rec.studentId, branchId, semId, stg)) return;
+      const st = getStudent(rec.studentId) || {};
+      const why = incompleteWhy(rec, stg, branchId, semId);
+      const key = rec.id + '|' + why;
+      if(!map.has(key)) map.set(key, { name:st.name||'?', code:st.code||'',
+        label:rec.classLabel || classLabel(rec.className) || rec.className || '',
+        className:rec.className||'', status:rec.status, wd:rec.withdrawDate||'', why, stages:[] });
+      map.get(key).stages.push(stg);
+    });
+  });
+  const rows = [...map.values()].sort((a,b)=> a.name.localeCompare(b.name,'ko'));
+  const cnt = rows.reduce((n,r)=> n + r.stages.length, 0);
+  if(!cnt) return `<div class="sect-head"><h3>미완료 상세</h3></div>
+    <div class="panel"><div class="pd" style="padding:14px 2px">빠진 회차가 없습니다. 전부 완료됐어요.</div></div>`;
+  const body = rows.map(r=>`<tr class="clickable" onclick="go('branch/class/${encodeURIComponent(teacher)}/${encodeURIComponent(r.className)}')">
+      <td class="st-name">${esc(r.name)}</td>
+      <td>${esc(r.label)}</td>
+      <td>${r.status==='withdraw'
+            ? `<span class="status-badge withdraw">퇴원</span>${r.wd?`<div class="st-meta">${esc(r.wd)}</div>`:''}`
+            : '<span class="status-badge active">재원</span>'}</td>
+      <td><b>${r.stages.join(', ')}</b></td>
+      <td style="color:var(--ink-2);font-size:12.5px">${esc(r.why)}</td>
+    </tr>`).join('');
+  return `<div class="sect-head"><h3>미완료 상세</h3><span class="cnt">${cnt}건 · 줄을 누르면 그 반 상담표로</span></div>
+    <div class="table-wrap"><div class="table-scroll"><table class="grid">
+      <thead><tr><th>학생</th><th>반</th><th>상태</th><th>빠진 회차</th><th>왜 대상인가</th></tr></thead>
+      <tbody>${body}</tbody></table></div></div>`;
+}
 const goArrow = `<span class="go">상세<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></span>`;
 function backLink(label, target){
   return `<div class="back-link" onclick="go('${target}')">
@@ -2177,6 +2221,7 @@ const trecs = activeRecordsOf(branchId, semId).filter(r=>r.teacher===teacher);
     html += `<div class="sect-head"><h3>내신반</h3><span class="cnt">내신기간 MC 진행 · 정규 인원에는 포함되지 않음</span></div>
       <div class="card-grid g4">${examCards}</div>`;
   }
+  html += incompletePanel(rateRecordsOfTeacher(branchId, semId, teacher), branchId, semId, teacher);
   el('content').innerHTML = html;
 }
 function classSortBtn(key,label){
@@ -2274,7 +2319,15 @@ const cells = STAGES.map(stg=>{
         return `<td class="cc"><span class="cc-mark undone editable" title="미완료 — 클릭하면 내신반으로 이관(면제)${wdWhy}"
           onclick="onToggleExempt('${rec.studentId}','${stg}')">✕</span></td>`;
       }
-return `<td class="cc"><span class="cc-mark undone" title="미완료${wdWhy}">✕</span></td>`;
+      // 내신반의 ✕ = '정규반에서 이 회차를 내신반으로 넘겨놨는데(면제) 내신반도 안 함'.
+      //   내신 기간이 아니라 원래 안 하는 회차면 여기서 바로 이관을 풀 수 있어야 한다.
+      //   (예전엔 정규반 표로 돌아가서 – 를 눌러야만 풀렸다)
+      if(isMc && isExam && canEditExempt()){
+        return `<td class="cc"><span class="cc-mark undone editable"
+          title="미완료 — 이 회차는 정규반에서 내신반으로 이관(면제)돼 있습니다.&#10;내신 기간이 아니라 안 하는 회차면 클릭해서 이관을 푸세요 (정규반으로 돌아갑니다)"
+          onclick="onToggleExempt('${rec.studentId}','${stg}')">✕</span></td>`;
+      }
+      return `<td class="cc"><span class="cc-mark undone" title="미완료${wdWhy}">✕</span></td>`;
     }).join('');
     return `<tr>
       <td><div class="st-name">${esc(stu.name)}${originBadge}${moveBadge}</div></td>
@@ -5507,10 +5560,9 @@ const rates = calcRates(rateRecordsOfTeacher(branchId, semId, teacher), branchId
       </div>`;
     }).join('');
     html += `<div class="sect-head"><h3>내신반</h3></div><div class="card-grid g4">${examCards}</div>`;
-    el('content').innerHTML = html;
-  } else {
-    el('content').innerHTML = html;
   }
+  html += incompletePanel(rateRecordsOfTeacher(branchId, semId, teacher), branchId, semId, teacher);
+  el('content').innerHTML = html;
 }
 /* ============================================================================
    17-4. 분원 — 세그먼트 공지 입력 (회차별 4섹션)
