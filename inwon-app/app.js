@@ -3214,14 +3214,15 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
   //    새 반(담임)의 월초 계산엔 이동월 다음 달부터 포함. 표의 신규/퇴원/전출입 컬럼엔 안 뜨고, 월초만 변동.
   //    (현재 재원 수/명단은 학생의 현재 반=새 반 기준 그대로 — recs는 안 건드리고 baseRecs만 조정)
   const groups = [...groupMap.values()].map(g=>({ name:g.name, recs:g.recs, baseRecs:g.recs.slice(), activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs, moveEvents:[] }));
-  /* 같은 학생·같은 날짜·같은 반 이동이 두 번 저장돼 있으면 한 건으로 본다.
-     예전엔 그대로 두 번 세어서 월초가 2씩 움직였다 — 받는 담임은 +2, 보낸 담임은 −2가 되어
-     '월초 −1명' 같은 숫자가 나왔다. (합계만 맞고 담임별 줄이 어긋남) */
+  /* 같은 이동이 두 번 저장돼 있으면 한 건으로 본다. 두 번 세면 받는 담임 +2, 보낸 담임 −2가
+     되어 '월초 −1명' 같은 숫자가 나온다(합계만 맞고 담임별 줄이 어긋남).
+     판정은 반 이름이 아니라 '담임 전이'로 한다 — 같은 이동인데도 저장된 반 이름 문자열이
+     서로 다른 경우가 있어서, 반 이름으로 맞추면 중복을 놓친다. */
   const _mvSeen = new Set();
   const classMoves = (db.studentMovements||[]).filter(mv=>{
     if(!(mv.type==='classChange' && mv.branchId===branchId && mv.semesterId===semId)) return false;
     let i={}; try{ i=JSON.parse(mv.memo||'{}'); }catch(e){}
-    const k=[mv.studentId, mv.date||'', i.fromClass||'', i.toClass||''].join('|');
+    const k=[mv.studentId, mv.date||'', i.fromTeacher||'', i.toTeacher||''].join('|');
     if(_mvSeen.has(k)) return false;
     _mvSeen.add(k); return true;
   });
@@ -3229,22 +3230,42 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
     const byName = new Map(groups.map(g=>[g.name,g]));
     const ensureG = (t)=>{ let g=byName.get(t); if(!g){ g={ name:t, recs:[], baseRecs:[], activeMonths:new Set(months), splits:[], currentRecs:[], moveEvents:[] }; byName.set(t,g); groups.push(g);} return g; };
     const monthAfter = (mo)=>{ const i=months.indexOf(mo); return (i>=0 && i<months.length-1) ? months[i+1] : null; };
+    /* 학생 한 명이 학기 중에 두 번 이상 옮기면(A→B→C) 중간 담임 B가 어긋났다.
+       B는 '거쳐 간 담임'이라 월초 명단엔 없어야 하는데, 이동 기록을 읽는 순서에 따라
+       들어갔다 나갔다 했다(같은 날 A→B→A 같은 경우엔 원래 담임 A가 한 명 빠졌다).
+       → 학생별로 모아 날짜순으로 처리하고, 월초 명단은 '맨 처음 담임'에게만 준다. */
+    const mvByStudent = new Map();
     classMoves.forEach(mv=>{
       let info={}; try{ info=JSON.parse(mv.memo||'{}'); }catch(e){ info={}; }
       const fromT=info.fromTeacher, toT=info.toTeacher; if(!fromT||!toT||fromT===toT) return;
-      const rec = recs.find(r=> r.studentId===mv.studentId); if(!rec) return;   // 현재 명단(새 반)에 있는 그 학생
       const mMonth = monthOfDate(mv.date); if(!months.includes(mMonth)) return;
-      const aff = monthAfter(mMonth);   // 월초가 바뀌는(하이라이트) 달 = 이동월 다음 달
-      const gFrom = ensureG(fromT), gTo = ensureG(toT);
-      const nm = getStudent(rec.studentId), nmT = nm&&nm.name?nm.name:'';
-      const fl=info.fromLabel||info.fromClass||fromT, tl=info.toLabel||info.toClass||toT;
+      if(!mvByStudent.has(mv.studentId)) mvByStudent.set(mv.studentId, []);
+      mvByStudent.get(mv.studentId).push({ mv, info, fromT, toT, mMonth });
+    });
+    mvByStudent.forEach((list0, studentId)=>{
+      let list = list0;
+      const rec = recs.find(r=> r.studentId===studentId); if(!rec) return;   // 현재 명단(새 반)에 있는 그 학생
+      list.sort((a,b)=> String(a.mv.date||'').localeCompare(String(b.mv.date||'')));
+      /* 날짜가 서로 다르게 저장된 중복도 잡는다. A→B 다음에 또 A→B 는 있을 수 없다
+         (사이에 B→A 가 있어야 가능). 연속으로 같은 담임 전이가 나오면 뒤엣것은 버린다. */
+      list = list.filter((x,k)=> k===0 || !(x.fromT===list[k-1].fromT && x.toT===list[k-1].toT));
+      const nm = getStudent(studentId), nmT = nm&&nm.name?nm.name:'';
       const chess = isChess(rec.className);
-      // 이전 반: 월초 계산엔 포함(이동월까지)
-      if(!gFrom.baseRecs.some(r=>r.studentId===rec.studentId)) gFrom.baseRecs.push(rec);
-      gFrom.moveEvents.push({ month:mMonth, affMonth:aff, dir:'out', studentId:rec.studentId, isChess:chess, name:nmT, from:fl, to:tl });
-      // 새 반: 월초 계산에선 이동월까지 제외 (recs=현재 재원엔 그대로 남김)
-      gTo.baseRecs = gTo.baseRecs.filter(r=> r.studentId!==rec.studentId);
-      gTo.moveEvents.push({ month:mMonth, affMonth:aff, dir:'in', studentId:rec.studentId, isChess:chess, name:nmT, from:fl, to:tl });
+      // 거쳐 간 담임 전부에서 일단 빼고 — 월초 명단은 맨 처음 담임에게만
+      list.forEach(x=>{
+        const a=ensureG(x.fromT), b=ensureG(x.toT);
+        a.baseRecs = a.baseRecs.filter(r=> r.studentId!==studentId);
+        b.baseRecs = b.baseRecs.filter(r=> r.studentId!==studentId);
+      });
+      ensureG(list[0].fromT).baseRecs.push(rec);
+      // 이동월 다음 달 월초가 담임 사이에서 ±1 (표의 신규·퇴원 칸엔 안 뜨고 월초만 움직임)
+      list.forEach(x=>{
+        const aff = monthAfter(x.mMonth);
+        const fl=x.info.fromLabel||x.info.fromClass||x.fromT, tl=x.info.toLabel||x.info.toClass||x.toT;
+        const base={ month:x.mMonth, affMonth:aff, studentId, isChess:chess, name:nmT, from:fl, to:tl };
+        ensureG(x.fromT).moveEvents.push(Object.assign({}, base, {dir:'out'}));
+        ensureG(x.toT).moveEvents.push(Object.assign({}, base, {dir:'in'}));
+      });
     });
   }
   return groups.sort((a,b)=> b.recs.length - a.recs.length);
@@ -3920,7 +3941,7 @@ function renderStudentManagement(){
         const moves=(db.studentMovements||[]).filter(m=>{
           if(!(m.type==='classChange' && m.branchId===branchId && m.semesterId===semId)) return false;
           let i={}; try{ i=JSON.parse(m.memo||'{}'); }catch(e){}
-          const k=[m.studentId, m.date||'', i.fromClass||'', i.toClass||''].join('|');
+          const k=[m.studentId, m.date||'', i.fromTeacher||'', i.toTeacher||''].join('|');
           if(_hSeen.has(k)) return false;
           _hSeen.add(k); return true;
         }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -5332,7 +5353,8 @@ function moveStudent(){
     if(!(m.type==='classChange' && m.studentId===studentId && m.branchId===branchId
       && m.semesterId===semId && (m.date||'')===date)) return false;
     let i={}; try{ i=JSON.parse(m.memo||'{}'); }catch(e){}
-    return i.fromClass===fromCn && i.toClass===toCn;
+    return (i.fromClass===fromCn && i.toClass===toCn)
+        || (i.fromTeacher===fromTeacher && i.toTeacher===toTeacher);
   });
   if(dupMv){ toast('이미 같은 날짜로 저장된 반 이동입니다','err'); return; }
   db.studentMovements.push({ id:uid('mv'), studentId, branchId, semesterId:semId, type:'classChange', date,
