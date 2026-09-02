@@ -4343,6 +4343,13 @@ function withdrawDateFromLabel(label, semId){
   const day = isMid ? 15 : new Date(year, month, 0).getDate();
   return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 }
+/* 특이사항 표현 — 분원마다 제각각이라 넓게 잡는다.
+   신규: 신규 · 신규생 · 신입 · 신입생 · 9월신규생 · 신규등록 …
+   복귀: 복귀 · 복귀생 · 9월 복귀생 · 재등록 · 재입학 · 재입회 … */
+const RE_ORIGIN_NEW = /신규|신입/;
+const RE_ORIGIN_RETURN = /복귀|재등록|재입학|재입회/;
+/* HC(해피콜) 대상은 신규·복귀생. origin과 절대 어긋나지 않게 여기서만 만든다. */
+function originTargetType(origin){ return (origin==='new'||origin==='return') ? 'HCMC' : 'MC'; }
 const ROSTER_HDR = {
   name:['이름','학생명','성명'],
   code:['회원코드','코드','학생코드'],
@@ -4453,8 +4460,16 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
           wdDate = parseWithdrawDate(rawWdDate) || withdrawDateFromLabel(wdRaw, semId);
         }
       }
-      const origin = opts.forceNew ? 'new' : (/복귀/.test(note)?'return' : ((/신규/.test(note)||isTransferIn)?'new' : 'start'));
-      const targetType = (origin==='new'||origin==='return')?'HCMC':'MC';
+      // 특이사항은 분원마다 말이 다르다 — '신입생' '9월 신규생' '복귀생' 전부 같은 뜻으로 읽는다.
+      // 예전엔 '신규' 네 글자만 찾아서 '신입생'이라고 쓴 학생이 기존생으로 떨어졌고,
+      // 그 바람에 해피콜(HC)을 다 해놓고도 상담률에 안 잡혔다.
+      const origin = opts.forceNew ? 'new'
+        : (RE_ORIGIN_RETURN.test(note) ? 'return'
+        : ((RE_ORIGIN_NEW.test(note)||isTransferIn) ? 'new' : 'start'));
+      const targetType = originTargetType(origin);
+      // 특이사항이 신규·복귀·전입을 말하고 있는가 — 재업로드에서 덮어쓸지 판단에 쓴다
+      const noteTellsOrigin = !!opts.forceNew || isTransferIn
+        || RE_ORIGIN_NEW.test(note) || RE_ORIGIN_RETURN.test(note);
       const teacher = String(r[idx.teacher]||'').trim() || '미배정';
       const school = idx.school>=0 ? String(r[idx.school]||'').trim() : '';
       const grade  = idx.grade>=0 ? String(r[idx.grade]||'').trim() : '';
@@ -4515,7 +4530,13 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
         if(!addedRecIds.has(rec.id) && !updBefore.has(rec.id)) updBefore.set(rec.id, JSON.parse(JSON.stringify(rec)));
         rec.className=classFull; rec.classLabel=classLbl; rec.teacher=teacher;
         if(grade) rec.grade=grade;   // ★ 학년은 이 학기 명단값으로 저장(학기별 독립 → 다른 학기 업로드에 안 덮임)
-        if(note) rec.note=note; rec.targetType=targetType;
+        if(note) rec.note=note;
+        /* origin(신규·복귀 표시)은 특이사항이 그렇게 말할 때만 갱신한다.
+           특이사항 빈칸으로 명단을 다시 올렸다고 원무에서 등록한 신규생이 기존생으로 떨어지면 안 된다.
+           targetType(HC 대상 여부)은 예전에 특이사항만 보고 덮어써서 origin과 어긋났다 —
+           '신규 배지는 붙어 있는데 HC는 대상 아님' 같은 모순이 여기서 생겼다. 이제 항상 origin에서 뽑는다. */
+        if(noteTellsOrigin) rec.origin = origin;
+        rec.targetType = originTargetType(rec.origin);
         if(enrollDate) rec.enrollDate=enrollDate;
         rec.transferIn = isTransferIn;
         if(isTransferOut){
