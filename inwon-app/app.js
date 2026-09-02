@@ -2060,14 +2060,26 @@ function transferWarnBox(semId){
    ============================================================================ */
 function banParts(cn){ return String(cn||'').replace(/^\s*\[[^\]]*\]/,'').split('/').map(x=>x.trim()).filter(Boolean); }
 const BAN_NOBU='부 미지정 · 반이름에서 시간대를 못 읽었습니다';
-function banBu(cn){
-  const parts=banParts(cn); const code=parts[0]||''; const dayseg=(parts[1]||'').toUpperCase();
-  const day=/TT/.test(dayseg)?'TT':(/MWF/.test(dayseg)?'MWF':''); const mm=code.match(/(\d)/); const num=mm?parseInt(mm[1],10):0;
+/* 시간대(FA3·SU1)와 요일(MWF·TTH)을 '몇 번째 조각인지'가 아니라 '생김새'로 찾는다.
+   반이름에 닫는 대괄호가 빠지면([MA1(4~6) / FA3 / MWF / …) 조각이 한 칸씩 밀려
+   예전엔 통째로 못 읽고 '부 미지정'으로 떨어졌다. */
+function banBu(className){
+  const parts=banParts(className);
+  const timeSeg=parts.find(p=>/^[A-Za-z]{2}\d+$/.test(p))||'';   // FA3 · SU1 · SM4
+  const daySeg =parts.find(p=>/^(MWF|TTH|TT|MW|WF|MWTF|MTWTF)$/i.test(p))||'';
+  const day = /^TT/i.test(daySeg) ? 'TT' : (/^MW/i.test(daySeg) ? 'MWF' : '');
+  const mm = timeSeg.match(/(\d)/); const num = mm?parseInt(mm[1],10):0;
   if(!day||!num) return null;
-  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num,label:num+'부 · 월수금 · '+t}; }
-  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num,label:'화목 · '+t};
+  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:num+'부 · 월수금 · '+t}; }
+  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:'화목 · '+t};
 }
-function banLevel(cn){ const m=String(cn||'').match(/\[([^\]]+)\]/); return m?m[1].trim():String(cn||''); }
+/* 닫는 대괄호가 빠진 반이름도 레벨은 읽어준다: '[MA1(4~6) / FA3 / …' → 'MA1(4~6)' */
+function banLevel(cn){
+  const s=String(cn||'');
+  let m=s.match(/\[([^\]]+)\]/); if(m) return m[1].trim();
+  m=s.match(/^\s*\[([^/\]]+)/);  if(m) return m[1].trim();
+  return s;
+}
 function banRoom(cn){ const body=String(cn||'').replace(/^\s*\[[^\]]*\]/,''); const segs=body.split('/'); const last=(segs.length?segs[segs.length-1]:'').trim(); return (/^[A-Za-z]{1,2}$/.test(last) && !/^(mw|wf|tt)$/i.test(last)) ? last : ''; }  // 강의실=알파벳 1~2글자만. 요일(MWF/TTH)·숫자·이상한 값은 빈칸
 function banLevelLabel(cn){
   const lv=banLevel(cn);
