@@ -166,6 +166,7 @@ function confirmDeleteSemester(){
     db.uploadBatches       = keep(db.uploadBatches);
     db.teacherChanges      = keep(db.teacherChanges);
     db.counselRejects      = keep(db.counselRejects);
+    db.examClassStages     = keep(db.examClassStages);
     showSaving('학기 데이터 삭제 중…');
     saveDB().then(ok=>{
       hideSaving(); closeModal();
@@ -262,6 +263,10 @@ const TABLES = [
     fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,stage:r.stage}) },
     { key:'qappScores', table:'qapp_scores', toRow:s=>({id:s.id,branch_id:s.branchId,semester_id:s.semesterId,student_code:s.studentCode,student_name:s.studentName,class_label:s.classLabel,gubun:s.gubun,hoi:s.hoi,lesson:s.lesson,textbook:s.textbook,teacher:s.teacher,jumsu:s.jumsu,baejeom:s.baejeom,eungsi:s.eungsi,tonggwa:s.tonggwa,yeyak:s.yeyak,exam_date:s.examDate,fingerprint:s.fingerprint}),
     fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,studentCode:r.student_code,studentName:r.student_name,classLabel:r.class_label,gubun:r.gubun,hoi:r.hoi,lesson:r.lesson,textbook:r.textbook,teacher:r.teacher,jumsu:r.jumsu,baejeom:r.baejeom,eungsi:r.eungsi,tonggwa:r.tonggwa,yeyak:r.yeyak,examDate:r.exam_date,fingerprint:r.fingerprint}) },
+    /* 내신반이 몇 회차인지 (사람이 반별로 지정). sql/exam_class_stages.sql — optional */
+    { key:'examClassStages', table:'exam_class_stages', optional:true,
+    toRow:r=>({id:r.id,branch_id:r.branchId,semester_id:r.semesterId,class_name:r.className,stage:r.stage}),
+    fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,stage:r.stage}) },
     /* 상담 인정 제외(△). sql/counsel_rejects.sql 을 아직 안 돌렸어도 앱이 죽지 않게 optional */
     { key:'counselRejects', table:'counsel_rejects', optional:true,
     toRow:r=>({id:r.id,student_id:r.studentId,branch_id:r.branchId,semester_id:r.semesterId,stage:r.stage,content_key:r.contentKey,created_at:r.createdAt||null}),
@@ -275,7 +280,7 @@ function blankDB(){
   return { users:[], branches:[], semesters:[], students:[],
            semesterRecords:[], counselingHistories:[], studentMovements:[],
            uploadBatches:[], teacherChanges:[], segments:[], mcExemptions:[],
-           counselRejects:[] };
+           counselRejects:[], examClassStages:[] };
 }
 let db = null;
 
@@ -819,29 +824,36 @@ function dailyClosing(recs, year, month){
    그 회차를 '내신반 명단을 올린 달'로 잡는다. 가을학기(9·10·11)에 10월에
    올렸으면 MC2 — 내신반은 MC2만 보고, 그 학생들의 정규반 MC2는 자동으로 빠진다.
    회차를 못 알아내면 아무 회차도 대상이 아니다. 잘못 잡느니 안 잡는다. */
-let _exStageCache=null, _exStageKey='';
-function exBatchMonthMap(){
-  const key=(db.uploadBatches||[]).map(b=>b.id+'~'+(b.uploadedAt||'')).join('|');
-  if(_exStageCache && _exStageKey===key) return _exStageCache;
-  const m=new Map();
-  (db.uploadBatches||[]).forEach(b=>{
-    if(b.kind!=='roster' || !b.payload) return;
-    const mo=monthOfDate(b.uploadedAt); if(mo==null) return;
-    (b.payload.addedRecIds||[]).forEach(id=>{ if(!m.has(id)) m.set(id,mo); });
-  });
-  _exStageCache=m; _exStageKey=key; return m;
-}
-/* 상담 기록으로 회차를 추정하지 않는다.
-   상담이력은 학생·학기·회차 단위라 정규반에서 한 건인지 내신반에서 한 건인지
-   구분이 안 된다. 그걸로 추정하면 정규반에서 한 MC1 때문에 내신반이 MC1로 잡히고,
-   그 학생들의 정규반 MC1이 통째로 빠져버린다. 모르면 그냥 모르는 채로 둔다. */
+/* 내신반이 몇 회차인지는 '사람이 지정한 값'만 본다.
+   추정은 전부 버렸다 —
+   · 업로드한 달: 내신반이 열린 달이 아니라 엑셀을 사이트에 올린 날이다.
+     8월에 여름학기 명단을 올리면 6월에 돌던 내신반까지 전부 MC3로 잡혔다.
+   · 상담 기록: 상담이력이 학생·학기·회차 단위라 정규반 건인지 내신반 건인지
+     구분이 안 된다. 정규반에서 한 MC1 때문에 내신반이 MC1로 잡히면
+     그 학생들의 정규반 MC1이 통째로 빠져버린다.
+   지정 안 한 내신반은 상담률에 아예 안 잡힌다. 정규반도 영향 없다. */
 function examStageOf(rec){
   if((rec.kind||'regular')!=='exam') return null;
-  const ms=semesterMonths(rec.semesterId);
-  const byMonth = mo => { const i=ms.indexOf(mo); return i<0?null:['MC1','MC2','MC3'][i]; };
-  let st = byMonth(exBatchMonthMap().get(rec.id));
-  if(!st) st = byMonth(monthOfDate(rec.enrollDate));
-  return st || null;
+  const e=(db.examClassStages||[]).find(x=> x.branchId===rec.branchId
+    && x.semesterId===rec.semesterId && x.className===rec.className);
+  return (e && e.stage) || null;
+}
+/* 내신반 회차 지정/해제 — 분원 관리자만 */
+function setExamStage(branchId, semId, className, stage){
+  db.examClassStages = db.examClassStages || [];
+  const i=db.examClassStages.findIndex(x=> x.branchId===branchId
+    && x.semesterId===semId && x.className===className);
+  if(!stage){ if(i>=0) db.examClassStages.splice(i,1); }
+  else if(i>=0) db.examClassStages[i].stage=stage;
+  else db.examClassStages.push({id:uid('exs'), branchId, semesterId:semId, className, stage});
+}
+function onExamStageChange(className, stage){
+  if(!canEditExempt()){ toast('분원 관리자만 변경할 수 있습니다','err'); return; }
+  if(MISSING_TABLES.has('examClassStages')){
+    toast('sql/exam_class_stages.sql 을 먼저 실행해 주세요','err'); return; }
+  setExamStage(activeBranchId(), state.semId, className, stage||null);
+  showSaving('회차 저장 중…');
+  saveDB().then(ok=>{ hideSaving(); toast(ok?'내신반 회차 저장됨':'저장 실패', ok?'ok':'err'); render(); });
 }
 /* 이 학생의 이 회차를 내신반이 맡고 있는가 */
 function examCovers(studentId, branchId, semId, stage){
@@ -1626,6 +1638,24 @@ function incompleteTag(n){
   return `<span class="incomplete-tag">미완료 ${n}명</span>`;
 }
 
+/* 내신반 회차 고르기 — 내신 기간은 학교·학년마다 달라 시스템이 알 수 없다.
+   반마다 한 번 골라두면 그 회차만 내신반이 맡고, 그 학생들의 정규반 같은 회차는
+   자동으로 빠진다. 안 고르면 이 내신반은 상담률에 아예 안 잡힌다. */
+function examStagePicker(className, cur){
+  const can = canEditExempt() && !MISSING_TABLES.has('examClassStages');
+  const opts = [['','회차 지정 안 함 (상담률 제외)'],['MC1','MC1'],['MC2','MC2'],['MC3','MC3']];
+  const sel = `<select class="exs-sel" ${can?'':'disabled'} onchange="onExamStageChange('${esc(className).replace(/'/g,"\\'")}',this.value)">`
+    + opts.map(o=>`<option value="${o[0]}" ${o[0]===(cur||'')?'selected':''}>${esc(o[1])}</option>`).join('')
+    + `</select>`;
+  const note = cur
+    ? `이 내신반은 <b>${cur}</b> 회차만 봅니다. 이 학생들의 정규반 ${cur} 은 자동으로 빠집니다.`
+    : `회차를 안 고르면 <b>상담률에 잡히지 않습니다</b>. 내신을 진행한 회차를 골라주세요.`;
+  const why = MISSING_TABLES.has('examClassStages')
+    ? ` <span style="color:var(--neg)">· sql/exam_class_stages.sql 을 먼저 실행해야 저장됩니다</span>` : '';
+  return `<div class="exs-bar"><span class="exs-l">내신 회차</span>${sel}
+    <span class="exs-note">${note}${why}</span></div>`;
+}
+
 /* 미완료가 왜 남았는지 한 줄씩 밝힌다.
    반 카드가 전부 100%인데 담임 전체는 94% 같은 상황에서, 빠진 게 누구이고
    왜 그 회차가 대상인지 화면에서 알 방법이 없었다. 물어봐야만 알 수 있으면 안 된다. */
@@ -2394,8 +2424,9 @@ const cells = STAGES.map(stg=>{
   let html = `
     ${backLink(teacher+' 담임', backTarget)}
     <div class="page-head">
-      <h2>${esc(classLbl)} <span style="font-size:14px;font-weight:500;color:${isExamClass?'var(--warn)':'var(--ink-3)'}">${isExamClass?('내신반 상담표 · '+(examStageOf(recs[0])||'회차 미정')):'상담표'}</span></h2>
+      <h2>${esc(classLbl)} <span style="font-size:14px;font-weight:500;color:${isExamClass?'var(--warn)':'var(--ink-3)'}">${isExamClass?'내신반 상담표':'상담표'}</span></h2>
       <div class="sub">${esc(b.name)} · ${esc(teacher)} 담임 · 학생 ${recs.length}명</div>
+      ${isExamClass ? examStagePicker(className, examStageOf(recs[0])) : ''}
     </div>
     <div class="table-wrap">
       <div class="table-scroll">

@@ -819,3 +819,12 @@ body.wide-page #content{ max-width:1400px !important; }
   /* 성적 도넛 카드 1열로 */
   #content [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr !important}
 }
+
+/* 내신반 회차 고르기 바 */
+.exs-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;
+  padding:9px 13px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:10px}
+.exs-l{font-size:12px;font-weight:800;color:var(--warn);white-space:nowrap}
+.exs-sel{font:inherit;font-size:12.5px;font-weight:700;padding:4px 9px;border-radius:8px;
+  border:1px solid var(--warn);background:#fff;cursor:pointer}
+.exs-sel:disabled{cursor:not-allowed;opacity:.6}
+.exs-note{font-size:12px;color:var(--ink-2);line-height:1.5}
