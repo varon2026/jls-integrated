@@ -2279,9 +2279,9 @@ const trecs = activeRecordsOf(branchId, semId).filter(r=>r.teacher===teacher);
       return `<div class="card clickable" onclick="go('branch/class/${encodeURIComponent(teacher)}/${encodeURIComponent(className)}')">
         <div class="card-top">
           <div><div class="card-name">${esc(className)}</div>
-            <div class="card-sub">학생 ${crecs.length}명 <span style="color:var(--warn)">(인원 미집계)</span></div></div>
+            <div class="card-sub">학생 ${crecs.length}명 <span style="color:var(--warn)">(인원 미집계)</span>${examStageOf(crecs[0])?'':'<div style="color:var(--neg);font-weight:700;margin-top:2px">회차 미지정 — 상담률에 안 잡힘</div>'}</div></div>
           <div class="card-rate"><div class="r num" style="color:${rateColor(rs.totalRate)}">${rs.totalTarget?rs.totalRate+'%':'–'}</div>
-            <div class="rl">${examStageOf(crecs[0]) || '회차 미정'}</div></div>
+            <div class="rl">${examStageOf(crecs[0]) ? '내신 '+examStageOf(crecs[0]) : '회차 미지정'}</div></div>
         </div>
         <div class="card-foot"><span class="incomplete-tag">내신반</span>${goArrow}</div>
       </div>`;
@@ -2366,6 +2366,15 @@ const cells = STAGES.map(stg=>{
           why = ex ? `${(ex.classLabel||ex.className||'내신반')} 에서 진행하는 회차` : '내신반에서 진행하는 회차';
         }
         else why = '대상 아님(입학 전 회차)';
+        /* 대상이 아니어도 상담을 한 기록이 있으면 숨기지 않는다.
+           숨기면 '분명히 상담했는데 표에 없다'가 된다. 흐린 ○ 로 보여주되 상담률엔 안 넣는다. */
+        const hasLog = (db.counselingHistories||[]).some(c=> c.studentId===rec.studentId
+          && c.branchId===branchId && c.semesterId===semId && c.type===stg);
+        if(hasLog){
+          return `<td class="cc"><span class="cc-mark na-done"
+            title="상담 기록 있음 — 이 회차는 상담률에 안 들어갑니다&#10;${why}&#10;클릭: 내용 보기"
+            onclick="openCounseling('${rec.studentId}','${stg}','${esc(stu.name)}')">○</span></td>`;
+        }
         return `<td class="cc"><span class="cc-mark na" title="${why}">–</span></td>`;
       }
       const dat = `data-sid="${rec.studentId}" data-stg="${stg}" data-nm="${esc(stu.name)}"`;
@@ -5624,9 +5633,9 @@ const rates = calcRates(rateRecordsOfTeacher(branchId, semId, teacher), branchId
       return `<div class="card clickable" onclick="go('branch/class/${encodeURIComponent(teacher)}/${encodeURIComponent(className)}')">
         <div class="card-top">
           <div><div class="card-name">${esc(className)}</div>
-            <div class="card-sub">학생 ${crecs.length}명 <span style="color:var(--warn)">(내신반)</span></div></div>
+            <div class="card-sub">학생 ${crecs.length}명 <span style="color:var(--warn)">(내신반)</span>${examStageOf(crecs[0])?'':'<div style="color:var(--neg);font-weight:700;margin-top:2px">회차 미지정 — 상담률에 안 잡힘</div>'}</div></div>
           <div class="card-rate"><div class="r num" style="color:${rateColor(rates.totalRate)}">${rates.totalTarget?rates.totalRate+'%':'–'}</div>
-            <div class="rl">${examStageOf(crecs[0]) || '회차 미정'}</div></div>
+            <div class="rl">${examStageOf(crecs[0]) ? '내신 '+examStageOf(crecs[0]) : '회차 미지정'}</div></div>
         </div>
         <div class="card-foot"><span class="incomplete-tag">내신반</span>${goArrow}</div>
       </div>`;
