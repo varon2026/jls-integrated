@@ -3203,15 +3203,23 @@ function applyClassMoves(groups, branchId, semId, months, recs, keyOf, makeGroup
     list=list.filter((x,k)=> k===0 || !(x.fromT===list[k-1].fromT && x.toT===list[k-1].toT));
     const nm=getStudent(studentId), nmT=nm&&nm.name?nm.name:'';
     const chess=isChess(rec.className);
+    /* 학생이 나오기 시작한 날(등록일 · 학기초생이면 학기 첫날)보다 이르거나 같은 날의 이동은
+       '이동'이 아니라 '처음부터 그 반'이다. 이전 반엔 하루도 안 갔으니 이동으로 세지 않는다.
+       예전엔 9/1에 옮긴 학생 때문에 실체 없는 '미배정' 담임 줄이 생기고
+       그 줄의 다음 달 월초가 음수로 떨어졌다. */
+    const startD = String(rec.enrollDate||'');
+    const atStart = x => startD ? (String(x.mv.date||'') <= startD)
+                                : (x.mMonth===months[0] && (dayOfDate(x.mv.date)||1)<=1);
+    let originName = list.length ? list[0].fromT : null;
+    while(list.length && atStart(list[0])){ originName = list[0].toT; list.shift(); }
+    if(!originName) return;
     /* 거쳐 간 그룹 전부에서 일단 빼고, 월초 명단은 '맨 처음 그룹'에게만 준다.
        한 학생이 학기 중 두 번 이상 옮기면(A→B→C) 중간 B는 거쳐 갔을 뿐이라
        월초 명단엔 없어야 하는데, 예전엔 기록을 읽는 순서에 따라 들어갔다 나갔다 했다. */
-    list.forEach(x=>{
-      const a=ensureG(x.fromT), b=ensureG(x.toT);
-      a.baseRecs=a.baseRecs.filter(r=> r.studentId!==studentId);
-      b.baseRecs=b.baseRecs.filter(r=> r.studentId!==studentId);
-    });
-    ensureG(list[0].fromT).baseRecs.push(rec);
+    const touched=new Set([originName]);
+    list.forEach(x=>{ touched.add(x.fromT); touched.add(x.toT); });
+    touched.forEach(t=>{ const g=ensureG(t); g.baseRecs=g.baseRecs.filter(r=> r.studentId!==studentId); });
+    ensureG(originName).baseRecs.push(rec);
     list.forEach(x=>{
       const aff=monthAfter(x.mMonth);   // 월초가 바뀌는(하이라이트) 달 = 이동월 다음 달
       const fl=x.info.fromLabel||x.info.fromClass||x.fromT, tl=x.info.toLabel||x.info.toClass||x.toT;
