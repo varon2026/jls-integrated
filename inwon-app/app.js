@@ -4527,6 +4527,9 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
         } else if(rec.status==='withdraw' && !rec.transfer){
           rec.status='active'; rec.withdrawDate='';
         }
+        // 전입 출신분원 — 새로 만들 때만 채워져서, 특이사항('장안 전입')을 나중에 적어
+        // 다시 올리면 비어 있었다. 본사 전출-전입 대조에서 '출발 분원 없음'으로 뜨던 원인.
+        if(isTransferIn && !isTransferOut && transferBranch) rec.transferTo = transferBranch;
         updated++;
       }
     });
