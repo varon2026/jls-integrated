@@ -1437,10 +1437,16 @@ async function call(action,payload){
       var params='select=class_name&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=class_name';
       if(payload.division) params+='&division=eq.'+encodeURIComponent(payload.division);
       var d=await sbGet('students',params);
-      var hParams='select=class_name&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(currentBranch);
-      if(payload.division) hParams+='&division=eq.'+encodeURIComponent(payload.division);
-      var dh=await sbGet('students_history',hParams);
-      var cls=[...new Set([...d,...dh].map(function(r){return r.class_name;}).filter(Boolean))].sort(function(a,b){return String(a).localeCompare(String(b),'ko');});
+      // 지금 이 학기 명단만 필요한 화면(반별 일괄출고)은 과거 백업을 섞지 않는다.
+      // students_history 는 덮어쓰기 전 스냅샷이라 예전 학기 반 이름이 영원히 남고,
+      // 실제로 없는 반이 목록에 떠서 엉뚱한 반으로 출고될 수 있다.
+      var pool=[].concat(d);
+      if(!payload.currentOnly){
+        var hParams='select=class_name&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(currentBranch);
+        if(payload.division) hParams+='&division=eq.'+encodeURIComponent(payload.division);
+        pool=pool.concat(await sbGet('students_history',hParams));
+      }
+      var cls=[...new Set(pool.map(function(r){return r.class_name;}).filter(Boolean))].sort(function(a,b){return String(a).localeCompare(String(b),'ko');});
       return {ok:true,data:cls};
     }
     if(action==='getStudentsBySemesterClass'){
@@ -2926,7 +2932,7 @@ async function updateBulkClasses(){
   document.getElementById('bulk-preview').textContent='반을 선택하면 인원이 표시됩니다.';
   document.getElementById('bulk-student-list').innerHTML='';
   if(!sem) return;
-  var r=await call('getClassesBySemester',{semester:sem,division:div||undefined});
+  var r=await call('getClassesBySemester',{semester:sem,division:div||undefined,currentOnly:true});
   document.getElementById('bulk-class').innerHTML='<option value="">-- 반 선택 --</option>'+(r.data||[]).map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
   setClassOptions('bulk');syncClassSearchFromSelect('bulk');bulkAssigns=[];
 }
