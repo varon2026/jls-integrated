@@ -831,28 +831,16 @@ function exBatchMonthMap(){
   });
   _exStageCache=m; _exStageKey=key; return m;
 }
-/* 그 내신반에 실제로 기록된 상담이 가장 많은 회차 — 업로드 날짜를 모를 때의 마지막 근거 */
-function exStageByHistory(rec){
-  const peers=(db.semesterRecords||[]).filter(x=> x.branchId===rec.branchId
-    && x.semesterId===rec.semesterId && x.className===rec.className && (x.kind||'regular')==='exam');
-  const ids=new Set(peers.map(x=>x.studentId));
-  const cnt={MC1:0,MC2:0,MC3:0};
-  (db.counselingHistories||[]).forEach(c=>{
-    if(c.branchId!==rec.branchId || c.semesterId!==rec.semesterId) return;
-    if(!ids.has(c.studentId)) return;
-    if(cnt[c.type]!==undefined) cnt[c.type]++;
-  });
-  let best=null, n=0;
-  ['MC1','MC2','MC3'].forEach(k=>{ if(cnt[k]>n){ n=cnt[k]; best=k; } });
-  return best;
-}
+/* 상담 기록으로 회차를 추정하지 않는다.
+   상담이력은 학생·학기·회차 단위라 정규반에서 한 건인지 내신반에서 한 건인지
+   구분이 안 된다. 그걸로 추정하면 정규반에서 한 MC1 때문에 내신반이 MC1로 잡히고,
+   그 학생들의 정규반 MC1이 통째로 빠져버린다. 모르면 그냥 모르는 채로 둔다. */
 function examStageOf(rec){
   if((rec.kind||'regular')!=='exam') return null;
   const ms=semesterMonths(rec.semesterId);
   const byMonth = mo => { const i=ms.indexOf(mo); return i<0?null:['MC1','MC2','MC3'][i]; };
   let st = byMonth(exBatchMonthMap().get(rec.id));
   if(!st) st = byMonth(monthOfDate(rec.enrollDate));
-  if(!st) st = exStageByHistory(rec);
   return st || null;
 }
 /* 이 학생의 이 회차를 내신반이 맡고 있는가 */
@@ -2342,7 +2330,11 @@ const cells = STAGES.map(stg=>{
           const es = examStageOf(rec);
           why = es ? `이 내신반은 ${es} 회차만 봅니다` : '이 내신반은 회차를 알 수 없어 상담률에서 제외됩니다';
         }
-        else if(examCovers(rec.studentId, branchId, semId, stg)) why = '내신반에서 진행하는 회차';
+        else if(examCovers(rec.studentId, branchId, semId, stg)){
+          const ex=(db.semesterRecords||[]).find(x=> x.studentId===rec.studentId && x.branchId===branchId
+            && x.semesterId===semId && (x.kind||'regular')==='exam' && examStageOf(x)===stg);
+          why = ex ? `${(ex.classLabel||ex.className||'내신반')} 에서 진행하는 회차` : '내신반에서 진행하는 회차';
+        }
         else why = '대상 아님(입학 전 회차)';
         return `<td class="cc"><span class="cc-mark na" title="${why}">–</span></td>`;
       }
