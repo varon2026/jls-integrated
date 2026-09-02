@@ -814,19 +814,69 @@ function dailyClosing(recs, year, month){
 /* 학생이 특정 단계 상담 대상인지 — 입학월 기준
    HC1/HC2: 신규·복귀생이면 입학월 상관없이 대상
    MC1/2/3: 입학월 이후의 MC만 대상 (예: 7월 입학 → MC1 제외, MC2·MC3 대상) */
+/* ── 내신반 회차 판정 ────────────────────────────────────────────────────
+   내신반은 내신 기간에만 도는 반이라 한 학기에 한 회차만 진행한다.
+   그 회차를 '내신반 명단을 올린 달'로 잡는다. 가을학기(9·10·11)에 10월에
+   올렸으면 MC2 — 내신반은 MC2만 보고, 그 학생들의 정규반 MC2는 자동으로 빠진다.
+   회차를 못 알아내면 아무 회차도 대상이 아니다. 잘못 잡느니 안 잡는다. */
+let _exStageCache=null, _exStageKey='';
+function exBatchMonthMap(){
+  const key=(db.uploadBatches||[]).map(b=>b.id+'~'+(b.uploadedAt||'')).join('|');
+  if(_exStageCache && _exStageKey===key) return _exStageCache;
+  const m=new Map();
+  (db.uploadBatches||[]).forEach(b=>{
+    if(b.kind!=='roster' || !b.payload) return;
+    const mo=monthOfDate(b.uploadedAt); if(mo==null) return;
+    (b.payload.addedRecIds||[]).forEach(id=>{ if(!m.has(id)) m.set(id,mo); });
+  });
+  _exStageCache=m; _exStageKey=key; return m;
+}
+/* 그 내신반에 실제로 기록된 상담이 가장 많은 회차 — 업로드 날짜를 모를 때의 마지막 근거 */
+function exStageByHistory(rec){
+  const peers=(db.semesterRecords||[]).filter(x=> x.branchId===rec.branchId
+    && x.semesterId===rec.semesterId && x.className===rec.className && (x.kind||'regular')==='exam');
+  const ids=new Set(peers.map(x=>x.studentId));
+  const cnt={MC1:0,MC2:0,MC3:0};
+  (db.counselingHistories||[]).forEach(c=>{
+    if(c.branchId!==rec.branchId || c.semesterId!==rec.semesterId) return;
+    if(!ids.has(c.studentId)) return;
+    if(cnt[c.type]!==undefined) cnt[c.type]++;
+  });
+  let best=null, n=0;
+  ['MC1','MC2','MC3'].forEach(k=>{ if(cnt[k]>n){ n=cnt[k]; best=k; } });
+  return best;
+}
+function examStageOf(rec){
+  if((rec.kind||'regular')!=='exam') return null;
+  const ms=semesterMonths(rec.semesterId);
+  const byMonth = mo => { const i=ms.indexOf(mo); return i<0?null:['MC1','MC2','MC3'][i]; };
+  let st = byMonth(exBatchMonthMap().get(rec.id));
+  if(!st) st = byMonth(monthOfDate(rec.enrollDate));
+  if(!st) st = exStageByHistory(rec);
+  return st || null;
+}
+/* 이 학생의 이 회차를 내신반이 맡고 있는가 */
+function examCovers(studentId, branchId, semId, stage){
+  return (db.semesterRecords||[]).some(x=> x.studentId===studentId && x.branchId===branchId
+    && x.semesterId===semId && (x.kind||'regular')==='exam' && examStageOf(x)===stage);
+}
 function isTarget(rec, stage, semId){
   const sid = semId || (typeof state!=='undefined'?state.semId:null);
   const isExam = (rec.kind||'regular')==='exam';
 
-  // 내신반: 면제로 넘어온 회차(MC)만 대상. HC와 면제 안 된 MC는 전부 대상 아님.
+  // 내신반: 내신 기간에만 도는 반이라 한 학기에 '한 회차'만 본다.
+  //   그 회차 = 내신반 명단을 올린 달 (가을학기에 10월에 올렸으면 MC2).
+  //   나머지 MC와 HC는 아예 대상이 아니다 → 상담률에 안 잡힌다.
   if(isExam){
     if(stage==='HC1'||stage==='HC2') return false;
-    return isExempt(rec.studentId, rec.branchId, sid, stage);
+    return examStageOf(rec) === stage;
   }
 
-  // 정규반: 면제된 MC 회차는 대상 아님 (내신반으로 넘어감)
-  if(stage!=='HC1' && stage!=='HC2' && isExempt(rec.studentId, rec.branchId, sid, stage)){
-    return false;
+  if(stage!=='HC1' && stage!=='HC2'){
+    // 사람이 하이픈으로 내린 회차 — 그냥 제외하고 거기서 끝. 내신반으로 넘기지 않는다.
+    if(isExempt(rec.studentId, rec.branchId, sid, stage)) return false;
+    // 이 학생이 그 회차를 내신반에서 하는 중이면 정규반에선 대상 아님 (자동)
+    if(examCovers(rec.studentId, rec.branchId, sid, stage)) return false;
   }
 
   // 퇴원생: 퇴원월 이후의 MC 회차는 다닐 때가 아니었으므로 대상 아님.
@@ -1593,7 +1643,7 @@ function incompleteTag(n){
    왜 그 회차가 대상인지 화면에서 알 방법이 없었다. 물어봐야만 알 수 있으면 안 된다. */
 function incompleteWhy(rec, stg, branchId, semId){
   if(csRejected(rec.studentId, branchId, semId, stg)) return '상담 인정 안 함(△) — 사람이 내린 것';
-  if((rec.kind||'regular')==='exam')                  return '정규반에서 내신반으로 이관된 회차 (✕ 클릭하면 이관 해제)';
+  if((rec.kind||'regular')==='exam')                  return `내신반 ${examStageOf(rec)||''} 회차`;
   if(stg==='HC1'||stg==='HC2')                        return '신규·복귀생이라 HC 대상';
   if(rec.status==='withdraw')                         return `퇴원 ${rec.withdrawDate||'날짜 없음'} — 퇴원한 달까지의 회차는 대상`;
   return '재원생 미완료';
@@ -2213,7 +2263,7 @@ const trecs = activeRecordsOf(branchId, semId).filter(r=>r.teacher===teacher);
           <div><div class="card-name">${esc(className)}</div>
             <div class="card-sub">학생 ${crecs.length}명 <span style="color:var(--warn)">(인원 미집계)</span></div></div>
           <div class="card-rate"><div class="r num" style="color:${rateColor(rs.totalRate)}">${rs.totalTarget?rs.totalRate+'%':'–'}</div>
-            <div class="rl">내신 MC</div></div>
+            <div class="rl">${examStageOf(crecs[0]) || '회차 미정'}</div></div>
         </div>
         <div class="card-foot"><span class="incomplete-tag">내신반</span>${goArrow}</div>
       </div>`;
@@ -2286,7 +2336,14 @@ const cells = STAGES.map(stg=>{
           const clk = canEditExempt() ? `onclick="onToggleExempt('${rec.studentId}','${stg}')"` : '';
           return `<td class="cc"><span class="cc-mark exempt ${canEditExempt()?'editable':''}" title="내신반으로 이관됨(면제). ${canEditExempt()?'클릭하면 해제':''}" ${clk}>–</span></td>`;
         }
-        const why = (stg==='HC1'||stg==='HC2') ? '대상 아님(기존생)' : '대상 아님(입학 전 회차)';
+        let why;
+        if(stg==='HC1'||stg==='HC2') why = isExam ? '내신반은 HC 대상 아님' : '대상 아님(기존생)';
+        else if(isExam){
+          const es = examStageOf(rec);
+          why = es ? `이 내신반은 ${es} 회차만 봅니다` : '이 내신반은 회차를 알 수 없어 상담률에서 제외됩니다';
+        }
+        else if(examCovers(rec.studentId, branchId, semId, stg)) why = '내신반에서 진행하는 회차';
+        else why = '대상 아님(입학 전 회차)';
         return `<td class="cc"><span class="cc-mark na" title="${why}">–</span></td>`;
       }
       const dat = `data-sid="${rec.studentId}" data-stg="${stg}" data-nm="${esc(stu.name)}"`;
@@ -2319,14 +2376,6 @@ const cells = STAGES.map(stg=>{
         return `<td class="cc"><span class="cc-mark undone editable" title="미완료 — 클릭하면 내신반으로 이관(면제)${wdWhy}"
           onclick="onToggleExempt('${rec.studentId}','${stg}')">✕</span></td>`;
       }
-      // 내신반의 ✕ = '정규반에서 이 회차를 내신반으로 넘겨놨는데(면제) 내신반도 안 함'.
-      //   내신 기간이 아니라 원래 안 하는 회차면 여기서 바로 이관을 풀 수 있어야 한다.
-      //   (예전엔 정규반 표로 돌아가서 – 를 눌러야만 풀렸다)
-      if(isMc && isExam && canEditExempt()){
-        return `<td class="cc"><span class="cc-mark undone editable"
-          title="미완료 — 이 회차는 정규반에서 내신반으로 이관(면제)돼 있습니다.&#10;내신 기간이 아니라 안 하는 회차면 클릭해서 이관을 푸세요 (정규반으로 돌아갑니다)"
-          onclick="onToggleExempt('${rec.studentId}','${stg}')">✕</span></td>`;
-      }
       return `<td class="cc"><span class="cc-mark undone" title="미완료${wdWhy}">✕</span></td>`;
     }).join('');
     return `<tr>
@@ -2353,7 +2402,7 @@ const cells = STAGES.map(stg=>{
   let html = `
     ${backLink(teacher+' 담임', backTarget)}
     <div class="page-head">
-      <h2>${esc(classLbl)} <span style="font-size:14px;font-weight:500;color:${isExamClass?'var(--warn)':'var(--ink-3)'}">${isExamClass?'내신반 상담표':'상담표'}</span></h2>
+      <h2>${esc(classLbl)} <span style="font-size:14px;font-weight:500;color:${isExamClass?'var(--warn)':'var(--ink-3)'}">${isExamClass?('내신반 상담표 · '+(examStageOf(recs[0])||'회차 미정')):'상담표'}</span></h2>
       <div class="sub">${esc(b.name)} · ${esc(teacher)} 담임 · 학생 ${recs.length}명</div>
     </div>
     <div class="table-wrap">
@@ -5554,7 +5603,7 @@ const rates = calcRates(rateRecordsOfTeacher(branchId, semId, teacher), branchId
           <div><div class="card-name">${esc(className)}</div>
             <div class="card-sub">학생 ${crecs.length}명 <span style="color:var(--warn)">(내신반)</span></div></div>
           <div class="card-rate"><div class="r num" style="color:${rateColor(rates.totalRate)}">${rates.totalTarget?rates.totalRate+'%':'–'}</div>
-            <div class="rl">내신 MC</div></div>
+            <div class="rl">${examStageOf(crecs[0]) || '회차 미정'}</div></div>
         </div>
         <div class="card-foot"><span class="incomplete-tag">내신반</span>${goArrow}</div>
       </div>`;
