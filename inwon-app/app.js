@@ -1701,8 +1701,8 @@ function incompletePanel(recs, branchId, semId, teacher){
       <td style="color:var(--ink-2);font-size:12.5px">${esc(r.why)}</td>
     </tr>`).join('');
   const more = rows.length>CAP ? `<div class="pd" style="padding:8px 2px">외 ${rows.length-CAP}명</div>` : '';
-  return `<div class="sect-head"><h3>이유가 있는 미완료</h3>
-      <span class="cnt">${cnt}건 · 퇴원·내신반·△ 처럼 반 상담표만 봐선 모를 것들</span></div>
+  return `<div class="sect-head"><h3>미완료 사유</h3>
+      <span class="cnt">${rows.length}명 · ${cnt}건 — 반 카드만 봐선 모르는 것만 모았습니다</span></div>
     <div class="table-wrap"><div class="table-scroll"><table class="grid">
       <thead><tr><th>학생</th><th>반</th><th>상태</th><th>빠진 회차</th><th>왜 대상인가</th></tr></thead>
       <tbody>${body}</tbody></table></div>${more}</div>`;
