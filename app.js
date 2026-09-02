@@ -2273,10 +2273,19 @@ function enrollEditCell(r){
   let note='';
   if(en==='waiting_next' && r.wait_semester)
     note=`<div class="enr-sem wait">${nm(r.wait_semester)} 대기</div>`;
-  else if(en==='enrolled')
-    note = r.wait_semester
-      ? `<div class="enr-sem enr">대기 → ${nm(r.wait_semester)} 등록</div>`
-      : `<div class="enr-sem now">${nm(resSemIdOf(r))} 등록</div>`;
+  else if(en==='enrolled'){
+    /* 어느 학기 등록인지 여기서 바로 고칠 수 있게 드롭다운으로 둔다.
+       '다음학기 대기'를 잘못 눌러 엉뚱한 학기 전형에 박힌 학생을, 예전엔 화면에서
+       되돌릴 방법이 없어 SQL로 고쳐야 했다. 대기를 안 거친 등록(= 시험 본 그 학기에
+       바로 등록)은 전형 대상이 아니므로 전형 현황에서도 빠진다. */
+    const own = resSemIdOf(r);
+    const list = waitSemListFor(r);
+    const optsS = [['', nm(own)+' 등록 (대기 안 거침)']]
+      .concat(list.map(x=>[x.id, '대기 → '+esc(x.name)+' 등록']));
+    note = `<select class="enr-sem-sel" title="이 등록이 어느 학기 것인지" onchange="setWaitSemester('${r.id}',this.value)">`
+      + optsS.map(o=>`<option value="${o[0]}" ${o[0]===(r.wait_semester||'')?'selected':''}>${o[1]}</option>`).join('')
+      + `</select>`;
+  }
   else if(en==='not_enrolled' && r.wait_semester)
     note=`<div class="enr-sem not">${nm(r.wait_semester)} 대기 → 미등록</div>`;
   return sel+note;

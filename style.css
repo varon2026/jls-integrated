@@ -878,3 +878,8 @@ tr.sum .col-now{background:#f5f1fc}
 .enr-sem.enr {color:#5b41b5}
 .enr-sem.now {color:#8b8496}
 .enr-sem.not {color:#c0504d}
+
+/* 등록완료 학생의 '어느 학기 등록인지' 고치는 드롭다운 */
+.enr-sem-sel{margin-top:4px;font:inherit;font-size:11px;font-weight:700;color:#5b41b5;
+  background:#fff;border:1px solid #e2dcf2;border-radius:7px;padding:2px 5px;cursor:pointer;max-width:100%}
+.enr-sem-sel:hover{border-color:#8b6ee8}
