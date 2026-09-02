@@ -384,6 +384,7 @@ window.toggleSidebar=toggleSidebar; window.closeSidebar=closeSidebar;
 
 /* ---------- 렌더 라우터 ---------- */
 function render(){
+  jhdHide();                       // 화면을 옮기면 떠 있던 전형 명단은 닫는다
   const c=$('content'); const v=state.view;
   $('semPick').style.display = (v==='dashboard')?'flex':'none';
   if(v==='dashboard'){ renderDashHome(c); }
@@ -999,21 +1000,7 @@ const JH_CSS='<style>'
 +'.jhd-row.sum.hov .jhd-st.hot,.jhd-row.sum.hov .jhd-leg.hot{background:#fff}'
 +'.jhd-row.hov .jhd-leg.bad.hot{background:#fbdde5}.jhd-row.hov .jhd-leg.warn.hot{background:#fbe9d3}'
 +'.jhd-row .jhd-st.hot b{transform:scale(1.26)}'
-+'#jhdPop{position:fixed;z-index:60;width:328px;max-width:calc(100vw - 24px);background:#fff;border:1px solid #ece8f5;border-radius:16px;box-shadow:0 14px 40px rgba(74,50,128,.16),0 2px 8px rgba(74,50,128,.08);padding:13px 14px 12px;opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .13s,transform .13s;visibility:hidden}'
-+'#jhdPop.on{opacity:1;transform:none;visibility:visible}'
-+'#jhdPop .ph{display:flex;align-items:center;gap:7px;padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid #f3f0fa}'
-+'#jhdPop .ph i{width:10px;height:10px;border-radius:3px;flex:none;outline:1px solid #ece8f5}'
-+'#jhdPop .ph i.hatch{background:repeating-linear-gradient(45deg,#ddd7ec 0 2px,#f6f4fc 2px 5px)}'
-+'#jhdPop .ph i.dots{background:radial-gradient(#bab0d8 1.1px,#e2dcf2 1.1px);background-size:4px 4px}'
-+'#jhdPop .ph em{font-style:normal;font-size:13px;font-weight:800;color:#3a3742}'
-+'#jhdPop .ph b{margin-left:auto;font-size:12px;font-weight:800;color:#a9a2b6}'
-+'#jhdPop .nms{display:grid;grid-template-columns:repeat(3,1fr);gap:3px 4px}'
-+'#jhdPop .nm{display:flex;flex-direction:column;padding:4px 6px;border-radius:8px;background:#faf8fe;min-width:0}'
-+'#jhdPop .nm b{font-size:12.5px;font-weight:700;color:#3a3742;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
-+'#jhdPop .nm span{font-size:10px;font-weight:700;color:#c2bcd0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
-+'#jhdPop .more{margin-top:8px;font-size:11.5px;font-weight:700;color:#a9a2b6;text-align:center}'
-+'#jhdPop .none{font-size:12.5px;font-weight:600;color:#a9a2b6;padding:6px 2px}'
-+'@media (max-width:640px){.jhd-row{grid-template-columns:1fr;gap:14px;justify-items:center}.jhd-s{width:100%}.jhd-dv{display:none}#jhdPop .nms{grid-template-columns:repeat(2,1fr)}}'
++'@media (max-width:640px){.jhd-row{grid-template-columns:1fr;gap:14px;justify-items:center}.jhd-s{width:100%}.jhd-dv{display:none}}'
 +'.jh-t thead tr:last-child th{padding:0;border-bottom:1.5px solid #e8e3f3}'
 +'.jh-t thead tr:last-child th:not(.l){width:82px}'
 +'.jh-t thead tr:last-child th.l{width:230px;text-align:left}'
@@ -1171,7 +1158,30 @@ function jhDonutRow(title, o, idx, cls){
 }
 /* 마우스 따라다니는 명단 팝오버 */
 const JHD_CAP=15;
-function jhdPop(){ let e=document.getElementById('jhdPop');
+/* 팝오버는 body에 붙는데 스타일은 전형 화면 안의 <style>에 있었다.
+   대시보드 칸을 다시 그리면 그 <style>이 통째로 사라지면서 팝오버만 남아,
+   스타일 없는 이름 덩어리가 페이지 맨 아래에 그대로 노출됐다. 그래서 head에 따로 넣는다. */
+const JHD_CSS=[
+  '#jhdPop{position:fixed;z-index:60;width:328px;max-width:calc(100vw - 24px);background:#fff;border:1px solid #ece8f5;border-radius:16px;box-shadow:0 14px 40px rgba(74,50,128,.16),0 2px 8px rgba(74,50,128,.08);padding:13px 14px 12px;opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .13s,transform .13s;visibility:hidden}',
+  '#jhdPop.on{opacity:1;transform:none;visibility:visible}',
+  '#jhdPop .ph{display:flex;align-items:center;gap:7px;padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid #f3f0fa}',
+  '#jhdPop .ph i{width:10px;height:10px;border-radius:3px;flex:none;outline:1px solid #ece8f5}',
+  '#jhdPop .ph i.hatch{background:repeating-linear-gradient(45deg,#ddd7ec 0 2px,#f6f4fc 2px 5px)}',
+  '#jhdPop .ph i.dots{background:radial-gradient(#bab0d8 1.1px,#e2dcf2 1.1px);background-size:4px 4px}',
+  '#jhdPop .ph em{font-style:normal;font-size:13px;font-weight:800;color:#3a3742}',
+  '#jhdPop .ph b{margin-left:auto;font-size:12px;font-weight:800;color:#a9a2b6}',
+  '#jhdPop .nms{display:grid;grid-template-columns:repeat(3,1fr);gap:3px 4px}',
+  '#jhdPop .nm{display:flex;flex-direction:column;padding:4px 6px;border-radius:8px;background:#faf8fe;min-width:0}',
+  '#jhdPop .nm b{font-size:12.5px;font-weight:700;color:#3a3742;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+  '#jhdPop .nm span{font-size:10px;font-weight:700;color:#c2bcd0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+  '#jhdPop .more{margin-top:8px;font-size:11.5px;font-weight:700;color:#a9a2b6;text-align:center}',
+  '#jhdPop .none{font-size:12.5px;font-weight:600;color:#a9a2b6;padding:6px 2px}',
+  '@media (max-width:640px){#jhdPop .nms{grid-template-columns:repeat(2,1fr)}}'
+].join('');
+function jhdCss(){ if(document.getElementById('jhdPopCss')) return;
+  const s=document.createElement('style'); s.id='jhdPopCss'; s.textContent=JHD_CSS;
+  (document.head||document.documentElement).appendChild(s); }
+function jhdPop(){ jhdCss(); let e=document.getElementById('jhdPop');
   if(!e){ e=document.createElement('div'); e.id='jhdPop'; e.setAttribute('role','tooltip'); document.body.appendChild(e); }
   return e; }
 function jhdHide(){ const e=document.getElementById('jhdPop'); if(e) e.classList.remove('on'); }
