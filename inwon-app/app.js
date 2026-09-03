@@ -4902,7 +4902,15 @@ function importHistory(file, branchId, semId){
     // 이번 업로드를 하나의 배치로 기록
     const batchId = uid('batch');
     let added=0, dup=0, skip=0, notCounsel=0, prevSem=0, misTagCnt=0, noStu=0, noTag=0;
+    /* 한 파일에 같은 학생·같은 회차가 여러 줄 들어오는 경우가 있다.
+       (8/26 '[MC3] 부재중' → 8/27 '[MC3] 통화 완료…' 처럼 여러 번 시도한 기록)
+       예전엔 줄 순서대로 그냥 덮어써서 '파일에서 마지막에 나온 줄'이 이겼다.
+       IMS 상담이력은 최신순으로 내려오니까 오래된 '부재중'이 새 상담을 지워버렸다.
+       → 일단 다 모아두고, 그 회차의 상담은 '날짜가 가장 늦은 것' 하나로 정한다. */
+    const pick = new Map();          // '학생id|회차' → 그 회차로 채택된 한 건
+    let rowNo = 0;
     rows.slice(1).forEach(r=>{
+      rowNo++;
       // 분류가 '상담'인 건만 반영 (수납/기타/성적 등 제외)
       if(idx.category>=0){
         const cat=String(r[idx.category]||'').trim();
@@ -4941,32 +4949,42 @@ function importHistory(file, branchId, semId){
         if(timing==='prev'){ prevSem++; return; }  // 이전 학기 상담 → 현재 학기에 미반영
         const isMistag = (timing==='mistag');      // 오기재 의심 → 저장하되 완료 집계 제외
 
-        // 같은 학생·같은 학기·같은 단계의 기존 상담을 찾음
-        const prev = db.counselingHistories.find(c=>
-          c.studentId===stu.id && c.branchId===branchId &&
-          c.semesterId===semId && c.type===type);
-        if(prev){
-          // 내용·날짜가 같아도 완료판정(mistag)이 달라졌으면 갱신해서 표시를 교정한다.
-          // (예전에 오기재로 잘못 저장된 ⚠/✕를 같은 파일 재업로드로 바로잡을 수 있게)
-          const sameText   = (prev.content===content && prev.date===date);
-          const sameVerdict = (!!prev.mistag === isMistag);
-          if(sameText && sameVerdict){ dup++; return; } // 진짜 변화 없음(중복)
-          // 내용이 바뀌었거나 완료판정이 바뀌었으면 최신 상태로 교체(갱신)
-          prev.content = content;
-          prev.date = date;
-          prev.counselor = String(r[idx.counselor]||'').trim();
-          prev.batchId = batchId;
-          prev.mistag = isMistag;
-          if(isMistag) misTagCnt++;
-          added++;  // 갱신도 반영 건수로 카운트
-          return;
+        // 바로 쓰지 않고 후보로 담아둔다 — 같은 회차가 또 나오면 날짜로 겨룬다
+        const k = stu.id+'|'+type;
+        const cur = pick.get(k);
+        const cand = { stuId:stu.id, type, content, date,
+                       counselor:String(r[idx.counselor]||'').trim(), isMistag, rowNo };
+        if(!cur || String(date||'') > String(cur.date||'')
+                || (String(date||'')===String(cur.date||'') && rowNo > cur.rowNo)){
+          pick.set(k, cand);   // 날짜가 더 늦은 것 · 같은 날이면 파일에서 뒤에 나온 것
         }
-        // 기존에 없던 단계면 새로 추가
-        db.counselingHistories.push({id:uid('ch'),studentId:stu.id,branchId,semesterId:semId,
-          date,type,content,counselor:String(r[idx.counselor]||'').trim(), batchId, mistag:isMistag});
-        if(isMistag) misTagCnt++;
-        added++;
       });
+    });
+
+    // 회차별로 하나씩 정해진 것만 반영한다
+    pick.forEach(v=>{
+      const prev = db.counselingHistories.find(c=>
+        c.studentId===v.stuId && c.branchId===branchId &&
+        c.semesterId===semId && c.type===v.type);
+      if(prev){
+        // 내용·날짜가 같아도 완료판정(mistag)이 달라졌으면 갱신해서 표시를 교정한다.
+        // (예전에 오기재로 잘못 저장된 ⚠/✕를 같은 파일 재업로드로 바로잡을 수 있게)
+        const sameText    = (prev.content===v.content && prev.date===v.date);
+        const sameVerdict = (!!prev.mistag === v.isMistag);
+        if(sameText && sameVerdict){ dup++; return; } // 진짜 변화 없음(중복)
+        prev.content   = v.content;
+        prev.date      = v.date;
+        prev.counselor = v.counselor;
+        prev.batchId   = batchId;
+        prev.mistag    = v.isMistag;
+        if(v.isMistag) misTagCnt++;
+        added++;  // 갱신도 반영 건수로 카운트
+        return;
+      }
+      db.counselingHistories.push({id:uid('ch'),studentId:v.stuId,branchId,semesterId:semId,
+        date:v.date, type:v.type, content:v.content, counselor:v.counselor, batchId, mistag:v.isMistag});
+      if(v.isMistag) misTagCnt++;
+      added++;
     });
     // 실제로 추가된 게 있을 때만 배치 기록 (전부 중복이면 묶음 안 남김)
     if(added>0){
