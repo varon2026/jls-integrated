@@ -5419,12 +5419,48 @@ async function ltFetchAll(brId){
   if(error) throw error;
   return data||[];
 }
-/* '대기'인 예약과, 이미 결과가 정해진 예약을 갈라 놓는다.
-   결과가 이미 정해진 예약이 있는 학생은 손대지 않는다 —
-   동명이인이 있을 때 엉뚱한 사람의 대기 예약을 끌어다 붙이는 걸 막는 안전장치다. */
-function ltSplit(list){
+/* 예약 날짜 → 그 시험이 속한 학기 순번 (연도*4 + 봄0 여름1 가을2 겨울3)
+   ★ 학사관리의 semesterOfDate()는 여기 쓰면 안 된다. 그건 '반 시작일'용이라
+     학기 마지막 주(8/28 같은)를 다음 학기로 당겨 버린다. 시험 날짜에 그러면
+     8월 응시자가 가을 시험이 돼 전형 집계가 통째로 어긋난다. */
+function ltSemRankOfDate(ds){
+  const m=String(ds||'').match(/(\d{4})-(\d{1,2})/); if(!m) return null;
+  const y=+m[1], mo=+m[2];
+  if(mo>=3 && mo<=5)  return y*4+0;
+  if(mo>=6 && mo<=8)  return y*4+1;
+  if(mo>=9 && mo<=11) return y*4+2;
+  return (mo===12 ? y : y-1)*4 + 3;      // 1·2월은 직전 해 겨울
+}
+function ltSemRankOfId(id){
+  const m=String(id||'').match(/sem_(\d{4})_(spring|summer|fall|winter)/); if(!m) return null;
+  return (+m[1])*4 + {spring:0,summer:1,fall:2,winter:3}[m[2]];
+}
+/* '아직 결과가 안 정해진 예약'과 '이미 정해진 예약'을 갈라 놓는다.
+
+   ── 왜 그냥 '대기'(pending)까지 보나
+   분원은 대개 시험 결과만 넣고 등록 여부는 손대지 않는다 — '대기'인 채로 둔다.
+   그 학생이 실제로 와서 신규생으로 등록해도 예약이 '대기'로 남으면
+   레벨테스트 등록률이 실제보다 계속 낮게 나온다. 그래서 '다음학기 대기'뿐 아니라
+   손 안 댄 '대기'도 자동 반영 대상으로 본다.
+
+   ── 왜 기간을 자르나
+   몇 학기 전에 보고 흐지부지된 예약까지 끌어다 붙이면, 엉뚱한 시험이
+   이 학기 전형으로 잡혀 등록률이 부풀려진다. 그래서 손 안 댄 '대기'는
+   '이 학기에 본 시험'과 '직전 학기에 본 시험'까지만 본다.
+   ('다음학기 대기'는 분원이 직접 오기로 약속받은 건이라 기간을 안 자른다)
+
+   ── 왜 settled 를 따로 빼나
+   이미 결과가 정해진 예약이 있는 학생은 아예 손대지 않는다.
+   동명이인일 때 엉뚱한 사람의 예약을 끌어다 붙이는 걸 막는 안전장치다. */
+function ltSplit(list, semId){
+  const target=ltSemRankOfId(semId);
+  const inWindow = x =>{
+    const ex=ltSemRankOfDate(x.reserved_date);
+    return (target!=null && ex!=null) && (ex===target || ex===target-1);
+  };
   return {
-    waiting: list.filter(x=> x.enrolled==='waiting_next'),
+    waiting: list.filter(x=> x.enrolled==='waiting_next'
+                          || ((!x.enrolled || x.enrolled==='pending') && inWindow(x))),
     settled: list.filter(x=> x.enrolled && x.enrolled!=='waiting_next' && x.enrolled!=='pending')
   };
 }
@@ -5447,28 +5483,37 @@ function ltMatchWaiting(list, stu){
   });
   return narrowed.length ? narrowed : cand;
 }
-async function ltSetEnrolled(resId, semId){
-  const { error }=await sb.from('level_test_reservations')
-    .update({ enrolled:'enrolled', wait_semester:semId, not_enrolled_reason:null })
-    .eq('id', resId);
+/* wait_semester(대기 학기)는 '대기를 거쳐서 온 학생'에게만 남긴다.
+   같은 학기에 시험 보고 그 학기에 바로 등록한 학생까지 '대기 → 가을 등록'으로 적으면
+   거치지도 않은 대기를 거친 것처럼 보이고, 전형 현황(=다음 학기 모집)에도 잘못 끼어든다. */
+async function ltSetEnrolled(res, semId){
+  const patch={ enrolled:'enrolled', not_enrolled_reason:null };
+  const ex=ltSemRankOfDate(res.reserved_date), tg=ltSemRankOfId(semId);
+  const wentThroughWait = (res.enrolled==='waiting_next') || !!res.wait_semester
+                          || (ex!=null && tg!=null && ex<tg);
+  if(wentThroughWait) patch.wait_semester=semId;
+  const { error }=await sb.from('level_test_reservations').update(patch).eq('id', res.id);
   if(error) throw error;
 }
 /* 한 명 등록했을 때 — 후보가 딱 하나면 바로, 둘 이상이면 고르게 한다 */
 async function ltMarkEnrolled(brId, semId, stu){
   try{
-    const {waiting, settled}=ltSplit(await ltFetchAll(brId));
+    const {waiting, settled}=ltSplit(await ltFetchAll(brId), semId);
     if(!waiting.length) return {done:0};
     if(ltMatchWaiting(settled, stu).length) return {done:0};   // 이미 결과가 정해진 학생
     const cand=ltMatchWaiting(waiting, stu);
-    if(cand.length===1){ await ltSetEnrolled(cand[0].id, semId); return {done:1}; }
+    if(cand.length===1){ await ltSetEnrolled(cand[0], semId); return {done:1}; }
     if(cand.length>1)  return {done:0, ambiguous:cand};
     return {done:0};
   }catch(e){ console.warn('레벨테스트 예약 등록완료 처리 건너뜀', e); return {done:0}; }
 }
+let _ltPickCand=[];   // 팝업에 띄운 후보 (id만 넘기면 예약 내용을 잃어버려서 들고 있는다)
 function ltPickWaitingModal(cand, semId, stu){
+  _ltPickCand=cand;
   const semNm=(db.semesters.find(x=>x.id===semId)||{}).name||semId;
   const rows=cand.map(x=>{
-    const meta=[x.school, x.grade, x.parent_phone, String(x.reserved_date||'').slice(0,10)+' 응시']
+    const st = x.enrolled==='waiting_next' ? '다음학기 대기' : '대기';
+    const meta=[x.school, x.grade, x.parent_phone, String(x.reserved_date||'').slice(0,10)+' 응시 · '+st]
       .filter(Boolean).map(esc).join(' · ');
     return `<button class="btn" style="width:100%;text-align:left;margin-top:8px;padding:11px 13px;line-height:1.6"
       onclick="ltPickWaitingPick('${x.id}','${semId}')">
@@ -5489,13 +5534,14 @@ function ltPickWaitingModal(cand, semId, stu){
     <div class="modal-foot"><button class="btn" onclick="closeModal()">닫기 (그냥 두기)</button></div>`);
 }
 async function ltPickWaitingPick(resId, semId){
-  try{ await ltSetEnrolled(resId, semId); closeModal(); toast('레벨테스트 예약을 등록완료로 바꿨습니다','ok'); }
+  const res=_ltPickCand.find(x=>x.id===resId); if(!res) return;
+  try{ await ltSetEnrolled(res, semId); closeModal(); toast('레벨테스트 예약을 등록완료로 바꿨습니다','ok'); }
   catch(e){ console.error('레벨테스트 등록완료 실패', e); toast('레벨테스트 예약 변경 실패','err'); }
 }
 /* 전체명단 업로드 뒤 한꺼번에 — 애매한 건 손대지 않는다 */
 async function ltSyncEnrolledBulk(brId, semId){
   try{
-    const {waiting, settled}=ltSplit(await ltFetchAll(brId));
+    const {waiting, settled}=ltSplit(await ltFetchAll(brId), semId);
     if(!waiting.length) return 0;
     const recs=(db.semesterRecords||[]).filter(r=> r.branchId===brId && r.semesterId===semId
       && r.status==='active' && (r.kind||'regular')!=='exam' && (r.origin==='new'||r.origin==='return'));
@@ -5506,7 +5552,7 @@ async function ltSyncEnrolledBulk(brId, semId){
       const cand=ltMatchWaiting(waiting.filter(x=>!used.has(x.id)), stu);
       if(cand.length!==1) continue;                        // 동명이인 등 애매하면 건드리지 않는다
       used.add(cand[0].id);
-      await ltSetEnrolled(cand[0].id, semId); n++;
+      await ltSetEnrolled(cand[0], semId); n++;
     }
     return n;
   }catch(e){ console.warn('레벨테스트 예약 일괄 동기화 건너뜀', e); return 0; }
