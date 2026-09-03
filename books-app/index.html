@@ -5546,8 +5546,14 @@ async function loadFinanceSummary(){
   // 학기 필터 초기화
   var semSel=document.getElementById('finance-semester');
   if(semSel&&semSel.options.length<=1){
-    var semList=await sbGet('students','select=semester&order=semester.desc');
-    var sems=[...new Set(semList.map(function(r){return r.semester;}).filter(Boolean))];
+    var semList1=await sbGet('students','select=semester&order=semester.desc');
+    var semList2=await sbGet('semesters','select=name&order=created_at.desc');
+    var semList3=await sbGet('sales_history','select=semester&order=semester.desc&type=eq.입고');
+    var sems=[...new Set([
+      ...semList1.map(function(r){return r.semester;}),
+      ...semList2.map(function(r){return r.name;}),
+      ...semList3.map(function(r){return r.semester;})
+    ].filter(Boolean))].sort(function(a,b){return b.localeCompare(a,'ko');});
     sems.forEach(function(s){var o=document.createElement('option');o.value=s;o.textContent=s;semSel.appendChild(o);});
   }
   var selectedSem=semSel?semSel.value:'';
