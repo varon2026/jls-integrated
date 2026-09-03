@@ -605,6 +605,48 @@ function lockedPastToast(){
 /* 지난 학기 잠금 해제 / 다시 잠그기 (이 세션 한정 — 새로고침하면 자동 재잠금) */
 /* 지난 학기 잠금 해제 권한 — 서수원분원 엄윤경 대리(로그인 아이디 '엄윤경')만. 어드민 포함 그 외 전원 불가. */
 function canUnlockPast(){ return !!(session && session.username==='엄윤경'); }
+/* ── 분원 전환 (운영 담당자 전용) ──────────────────────────────────────────
+   지난 학기 잠금을 풀 수 있는 사람은 한 명인데 그 계정이 한 분원에 묶여 있어서,
+   다른 분원의 지난 학기를 손볼 방법이 아예 없었다. 그 계정에서만 분원을 바꿀 수 있게 한다.
+   바꾼 분원은 이 브라우저 세션에서만 유효하고, 새로고침하면 원래 분원으로 돌아온다. */
+let _opHomeBranch;
+function opHomeBranchId(){
+  if(_opHomeBranch===undefined) _opHomeBranch = (session && session.branchId) || null;
+  return _opHomeBranch;
+}
+function buildOpBranchPick(){
+  const box=el('opBranchPick'), sel=el('opBranchSelect');
+  if(!box||!sel) return;
+  if(!canUnlockPast() || session.role!=='branch'){ box.style.display='none'; return; }
+  const home=opHomeBranchId();
+  const list=(db.branches||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
+  box.style.display='flex';
+  sel.innerHTML=list.map(b=>`<option value="${b.id}">${esc(b.name)}${b.id===home?' (내 분원)':''}</option>`).join('');
+  sel.value=session.branchId;
+  box.classList.toggle('away', session.branchId!==home);
+  sel.onchange=()=> setOpBranch(sel.value);
+}
+function setOpBranch(bid){
+  if(!canUnlockPast()) return;
+  const home=opHomeBranchId();
+  const doSwitch=()=>{
+    // 세션 저장소는 안 건드린다 → 새로고침하면 원래 분원으로 돌아온다
+    session.branchId=bid; state.viewBranchId=null; state.migrationMode=false;
+    const cur=currentSemester();
+    if(!(db.semesterRecords||[]).some(r=>r.branchId===bid && r.semesterId===state.semId)){
+      if((db.semesters||[]).some(x=>x.id===cur.id)) state.semId=cur.id;
+    }
+    buildShell();
+    if(location.hash==='#/branch') render(); else go('branch');   // 해시가 그대로면 hashchange 가 안 난다
+    toast((getBranch(bid)||{}).name+' 로 전환했어요','ok');
+  };
+  if(bid===home){ doSwitch(); return; }
+  openConfirm('다른 분원으로 전환할까요?',
+    `${(getBranch(bid)||{}).name} 의 자료를 보고 고칠 수 있게 됩니다.\n`
+    +'여기서 하는 등록·삭제·업로드는 모두 그 분원 것으로 저장됩니다.\n\n'
+    +'(새로고침하면 내 분원으로 돌아옵니다)',
+    ()=>{ closeModal(); doSwitch(); }, {yesLabel:'전환', danger:false});
+}
 function unlockPast(){
   if(!canUnlockPast()){
     openConfirm('권한 없음','지난 학기 잠금 해제는 서수원분원 엄윤경 대리 계정에서만 가능합니다.', ()=>closeModal(), {yesLabel:'확인', danger:false});
@@ -1422,6 +1464,7 @@ function buildShell(){
   el('sbUserRole').textContent = session.username;
 
   // 학기 선택 — 분원 계정만 '다음 학기 추가' 옵션 노출 (관리자·선생님은 보기 전용)
+  buildOpBranchPick();
   const sel = el('semSelect');
   const isBranch = session.role==='branch';
   // 분원 계정: 자기 분원이 실제 쓰는 학기(데이터 있는 학기) + 현재 선택 + 오늘 학기만 표시 (다른 분원이 만든 빈 학기는 안 보임)

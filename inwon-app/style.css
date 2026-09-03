@@ -112,6 +112,10 @@ a{color:inherit;text-decoration:none}
 .crumbs .c-cur{color:var(--ink);font-weight:400}
 .topbar-spacer{flex:1}
 .sem-pick{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2)}
+/* 분원 전환(운영 담당자 전용) — 남의 분원을 보고 있다는 걸 한눈에 알아채야 한다 */
+.sem-pick.op-br{margin-right:10px}
+.sem-pick.op-br.away span{color:var(--warn);font-weight:800}
+.sem-pick.op-br.away select{border-color:var(--warn);color:var(--warn);font-weight:800;background:var(--warn-soft)}
 .sem-del{display:none;align-items:center;justify-content:center;width:30px;height:30px;
   border:1px solid var(--line);border-radius:9px;background:var(--surface);cursor:pointer;
   font-size:13px;transition:.14s;padding:0}
