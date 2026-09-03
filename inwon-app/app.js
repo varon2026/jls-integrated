@@ -4429,6 +4429,13 @@ const RE_ORIGIN_NEW = /신규|신입/;
 const RE_ORIGIN_RETURN = /복귀|재등록|재입학|재입회/;
 /* HC(해피콜) 대상은 신규·복귀생. origin과 절대 어긋나지 않게 여기서만 만든다. */
 function originTargetType(origin){ return (origin==='new'||origin==='return') ? 'HCMC' : 'MC'; }
+/* 담임 칸에 두 명 이상이 적혔는지 — 쉼표·슬래시 같은 '사람을 나눈 기호'로만 판정한다.
+   이름 안의 공백('Ashley 함채연')이나 괄호는 한 사람이므로 건드리지 않는다. */
+function teacherHasMany(t){
+  const s=String(t||'').trim(); if(!s) return false;
+  if(/[,\/&·・ㆍ|＋+;]/.test(s)) return true;
+  return /\s(및|그리고)\s/.test(s);
+}
 const ROSTER_HDR = {
   name:['이름','학생명','성명'],
   code:['회원코드','코드','학생코드'],
@@ -4463,6 +4470,34 @@ function importRoster(file, branchId, semId, opts){
     if(!headerRow){ toast('이름·회원코드 열을 찾지 못했습니다','err'); return; }
     if(!dataRows.length){ toast('데이터가 없습니다','err'); return; }
     const rows = [headerRow, ...dataRows];   // 기존 처리 로직과 호환 (rows[0]=헤더)
+
+    /* 담임 칸에 두 명 이상 적힌 반은 업로드를 막는다.
+       (대강 들어간 선생님을 같이 적어 'David김동환, Diana권다은' 처럼 올리면
+        그 반이 통째로 새 담임 그룹이 되어 인원마감표·상담률이 둘로 쪼개진다) */
+    if(idx.teacher>=0){
+      const bad=[], seenBad=new Set();
+      dataRows.forEach(r=>{
+        const t=String(r[idx.teacher]||'').trim(); if(!t) return;
+        let cls = idx.cls>=0 ? String(r[idx.cls]||'').trim() : '';
+        cls = cls.replace(/^[★☆*※•·∘◦‣▪○●#@♡♥◆■□▶▷◀◁\s]+(?=\[)/,'');
+        if(!/^\[/.test(cls) && !cls.includes('내신')) return;   // 재원생 반만 본다 (셔틀 등 제외)
+        if(!teacherHasMany(t)) return;
+        const k=cls+'|'+t; if(seenBad.has(k)) return; seenBad.add(k);
+        bad.push({cls, t});
+      });
+      if(bad.length){
+        const list=bad.slice(0,10).map(b=>`  · ${b.t}   (${b.cls})`).join('\n')
+          + (bad.length>10?`\n  … 외 ${bad.length-10}개 반`:'');
+        openConfirm('업로드할 수 없습니다 — 담임이 두 명 이상',
+          `담임선생님 칸에 두 사람이 적힌 반이 ${bad.length}개 있습니다.\n\n${list}\n\n`
+          +'담임은 반마다 한 명만 적어주세요. 두 명이 적히면 그 반이 별개의 담임 그룹으로 잡혀\n'
+          +'인원마감표와 상담률이 둘로 쪼개집니다.\n\n'
+          +'대강·보조로 잠깐 들어가는 선생님은 적지 마시고, 원래 담임 이름만 남겨서\n'
+          +'엑셀을 고친 뒤 다시 올려주세요.',
+          ()=>closeModal(), {yesLabel:'확인', danger:false});
+        return;
+      }
+    }
     // 확인 팝업 — 파일명 + 예상 인원 미리보기 (고유 회원코드 기준, 셔틀/예시행 제외)
     const seenCodes = new Set();
     dataRows.forEach(r=>{
