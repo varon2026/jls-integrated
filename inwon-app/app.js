@@ -4748,7 +4748,9 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
       const semName = (db.semesters.find(s=>s.id===semId)||{}).name || semId;
       state.semId = semId; // 판별된 학기로 자동 전환
       state.addSemesterMode = false; // 배너 해제
-      toast(`✅ ${semName}에 저장 · 정규 신규 ${added}, 갱신 ${updated}${examAdded?`, 내신반 ${examAdded}`:''}${excluded?`, 제외 ${excluded}`:''}${adoptedTmp?`, 회원코드 연결 ${adoptedTmp}`:''}`,'ok');
+      /* 명단에 올라온 신규생 중 레벨테스트 '대기'로 남아 있던 예약을 등록완료로 맞춘다 */
+      const ltN = await ltSyncEnrolledBulk(branchId, semId);
+      toast(`✅ ${semName}에 저장 · 정규 신규 ${added}, 갱신 ${updated}${examAdded?`, 내신반 ${examAdded}`:''}${excluded?`, 제외 ${excluded}`:''}${adoptedTmp?`, 회원코드 연결 ${adoptedTmp}`:''}${ltN?`, 레벨테스트 등록완료 ${ltN}`:''}`,'ok');
     } else {
       toast('❌ 저장 실패 — 다시 업로드해 주세요','err');
     }
@@ -5094,7 +5096,16 @@ const isTransferIn = el('nsTransferIn') ? el('nsTransferIn').checked : false;
   db.studentMovements.push({id:uid('mv'),studentId:stu.id,branchId,semesterId:semId,type:'new',date:enrollDate,memo:nsMemo});
 // 등록한 학생 정보를 문자 카드에 복원하기 위해 저장 (리렌더 후에도 문자 유지)
   msgState.locked = readNsForm();
-  saveDB(); toast(`${name} ${isTransferIn?'전입':'신규생'} 등록 완료 — 오른쪽에서 안내 문자를 복사하세요`,'ok'); render();
+  toast(`${name} ${isTransferIn?'전입':'신규생'} 등록 완료 — 오른쪽에서 안내 문자를 복사하세요`,'ok');
+  /* 레벨테스트에서 '대기'로 잡아둔 예약이 있으면 자동으로 등록완료로 바꾼다.
+     (분원이 손으로 등록완료를 찍다가 명단에 없는 채로 남는 사고가 반복됐다) */
+  saveDB().then(async ok=>{
+    if(!ok) return;
+    const res=await ltMarkEnrolled(branchId, semId, stu);
+    if(res.ambiguous) ltPickWaitingModal(res.ambiguous, semId, stu);
+    else if(res.done) toast(`레벨테스트 예약도 '등록완료'로 바꿨습니다 ✓`,'ok');
+  });
+  render();
 }
 
 /* 퇴원 처리 — 이름/코드 검색 결과 렌더 (동명이인 구분 위해 코드·반·담임 표시) */
@@ -5371,6 +5382,134 @@ async function ltMarkNotEnrolled(brId, semId, stu){
     const { error }=await q;
     if(error) throw error;
   }catch(e){ console.warn('레벨테스트 예약 미등록 처리 건너뜀', e); }
+}
+
+/* ============================================================================
+   레벨테스트 '대기' 예약 → 실제로 등록되면 자동으로 '등록완료'
+   ----------------------------------------------------------------------------
+   왜 필요한가
+     10월에 오기로 한 학생은 9월 시점에 등록도 미등록도 아닌 '대기'다.
+     그런데 실제로 와서 신규생으로 등록해도 레벨테스트 예약은 계속 '대기'로 남아서,
+     어드민 전형 현황의 등록률이 실제보다 낮게 나왔다. 반대로 미리 '등록완료'로
+     찍어두면 학기 명단에는 아무것도 없어서 '명단 누락'으로 떴다. (운정2 한혜수 건)
+     그래서 등록완료는 사람이 찍는 게 아니라, 실제 등록이 일어날 때 자동으로 붙인다.
+
+   사람을 어떻게 맞추나
+     예약에는 회원코드가 없다(IMS 임시등록 중단). 그래서 이름으로 후보를 모으고,
+     학교·학년이 양쪽에 다 있는데 서로 다르면 다른 사람으로 보고 뺀다.
+     그래도 둘 이상 남으면 동명이인일 수 있으니 사람이 고르게 한다.
+     (전체명단 일괄 업로드에서는 물어볼 수 없으니 그냥 건너뛴다 — 잘못 붙이는 것보다 낫다)
+   ============================================================================ */
+function ltNorm(v){ return String(v||'').replace(/\s/g,'').toLowerCase(); }
+/* '초등5' '초5' '5' → '초5' 처럼 같은 것으로 본다 */
+function ltGradeKey(g){
+  g=String(g||'').trim(); let m;
+  if(m=g.match(/초\s*등?\s*(\d)/)) return '초'+m[1];
+  if(m=g.match(/중\s*등?\s*(\d)/)) return '중'+m[1];
+  if(m=g.match(/고\s*등?\s*(\d)/)) return '고'+m[1];
+  if(m=g.match(/^(\d)$/))          return '초'+m[1];
+  return ltNorm(g);
+}
+/* '나루초' '나루초등학교' → '나루' */
+function ltSchoolKey(v){ return ltNorm(v).replace(/(초등학교|중학교|고등학교|초교|중교|초등|중등|고등|초|중|고)$/,''); }
+async function ltFetchAll(brId){
+  const { data, error } = await sb.from('level_test_reservations')
+    .select('id,student_code,student_name,school,grade,parent_phone,reserved_date,wait_semester,enrolled')
+    .eq('branch_id', brId);
+  if(error) throw error;
+  return data||[];
+}
+/* '대기'인 예약과, 이미 결과가 정해진 예약을 갈라 놓는다.
+   결과가 이미 정해진 예약이 있는 학생은 손대지 않는다 —
+   동명이인이 있을 때 엉뚱한 사람의 대기 예약을 끌어다 붙이는 걸 막는 안전장치다. */
+function ltSplit(list){
+  return {
+    waiting: list.filter(x=> x.enrolled==='waiting_next'),
+    settled: list.filter(x=> x.enrolled && x.enrolled!=='waiting_next' && x.enrolled!=='pending')
+  };
+}
+function ltMatchWaiting(list, stu){
+  const code=String((stu&&stu.code)||'').trim();
+  if(code && !/^임시-/.test(code)){
+    const byCode=list.filter(x=> String(x.student_code||'').trim()===code);
+    if(byCode.length) return byCode;
+  }
+  const nm=ltNorm(stu&&stu.name);
+  if(!nm) return [];
+  const cand=list.filter(x=> ltNorm(x.student_name)===nm);
+  if(cand.length<2) return cand;
+  const sk=ltSchoolKey(stu.school), gk=ltGradeKey(stu.grade);
+  const narrowed=cand.filter(x=>{
+    const xs=ltSchoolKey(x.school), xg=ltGradeKey(x.grade);
+    if(sk && xs && sk!==xs) return false;
+    if(gk && xg && gk!==xg) return false;
+    return true;
+  });
+  return narrowed.length ? narrowed : cand;
+}
+async function ltSetEnrolled(resId, semId){
+  const { error }=await sb.from('level_test_reservations')
+    .update({ enrolled:'enrolled', wait_semester:semId, not_enrolled_reason:null })
+    .eq('id', resId);
+  if(error) throw error;
+}
+/* 한 명 등록했을 때 — 후보가 딱 하나면 바로, 둘 이상이면 고르게 한다 */
+async function ltMarkEnrolled(brId, semId, stu){
+  try{
+    const {waiting, settled}=ltSplit(await ltFetchAll(brId));
+    if(!waiting.length) return {done:0};
+    if(ltMatchWaiting(settled, stu).length) return {done:0};   // 이미 결과가 정해진 학생
+    const cand=ltMatchWaiting(waiting, stu);
+    if(cand.length===1){ await ltSetEnrolled(cand[0].id, semId); return {done:1}; }
+    if(cand.length>1)  return {done:0, ambiguous:cand};
+    return {done:0};
+  }catch(e){ console.warn('레벨테스트 예약 등록완료 처리 건너뜀', e); return {done:0}; }
+}
+function ltPickWaitingModal(cand, semId, stu){
+  const semNm=(db.semesters.find(x=>x.id===semId)||{}).name||semId;
+  const rows=cand.map(x=>{
+    const meta=[x.school, x.grade, x.parent_phone, String(x.reserved_date||'').slice(0,10)+' 응시']
+      .filter(Boolean).map(esc).join(' · ');
+    return `<button class="btn" style="width:100%;text-align:left;margin-top:8px;padding:11px 13px;line-height:1.6"
+      onclick="ltPickWaitingPick('${x.id}','${semId}')">
+      <div style="font-weight:800">${esc(x.student_name||'')}</div>
+      <div style="font-size:12px;color:var(--ink-2)">${meta||'추가 정보 없음'}</div></button>`;
+  }).join('');
+  openModal(`
+    <div class="modal-head"><div><h3>같은 이름의 대기 학생이 여러 명입니다</h3></div>
+      <button class="modal-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <p style="font-size:13.5px;color:var(--ink-2);line-height:1.7">
+        방금 등록한 <b>${esc((stu&&stu.name)||'')}</b> 학생이 아래 중 누구인가요?<br>
+        고르면 그 레벨테스트 예약이 <b>${esc(semNm)} 등록완료</b>로 바뀝니다.<br>
+        <span style="color:var(--ink-3)">모르겠으면 닫아도 됩니다 — 등록 자체는 이미 끝났습니다.</span>
+      </p>
+      ${rows}
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">닫기 (그냥 두기)</button></div>`);
+}
+async function ltPickWaitingPick(resId, semId){
+  try{ await ltSetEnrolled(resId, semId); closeModal(); toast('레벨테스트 예약을 등록완료로 바꿨습니다','ok'); }
+  catch(e){ console.error('레벨테스트 등록완료 실패', e); toast('레벨테스트 예약 변경 실패','err'); }
+}
+/* 전체명단 업로드 뒤 한꺼번에 — 애매한 건 손대지 않는다 */
+async function ltSyncEnrolledBulk(brId, semId){
+  try{
+    const {waiting, settled}=ltSplit(await ltFetchAll(brId));
+    if(!waiting.length) return 0;
+    const recs=(db.semesterRecords||[]).filter(r=> r.branchId===brId && r.semesterId===semId
+      && r.status==='active' && (r.kind||'regular')!=='exam' && (r.origin==='new'||r.origin==='return'));
+    const used=new Set(); let n=0;
+    for(const r of recs){
+      const stu=getStudent(r.studentId); if(!stu) continue;
+      if(ltMatchWaiting(settled, stu).length) continue;   // 이미 결과가 정해진 학생은 손대지 않는다
+      const cand=ltMatchWaiting(waiting.filter(x=>!used.has(x.id)), stu);
+      if(cand.length!==1) continue;                        // 동명이인 등 애매하면 건드리지 않는다
+      used.add(cand[0].id);
+      await ltSetEnrolled(cand[0].id, semId); n++;
+    }
+    return n;
+  }catch(e){ console.warn('레벨테스트 예약 일괄 동기화 건너뜀', e); return 0; }
 }
 function convertTransferInToNew(recId){
   const rec=db.semesterRecords.find(r=>r.id===recId);

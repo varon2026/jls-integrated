@@ -63,14 +63,22 @@ function resSemIdOf(r){
   return semesterOfDate(new Date(+m[1], +m[2]-1, +m[3])).id;
 }
 function resNextSemId(r){ return nextSemId(resSemIdOf(r)); }
-/* 그 예약 기준 대기 학기 선택지 (이미 저장된 학기가 밖에 있으면 앞에 끼워 넣는다) */
+/* 그 예약 기준 대기 학기 선택지 (이미 저장된 학기가 밖에 있으면 앞에 끼워 넣는다)
+   ★ 맨 앞은 '시험 본 학기' 자신이다.
+     9월(가을)에 시험 보고 10월에 들어오기로 한 학생처럼, 같은 학기 안에서
+     다음 달에 오는 경우가 있다. 예전엔 다음 학기부터만 고를 수 있어서
+     이런 학생을 어쩔 수 없이 '등록완료'로 찍었고, 그 학기 명단에는 아무것도
+     안 생기니 어드민 전형 현황에서 영영 '명단 누락'으로 떴다. */
 function waitSemListFor(r){
-  const out=[]; let id=resSemIdOf(r);
+  let id=resSemIdOf(r);
+  const out=[{id, name:semNameFromId(id), same:true}];
   for(let i=0;i<4;i++){ id=nextSemId(id); out.push({id, name:semNameFromId(id)}); }
   const cur = r && r.wait_semester;
   if(cur && !out.some(x=>x.id===cur)) out.unshift({id:cur, name:semNameFromId(cur)});
   return out;
 }
+/* 같은 학기 대기는 '다음 달 입학'이라는 걸 글자로 알려준다 */
+function waitSemOptLabel(x){ return x.same ? (x.name+' (같은 학기 · 다음 달 입학)') : x.name; }
 
 /* ---------- 데이터 레이어 (기존 포팅, 읽기 전용) ---------- */
 const TABLES = [
@@ -2093,7 +2101,7 @@ function waitAlertBanner(){
     const meta=[r.school, gradeTxt(r.grade)].filter(Boolean).join(' · ');
     /* 학기를 여기서 바로 고칠 수 있게 드롭다운으로 둔다 — 잘못 잡힌 걸 발견하는 자리가 여기다 */
     const semSel=`<select class="wa-sem" onchange="setWaitSemester('${r.id}',this.value)" title="대기 학기">`
-      + waitSemListFor(r).map(x=>`<option value="${x.id}" ${x.id===wsem?'selected':''}>${esc(x.name)}</option>`).join('')
+      + waitSemListFor(r).map(x=>`<option value="${x.id}" ${x.id===wsem?'selected':''}>${esc(waitSemOptLabel(x))}</option>`).join('')
       + `</select>`;
     return `<div class="wa-item" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span class="wa-nm">${esc(r.student_name||'')}</span>
@@ -2236,8 +2244,7 @@ async function enrollNewFromRes(r, semId, enrollDate, pickCls){
 function waitRegisterOpen(resId){
   const r=reservations.find(x=>x.id===resId); if(!r) return;
   const semId=r.wait_semester||resNextSemId(r);
-  const yms=(semesterYM(semId)||[]).map(p=>p.ym);
-  const defDate=(yms[0]||'')+'-01';
+  const defDate=waitRegDefaultDate(r, semId);
   // 이 학기(가을)에 이미 만들어진 반 목록 (전체명단 업로드됐으면 채워짐)
   const cls=[...new Map((db.semesterRecords||[])
     .filter(x=>x.branchId===session.branchId && x.semesterId===semId && x.status==='active' && (x.kind||'regular')!=='exam' && x.className && x.className!=='미배정')
@@ -2258,6 +2265,18 @@ function waitRegisterOpen(resId){
       <button class="btn-sm" style="border:1px solid #dcdce6;background:#fff;border-radius:9px;padding:8px 14px;cursor:pointer" onclick="waitModalClose()">취소</button>
       <button class="btn-sm" style="border:1px solid #1f8a95;background:#1f8a95;color:#fff;border-radius:9px;padding:8px 14px;font-weight:700;cursor:pointer" onclick="waitRegisterConfirm('${resId}')">등록</button>
     </div>`);
+}
+/* 대기→등록 팝업의 기본 입학일.
+   같은 학기 안에서 기다린 학생(9월 시험 → 10월 입학)은 학기 첫날이 아니라
+   '시험 본 달의 다음 달 1일'이 맞다. 학기 첫날로 박아두면 9월 신규로 잡혀
+   인원마감표 월초·신규가 통째로 어긋난다. */
+function waitRegDefaultDate(r, semId){
+  const yms=(semesterYM(semId)||[]).map(p=>p.ym);
+  if(!yms.length) return new Date().toISOString().slice(0,10);
+  const ex=String((r&&r.reserved_date)||'').slice(0,7);
+  const i=yms.indexOf(ex);
+  if(i>=0) return (yms[i+1]||yms[i])+'-01';
+  return yms[0]+'-01';
 }
 async function waitRegisterConfirm(resId){
   if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
@@ -2404,7 +2423,7 @@ function semChipEdit(id){
   if(!host||!r) return;
   const wn = (r.enrolled==='waiting_next');   // 대기 중이면 '대기 안 거침'은 말이 안 된다
   const opts=(wn?[]:[['', semNameFromId(resSemIdOf(r))+' 등록 (대기 안 거침)']])
-    .concat(waitSemListFor(r).map(x=>[x.id, wn ? (x.name+' 입학 대기') : ('대기 → '+x.name+' 등록')]));
+    .concat(waitSemListFor(r).map(x=>[x.id, wn ? (waitSemOptLabel(x)+' 입학 대기') : ('대기 → '+waitSemOptLabel(x)+' 등록')]));
   host.innerHTML = `<select class="sem-sel" onchange="setWaitSemester('${id}',this.value)" onblur="semChipDone('${id}')">`
     + opts.map(o=>`<option value="${o[0]}" ${o[0]===(r.wait_semester||'')?'selected':''}>${esc(o[1])}</option>`).join('')
     + `</select>`;
@@ -3546,37 +3565,100 @@ async function submitReservation(){
   if(created){ bookState.adding=false; toast('예약이 등록됐어요 ✓'); renderWonmuBody(); if(created.id) openSms(created.id); }
 }
 async function setResStatus(id,st){ const ok=await updateReservation(id,{status:st}); if(ok){ toast('상태 변경됨 ✓'); renderWonmuBody(); } }
-/* '등록' 버튼은 이번 학기 등록이라는 뜻이다. 다음 학기에 올 학생을 여기서 등록하면
-   원무 대기명단에도, 다음 학기 신규생 명단에도 영영 안 들어간다.
-   그래서 누를 때마다 어느 학기인지 반드시 고르게 한다. */
+/* ────────────────────────────────────────────────────────────────────────────
+   '등록완료'가 무슨 뜻인지 — 이 구분이 여러 번 사고를 냈다
+   ----------------------------------------------------------------------------
+   등록완료 = 반배정·결제까지 끝나서 그 학기 신규생 명단에 들어가 있는 상태.
+   "10월에 올게요" 라고 약속만 한 학생은 등록도 미등록도 아닌 '대기'다.
+
+   예전엔 이 구분이 없어서, 10월에 오기로 한 학생을 분원이 '등록완료'로 찍었다.
+   그러면 학기 명단에는 아무것도 안 생기니까 인원 현황·반배정표 어디에도 안 나오고,
+   어드민 전형 현황에서는 영영 '명단 누락'으로 떴다. (운정2 한혜수 건)
+   그래서 지금은 ① 학기가 아니라 '지금 어떤 상태인지'를 먼저 묻고,
+   ② 명단에 없는데 등록완료로 두려 하면 자동으로 대기로 되돌린다.
+   ──────────────────────────────────────────────────────────────────────────── */
+/* 그 학생이 그 학기 신규생 명단에 실제로 들어와 있는가 (등록완료의 유일한 근거) */
+function resInRoster(r, semId){
+  if(!r || !semId) return false;
+  return !!jhRecOf({ code:(r.student_code||''), name:(r.student_name||''), branchId:r.branch_id }, semId);
+}
 function resEnrollAsk(id){
   const r=reservations.find(x=>x.id===id); if(!r) return;
   if(!curCanEdit()){ toast('수정 권한이 없습니다','err'); return; }
-  const curNm=semNameFromId(state.semId), nxtNm=semNameFromId(nextSemId(state.semId));
-  const adm=isAdmRes(r);
-  const btn='width:100%;text-align:left;border-radius:12px;padding:13px 15px;cursor:pointer;font:inherit;margin-top:9px';
+  const list=waitSemListFor(r), defSem=r.wait_semester||resSemIdOf(r);
+  const adm=isAdmRes(r), nxtNm=semNameFromId(admSem());
+  const btn='width:100%;text-align:left;border-radius:12px;padding:13px 15px;font:inherit;margin-top:9px';
   waitModalOpen(
-    '<div style="font-weight:800;font-size:16.5px">'+esc(r.student_name||'학생')+' — 어느 학기 등록인가요?</div>'
-   +'<div style="font-size:12.5px;color:#7b7488;margin-top:4px">고른 학기에 따라 처리가 완전히 달라집니다.</div>'
+    '<div style="font-weight:800;font-size:16.5px">'+esc(r.student_name||'학생')+' — 지금 어떤 상태인가요?</div>'
+   +'<div style="font-size:12.5px;color:#7b7488;margin-top:4px">고른 쪽에 따라 처리가 완전히 달라집니다.</div>'
    +(adm?'<div style="margin-top:12px;background:#f0ebfe;color:#5b41b5;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700">이 예약은 <b>'+esc(nxtNm)+' 전형</b>으로 표시돼 있습니다.</div>':'')
-   +'<button style="'+btn+';border:1.5px solid #8b6ee8;background:#f6f3fc" onclick="resEnrollNext(\''+r.id+'\')">'
-     +'<div style="font-size:14px;font-weight:800;color:#5b41b5">'+esc(nxtNm)+'에 등록합니다</div>'
-     +'<div style="font-size:11.5px;color:#7b7488;line-height:1.6;margin-top:3px">'
-     +'<b>다음학기 대기</b>로 표시됩니다. 원무 › 레벨테스트 위쪽 <b>대기명단</b>에 뜨고,'
-     +' 반배정이 끝나면 거기서 <b>'+esc(nxtNm)+' 등록</b>을 눌러야 인원 현황 신규생으로 들어갑니다.</div></button>'
-   +'<button style="'+btn+';border:1px solid #e2dcf2;background:#fff" onclick="resEnrollNow(\''+r.id+'\')">'
-     +'<div style="font-size:14px;font-weight:800;color:#3a3742">'+esc(curNm)+'에 등록했습니다</div>'
+   +'<button style="'+btn+';border:1px solid #e2dcf2;background:#fff;text-align:left;cursor:pointer" onclick="resEnrollNow(\''+r.id+'\')">'
+     +'<div style="font-size:14px;font-weight:800;color:#3a3742">이미 등록했습니다</div>'
      +'<div style="font-size:11.5px;color:#a9a2b6;line-height:1.6;margin-top:3px">'
-     +'이번 학기 등록으로만 잡힙니다. <b>'+esc(nxtNm)+' 신규생 명단에는 들어가지 않습니다.</b></div></button>'
+     +'반배정·결제까지 끝나서 <b>학기 명단에 들어가 있는</b> 학생입니다.</div></button>'
+   +'<div style="'+btn+';border:1.5px solid #8b6ee8;background:#f6f3fc">'
+     +'<div style="font-size:14px;font-weight:800;color:#5b41b5">아직 안 왔습니다 — 대기</div>'
+     +'<div style="font-size:11.5px;color:#7b7488;line-height:1.6;margin-top:3px">'
+     +'오기로 <b>약속만</b> 한 상태입니다. 언제 들어오나요?</div>'
+     +'<div style="display:flex;gap:7px;margin-top:9px">'
+       +'<select id="reWaitSem" style="flex:1;min-width:0;height:36px;border:1px solid #d9d2ee;border-radius:9px;padding:0 8px;font:inherit;font-size:12.5px;background:#fff">'
+       + list.map(x=>'<option value="'+x.id+'"'+(x.id===defSem?' selected':'')+'>'+esc(waitSemOptLabel(x))+'</option>').join('')
+       +'</select>'
+       +'<button style="flex:none;border:1px solid #8b6ee8;background:#8b6ee8;color:#fff;border-radius:9px;padding:0 15px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:800" onclick="resEnrollWait(\''+r.id+'\')">대기로 두기</button>'
+     +'</div>'
+     +'<div style="font-size:11px;color:#a9a2b6;line-height:1.6;margin-top:8px">'
+     +'실제로 오면 학사관리 <b>학생관리 › 신규생 추가</b>로 등록하세요 — 이 예약이 <b>자동으로 등록완료</b>가 됩니다. '
+     +'(위쪽 <b>대기명단</b>에서 등록해도 똑같습니다)</div>'
+   +'</div>'
    +'<div style="display:flex;justify-content:flex-end;margin-top:14px">'
      +'<button style="border:1px solid #e2dcf2;background:#fff;border-radius:9px;padding:8px 14px;cursor:pointer;font:inherit;font-size:12.5px" onclick="waitModalClose()">취소</button></div>');
 }
-async function resEnrollNext(id){
+/* 옛 이름 — 다른 데서 부를 수 있어 남겨둔다 */
+async function resEnrollNext(id){ return resEnrollWait(id); }
+async function resEnrollWait(id){
+  const sel=$('reWaitSem'); const pick=sel?sel.value:'';
   waitModalClose();
-  await setResEnrolledRaw(id,'waiting_next');
-  toast('다음학기 대기로 표시했습니다 — 반배정 후 대기명단에서 등록하세요');
+  const r=reservations.find(x=>x.id===id);
+  const sem=pick||(r&&r.wait_semester)||resNextSemId(r);
+  const patch={ enrolled:'waiting_next', wait_semester:sem, not_enrolled_reason:null };
+  if(r && (!r.status || r.status==='booked')) patch.status='attended';
+  const ok=await updateReservation(id, patch);
+  if(ok){ renderWonmuBody(); toast(semNameFromId(sem)+' 입학 대기로 표시했습니다 — 실제로 오면 신규생 등록만 하면 자동으로 등록완료가 됩니다'); }
 }
-async function resEnrollNow(id){ waitModalClose(); await setResEnrolledRaw(id,'enrolled'); }
+async function resEnrollNow(id){
+  waitModalClose();
+  const r=reservations.find(x=>x.id===id); if(!r) return;
+  const sem=r.wait_semester||resSemIdOf(r);
+  /* 명단에 없으면 등록완료일 수 없다 — 그대로 두면 전형 현황에서 '명단 누락'이 된다 */
+  if(!resInRoster(r, sem)){ resMissWarn(r, sem); return; }
+  await setResEnrolledRaw(id,'enrolled');
+}
+/* 명단에 없는데 등록완료로 두려 할 때 — 무엇이 문제인지 보여주고 고르게 한다 */
+function resMissWarn(r, semId){
+  const nm=semNameFromId(semId);
+  const b='border-radius:9px;padding:9px 15px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:800';
+  waitModalOpen(
+    '<div style="font-weight:800;font-size:16.5px;color:#b03a58">'+esc(nm)+' 명단에 이 학생이 없습니다</div>'
+   +'<div style="font-size:12.5px;color:#7b7488;line-height:1.85;margin-top:10px">'
+   +'<b>'+esc(r.student_name||'학생')+'</b> 학생이 '+esc(nm)+' 신규생 명단에 아직 없습니다.<br>'
+   +'‘등록완료’는 반배정·결제까지 끝나 명단에 올라온 상태를 뜻합니다.<br>'
+   +'이대로 두면 어드민 전형 현황에 <b>명단 누락</b>으로 계속 뜹니다.</div>'
+   +'<div style="margin-top:12px;background:#eef7f8;color:#1f6d75;border-radius:10px;padding:11px 13px;font-size:12px;font-weight:700;line-height:1.85">'
+   +'아직 안 온 학생이면 <b>대기로 두기</b>를 고르세요.<br>'
+   +'실제로 오면 학사관리 <b>학생관리 › 신규생 추가</b>로 등록만 하면 이 예약이 자동으로 등록완료가 됩니다.</div>'
+   +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">'
+     +'<button style="'+b+';border:1px solid #e2dcf2;background:#fff;color:#7b7488;font-weight:600" onclick="resKeepEnrolled(\''+r.id+'\')">그래도 등록완료로 두기</button>'
+     +'<button style="'+b+';border:1px solid #8b6ee8;background:#8b6ee8;color:#fff" onclick="resWaitHere(\''+r.id+'\',\''+semId+'\')">대기로 두기</button></div>');
+}
+async function resWaitHere(id, semId){
+  waitModalClose();
+  const r=reservations.find(x=>x.id===id);
+  const patch={ enrolled:'waiting_next', wait_semester:semId, not_enrolled_reason:null };
+  if(r && (!r.status || r.status==='booked')) patch.status='attended';
+  const ok=await updateReservation(id, patch);
+  if(ok){ renderWonmuBody(); toast(semNameFromId(semId)+' 입학 대기로 표시했습니다'); }
+}
+async function resKeepEnrolled(id){ waitModalClose(); await setResEnrolledRaw(id,'enrolled'); }
 async function setResEnrolled(id,en){
   if(en==='enrolled'){ resEnrollAsk(id); renderWonmuBody(); return; }
   return setResEnrolledRaw(id,en);
@@ -3595,7 +3677,37 @@ async function setResEnrolledRaw(id,en){
   if(attendedOutcome && r && (!r.status || r.status==='booked')) patch.status='attended';
   const ok=await updateReservation(id,patch); if(ok){ toast('등록 여부 변경됨 ✓'); renderWonmuBody(); }
 }
-async function setWaitSemester(id,sem){ const ok=await updateReservation(id,{wait_semester:sem||null}); if(ok){ toast('대기 학기 저장됨 ✓'); renderWonmuBody(); } }
+async function setWaitSemester(id,sem){
+  const r=reservations.find(x=>x.id===id);
+  /* '등록완료'로 둔 채 학기만 앞으로 당겨두면 그 학기 명단에는 아무것도 안 생긴다.
+     한혜수 건이 정확히 이것이었다 — 8월에 시험 보고 10월에 오기로 했는데
+     등록완료 + 가을로 표시해서, 가을 명단에 없는 채 '명단 누락'으로 계속 떴다.
+     그래서 명단에 없으면 자동으로 '대기'로 되돌린다. */
+  if(r && r.enrolled==='enrolled' && sem && !resInRoster(r, sem)){
+    const ok=await updateReservation(id,{ enrolled:'waiting_next', wait_semester:sem, not_enrolled_reason:null });
+    if(ok){ renderWonmuBody(); resAutoWaitInfo(r, sem); }
+    return;
+  }
+  const ok=await updateReservation(id,{wait_semester:sem||null});
+  if(ok){ toast('대기 학기 저장됨 ✓'); renderWonmuBody(); }
+}
+/* 자동으로 대기로 돌렸다는 걸 반드시 알려준다 (모르고 지나가면 더 헷갈린다) */
+function resAutoWaitInfo(r, semId){
+  const nm=semNameFromId(semId);
+  const b='border-radius:9px;padding:9px 15px;cursor:pointer;font:inherit;font-size:12.5px';
+  waitModalOpen(
+    '<div style="font-weight:800;font-size:16.5px">'+esc(r.student_name||'학생')+' — <span style="color:#5b41b5">'+esc(nm)+' 입학 대기</span>로 바꿨습니다</div>'
+   +'<div style="font-size:12.5px;color:#7b7488;line-height:1.85;margin-top:10px">'
+   +esc(nm)+' 명단에 이 학생이 아직 없습니다.<br>'
+   +'‘등록완료’는 반배정·결제까지 끝나 명단에 올라온 상태를 뜻해서, 오기로 약속만 한 상태는 <b>대기</b>가 맞습니다.<br>'
+   +'등록완료로 두면 어드민 전형 현황에 <b>명단 누락</b>으로 계속 뜹니다.</div>'
+   +'<div style="margin-top:12px;background:#eef7f8;color:#1f6d75;border-radius:10px;padding:11px 13px;font-size:12px;font-weight:700;line-height:1.85">'
+   +'실제로 오면 학사관리 <b>학생관리 › 신규생 추가</b>로 등록하세요.<br>'
+   +'그러면 이 예약이 <b>자동으로 등록완료</b>가 됩니다. (위쪽 <b>대기명단</b>에서 등록해도 똑같습니다)</div>'
+   +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">'
+     +'<button style="'+b+';border:1px solid #e2dcf2;background:#fff;color:#7b7488" onclick="resKeepEnrolled(\''+r.id+'\')">아니요, 이미 등록했습니다</button>'
+     +'<button style="'+b+';border:1px solid #8b6ee8;background:#8b6ee8;color:#fff;font-weight:800" onclick="waitModalClose()">확인</button></div>');
+}
 async function saveResReason(id){ const el=$('bk_reason_'+id); const v=el?el.value.trim():''; const ok=await updateReservation(id,{not_enrolled_reason:v||null}); if(ok) toast('사유 저장됨 ✓'); }
 async function saveResInfo(id){
   const g=k=>{ const e=$(k+id); return e?e.value.trim():''; };
@@ -4119,7 +4231,7 @@ window.jhFixAsk=jhFixAsk; window.jhFixToNext=jhFixToNext; window.jhFixToCur=jhFi
 window.jhFixAllAsk=jhFixAllAsk; window.jhFixAllRun=jhFixAllRun;
 window.jhFixDate=jhFixDate; window.jhFixDateAll=jhFixDateAll;
 window.jhErrModal=jhErrModal;
-window.semChipEdit=semChipEdit; window.semChipDone=semChipDone; window.setResEnrolled=setResEnrolled; window.resEnrollAsk=resEnrollAsk; window.resEnrollNext=resEnrollNext; window.resEnrollNow=resEnrollNow; window.setWaitSemester=setWaitSemester; window.saveResReason=saveResReason; window.saveResInfo=saveResInfo; window.deleteReservation=deleteReservation; window.askDelete=askDelete; window.confirmDelete=confirmDelete; window.cancelDelete=cancelDelete; window.toggleDelLog=toggleDelLog; window.moveReservation=moveReservation;
+window.semChipEdit=semChipEdit; window.semChipDone=semChipDone; window.setResEnrolled=setResEnrolled; window.resEnrollAsk=resEnrollAsk; window.resEnrollNext=resEnrollNext; window.resEnrollWait=resEnrollWait; window.resEnrollNow=resEnrollNow; window.resWaitHere=resWaitHere; window.resKeepEnrolled=resKeepEnrolled; window.resMissWarn=resMissWarn; window.resAutoWaitInfo=resAutoWaitInfo; window.setWaitSemester=setWaitSemester; window.saveResReason=saveResReason; window.saveResInfo=saveResInfo; window.deleteReservation=deleteReservation; window.askDelete=askDelete; window.confirmDelete=confirmDelete; window.cancelDelete=cancelDelete; window.toggleDelLog=toggleDelLog; window.moveReservation=moveReservation;
 $('loginBtn').addEventListener('click', doLogin);
 $('loginPw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 $('logoutBtn').addEventListener('click', logout);
