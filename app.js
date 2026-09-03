@@ -2408,9 +2408,12 @@ function semChip(r){
     return `<span class="sem-chip wait" title="${esc(semNameFromId(sem)+' 입학 대기 · 눌러서 바꾸기')}"`
          + ` onclick="semChipEdit('${r.id}')">${esc(seasonWord(sem)+' 대기')}<i class="pen">✎</i></span>`;
   }
-  if(en==='not_enrolled'){   // 결과가 끝난 건이라 읽기만
-    return `<span class="sem-chip off" title="${esc(semNameFromId(w)+' 입학 대기였다가 미등록')}">`
-         + `${esc(seasonWord(w)+' 대기 → 미등록')}</span>`;
+  if(en==='not_enrolled'){
+    /* 예전엔 결과가 끝난 건이라 읽기 전용이었다. 그런데 대기 학기가 잘못 잡힌 채로
+       미등록이 되면 대기명단에서도 빠져서 고칠 방법이 아예 없었다.
+       (남동탄 유수안 — 8/22 여름 시험인데 겨울 대기로 저장돼 겨울 전형에 잡혔다) */
+    return `<span class="sem-chip off" title="${esc(semNameFromId(w)+' 입학 대기였다가 미등록 · 눌러서 바꾸기')}"`
+         + ` onclick="semChipEdit('${r.id}')">${esc(seasonWord(w)+' 대기 → 미등록')}<i class="pen">✎</i></span>`;
   }
   const label = w ? ('대기 → '+seasonWord(w)) : (seasonWord(resSemIdOf(r))+' 등록');
   const title = w ? ('다음학기 대기를 거쳐 '+semNameFromId(w)+'에 등록 · 눌러서 바꾸기')
@@ -2421,9 +2424,15 @@ function semChip(r){
 function semChipEdit(id){
   const host=$('semc_'+id); const r=reservations.find(x=>x.id===id);
   if(!host||!r) return;
-  const wn = (r.enrolled==='waiting_next');   // 대기 중이면 '대기 안 거침'은 말이 안 된다
-  const opts=(wn?[]:[['', semNameFromId(resSemIdOf(r))+' 등록 (대기 안 거침)']])
-    .concat(waitSemListFor(r).map(x=>[x.id, wn ? (waitSemOptLabel(x)+' 입학 대기') : ('대기 → '+waitSemOptLabel(x)+' 등록')]));
+  const en=r.enrolled||'pending';
+  const wn=(en==='waiting_next');      // 대기 중이면 '대기 안 거침'은 말이 안 된다
+  const ne=(en==='not_enrolled');      // 미등록은 '등록'이라는 말을 쓰면 안 된다
+  const none = wn ? null
+    : ['', ne ? '대기 안 거치고 바로 미등록' : (semNameFromId(resSemIdOf(r))+' 등록 (대기 안 거침)')];
+  const lab = x => wn ? (waitSemOptLabel(x)+' 입학 대기')
+                 : ne ? (waitSemOptLabel(x)+' 대기였다가 미등록')
+                      : ('대기 → '+waitSemOptLabel(x)+' 등록');
+  const opts=(none?[none]:[]).concat(waitSemListFor(r).map(x=>[x.id, lab(x)]));
   host.innerHTML = `<select class="sem-sel" onchange="setWaitSemester('${id}',this.value)" onblur="semChipDone('${id}')">`
     + opts.map(o=>`<option value="${o[0]}" ${o[0]===(r.wait_semester||'')?'selected':''}>${esc(o[1])}</option>`).join('')
     + `</select>`;

@@ -1,128 +1,104 @@
--- ============================================================================
---  대기 학기가 한 학기 뒤로 밀린 예약 찾아서 고치기
---
---  왜 생겼나
---    '다음학기 대기'를 누르면 대기 학기를 '오늘' 기준으로 계산했다.
---    8월(여름학기)에 시험 본 학생을 9월에 눌렀더니, 오늘의 현재학기가 가을이라
---    다음 학기가 겨울로 저장됐다. 가을이 맞다.
---    앱 코드는 이미 '시험 본 날' 기준으로 고쳤다(7b76cb5). 이 스크립트는
---    그 전에 잘못 저장된 것만 되돌린다.
---
---  ★ [1]번 조회부터 돌려서 목록을 눈으로 보세요.
---    진짜로 한 학기 건너뛰고 기다리는 학생이 섞여 있을 수 있습니다.
---    [3]번 수정은 그 목록을 확인한 뒤에 돌리세요.
--- ============================================================================
+/* ============================================================================
+   대기 학기가 한 학기 뒤로 밀려 저장된 예약 바로잡기
+   ----------------------------------------------------------------------------
+   무엇이 잘못됐나
+     예전 코드는 '다음학기 대기'의 학기를 시험 본 날이 아니라 '오늘' 기준으로
+     계산했다. 그래서 8월(여름학기)에 시험 본 학생을 9월에 처리하면
+     가을이 아니라 겨울 대기로 저장됐다.
+     코드는 2026-09-01 에 고쳤지만(시험 본 날 기준), 이미 저장된 값은
+     "진짜로 겨울 대기인 학생이 있을 수 있어서" 일부러 건드리지 않았다.
+
+   왜 고쳐야 하나
+     전형 현황은 대기 학기로 학생을 갈라 담는다. 학기가 밀려 있으면
+     그 학생이 가을 전형에서 빠지고 겨울 전형에 잡혀, 두 학기 등록률이 다 틀어진다.
+
+   무엇을 바꾸나
+     '시험 본 학기의 다음 학기'로 되돌린다.
+     (여름 시험 → 가을,  가을 시험 → 겨울,  겨울 시험 → 봄)
+     ★ 시험 학기의 바로 다음 학기(차이 1)와 같은 학기(차이 0)는 정상이라 건드리지 않는다.
+       두 학기 이상 벌어진 것(차이 2 이상)만 고친다.
+
+   ★ 1 → 2 → 3 → 4 순서로 한 덩어리씩 실행하세요. 1번은 조회만 합니다.
+     1번 결과에 '진짜로 그 학기 대기가 맞는' 학생이 섞여 있으면 3번을 돌리지 말고
+     그 학생만 홈페이지에서 직접 고치세요 (응시자 상세 › 학기 칩을 누르면 바뀝니다).
+   ============================================================================ */
 
 
--- ┌──────────────────────────────────────────────────────────────────────────┐
--- │ [1] 조회 — 먼저 이것만 돌려서 몇 건인지, 누구인지 확인                    │
--- └──────────────────────────────────────────────────────────────────────────┘
-with base as (
-  select r.id, r.branch_id, r.student_name, r.school, r.grade,
-         r.enrolled, r.status, r.wait_semester,
-         substring(r.reserved_date::text, 1, 10)::date as d
-    from public.level_test_reservations r
-   where r.wait_semester is not null
-     and r.reserved_date is not null
-),
-sem as (
-  select b.*,
-         case when extract(month from d)::int in (3,4,5)   then 'spring'
-              when extract(month from d)::int in (6,7,8)   then 'summer'
-              when extract(month from d)::int in (9,10,11) then 'fall'
-              else 'winter' end as season,
-         case when extract(month from d)::int in (1,2)
-              then extract(year from d)::int - 1
-              else extract(year from d)::int end as sy
-    from base b
-),
-calc as (
-  select s.*,
-         -- 시험 본 학기의 '다음 학기' = 있어야 할 값
-         case season when 'spring' then 'sem_' || sy     || '_summer'
-                     when 'summer' then 'sem_' || sy     || '_fall'
-                     when 'fall'   then 'sem_' || sy     || '_winter'
-                     else               'sem_' || (sy+1) || '_spring' end as should_be,
-         -- 딱 한 학기 밀린 값 = 이번 버그의 지문
-         case season when 'spring' then 'sem_' || sy     || '_fall'
-                     when 'summer' then 'sem_' || sy     || '_winter'
-                     when 'fall'   then 'sem_' || (sy+1) || '_spring'
-                     else               'sem_' || (sy+1) || '_summer' end as one_late
-    from sem s
-)
-select
-  coalesce(br.name, c.branch_id) as 분원,
-  c.student_name                 as 학생,
-  c.d                            as 응시일,
-  c.enrolled                     as 등록상태,
-  c.wait_semester                as 저장된_대기학기,
-  c.should_be                    as 있어야_할_학기,
-  case when c.wait_semester = c.should_be then '정상'
-       when c.wait_semester = c.one_late  then '★ 한 학기 밀림 (고칠 대상)'
-       else '다름 — 사람이 일부러 바꾼 듯, 손대지 말 것' end as 판정,
-  c.id                           as 예약id
-from calc c
-left join public.branches br on br.id = c.branch_id
-where c.wait_semester <> c.should_be
-order by 판정, 분원, c.d, c.student_name;
+/* ── 공통: 학기를 순번으로 바꾸는 식 (연도*4 + 봄0 여름1 가을2 겨울3) ─────── */
+
+create or replace view public.v_wait_semester_check as
+select r.id,
+       b.name                       as 분원,
+       r.student_name               as 학생,
+       r.reserved_date::date        as 시험일,
+       r.enrolled                   as 등록여부,
+       r.wait_semester              as 저장된_대기학기,
+       (case
+          when extract(month from r.reserved_date::date) between 3 and 5  then extract(year from r.reserved_date::date)::int*4 + 0
+          when extract(month from r.reserved_date::date) between 6 and 8  then extract(year from r.reserved_date::date)::int*4 + 1
+          when extract(month from r.reserved_date::date) between 9 and 11 then extract(year from r.reserved_date::date)::int*4 + 2
+          when extract(month from r.reserved_date::date) = 12             then extract(year from r.reserved_date::date)::int*4 + 3
+          else (extract(year from r.reserved_date::date)::int - 1)*4 + 3
+        end)                        as 시험_순번,
+       ( (split_part(r.wait_semester,'_',2))::int*4
+         + case split_part(r.wait_semester,'_',3)
+             when 'spring' then 0 when 'summer' then 1 when 'fall' then 2 else 3 end ) as 대기_순번
+from public.level_test_reservations r
+left join public.branches b on b.id = r.branch_id
+where r.wait_semester is not null and r.reserved_date is not null;
 
 
--- ┌──────────────────────────────────────────────────────────────────────────┐
--- │ [2] 백업 — 고치기 전에 지금 값을 통째로 떠 둔다 (되돌리기용)              │
--- └──────────────────────────────────────────────────────────────────────────┘
--- drop table if exists public.wait_sem_backup_20260901;
--- create table public.wait_sem_backup_20260901 as
---   select id, wait_semester, now() as backed_up_at
---     from public.level_test_reservations
---    where wait_semester is not null;
+/* ── 1. 조회 — 무엇이 바뀔지 먼저 눈으로 확인 ───────────────────────────── */
+
+select 분원, 학생, 시험일, 등록여부, 저장된_대기학기,
+       (대기_순번 - 시험_순번) as 몇학기_뒤로_밀렸나,
+       'sem_' || ((시험_순번+1)/4) || '_' ||
+       (case (시험_순번+1)%4 when 0 then 'spring' when 1 then 'summer'
+                             when 2 then 'fall'   else 'winter' end) as 바뀔_대기학기
+from public.v_wait_semester_check
+where 대기_순번 - 시험_순번 >= 2
+order by 분원, 시험일;
+
+-- ↑ 여기 나온 학생 중 '진짜로 그 학기 대기가 맞는' 사람이 있으면 3번을 돌리지 마세요.
 
 
--- ┌──────────────────────────────────────────────────────────────────────────┐
--- │ [3] 수정 — '한 학기 밀림'인 것만, 아직 대기 중인 학생만                   │
--- │     ※ [1] 목록 확인하고 [2] 백업 뜬 다음에 돌리세요                       │
--- └──────────────────────────────────────────────────────────────────────────┘
--- with base as (
---   select r.id, r.wait_semester,
---          substring(r.reserved_date::text, 1, 10)::date as d
---     from public.level_test_reservations r
---    where r.enrolled = 'waiting_next'        -- ← 아직 대기 중인 학생만
---      and r.wait_semester is not null
---      and r.reserved_date is not null
--- ),
--- sem as (
---   select b.*,
---          case when extract(month from d)::int in (3,4,5)   then 'spring'
---               when extract(month from d)::int in (6,7,8)   then 'summer'
---               when extract(month from d)::int in (9,10,11) then 'fall'
---               else 'winter' end as season,
---          case when extract(month from d)::int in (1,2)
---               then extract(year from d)::int - 1
---               else extract(year from d)::int end as sy
---     from base b
--- ),
--- calc as (
---   select s.*,
---          case season when 'spring' then 'sem_' || sy     || '_summer'
---                      when 'summer' then 'sem_' || sy     || '_fall'
---                      when 'fall'   then 'sem_' || sy     || '_winter'
---                      else               'sem_' || (sy+1) || '_spring' end as should_be,
---          case season when 'spring' then 'sem_' || sy     || '_fall'
---                      when 'summer' then 'sem_' || sy     || '_winter'
---                      when 'fall'   then 'sem_' || (sy+1) || '_spring'
---                      else               'sem_' || (sy+1) || '_summer' end as one_late
---     from sem s
--- )
--- update public.level_test_reservations r
---    set wait_semester = c.should_be
---   from calc c
---  where r.id = c.id
---    and c.wait_semester = c.one_late;     -- 딱 한 학기 밀린 것만
+/* ── 2. 백업 ─────────────────────────────────────────────────────────────── */
+
+drop table if exists public.lt_res_bak_waitsem;
+create table public.lt_res_bak_waitsem as
+select r.id, r.student_name, r.reserved_date, r.enrolled, r.wait_semester
+from public.level_test_reservations r
+join public.v_wait_semester_check v on v.id = r.id
+where v.대기_순번 - v.시험_순번 >= 2;
+
+select count(*) as 백업된_행 from public.lt_res_bak_waitsem;
 
 
--- ┌──────────────────────────────────────────────────────────────────────────┐
--- │ 되돌리기 (백업을 떴을 때만)                                              │
--- └──────────────────────────────────────────────────────────────────────────┘
--- update public.level_test_reservations r
---    set wait_semester = b.wait_semester
---   from public.wait_sem_backup_20260901 b
---  where r.id = b.id;
+/* ── 3. 수정 — 시험 본 학기의 다음 학기로 되돌린다 ──────────────────────── */
+
+update public.level_test_reservations r
+set wait_semester = 'sem_' || ((v.시험_순번+1)/4) || '_' ||
+    (case (v.시험_순번+1)%4 when 0 then 'spring' when 1 then 'summer'
+                            when 2 then 'fall'   else 'winter' end)
+from public.v_wait_semester_check v
+where v.id = r.id and v.대기_순번 - v.시험_순번 >= 2;
+
+
+/* ── 4. 검증 — 0 이어야 한다 ─────────────────────────────────────────────── */
+
+select count(*) as 아직_밀려있는_건
+from public.v_wait_semester_check
+where 대기_순번 - 시험_순번 >= 2;
+
+
+/* ── 되돌리기 (문제 생겼을 때만) ────────────────────────────────────────────
+update public.level_test_reservations r
+set wait_semester = b.wait_semester
+from public.lt_res_bak_waitsem b
+where b.id = r.id;
+   ------------------------------------------------------------------------- */
+
+
+/* ── 뒷정리 (다 끝난 뒤에) ──────────────────────────────────────────────────
+drop view if exists public.v_wait_semester_check;
+   ------------------------------------------------------------------------- */
