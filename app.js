@@ -350,6 +350,7 @@ function enterApp(){
   $('semSelect').innerHTML=sems.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
   $('semSelect').value=state.semId;
   $('semSelect').onchange=()=>{ setSemester($('semSelect').value); };
+  buildOpBranchPick();
   // 유저 표시
   const roleLabel={admin:'본사 · 관리자',branch:'분원 · 관리자',teacher:'선생님',assistant:'보조'}[session.role]||session.role;
   $('sbAvatar').textContent=(session.teacherName||session.username||'U').slice(0,1);
@@ -377,6 +378,57 @@ function buildSidebar(){
   $('sbNav').innerHTML=h;
 }
 function nav(v){ if(v==='wonmu') wonmuState.view='hub'; if(v==='chongmu' && typeof chongmuView!=='undefined') chongmuView='hub'; state.view=v; buildSidebar(); render(); window.scrollTo(0,0); closeSidebar(); }
+/* ── 분원 전환 (운영 담당자 전용) ──────────────────────────────────────────
+   지난 학기 잠금을 풀 수 있는 사람은 한 명인데 그 계정이 한 분원에 묶여 있어서,
+   다른 분원 자료를 손볼 방법이 없었다. 그 계정에서만 분원을 바꿀 수 있게 한다.
+   학사관리(iframe)에도 같은 게 있는데, 여기는 통합관리 화면 전체에 적용된다.
+   바꾼 분원은 이 브라우저 세션에서만 유효하다 — 저장된 로그인 정보는 안 건드리므로
+   새로고침하면 원래 분원으로 돌아온다. */
+function canSwitchBranch(){ return !!(session && session.username==='엄윤경' && session.role==='branch'); }
+let _opHomeBr;
+function opHomeBranchId(){
+  if(_opHomeBr===undefined) _opHomeBr=(session && session.branchId)||null;
+  return _opHomeBr;
+}
+function buildOpBranchPick(){
+  const box=$('opBrPick'), sel=$('opBrSelect');
+  if(!box||!sel) return;
+  if(!canSwitchBranch()){ box.style.display='none'; return; }
+  const home=opHomeBranchId();
+  const list=(db.branches||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
+  box.style.display='flex';
+  sel.innerHTML=list.map(b=>`<option value="${b.id}">${esc(b.name)}${b.id===home?' (내 분원)':''}</option>`).join('');
+  sel.value=session.branchId;
+  box.classList.toggle('away', session.branchId!==home);
+  sel.onchange=()=> setOpBranch(sel.value);
+}
+function setOpBranch(bid){
+  if(!canSwitchBranch()) return;
+  const home=opHomeBranchId();
+  const doSwitch=()=>{
+    /* 메모리의 session 만 바꾼다. setSession() 을 부르면 저장소에 남아
+       새로고침해도 남의 분원이 그대로 뜬다 — 그러면 안 된다. */
+    session.branchId=bid;
+    // 분원에 매인 화면 상태는 초기화 (남의 분원 필터가 그대로 남지 않게)
+    state.banBranch=null; state.mgBranch=null; state.jhList=null;
+    if(typeof wonmuState!=='undefined'){ wonmuState.view='hub'; wonmuState.anBranch='all'; wonmuState.ltListBranch='all'; wonmuState.inOpenBr=null; }
+    if(typeof bookState!=='undefined') bookState.branchId=bid;
+    const br=(db.branches||[]).find(b=>b.id===bid);
+    $('sbScope').textContent='통합관리 · '+((br&&br.name)||'분원');
+    buildSidebar(); render();
+    toast(((br&&br.name)||'')+' 로 전환했어요');
+  };
+  if(bid===home){ doSwitch(); return; }
+  const nm=bName(bid);
+  if(!confirm(nm+' 자료를 보고 고칠 수 있게 됩니다.\n\n'
+    +'여기서 하는 등록·삭제·업로드는 모두 그 분원 것으로 저장됩니다.\n'
+    +'(새로고침하면 내 분원으로 돌아옵니다)')){
+    const sel=$('opBrSelect'); if(sel) sel.value=session.branchId;
+    return;
+  }
+  doSwitch();
+}
+window.setOpBranch=setOpBranch;
 /* 학기를 바꾸면 지금 보고 있는 화면이 그 학기를 따라가야 한다.
    화면마다 따로 들고 있던 기간·대상학기도 여기서 같이 풀어준다. */
 function setSemester(id){
@@ -399,6 +451,7 @@ window.toggleSidebar=toggleSidebar; window.closeSidebar=closeSidebar;
 /* ---------- 렌더 라우터 ---------- */
 function render(){
   jhdHide();                       // 화면을 옮기면 떠 있던 전형 명단은 닫는다
+  buildOpBranchPick();
   const c=$('content'); const v=state.view;
   $('semPick').style.display='flex';        // 학기는 어느 화면에서나 고를 수 있다
   if(v==='dashboard'){ renderDashHome(c); }

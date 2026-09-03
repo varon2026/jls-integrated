@@ -70,6 +70,10 @@ button{cursor:pointer}
 .topbar-spacer{flex:1}
 .pick{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-2);font-weight:400}
 .pick select{height:34px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:0 10px;background:var(--surface-2);color:var(--ink);font-weight:700;font-size:12.5px}
+/* 분원 전환(운영 담당자 전용) — 남의 분원을 보고 있다는 걸 한눈에 알아채야 한다 */
+.pick.op-br{margin-right:12px}
+.pick.op-br.away span{color:#b7791f;font-weight:800}
+.pick.op-br.away select{border-color:#e0a44c;background:#fdf3e6;color:#b7791f}
 .content{padding:26px;max-width:1320px;width:100%}
 
 .page-h{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px}
