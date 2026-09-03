@@ -699,11 +699,10 @@ function semesterMonths(semId){
               입학일 없으면 학기 첫 달 신규로 보고 첫 달의 전달부터 인정.
               그보다 전이면 이전 학기 상담 → 'prev'.
    - MC1~3: 기존대로 회차-월 비교. */
-function stageTimingCheck(type, dateStr, semId, enrollDate){
+/* 상담 날짜(월·일) 하나를 놓고 그 회차가 이 학기 상담으로 맞는지 본다.
+   'ok' 인정 · 'mistag' 저장은 하되 완료 집계에서 제외(△) · 'prev' 이 학기 상담 아님(미반영) */
+function mcTimingAt(type, cMonth, cDay, semId, enrollDate){
   const months = semesterMonths(semId);            // 예: [6,7,8]
-  const m = String(dateStr||'').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if(!m) return 'ok';                              // 날짜 파싱 불가 → 인정
-  const cMonth = parseInt(m[2],10);
 
   if(type==='HC1' || type==='HC2'){
     // 입학월: 있으면 그 월, 없으면 학기 첫 달(시작신규생)
@@ -720,14 +719,45 @@ function stageTimingCheck(type, dateStr, semId, enrollDate){
   const stageIdx = { MC1:0, MC2:1, MC3:2 }[type];  // 회차의 정상 '몇 번째 달'
   if(stageIdx==null) return 'ok';
   const slot = months.indexOf(cMonth);             // 상담월이 이 학기의 몇 번째 달인지
-  if(slot===-1) return 'prev';                     // 학기 3개월에 없음 → 이전학기
-const diff = stageIdx - slot;                    // 회차정상위치 - 실제상담위치
-  if(diff <= 0) return 'ok';
+  if(slot===-1) return 'prev';                     // 학기 3개월에 없음
+  const diff = stageIdx - slot;                    // 회차정상위치 - 실제상담위치
+  if(diff <= 0) return 'ok';                       // 늦게 한 것 — 인정
   if(diff === 1){
     // 월말(25일 이후)에 다음 달 회차를 미리 한 경우는 정상으로 인정
-    const day = parseInt(m[3],10);
-    if(day >= 25) return 'ok';
+    if(cDay >= 25) return 'ok';
     return 'mistag';
+  }
+  return 'prev';
+}
+/* ────────────────────────────────────────────────────────────────────────────
+   달을 못 넘긴 상담 구제 — '그 달 첫 주에 올라온, 그 달과 안 맞는 MC는 전달 회차'
+
+   선생님들이 그 달에 상담을 다 못 끝내고 다음 달 초에 몰아서 올리는 일이 잦다.
+   예: 6월 MC1을 못 끝내고 7/1에 [MC1]로 올림 → 6월 상담으로 봐야 한다.
+
+   예전엔 학기 3개월(6·7·8월) 밖 날짜를 무조건 버렸다. 그래서
+     · 서수원 Sonya 선생님의 여름 MC3 25건이 전부 9/1자라 통째로 사라졌고
+       (DT 성적표 안내 상담을 9/1 낮에 몰아서 올린 것)
+     · Victoria 선생님의 MC1 2건도 9/2자라 빠졌다 — 내용엔 '여름학기 DSB1'이라 적혀 있었다
+   그래서 그 달 기준 판정이 'prev'로 떨어지면, 상담일이 1~7일일 때만
+   '전달 말일에 한 것'으로 보고 한 번 더 판정한다.
+
+   ★ 저장되는 날짜는 원래 날짜(9/1) 그대로다 — 화면에는 실제 상담일이 보여야 한다.
+   ★ 'mistag'(회차를 미리 당겨 쓴 것)일 때는 구제하지 않는다.
+     전달로 옮기면 오히려 더 어긋난다.
+   ★ HC는 입학월 기준이라 그대로 둔다. 9월에 올라온 HC는 가을 신규생 것이라
+     여름학기에서 빠지는 게 맞다 (내용이 'Fall, 9/1 첫 등원'이었다).
+   ──────────────────────────────────────────────────────────────────────────── */
+const MC_GRACE_DAY = 7;                            // 다음 달 며칠까지 구제할지
+function stageTimingCheck(type, dateStr, semId, enrollDate){
+  const m = String(dateStr||'').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(!m) return 'ok';                              // 날짜 파싱 불가 → 인정
+  const cMonth = parseInt(m[2],10), cDay = parseInt(m[3],10);
+  const v = mcTimingAt(type, cMonth, cDay, semId, enrollDate);
+  if(v !== 'prev') return v;
+  if(cDay <= MC_GRACE_DAY && (type==='MC1' || type==='MC2' || type==='MC3')){
+    const back = cMonth===1 ? 12 : cMonth-1;       // 전달
+    if(mcTimingAt(type, back, 28, semId, enrollDate) === 'ok') return 'ok';  // 전달 말일에 한 것으로 봄
   }
   return 'prev';
 }
