@@ -1532,7 +1532,7 @@ async function call(action,payload){
       if(payload.branchTarget) memoStr=(memoStr?memoStr+' | ':'')+(payload.type==='분원출고'?'→':'←')+BRANCHES[payload.branchTarget]?.name;
       if(payload.handler) memoStr=(memoStr?memoStr+' | ':'')+'처리자:'+payload.handler;
       var divisionVal=st?st.division||null:null;
-      await sbPost('sales_history',{barcode:bc,book_name:book.name,type:payload.type,qty:qty,unit_price:unitPrice,total:unitPrice*qty+taxAmount,tax_amount:taxAmount,sale_date:new Date().toISOString().slice(0,10),student_id:payload.studentId||null,student_name:studentName||null,semester:payload.semester||null,class_name:className||null,division:divisionVal,pay_status:payload.payStatus||'미납',memo:memoStr||null,branch:effectiveBranch(),purchase_price:isOut?null:(payload.price!=null?Number(payload.price):null)});
+      await sbPost('sales_history',{barcode:bc,book_name:book.name,type:payload.type,qty:qty,unit_price:unitPrice,total:unitPrice*qty+taxAmount,tax_amount:taxAmount,sale_date:new Date().toISOString().slice(0,10),student_id:payload.studentId||null,student_name:studentName||null,semester:payload.semester||null,class_name:className||null,division:divisionVal,pay_status:payload.payStatus||'미납',memo:memoStr||null,branch:effectiveBranch(),purchase_price:isOut?null:(payload.price!=null?Number(payload.price):null),vendor:vendor||null});
       var msgTax=taxAmount>0?' (공급가 '+(unitPrice*qty).toLocaleString()+'원 + 세액 '+taxAmount.toLocaleString()+'원 = '+(unitPrice*qty+taxAmount).toLocaleString()+'원)':'';
       return {ok:true,msg:(payload.type)+' 처리 완료: '+book.name+msgTax};
     }
@@ -1693,9 +1693,7 @@ async function call(action,payload){
         var mA=r['교재명'].match(/^ㅎ\.(.+)\(A\)(\s*책책)?$/);
         var mB=r['교재명'].match(/^ㅎ\.(.+)\(B\)(\s*책책)?$/);
         if(mA||mB){
-          var _m=mA||mB;
-          var baseName=_m[1].trim();
-          var _suffix=_m[2]?_m[2].trim():'';
+          var _m=mA||mB;var baseName=_m[1].trim();var _suffix=_m[2]?_m[2].trim():'';
           var mergedNm=baseName+'(A) (B)'+(_suffix?' '+_suffix:'');
           if(!mergedStock[mergedNm]) mergedStock[mergedNm]={교재명:mergedNm,바코드:'',_bcA:'',_bcB:'',_aQty:0,_bQty:0,_baseStock:0,최근업데이트:r.최근업데이트};
           if(mA){ mergedStock[mergedNm]._aQty=r.현재재고; mergedStock[mergedNm]._bcA=r['바코드']; }
@@ -1843,9 +1841,7 @@ async function call(action,payload){
         var mA=nm.match(/^ㅎ\.(.+)\(A\)(\s*책책)?$/);
         var mB=nm.match(/^ㅎ\.(.+)\(B\)(\s*책책)?$/);
         if(mA||mB){
-          var _m=mA||mB;
-          var baseName=_m[1].trim();
-          var _suffix=_m[2]?_m[2].trim():'';
+          var _m=mA||mB;var baseName=_m[1].trim();var _suffix=_m[2]?_m[2].trim():'';
           var mergedNm=baseName+'(A) (B)'+(_suffix?' '+_suffix:'');
           if(!mergedMap[mergedNm]) mergedMap[mergedNm]={A:null,B:null,base:null};
           if(mA) mergedMap[mergedNm].A=nm;
@@ -5550,8 +5546,14 @@ async function loadFinanceSummary(){
   // 학기 필터 초기화
   var semSel=document.getElementById('finance-semester');
   if(semSel&&semSel.options.length<=1){
-    var semList=await sbGet('students','select=semester&order=semester.desc');
-    var sems=[...new Set(semList.map(function(r){return r.semester;}).filter(Boolean))];
+    var semList1=await sbGet('students','select=semester&order=semester.desc');
+    var semList2=await sbGet('semesters','select=name&order=created_at.desc');
+    var semList3=await sbGet('sales_history','select=semester&order=semester.desc&type=eq.입고');
+    var sems=[...new Set([
+      ...semList1.map(function(r){return r.semester;}),
+      ...semList2.map(function(r){return r.name;}),
+      ...semList3.map(function(r){return r.semester;})
+    ].filter(Boolean))].sort(function(a,b){return b.localeCompare(a,'ko');});
     sems.forEach(function(s){var o=document.createElement('option');o.value=s;o.textContent=s;semSel.appendChild(o);});
   }
   var selectedSem=semSel?semSel.value:'';
@@ -5565,7 +5567,7 @@ async function loadFinanceSummary(){
 
     // sales_history 전체 조회
     var _dateFilter=getFinanceDateFilter();
-    var salesParams='select=barcode,book_name,type,total,unit_price,qty,purchase_price,student_id,student_name,semester,branch';
+    var salesParams='select=barcode,book_name,type,total,unit_price,qty,purchase_price,student_id,student_name,semester,branch,vendor';
     if(_dateFilter.from) salesParams+='&sale_date=gte.'+_dateFilter.from;
     if(_dateFilter.to) salesParams+='&sale_date=lte.'+_dateFilter.to;
     if(!isAdmin()) salesParams+='&branch=eq.'+encodeURIComponent(currentBranch);
@@ -5593,7 +5595,7 @@ async function loadFinanceSummary(){
       if(r.type==='출고'){
         b.salesTotal+=Number(r.total||0);
         var bname=r.book_name||r.barcode;
-        var bvendor=vendorMap[r.barcode]||'미등록';
+        var bvendor=r.vendor||vendorMap[r.barcode]||'미등록';
         if(!b.salesDetail[bname]) b.salesDetail[bname]={qty:0,amount:0,vendor:bvendor};
         b.salesDetail[bname].qty+=Number(r.qty||1);
         b.salesDetail[bname].amount+=Number(r.total||0);
@@ -5602,7 +5604,7 @@ async function loadFinanceSummary(){
         // total에 부가세 포함되어 있으므로 total 그대로 사용
         var pt=Number(r.total||0);
         b.purchaseTotal+=pt;
-        var vendor=vendorMap[r.barcode]||'미등록';
+        var vendor=r.vendor||vendorMap[r.barcode]||'미등록';
         if(!b.purchaseDetail[vendor]) b.purchaseDetail[vendor]={amount:0,qty:0,books:{}};
         b.purchaseDetail[vendor].amount+=pt;
         b.purchaseDetail[vendor].qty+=Number(r.qty||0);
@@ -5613,7 +5615,7 @@ async function loadFinanceSummary(){
       } else if(r.type==='분원입고'){
         var pt3=Number(r.total||0);
         b.purchaseTotal+=pt3;
-        var vendor3=vendorMap[r.barcode]||'미등록';
+        var vendor3=r.vendor||vendorMap[r.barcode]||'미등록';
         if(!b.purchaseDetail[vendor3]) b.purchaseDetail[vendor3]={amount:0,qty:0,books:{}};
         b.purchaseDetail[vendor3].amount+=pt3;
         b.purchaseDetail[vendor3].qty+=Number(r.qty||0);
@@ -5624,7 +5626,7 @@ async function loadFinanceSummary(){
       } else if(r.type==='분원출고'){
         var pt2=Number(r.total||0);
         b.purchaseTotal-=pt2;
-        var vendor2=vendorMap[r.barcode]||'미등록';
+        var vendor2=r.vendor||vendorMap[r.barcode]||'미등록';
         if(!b.purchaseDetail[vendor2]) b.purchaseDetail[vendor2]={amount:0,qty:0,books:{}};
         b.purchaseDetail[vendor2].amount-=pt2;
         b.purchaseDetail[vendor2].qty-=Number(r.qty||0);
