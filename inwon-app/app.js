@@ -320,10 +320,14 @@ async function loadDB(){
     }
     db[t.key] = gone ? [] : all.map(t.fromRow);
   }
-  // 기존 데이터 보정: classLabel이 원본 형식(대괄호 포함)이면 깔끔한 라벨로 변환
+  /* 반 라벨은 명단을 올린 시점의 규칙으로 굳어 저장된다. 그래서 반이름 읽는 규칙을
+     고쳐도(예: TT 를 화목으로 인식) 명단을 다시 올리기 전까지는 옛 라벨이 그대로 보였다.
+     → 정규반은 반이름에서 매번 다시 만든다. 내신반·미배정은 이름 그대로 쓰므로 손대지 않는다. */
   (db.semesterRecords||[]).forEach(r=>{
-    if(r.classLabel && /^\s*\[/.test(r.classLabel)){
-      r.classLabel = classLabel(r.classLabel) || r.classLabel;
+    if((r.kind||'regular')!=='exam' && r.className && /^\s*\[/.test(r.className)){
+      r.classLabel = classLabel(r.className) || r.classLabel;
+    } else if(r.classLabel && /^\s*\[/.test(r.classLabel)){
+      r.classLabel = classLabel(r.classLabel) || r.classLabel;   // 라벨 자리에 원본 반이름이 들어간 옛 데이터
     }
   });
  // 기존 퇴원생 보정: studentMovements.memo → rec.withdrawMemo 로 1회 이관
@@ -2067,21 +2071,34 @@ function transferWarnBox(semId){
    '[MA1(4~6) / FA3 / …' 도 '[MA1(4~6)] / FA3 / …' 과 똑같이 읽힌다. */
 function banParts(cn){ return String(cn||'').replace(/^\s*\[[^\]\/]*\]?/,'').split('/').map(x=>x.trim()).filter(Boolean); }
 const BAN_NOBU='부 미지정 · 반이름에서 시간대를 못 읽었습니다';
+/* 요일 조각 → 표준 코드. 분원마다 표기가 제각각이라 넉넉히 받는다.
+   월수금: MWF · M/W/F · 월수금 ·  화목: TT · TTH · TUTH · 화,목 · 화목 */
+const BAN_DAY_LABEL={MWF:'월수금', TT:'화목', MW:'월수', WF:'수금', MWTF:'월화수금', MTWTF:'매일'};
+function banDayCode(seg){
+  const s=String(seg||'').replace(/[\s,.\/·ㆍ&-]/g,'').toUpperCase();
+  if(!s) return '';
+  if(/^(MWF|MONWEDFRI|월수금)$/.test(s)) return 'MWF';
+  if(/^(TT|TTH|TTHS|TUTH|TUETHU|TUESTHURS|화목)$/.test(s)) return 'TT';
+  if(/^(MW|월수)$/.test(s)) return 'MW';
+  if(/^(WF|수금)$/.test(s)) return 'WF';
+  if(/^(MWTF|월화수금)$/.test(s)) return 'MWTF';
+  if(/^(MTWTF|매일)$/.test(s)) return 'MTWTF';
+  return '';
+}
 /* 시간대(FA3·SU1)와 요일(MWF·TTH)을 '몇 번째 조각인지'가 아니라 '생김새'로 찾는다.
    반이름에 닫는 대괄호가 빠지면([MA1(4~6) / FA3 / MWF / …) 조각이 한 칸씩 밀려
    예전엔 통째로 못 읽고 '부 미지정'으로 떨어졌다. */
 function banBu(className){
   const parts=banParts(className);
   const timeSeg=parts.find(p=>/^[A-Za-z]{2}\d+$/.test(p))||'';   // FA3 · SU1 · SM4
-  const daySeg =parts.find(p=>/^(MWF|TTH|TT|MW|WF|MWTF|MTWTF)$/i.test(p))||'';
-  const day = /^TT/i.test(daySeg) ? 'TT' : (/^MW/i.test(daySeg) ? 'MWF' : '');
+  const dayCode=parts.map(banDayCode).find(Boolean)||'';
+  const day = dayCode==='TT' ? 'TT' : (dayCode ? 'MWF' : '');
   const mm = timeSeg.match(/(\d)/); const num = mm?parseInt(mm[1],10):0;
   if(!day||!num) return null;
   // 시간표에 없는 부 번호가 오면(화목인데 3·4부 등) 시간만 비우고 요일·부는 그대로 보여준다.
-  // 예전엔 '화목 · ' 처럼 구분점만 덩그러니 남았다.
-  const join=a=>a.filter(Boolean).join(' · ');
-  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:join([num+'부','월수금',t])}; }
-  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:join(['화목',t])};
+  const join=a=>a.filter(Boolean).join(' \u00b7 ');
+  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:join([num+'\ubd80','\uc6d4\uc218\uae08',t])}; }
+  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:join(['\ud654\ubaa9',t])};
 }
 /* 닫는 대괄호가 빠진 반이름도 레벨은 읽어준다: '[MA1(4~6) / FA3 / …' → 'MA1(4~6)' */
 function banLevel(cn){
@@ -4334,10 +4351,9 @@ function classLabel(raw){
   if(!core) core = banLevelLabel(s);   // 신형식: CHESS="DSB1", ACE="PA1(4-6)_E6"
   if(!core) core = level || s;
   // 요일 (MWF=월수금, TTH=화목)
-  // TT·TTH 둘 다 화목. 예전엔 TTH만 알아서 'TT'로 적은 반은 요일이 통째로 빠졌다.
-  const dayPart = parts.find(p=> /^(MWF|TTH|TTHS|TT|MTWTF|MW|WF|MWTF)$/i.test(p));
-  const dayMap = {MWF:'월수금', TTH:'화목', TTHS:'화목', TT:'화목', MW:'월수', WF:'수금', MWTF:'월화수금', MTWTF:'매일'};
-  const day = dayPart ? (dayMap[dayPart.toUpperCase()] || dayPart) : '';
+  // 요일 표기는 banDayCode 한 곳에서만 판단한다 (TT·TTH·TUTH·화목 전부 화목)
+  const dayCode = parts.map(banDayCode).find(Boolean) || '';
+  const day = dayCode ? (BAN_DAY_LABEL[dayCode] || '') : '';
   // 시간대 (SU1, SP2 등 학기약자+숫자 → n부). 체스반 등은 없을 수 있음.
   const timePart = parts.find(p=> /^[A-Z]{2}\d+$/i.test(p));
   const time = timePart ? (timePart.match(/\d+$/)[0]+'부') : '';

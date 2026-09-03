@@ -438,21 +438,34 @@ function renderDashHome(c){
    '[MA1(4~6) / FA3 / …' 도 '[MA1(4~6)] / FA3 / …' 과 똑같이 읽힌다. */
 function banParts(cn){ return String(cn||'').replace(/^\s*\[[^\]\/]*\]?/,'').split('/').map(x=>x.trim()).filter(Boolean); }
 const BAN_NOBU='부 미지정 · 반이름에서 시간대를 못 읽었습니다';
+/* 요일 조각 → 표준 코드. 분원마다 표기가 제각각이라 넉넉히 받는다.
+   월수금: MWF · M/W/F · 월수금 ·  화목: TT · TTH · TUTH · 화,목 · 화목 */
+const BAN_DAY_LABEL={MWF:'월수금', TT:'화목', MW:'월수', WF:'수금', MWTF:'월화수금', MTWTF:'매일'};
+function banDayCode(seg){
+  const s=String(seg||'').replace(/[\s,.\/·ㆍ&-]/g,'').toUpperCase();
+  if(!s) return '';
+  if(/^(MWF|MONWEDFRI|월수금)$/.test(s)) return 'MWF';
+  if(/^(TT|TTH|TTHS|TUTH|TUETHU|TUESTHURS|화목)$/.test(s)) return 'TT';
+  if(/^(MW|월수)$/.test(s)) return 'MW';
+  if(/^(WF|수금)$/.test(s)) return 'WF';
+  if(/^(MWTF|월화수금)$/.test(s)) return 'MWTF';
+  if(/^(MTWTF|매일)$/.test(s)) return 'MTWTF';
+  return '';
+}
 /* 시간대(FA3·SU1)와 요일(MWF·TTH)을 '몇 번째 조각인지'가 아니라 '생김새'로 찾는다.
    반이름에 닫는 대괄호가 빠지면([MA1(4~6) / FA3 / MWF / …) 조각이 한 칸씩 밀려
    예전엔 통째로 못 읽고 '부 미지정'으로 떨어졌다. */
 function banBu(className){
   const parts=banParts(className);
   const timeSeg=parts.find(p=>/^[A-Za-z]{2}\d+$/.test(p))||'';   // FA3 · SU1 · SM4
-  const daySeg =parts.find(p=>/^(MWF|TTH|TT|MW|WF|MWTF|MTWTF)$/i.test(p))||'';
-  const day = /^TT/i.test(daySeg) ? 'TT' : (/^MW/i.test(daySeg) ? 'MWF' : '');
+  const dayCode=parts.map(banDayCode).find(Boolean)||'';
+  const day = dayCode==='TT' ? 'TT' : (dayCode ? 'MWF' : '');
   const mm = timeSeg.match(/(\d)/); const num = mm?parseInt(mm[1],10):0;
   if(!day||!num) return null;
   // 시간표에 없는 부 번호가 오면(화목인데 3·4부 등) 시간만 비우고 요일·부는 그대로 보여준다.
-  // 예전엔 '화목 · ' 처럼 구분점만 덩그러니 남았다.
-  const join=a=>a.filter(Boolean).join(' · ');
-  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:join([num+'부','월수금',t])}; }
-  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:join(['화목',t])};
+  const join=a=>a.filter(Boolean).join(' \u00b7 ');
+  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:join([num+'\ubd80','\uc6d4\uc218\uae08',t])}; }
+  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:join(['\ud654\ubaa9',t])};
 }
 /* 닫는 대괄호가 빠진 반이름도 레벨은 읽어준다: '[MA1(4~6) / FA3 / …' → 'MA1(4~6)' */
 function banLevel(cn){
