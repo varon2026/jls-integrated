@@ -50,7 +50,7 @@ CRLF 파일을 LF로 저장하면 diff가 파일 전체로 번집니다. 편집 
 
 ```
 index.html  ← 통합관리 (app.js · inwon.js · books.js)
-  ├─ 대시보드   인원현황 / 경영분석 / 전형현황 / 반배정표
+  ├─ 대시보드   인원현황 / 경영분석 / 전형현황 / 반배정표 / 반개설현황(본사만)
   ├─ 원무       레벨테스트 / 인원현황(아래 iframe) / 시험채점(grader.html)
   └─ 총무       교재관리(books-app) / 운영비(expense-app)
 

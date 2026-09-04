@@ -501,6 +501,7 @@ function render(){
 function setDashView(v){ state.dashView=v; render(); }
 function renderDashHome(c){
   if(!state.dashView) state.dashView='inwon';
+  if(state.dashView==='class' && (session&&session.role)!=='admin') state.dashView='inwon';   // 본사 전용
   $('crumbs').innerHTML='<b>대시보드</b>';
   const btn=(on)=>'border:1px solid '+(on?'transparent':'#e2dcf2')+';background:'+(on?'linear-gradient(135deg,#8b6ee8,#6f9ad6)':'#fff')+';color:'+(on?'#fff':'#7b7488')+';font:inherit;font-weight:800;font-size:13.5px;padding:9px 20px;border-radius:20px;cursor:pointer';
   c.innerHTML='<div style="display:flex;gap:8px;margin-bottom:18px">'
@@ -508,12 +509,151 @@ function renderDashHome(c){
     +'<button onclick="setDashView(\'mgmt\')" style="'+btn(state.dashView==='mgmt')+'">경영 분석</button>'
     +'<button onclick="setDashView(\'jh\')" style="'+btn(state.dashView==='jh')+'">전형 현황</button>'
     +'<button onclick="setDashView(\'ban\')" style="'+btn(state.dashView==='ban')+'">반배정표</button>'
+    /* 반 개설현황 — 본사 관리자만. 분원 계정에는 버튼이 아예 안 뜬다.
+       (이사님 요청 — 학기별로 분원마다 반이 몇 개 열렸는지) */
+    +((session&&session.role)==='admin'
+      ? '<button onclick="setDashView(\'class\')" style="'+btn(state.dashView==='class')+'">🏫 반 개설현황</button>' : '')
     +'</div><div id="dashBody"></div>';
   const body=$('dashBody');
   if(state.dashView==='mgmt') renderMgmtDash(body);
   else if(state.dashView==='jh') renderJeonhyeongDash(body);
   else if(state.dashView==='ban') renderBanDash(body);
+  else if(state.dashView==='class') renderClassOpenDash(body);
   else renderDashboard(body);
+}
+/* ============================================================================
+   반 개설현황 (본사 전용) — 학기별·분원별로 반이 몇 개 열렸나
+   ----------------------------------------------------------------------------
+   · 학기는 화면 오른쪽 위 '학기' 드롭다운을 그대로 쓴다. 따로 만들지 않는다.
+   · 학생이 0명인 반은 안 센다. 명단만 남고 다 빠진 반이 실제로 생기기 때문에
+     '재원 학생이 한 명이라도 있는 반'만 센다.
+   · 내신반(kind='exam')도 센다. 다만 내신반 이름에도 DSA 같은 레벨이 들어가서
+     CHESS 로 먼저 잡히면 안 되므로, 내신인지를 제일 먼저 본다.
+   · 본사 관리자만. 분원 계정은 버튼도 안 보이고 setDashView 로도 안 들어가진다.
+   ============================================================================ */
+const CO_C={ chess:{ink:'#5d70b8',fill:'#9fb3e8',soft:'#edf1fc',nm:'CHESS'},
+             ace:  {ink:'#4a9a80',fill:'#9ed4bd',soft:'#ecf7f2',nm:'ACE'},
+             exam: {ink:'#c26f63',fill:'#efb3a8',soft:'#fdf0ed',nm:'내신'} };
+const CO_KINDS=['chess','ace','exam'];
+function coKindOf(rec){
+  if((rec.kind||'regular')==='exam') return 'exam';        // 내신을 먼저 본다 (위 설명 참고)
+  return isChess(rec.className) ? 'chess' : 'ace';
+}
+/* 그 분원·학기에 열린 반 목록. 반이름으로 묶고, 재원이 0명이면 애초에 안 만들어진다. */
+function classOpenOf(branchId, semId){
+  const m=new Map();
+  (db.semesterRecords||[]).forEach(r=>{
+    if(r.branchId!==branchId || r.semesterId!==semId) return;
+    if(r.status!=='active') return;                        // 재원만 → 0명인 반은 자동으로 빠짐
+    const cn=String(r.className||'').trim();
+    if(!cn) return;                                        // 반 배정 안 된 학생은 반이 아니다
+    let e=m.get(cn);
+    if(!e){ e={ kind:coKindOf(r), label:(banLevelLabel(cn)||banLevel(cn)||cn), cn, n:0 }; m.set(cn,e); }
+    e.n++;
+  });
+  const all=[...m.values()];
+  const pick=k=>all.filter(x=>x.kind===k).sort((a,b)=>String(a.label).localeCompare(String(b.label),'ko'));
+  const o={ tot:all.length };
+  CO_KINDS.forEach(k=>{ o[k]=pick(k); });
+  return o;
+}
+function coToggle(brId){
+  state.coOpen=state.coOpen||{};
+  state.coOpen[brId]=!state.coOpen[brId];
+  const b=$('dashBody'); if(b) renderClassOpenDash(b);
+}
+/* 구성 막대. 분원 카드는 o[k] 가 반 목록(배열), 맨 위 요약줄은 숫자라
+   둘 다 받도록 한 번 감싼다 — 예전엔 배열만 보고 .length 를 써서 요약줄 막대가 통째로 비었다. */
+function coBar(o, h){
+  const n=k=> Array.isArray(o[k]) ? o[k].length : (o[k]||0);
+  if(!o.tot) return '<div style="height:'+h+'px;border-radius:'+(h/2)+'px;background:#f2eff9"></div>';
+  return '<div style="display:flex;height:'+h+'px;border-radius:'+(h/2)+'px;overflow:hidden;background:#f2eff9">'
+    + CO_KINDS.map(k=>'<i style="display:block;height:100%;width:'+(n(k)/o.tot*100)+'%;background:'+CO_C[k].fill+'"></i>').join('')
+    + '</div>';
+}
+function coChips(o){
+  return CO_KINDS.map(k=>{
+    if(!o[k].length) return '';
+    const c=CO_C[k];
+    return '<div style="font-size:10.5px;letter-spacing:.06em;font-weight:800;color:'+c.ink+';margin:12px 0 6px">'+c.nm+' '+o[k].length+'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:5px">'
+      + o[k].map(x=>'<span title="'+esc(x.cn)+' · 재원 '+x.n+'명" style="font-size:11.5px;padding:3px 8px;border-radius:7px;white-space:nowrap;'
+          +'background:'+c.soft+';border:1px solid '+c.fill+';color:'+c.ink+'">'+esc(x.label)
+          +'<span style="opacity:.65"> '+x.n+'</span></span>').join('')
+      +'</div>';
+  }).join('');
+}
+function renderClassOpenDash(c){
+  if((session&&session.role)!=='admin'){
+    c.innerHTML='<div style="padding:44px 0;text-align:center;color:#a9a2b6;font-size:13px">본사 관리자만 볼 수 있는 화면입니다.</div>';
+    return;
+  }
+  const semId=state.semId;
+  const rows=(db.branches||[]).map(b=>({ b, o:classOpenOf(b.id, semId) }))
+    .sort((x,y)=> y.o.tot-x.o.tot);
+  const T={ tot:rows.reduce((a,r)=>a+r.o.tot,0) };
+  CO_KINDS.forEach(k=>{ T[k]=rows.reduce((a,r)=>a+r.o[k].length,0); });
+
+  const bigNum=(v,col)=>'<div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:27px;'
+    +'font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums'+(col?';color:'+col:'')+'">'+v+'</div>';
+  const key=t=>'<div style="font-size:11px;color:#a9a2b6;letter-spacing:.03em">'+t+'</div>';
+
+  let h='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
+    +'<span style="font-size:16px;font-weight:800">반 개설현황</span>'
+    +'<span style="font-size:10.5px;font-weight:800;color:#6b4fd0;background:#f1ecfe;border:1px solid #d9cdfa;padding:3px 8px;border-radius:6px">본사 전용</span>'
+    +'<span style="font-size:11.5px;color:#a9a2b6">'+esc(semName(semId)||'')+' · 재원 학생이 있는 반만</span>'
+    +'<button onclick="downloadClassOpenXlsx()" style="margin-left:auto;font:inherit;font-size:12.5px;padding:8px 13px;border-radius:11px;border:1px solid #ece8f5;background:#fff;color:#7b7488;cursor:pointer">⬇ 엑셀</button>'
+    +'</div>';
+
+  h+='<div style="background:#fff;border:1px solid #ece8f5;border-radius:14px;padding:15px 18px;margin-bottom:13px;'
+    +'display:flex;gap:30px;align-items:flex-end;flex-wrap:wrap">'
+    +'<div>'+key('전체 개설반')+bigNum(T.tot+'<span style="font-size:11.5px;color:#a9a2b6;font-family:inherit;font-weight:400"> 반</span>')+'</div>'
+    + CO_KINDS.map(k=>'<div>'+key(CO_C[k].nm)+bigNum(T[k],CO_C[k].ink)+'</div>').join('')
+    +'<div style="flex:1;min-width:200px">'+key('구성')+'<div style="margin-top:6px">'+coBar(T,12)+'</div></div>'
+    +'</div>';
+
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px">';
+  rows.forEach(({b,o})=>{
+    const open=!!(state.coOpen&&state.coOpen[b.id]);
+    h+='<div onclick="coToggle(\''+b.id+'\')" style="background:#fff;border:1px solid '+(open?'#b9a3f2':'#ece8f5')+';'
+      +'border-radius:15px;padding:15px 16px 14px;cursor:pointer'+(open?';box-shadow:0 0 0 3px #f1ecfe':'')+'">'
+      +'<div style="display:flex;align-items:baseline;gap:8px">'
+        +'<span style="font-size:14.5px;font-weight:800">'+esc(b.name)+'</span>'
+        +'<span style="margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;'
+          +'font-weight:600;line-height:1;font-variant-numeric:tabular-nums">'+o.tot
+          +'<span style="font-size:11px;color:#a9a2b6;font-family:inherit;font-weight:400"> 반</span></span>'
+      +'</div>'
+      +'<div style="display:flex;gap:13px;margin:10px 0 9px;font-size:12px;color:#7b7488;flex-wrap:wrap">'
+      + CO_KINDS.map(k=>'<span style="display:inline-flex;align-items:center;gap:5px">'
+          +'<i style="width:8px;height:8px;border-radius:3px;background:'+CO_C[k].fill+'"></i>'+CO_C[k].nm
+          +' <b style="color:#2f3138;font-variant-numeric:tabular-nums">'+o[k].length+'</b></span>').join('')
+      +'</div>'
+      + coBar(o,9)
+      + (open ? '<div style="margin-top:12px;padding-top:2px;border-top:1px dashed #ece8f5">'+coChips(o)+'</div>'
+              : '<div style="margin-top:11px;font-size:11.5px;color:#a9a2b6">눌러서 반 이름 보기 ▾</div>')
+      +'</div>';
+  });
+  h+='</div>';
+  h+='<div style="margin-top:12px;font-size:12px;color:#a9a2b6">'
+    +'재원 학생이 한 명도 없는 반은 세지 않습니다 · 내신반도 총 개설반에 들어갑니다 · 반 이름에 마우스를 올리면 실제 반이름과 인원이 나옵니다</div>';
+  c.innerHTML=h;
+}
+function downloadClassOpenXlsx(){
+  try{
+    const semId=state.semId, semNm=semName(semId)||'';
+    const rows=[['학기','분원','구분','반 이름','실제 반이름','재원']];
+    (db.branches||[]).forEach(b=>{
+      const o=classOpenOf(b.id, semId);
+      CO_KINDS.forEach(k=> o[k].forEach(x=> rows.push([semNm, b.name, CO_C[k].nm, x.label, x.cn, x.n])));
+    });
+    const sum=[['학기','분원','총 개설반','CHESS','ACE','내신']];
+    (db.branches||[]).forEach(b=>{ const o=classOpenOf(b.id, semId);
+      sum.push([semNm, b.name, o.tot, o.chess.length, o.ace.length, o.exam.length]); });
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum),  '분원별 요약');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '반 목록');
+    XLSX.writeFile(wb, '반개설현황_'+semNm+'.xlsx');
+  }catch(e){ console.error(e); toast&&toast('엑셀 생성 실패','err'); }
 }
 /* ============================================================================
    반배정표 — 현재 재원명단을 부(시간대)/반별로 배치. 신규·복귀는 연두.
