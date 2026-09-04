@@ -834,10 +834,24 @@ function wdRateSem(active, withdraw, transfer){ return wdRatePct(withdraw, activ
    첫 달 월초 = 학기초부터 다닌 인원(enrollMonth==null).
    이후 달 월초 = 전달(월초+신규) − 전달 퇴원.
    월별 퇴원율 = 그 달 퇴원 ÷ (월초+신규+전입). 학기 퇴원율은 누적으로 낸다. */
-function monthlyClosing(recs, months, activeMonths, splits, moves){
+function monthlyClosing(recs, months, activeMonths, splits, moves, recsAt){
   // activeMonths: 담당 월 Set (그 외 빈칸). splits: 변경월 날짜쪼갬 정보 배열.
   // moves: 반이동 보정 {out:Map(month→cnt), in:Map(month→cnt)} — 컬럼엔 안 뜨고 다음달 월초에만 반영(반이동으로 인한 월초 변동).
-  const startOfSem = recs.filter(r=> enrollMonth(r)==null).length;
+  /* recsAt(월) → 그 달에 이 그룹이 실제로 맡고 있던 학생만. 학기 도중 담임이 바뀐 반 때문에 필요하다.
+     예전엔 그룹 하나가 학기 내내 같은 명단을 쓴다고 보고 계산했다. 그래서 7월에 반을 넘겨받은
+     강사의 6월 월초에 아직 남의 반이던 학생이 미리 들어갔고, 넘겨준 강사에게도 같은 학생이
+     6월에 잡혀서 강사별 월초 합계가 그 반 인원만큼 분원 합계보다 커졌다.
+     (2026 여름 장안 — 류영임 선생님이 6월까지만 근무하고 반 4개를 7/1에 나눠준 건에서 드러났다.
+      김세광 선생님 6월 월초에 넘겨받을 반이 미리 얹혀 있었다.)
+     안 넘기면(undefined) 예전처럼 학기 내내 같은 명단을 쓴다 — 레벨별·학년별 탭은 담임과 무관하다. */
+  const recsOf = (m)=> (recsAt ? (recsAt(m)||recs) : recs);
+  const rosterKey = (rs)=> rs.map(r=>r.studentId).join('\u0001');
+  /* 그 달 시작 시점에 이미 다니고 있던 사람 수 — splitMonthForGroup 의 월초와 같은 뜻 */
+  const startCountAt = (rs, m)=> rs.filter(r=>{
+    const em=enrollMonth(r), wm=withdrawMonth(r);
+    return (em==null || em<m) && (wm==null || wm>=m);
+  }).length;
+  const startOfSem = recsOf(months[0]).filter(r=> enrollMonth(r)==null).length;
   const splitByMonth = new Map();
   (splits||[]).forEach(sp=> splitByMonth.set(sp.month, sp));
   const mvOut = (moves&&moves.out)||null, mvIn = (moves&&moves.in)||null;
@@ -846,21 +860,25 @@ function monthlyClosing(recs, months, activeMonths, splits, moves){
   months.forEach((m, idx)=>{
     const active = !activeMonths || activeMonths.has(m);
     const sp = splitByMonth.get(m);
+    const R = recsOf(m);                       // 이 달에 맡고 있던 명단
     let monthStart = idx===0 ? startOfSem : carry;
+    /* 이 달부터 맡는 반이 생겼거나 넘겨준 반이 빠졌으면, 월초는 전달 월말을 그대로
+       물려받을 수 없다. 그 달 명단으로 다시 센다. */
+    if(idx>0 && recsAt && rosterKey(R)!==rosterKey(recsOf(months[idx-1]))) monthStart = startCountAt(R, m);
 let newThis, tiThis=0, wdThis, trThis;
     if(sp){
       // 변경월: 날짜로 쪼갬
-      const split = splitMonthForGroup(recs, m, sp.cutDay);
+      const split = splitMonthForGroup(R, m, sp.cutDay);
       const part = sp.side==='before' ? split.before : split.after;
       monthStart = part.monthStart;
       newThis = part.newCnt;
       wdThis = part.wd;
       trThis = part.tr;
 } else {
-      newThis = recs.filter(r=> enrollMonth(r)===m && !r.transferIn).length;
-      tiThis  = recs.filter(r=> enrollMonth(r)===m && r.transferIn).length;
-      wdThis  = recs.filter(r=> withdrawMonth(r)===m && !r.transfer).length;
-      trThis  = recs.filter(r=> withdrawMonth(r)===m && r.transfer).length;
+      newThis = R.filter(r=> enrollMonth(r)===m && !r.transferIn).length;
+      tiThis  = R.filter(r=> enrollMonth(r)===m && r.transferIn).length;
+      wdThis  = R.filter(r=> withdrawMonth(r)===m && !r.transfer).length;
+      trThis  = R.filter(r=> withdrawMonth(r)===m && r.transfer).length;
     }
 const baseNew = monthStart + newThis + tiThis;
     const rate = wdRatePct(wdThis, baseNew);
@@ -3064,7 +3082,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
  
   const bodyRows = groups.map((g, i)=>{
     // 합계행: 기존 로직 그대로 (split 정확 반영) + 반이동 월초 보정
-    const r = monthlyClosing(g.baseRecs||g.recs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'all'));
+    const r = monthlyClosing(g.baseRecs||g.recs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'all'), g.recsAt);
     const splitMonths = new Set((g.splits||[]).map(s=>s.month));
     const monthCells = r.cells.map(c=>{
       if(c.blank) return `<td class="num cc cell-na">-</td>`.repeat(6);
@@ -3101,8 +3119,9 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
     const baseR = g.baseRecs||g.recs;
     const chessRecs = baseR.filter(r=>isChess(r.className));
     const aceRecs   = baseR.filter(r=>!isChess(r.className));
-    const cR = monthlyClosing(chessRecs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'chess'));
-    const aR = monthlyClosing(aceRecs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'ace'));
+    const caRecsAt = (pred)=> g.recsAt ? (m=> g.recsAt(m).filter(pred)) : null;   // CHESS/ACE 줄도 달마다 맡은 명단으로
+    const cR = monthlyClosing(chessRecs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'chess'), caRecsAt(r=>isChess(r.className)));
+    const aR = monthlyClosing(aceRecs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'ace'), caRecsAt(r=>!isChess(r.className)));
     const caCellsHtml = (mc, div)=> mc.cells.map(c=>{
       if(c.blank) return `<td class="num cc cell-na clos-ca-cell">-</td>`.repeat(6);
       const mvTxt = (c.startMoveIn||c.startMoveOut) ? moveNoteText(g.moveEvents, c.month, div) : '';
@@ -3170,7 +3189,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
       <thead>
         <tr><th class="cc" rowspan="2">#</th><th class="cc" rowspan="2">${firstColLabel}</th>${caHead}${monthHeads}
           <th class="cc" colspan="6">학기 계</th></tr>
-        <tr>${subHeads}<th class="cc">총신규</th><th class="cc">총전입</th><th class="cc">총퇴원</th><th class="cc">총전출</th><th class="cc">평균퇴원율</th><th class="cc" style="background:#efeafb;color:#7a5be0">현재</th></tr>
+        <tr>${subHeads}<th class="cc">총신규</th><th class="cc">총전입</th><th class="cc">총퇴원</th><th class="cc">총전출</th><th class="cc">학기퇴원율</th><th class="cc" style="background:#efeafb;color:#7a5be0">현재</th></tr>
       </thead>
       <tbody>${bodyRows}</tbody>
 <tr class="closing-total">
@@ -3268,7 +3287,8 @@ function renderClosing(branchId){
     ${closingTable(groups, months, firstCol, recs, {showCA: tab==='teacher'})}
     ${note?`<div class="closing-note">${esc(note)}</div>`:''}
     <div style="margin-top:12px;font-size:12px;color:var(--ink-3)">
-      월초+신규 = 그 달 시작 인원 + 그 달 신규 · 퇴원율 = 퇴원 ÷ (월초+신규) · 평균퇴원율 = 월별 퇴원율의 평균 · 전출은 퇴원에서 제외됩니다.
+      월초+신규 = 그 달 시작 인원 + 그 달 신규 · 한 달 퇴원율 = 그 달 퇴원 ÷ (월초 + 그 달 신규 + 그 달 전입)<br>
+      학기퇴원율 = 학기 총퇴원 ÷ (학기초 + 총신규 + 총전입) — 월별 퇴원율의 평균이 아니라 누적입니다 · 전출은 퇴원에서 빼고 분모에는 넣습니다.
     </div>`;
   el('content').innerHTML = html;
   el('content').style.maxWidth = 'none';   // 인원마감표는 화면 폭 전체 사용 (현재 열까지 스크롤 없이)
@@ -3353,7 +3373,14 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
   changes.forEach(c=>{ changeByClass.set(c.className, c); });
 
   const groupMap = new Map();
-  const ensure = (t)=>{ if(!groupMap.has(t)) groupMap.set(t, { name:t, recs:[], months:new Set(), splits:[], currentRecs:[] }); return groupMap.get(t); };
+  const ensure = (t)=>{ if(!groupMap.has(t)) groupMap.set(t, { name:t, recs:[], months:new Set(), splits:[], currentRecs:[], notOwned:new Map() }); return groupMap.get(t); };
+  /* 담임이 바뀐 반은 '이 달엔 내 반이 아니었다'를 달 단위로 적어 둔다.
+     활성월(months)만으로는 부족하다 — 자기 반이 따로 있는 강사는 그 반 때문에 모든 달이
+     활성이라, 넘겨받을 반이 이전 달 월초에 그대로 얹혀 버린다. */
+  const markNotOwned = (g, monthList, classRecs)=> monthList.forEach(m=>{
+    let set = g.notOwned.get(m); if(!set){ set = new Set(); g.notOwned.set(m, set); }
+    classRecs.forEach(r=> set.add(r.studentId));
+  });
 
   const byClass = new Map();
   recs.forEach(r=>{ const k=r.className||'(미배정)'; if(!byClass.has(k)) byClass.set(k,[]); byClass.get(k).push(r); });
@@ -3390,6 +3417,10 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
       gAfter.months.add(chMonth);
       gAfter.splits.push({ className, month:chMonth, cutDay:chDay, side:'after' });
     }
+
+    // 이 반이 '내 반이 아닌' 달 — 넘겨준 쪽은 변경월 이후, 넘겨받은 쪽은 변경월 이전
+    markNotOwned(gBefore, months.filter(m=> m>chMonth || (m===chMonth && chDay<=1)), classRecs);
+    markNotOwned(gAfter,  months.filter(m=> m<chMonth), classRecs);
   });
 
   // ── 반 이동(class_move) 반영: 이동 학생은 이전 반(담임)의 '월초 계산'엔 이동월까지 포함,
@@ -3398,10 +3429,14 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
   // ── 반 이동(class_move) 반영: 이동 학생은 이전 반(담임)의 '월초 계산'엔 이동월까지 포함,
   //    새 반(담임)의 월초 계산엔 이동월 다음 달부터 포함. 표의 신규/퇴원/전출입 컬럼엔 안 뜨고, 월초만 변동.
   //    (현재 재원 수/명단은 학생의 현재 반=새 반 기준 그대로 — recs는 안 건드리고 baseRecs만 조정)
-  const groups = [...groupMap.values()].map(g=>({ name:g.name, recs:g.recs, baseRecs:g.recs.slice(), activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs, moveEvents:[] }));
+  /* recsAt(월) 은 baseRecs 를 그때그때 읽는다 — applyClassMoves 가 baseRecs 를 갈아끼우기 때문에
+     만들 때 한 번 복사해 두면 반이동 보정이 반영되지 않는다. */
+  const withRecsAt = (g)=>{ g.recsAt = (m)=>{ const ex=g.notOwned && g.notOwned.get(m);
+    return (ex && ex.size) ? g.baseRecs.filter(r=> !ex.has(r.studentId)) : g.baseRecs; }; return g; };
+  const groups = [...groupMap.values()].map(g=> withRecsAt({ name:g.name, recs:g.recs, baseRecs:g.recs.slice(), activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs, moveEvents:[], notOwned:g.notOwned }));
   applyClassMoves(groups, branchId, semId, months, recs,
     info=>({ from:info.fromTeacher, to:info.toTeacher }),
-    t=>({ name:t, recs:[], baseRecs:[], activeMonths:new Set(months), splits:[], currentRecs:[], moveEvents:[] }));
+    t=> withRecsAt({ name:t, recs:[], baseRecs:[], activeMonths:new Set(months), splits:[], currentRecs:[], moveEvents:[], notOwned:new Map() }));
   return groups.sort((a,b)=> b.recs.length - a.recs.length);
 }
 /* moveEvents → monthlyClosing용 {out,in} 맵 (div: 'all'|'chess'|'ace') */
