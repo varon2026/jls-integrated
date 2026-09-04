@@ -931,7 +931,14 @@ const baseNew = monthStart + newThis + tiThis + gainedThis;
      분모는 '이 학기에 이 그룹이 데리고 있던 인원' = 첫 달 월초 + 학기 내내 들어온 신규·전입 */
   const firstStart = cells.length ? (cells.find(c=>!c.blank)||{monthStart:0}).monthStart : 0;
   const avgRate = wdRatePct(totWithdraw, firstStart + totNew + totTransferIn + totGained);
-  return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate };
+  /* 월평균 퇴원율 — 월별 퇴원율을 그냥 평균낸 값(예전에 쓰던 방식).
+     '한 달에 평균 몇 % 빠지나'를 보는 숫자라 학기퇴원율(누적)과 나란히 둔다.
+     담당하지 않은 달(빈칸)과 학생이 아예 없던 달은 빼고 평균낸다 —
+     넣으면 0% 가 섞여 들어가 실제보다 낮게 나온다. */
+  const rated = cells.filter(c=> !c.blank && c.baseNew>0);
+  const meanRate = rated.length
+    ? Math.round(rated.reduce((a,c)=>a+c.rate,0)/rated.length*10)/10 : 0;
+  return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate, meanRate };
 }
 /* 일별 집계 — 한 달의 날짜별 인원 추적 (퇴원율 집계표용).
    월초인원 = 이 달 전부터 다니고 이 달엔 아직 안 나간 학생.
@@ -3142,6 +3149,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
       <td class="num cc" style="font-weight:700">${r.totWithdraw||'-'}</td>
       <td class="num cc" style="font-weight:700;color:${r.totTransfer?'var(--warn)':'inherit'}">${r.totTransfer||'-'}</td>
       <td class="num cc"><span style="font-weight:700;color:${r.avgRate>=10?'var(--neg)':r.avgRate>=5?'var(--warn)':'var(--brand)'}">${r.avgRate?r.avgRate.toFixed(1)+'%':'-'}</span></td>
+      <td class="num cc"><span style="color:var(--ink-2)">${r.meanRate?r.meanRate.toFixed(1)+'%':'-'}</span></td>
       ${(()=>{ const cm=curMoveNoteText(g.moveEvents,'all'); return `<td class="num cc" ${cm?`style="font-weight:800;color:#7a5be0;background:#ffe4a3;cursor:help" title="${esc(cm)}"`:`style="font-weight:800;color:#7a5be0;background:#faf8ff"`}>${curCnt(curOf(g))}${cm?' <span style="color:#b7791f">*</span>':''}</td>`; })()}
     </tr>`;
 
@@ -3175,6 +3183,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
       <td class="num cc clos-ca-cell">${mc.totWithdraw||'-'}</td>
       <td class="num cc clos-ca-cell">${mc.totTransfer||'-'}</td>
       <td class="num cc clos-ca-cell">${mc.avgRate?mc.avgRate.toFixed(1)+'%':'-'}</td>
+      <td class="num cc clos-ca-cell">${mc.meanRate?mc.meanRate.toFixed(1)+'%':'-'}</td>
       ${(()=>{ const cm=curMoveNoteText(g.moveEvents,div); return `<td class="num cc clos-ca-cell" ${cm?`style="background:#ffe4a3;color:#7a5be0;font-weight:700;cursor:help" title="${esc(cm)}"`:`style="background:#faf8ff;color:#7a5be0;font-weight:700"`}>${curCnt||'-'}${cm?' <span style="color:#b7791f">*</span>':''}</td>`; })()}
     </tr>`;
 
@@ -3220,8 +3229,8 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
     <table class="rank-table closing-table${showCA?' closing-ca':''}">
       <thead>
         <tr><th class="cc" rowspan="2">#</th><th class="cc" rowspan="2">${firstColLabel}</th>${caHead}${monthHeads}
-          <th class="cc" colspan="6">학기 계</th></tr>
-        <tr>${subHeads}<th class="cc">총신규</th><th class="cc">총전입</th><th class="cc">총퇴원</th><th class="cc">총전출</th><th class="cc">학기퇴원율</th><th class="cc" style="background:#efeafb;color:#7a5be0">현재</th></tr>
+          <th class="cc" colspan="7">학기 계</th></tr>
+        <tr>${subHeads}<th class="cc">총신규</th><th class="cc">총전입</th><th class="cc">총퇴원</th><th class="cc">총전출</th><th class="cc">학기퇴원율</th><th class="cc">월평균퇴원율</th><th class="cc" style="background:#efeafb;color:#7a5be0">현재</th></tr>
       </thead>
       <tbody>${bodyRows}</tbody>
 <tr class="closing-total">
@@ -3234,6 +3243,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc" style="font-weight:800">${totR.totWithdraw}</td>
           <td class="num cc" style="font-weight:800;color:${totR.totTransfer?'var(--warn)':'inherit'}">${totR.totTransfer}</td>
           <td class="num cc" style="font-weight:800">${totR.avgRate.toFixed(1)}%</td>
+          <td class="num cc">${totR.meanRate?totR.meanRate.toFixed(1)+'%':'-'}</td>
           <td class="num cc" style="font-weight:900;color:#7a5be0;background:#f3f0fb">${curCnt(baseForTotal)}</td>
         </tr>
         ${showCAFoot?`
@@ -3245,6 +3255,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc">${cTot.totWithdraw||'-'}</td>
           <td class="num cc">${cTot.totTransfer||'-'}</td>
           <td class="num cc">${cTot.avgRate?cTot.avgRate.toFixed(1)+'%':'-'}</td>
+          <td class="num cc">${cTot.meanRate?cTot.meanRate.toFixed(1)+'%':'-'}</td>
           <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${curCnt(chessTotRecs)}</td>
         </tr>
         <tr class="closing-total clos-ca">
@@ -3255,6 +3266,7 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
           <td class="num cc">${aTot.totWithdraw||'-'}</td>
           <td class="num cc">${aTot.totTransfer||'-'}</td>
           <td class="num cc">${aTot.avgRate?aTot.avgRate.toFixed(1)+'%':'-'}</td>
+          <td class="num cc">${aTot.meanRate?aTot.meanRate.toFixed(1)+'%':'-'}</td>
           <td class="num cc" style="font-weight:800;color:#7a5be0;background:#f3f0fb">${curCnt(aceTotRecs)}</td>
         </tr>
         `:''}
@@ -3320,7 +3332,8 @@ function renderClosing(branchId){
     ${note?`<div class="closing-note">${esc(note)}</div>`:''}
     <div style="margin-top:12px;font-size:12px;color:var(--ink-3)">
       월초+신규 = 그 달 시작 인원 + 그 달 신규 · 한 달 퇴원율 = 그 달 퇴원 ÷ (월초 + 그 달 신규 + 그 달 전입)<br>
-      학기퇴원율 = 학기 총퇴원 ÷ (학기초 + 총신규 + 총전입) — 월별 퇴원율의 평균이 아니라 누적입니다 · 전출은 퇴원에서 빼고 분모에는 넣습니다.
+      학기퇴원율 = 학기 총퇴원 ÷ (학기초 + 총신규 + 총전입) — 이번 학기에 <b>전체의 몇 %가 빠졌는지</b><br>
+      월평균퇴원율 = 월별 퇴원율을 그냥 평균낸 값 — <b>한 달에 평균 몇 % 빠지는지</b> (학생이 없던 달은 빼고 평균) · 전출은 퇴원에서 빼고 분모에는 넣습니다.
     </div>`;
   el('content').innerHTML = html;
   el('content').style.maxWidth = 'none';   // 인원마감표는 화면 폭 전체 사용 (현재 열까지 스크롤 없이)
