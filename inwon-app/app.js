@@ -3110,19 +3110,24 @@ function closingTable(groups, months, firstColLabel, totalRecs, opts={}){
   const bodyRows = groups.map((g, i)=>{
     // 합계행: 기존 로직 그대로 (split 정확 반영) + 반이동 월초 보정
     const r = monthlyClosing(g.baseRecs||g.recs, months, g.activeMonths, g.splits, movesFromEvents(g.moveEvents,'all'), g.recsAt);
-    const splitMonths = new Set((g.splits||[]).map(s=>s.month));
+    /* 노란 칸 = 그 달에 담임이 바뀐 달. 날짜를 쪼갠 달(splits)뿐 아니라
+       1일자 교체처럼 쪼갤 게 없는 달도 포함한다. */
+    const splitMonths = new Set([...(g.splits||[]).map(s=>s.month), ...(g.changeMonths||[])]);
     const monthCells = r.cells.map(c=>{
       if(c.blank) return `<td class="num cc cell-na">-</td>`.repeat(6);
       const cls = splitMonths.has(c.month) ? ' cell-split' : '';
+      const chTxt = (g.changeNotes && g.changeNotes.get(c.month) || []).join(' / ');
+      const chAttr = chTxt ? ` title="${esc(chTxt)}" style="cursor:help"` : '';
       const mvTxt = (c.startMoveIn||c.startMoveOut) ? moveNoteText(g.moveEvents, c.month, 'all') : '';
-      const msAttr = mvTxt ? ` style="background:#ffe4a3;cursor:help;font-weight:800" title="${esc(mvTxt)}"` : '';
+      /* 월초 칸 툴팁 — 반이동과 담임 인계가 같은 달에 겹칠 수 있으니 둘 다 붙인다 */
+      const msAttr = mvTxt ? ` style="background:#ffe4a3;cursor:help;font-weight:800" title="${esc([mvTxt,chTxt].filter(Boolean).join(' / '))}"` : chAttr;
       const trCell = c.transfer ? `<span style="color:var(--warn)">${c.transfer}</span>` : '-';
       const tiCell = c.transferIn ? `<span style="color:var(--pos)">${c.transferIn}</span>` : '-';
       return `<td class="num cc${cls}"${msAttr}>${c.monthStart||'-'}${mvTxt?' <span style="color:#b7791f">*</span>':''}</td>
-        <td class="num cc${cls}">${c.newThis||'-'}</td>
-        <td class="num cc${cls}">${tiCell}</td>
-        <td class="num cc${cls}">${c.withdraw||'-'}</td>
-        <td class="num cc${cls}">${trCell}</td>
+        <td class="num cc${cls}"${chAttr}>${c.newThis||'-'}</td>
+        <td class="num cc${cls}"${chAttr}>${tiCell}</td>
+        <td class="num cc${cls}"${chAttr}>${c.withdraw||'-'}</td>
+        <td class="num cc${cls}"${chAttr}>${trCell}</td>
         <td class="num cc${cls}"><span style="color:${c.rate>=10?'var(--neg)':c.rate>=5?'var(--warn)':'var(--ink-2)'}">${c.baseNew?c.rate.toFixed(1)+'%':'-'}</span></td>`;
     }).join('');
  
@@ -3411,7 +3416,7 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
                   changesByClass.get(c.className).push(c); });
 
   const groupMap = new Map();
-  const ensure = (t)=>{ if(!groupMap.has(t)) groupMap.set(t, { name:t, recs:[], months:new Set(), splits:[], currentRecs:[], notOwned:new Map(), notOwnedStart:new Map() }); return groupMap.get(t); };
+  const ensure = (t)=>{ if(!groupMap.has(t)) groupMap.set(t, { name:t, recs:[], months:new Set(), splits:[], currentRecs:[], notOwned:new Map(), notOwnedStart:new Map(), changeMonths:new Set(), changeNotes:new Map() }); return groupMap.get(t); };
   /* 담임이 바뀐 반은 '이 달엔 내 반이 아니었다'를 달 단위로 적어 둔다.
      활성월(months)만으로는 부족하다 — 자기 반이 따로 있는 강사는 그 반 때문에 모든 달이
      활성이라, 넘겨받을 반이 이전 달 월초에 그대로 얹혀 버린다.
@@ -3438,9 +3443,17 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
       return;
     }
     /* 담임 구간 — 첫 구간은 학기 시작부터(startM null), 그 뒤는 변경일부터 */
-    const segs = [{ teacher: chs[0].fromTeacher||'미배정', startM:null, startD:null }];
-    chs.forEach(c=> segs.push({ teacher: c.toTeacher||'미배정',
+    const segs = [{ teacher: chs[0].fromTeacher||'미배정', startM:null, startD:null, date:null }];
+    chs.forEach(c=> segs.push({ teacher: c.toTeacher||'미배정', date: c.date,
                                 startM: monthOfDate(c.date), startD: dayOfDate(c.date)||1 }));
+    const clsLabel = classRecs[0].classLabel || className;
+    /* 담임이 바뀐 달 표시(노란 칸) — 예전엔 splits 가 있는 달로만 칠했다.
+       그런데 1일자 교체는 날짜를 쪼갤 게 없어서 splits 가 안 생긴다.
+       그래서 장안(7/1 교체)의 노란 칸이 통째로 사라졌었다. 이제 따로 적어 둔다. */
+    const markChange = (g, m, txt)=>{ if(m==null || !months.includes(m)) return;
+      g.changeMonths.add(m);
+      if(!g.changeNotes.has(m)) g.changeNotes.set(m, []);
+      g.changeNotes.get(m).push(txt); };
 
     segs.forEach((sg, i)=>{
       const nx = segs[i+1];
@@ -3462,6 +3475,10 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
       ownAll.forEach(m=> g.months.add(m));
       mark(g.notOwned,      months.filter(m=> !ownAll.includes(m)),   classRecs);
       mark(g.notOwnedStart, months.filter(m=> !ownStart.includes(m)), classRecs);
+
+      // 담임이 바뀐 달 — 받은 달 / 넘긴 달 둘 다 노랗게
+      if(sg.date) markChange(g, sg.startM, `${sg.date} · ${segs[i-1].teacher} 선생님에게서 ${clsLabel} ${classRecs.length}명 인계받음`);
+      if(nx && nx.date) markChange(g, eM, `${nx.date} · ${nx.teacher} 선생님에게 ${clsLabel} ${classRecs.length}명 넘김`);
 
       // 날짜 쪼갬 — 넘겨받은 달(뒷부분) / 넘겨준 달(앞부분)
       if(sg.startM!=null && sg.startD>1 && months.includes(sg.startM))
@@ -3487,10 +3504,10 @@ function teacherGroupsWithChanges(branchId, semId, recs, months){
     const map = atStart ? g.notOwnedStart : g.notOwned;
     const ex = map && map.get(m);
     return (ex && ex.size) ? g.baseRecs.filter(r=> !ex.has(r.studentId)) : g.baseRecs; }; return g; };
-  const groups = [...groupMap.values()].map(g=> withRecsAt({ name:g.name, recs:g.recs, baseRecs:g.recs.slice(), activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs, moveEvents:[], notOwned:g.notOwned, notOwnedStart:g.notOwnedStart }));
+  const groups = [...groupMap.values()].map(g=> withRecsAt({ name:g.name, recs:g.recs, baseRecs:g.recs.slice(), activeMonths:g.months, splits:g.splits, currentRecs:g.currentRecs, moveEvents:[], notOwned:g.notOwned, notOwnedStart:g.notOwnedStart, changeMonths:g.changeMonths, changeNotes:g.changeNotes }));
   applyClassMoves(groups, branchId, semId, months, recs,
     info=>({ from:info.fromTeacher, to:info.toTeacher }),
-    t=> withRecsAt({ name:t, recs:[], baseRecs:[], activeMonths:new Set(months), splits:[], currentRecs:[], moveEvents:[], notOwned:new Map(), notOwnedStart:new Map() }));
+    t=> withRecsAt({ name:t, recs:[], baseRecs:[], activeMonths:new Set(months), splits:[], currentRecs:[], moveEvents:[], notOwned:new Map(), notOwnedStart:new Map(), changeMonths:new Set(), changeNotes:new Map() }));
   return groups.sort((a,b)=> b.recs.length - a.recs.length);
 }
 /* moveEvents → monthlyClosing용 {out,in} 맵 (div: 'all'|'chess'|'ace') */
