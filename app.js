@@ -127,10 +127,34 @@ function semesterMonths(semId){
 }
 function recordsOf(branchId, semId){ return db.semesterRecords.filter(r=>r.branchId===branchId&&r.semesterId===semId&&(r.kind||'regular')!=='exam'); }
 function activeRecordsOf(branchId, semId){ return recordsOf(branchId,semId).filter(r=>r.status==='active'); }
+/* ────────────────────────────────────────────────────────────────────────────
+   퇴원율 — 학원 전체가 쓰는 한 가지 규칙
+   ----------------------------------------------------------------------------
+   퇴원율 = 순수 퇴원 ÷ 그 기간에 우리가 데리고 있던 인원
+
+     · 전출(다른 분원으로 옮김)은 학원을 그만둔 게 아니라서 분자에서 뺀다.
+       하지만 한때 우리 인원이었으므로 분모에는 넣는다.
+     · 학기 전체 = 퇴원 ÷ (재원 + 퇴원 + 전출)
+     · 한 달     = 그 달 퇴원 ÷ (월초 + 그 달 신규 + 그 달 전입)
+     · 소수점 한 자리까지 보여준다.
+
+   예전엔 화면마다 공식이 달랐다 — 같은 분원인데 숫자가 서로 안 맞았다.
+     · 통합관리 대시보드는 분모에 전출을 넣었고, 학사관리 대시보드는 뺐다.
+     · 학사관리 쪽은 정수로 반올림해서 1%p 가까이 벌어져 보였다.
+     · 인원마감표의 '평균 퇴원율'은 월별 퇴원율을 그냥 평균내서,
+       인원이 적은 달과 많은 달이 같은 무게로 들어갔다.
+         학기초 100명 · 6월 1명 퇴원(1.0%) · 7월 0% · 8월 신규 10명 중 1명 퇴원(0.9%)
+         → 단순평균은 0.6% 인데, 실제로는 2 ÷ 110 = 1.8% 다.
+       그래서 학기 퇴원율은 전부 누적으로 바꿨다.
+   ──────────────────────────────────────────────────────────────────────────── */
+function wdRatePct(withdraw, base){ return base>0 ? Math.round(withdraw/base*1000)/10 : 0; }
+/* 학기 전체 퇴원율 — 재원·퇴원·전출만 있으면 어디서든 같은 값이 나온다 */
+function wdRateSem(active, withdraw, transfer){ return wdRatePct(withdraw, active+withdraw+(transfer||0)); }
+
 /* 월별 마감 계산 — 신입/전입/퇴원/전출/월말/퇴원율 (분원 단위) */
 function monthlyClosing(recs, months){
   const startOfSem = recs.filter(r=> enrollMonth(r)==null).length;
-  let carry=0; const cells=[]; const rates=[];
+  let carry=0; const cells=[];
   months.forEach((m, idx)=>{
     let monthStart = idx===0 ? startOfSem : carry;
     const newThis = recs.filter(r=> enrollMonth(r)===m && !r.transferIn).length;
@@ -138,14 +162,16 @@ function monthlyClosing(recs, months){
     const wdThis  = recs.filter(r=> withdrawMonth(r)===m && !r.transfer).length;
     const trThis  = recs.filter(r=> withdrawMonth(r)===m && r.transfer).length;
     const baseNew = monthStart + newThis + tiThis;
-    const rate = baseNew>0 ? (wdThis/baseNew*100) : 0;
+    const rate = wdRatePct(wdThis, baseNew);
     const monthEnd = baseNew - wdThis - trThis;
     cells.push({ month:m, monthStart, newThis, transferIn:tiThis, withdraw:wdThis, transfer:trThis, monthEnd, rate });
-    if(baseNew>0) rates.push(rate);
     carry = monthEnd;
   });
   const sum=(k)=>cells.reduce((a,c)=>a+c[k],0);
-  const avgRate = rates.length ? rates.reduce((a,c)=>a+c,0)/rates.length : 0;
+  /* 학기 퇴원율은 월별 퇴원율의 평균이 아니라 누적으로 낸다 (위 설명 참고).
+     분모 = 학기초 인원 + 학기 중 들어온 신규·전입 = 그 학기에 데리고 있던 전체 */
+  const firstStart = cells.length ? cells[0].monthStart : 0;
+  const avgRate = wdRatePct(sum('withdraw'), firstStart + sum('newThis') + sum('transferIn'));
   return { cells, totNew:sum('newThis'), totTransferIn:sum('transferIn'), totWithdraw:sum('withdraw'), totTransfer:sum('transfer'), avgRate };
 }
 
@@ -1929,9 +1955,9 @@ function renderDashboard(c){
         total: caAct.total+caWd.total+caTr.total-caNew.total-caTi.total }
     : countCA(flat(d=>d.startRecs));
   const baseTot=caStart.total;
-  const sumRate=(baseTot+caNew.total+caTi.total)>0 ? caWd.total/(baseTot+caNew.total+caTi.total)*100 : 0;
+  const sumRate=wdRatePct(caWd.total, baseTot+caNew.total+caTi.total);
   const net=caNew.total+caTi.total-caWd.total-caTr.total;
-  const best = data.length? Math.min(...data.map(d=>{ const b2=d.baseNum, nw=d.nwRecs.length, ti=d.tiRecs.length, wd=d.wdRecs.length; return (b2+nw+ti)>0?wd/(b2+nw+ti)*100:0; })) : 0;
+  const best = data.length? Math.min(...data.map(d=>{ const b2=d.baseNum, nw=d.nwRecs.length, ti=d.tiRecs.length, wd=d.wdRecs.length; return wdRatePct(wd, b2+nw+ti); })) : 0;
   const baseLabel = whole ? '학기초' : '전월마감';
 
   const title = session.role==='admin' ? '전 분원 인원 현황' : `${(db.branches.find(b=>b.id===session.branchId)||{}).name||'분원'} 인원 현황`;
@@ -1967,7 +1993,7 @@ function renderDashboard(c){
     </thead><tbody>`;
   data.forEach(d=>{
     const b2=d.baseNum, nw=d.nwRecs.length, ti=d.tiRecs.length, wd=d.wdRecs.length, tr=d.trRecs.length;
-    const rate=(b2+nw+ti)>0?wd/(b2+nw+ti)*100:0; const isBest=rate===best&&data.length>1;
+    const rate=wdRatePct(wd, b2+nw+ti); const isBest=rate===best&&data.length>1;
     const ca=countCA(d.actRecs);
     const notes=[];
     d.tiRecs.forEach(r=>notes.push(`<span class="n-in">↘ 전입 ${esc(sName(r))}${r.transferTo?' ←'+esc(bName(r.transferTo)):''}</span>`));
@@ -2066,6 +2092,7 @@ function branchHeadcount(bid){
     active: recs.filter(r=>r.status==='active').length,
     nw: recs.filter(r=>enrollMonth(r)!=null && !r.transferIn).length,
     wd: recs.filter(r=>withdrawMonth(r)!=null && !r.transfer).length,
+    tr: recs.filter(r=>withdrawMonth(r)!=null && r.transfer).length,   // 전출 — 분모에 들어간다
   };
 }
 function ltBarRow(name, m, maxBooked){
@@ -2327,8 +2354,8 @@ function renderWonmuHub(b){
   const ltR=ltRates(ltTot);
   const hcRows=brs.map(x=>({b:x, ...branchHeadcount(x.id)}));
   const maxAct=Math.max(1,...hcRows.map(r=>r.active));
-  const hcTot=hcRows.reduce((a,r)=>({active:a.active+r.active,nw:a.nw+r.nw,wd:a.wd+r.wd}),{active:0,nw:0,wd:0});
-  const wdRate=(hcTot.active+hcTot.wd)>0?hcTot.wd/(hcTot.active+hcTot.wd)*100:0;
+  const hcTot=hcRows.reduce((a,r)=>({active:a.active+r.active,nw:a.nw+r.nw,wd:a.wd+r.wd,tr:a.tr+(r.tr||0)}),{active:0,nw:0,wd:0,tr:0});
+  const wdRate=wdRateSem(hcTot.active, hcTot.wd, hcTot.tr);
 
   let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('wonmu',24)}</span><span class="em">원무</span></h2><p>원생 · 상담 · 레벨테스트 — 보고 싶은 걸 골라 들어가세요</p></div></div>`;
   h+=waitAlertBanner();

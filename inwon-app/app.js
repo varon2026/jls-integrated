@@ -805,11 +805,35 @@ function splitMonthForGroup(recs, month, cutDay){
     after: { monthStart:handover, newCnt:newAfter, wd:wdAfter, tr:trAfter },
   };
 }
+/* ────────────────────────────────────────────────────────────────────────────
+   퇴원율 — 학원 전체가 쓰는 한 가지 규칙
+   ----------------------------------------------------------------------------
+   퇴원율 = 순수 퇴원 ÷ 그 기간에 우리가 데리고 있던 인원
+
+     · 전출(다른 분원으로 옮김)은 학원을 그만둔 게 아니라서 분자에서 뺀다.
+       하지만 한때 우리 인원이었으므로 분모에는 넣는다.
+     · 학기 전체 = 퇴원 ÷ (재원 + 퇴원 + 전출)
+     · 한 달     = 그 달 퇴원 ÷ (월초 + 그 달 신규 + 그 달 전입)
+     · 소수점 한 자리까지 보여준다.
+
+   예전엔 화면마다 공식이 달랐다 — 같은 분원인데 숫자가 서로 안 맞았다.
+     · 통합관리 대시보드는 분모에 전출을 넣었고, 학사관리 대시보드는 뺐다.
+     · 학사관리 쪽은 정수로 반올림해서 1%p 가까이 벌어져 보였다.
+     · 인원마감표의 '평균 퇴원율'은 월별 퇴원율을 그냥 평균내서,
+       인원이 적은 달과 많은 달이 같은 무게로 들어갔다.
+         학기초 100명 · 6월 1명 퇴원(1.0%) · 7월 0% · 8월 신규 10명 중 1명 퇴원(0.9%)
+         → 단순평균은 0.6% 인데, 실제로는 2 ÷ 110 = 1.8% 다.
+       그래서 학기 퇴원율은 전부 누적으로 바꿨다.
+   ──────────────────────────────────────────────────────────────────────────── */
+function wdRatePct(withdraw, base){ return base>0 ? Math.round(withdraw/base*1000)/10 : 0; }
+/* 학기 전체 퇴원율 — 재원·퇴원·전출만 있으면 어디서든 같은 값이 나온다 */
+function wdRateSem(active, withdraw, transfer){ return wdRatePct(withdraw, active+withdraw+(transfer||0)); }
+
 /* 인원마감 — 한 그룹(강사 또는 레벨)의 월별 월초+신규/퇴원/퇴원율 계산.
    recs: 해당 그룹의 semesterRecords(재원+퇴원 모두 포함). months: [3,4,5] 등.
    첫 달 월초 = 학기초부터 다닌 인원(enrollMonth==null).
    이후 달 월초 = 전달(월초+신규) − 전달 퇴원.
-   월별 퇴원율 = 그 달 퇴원 ÷ (월초+신규). 평균퇴원율 = 월별 퇴원율의 단순평균. */
+   월별 퇴원율 = 그 달 퇴원 ÷ (월초+신규+전입). 학기 퇴원율은 누적으로 낸다. */
 function monthlyClosing(recs, months, activeMonths, splits, moves){
   // activeMonths: 담당 월 Set (그 외 빈칸). splits: 변경월 날짜쪼갬 정보 배열.
   // moves: 반이동 보정 {out:Map(month→cnt), in:Map(month→cnt)} — 컬럼엔 안 뜨고 다음달 월초에만 반영(반이동으로 인한 월초 변동).
@@ -819,7 +843,6 @@ function monthlyClosing(recs, months, activeMonths, splits, moves){
   const mvOut = (moves&&moves.out)||null, mvIn = (moves&&moves.in)||null;
   let carry = 0, prevMoveIn = 0, prevMoveOut = 0;
   const cells = [];
-  const rates = [];
   months.forEach((m, idx)=>{
     const active = !activeMonths || activeMonths.has(m);
     const sp = splitByMonth.get(m);
@@ -840,7 +863,7 @@ let newThis, tiThis=0, wdThis, trThis;
       trThis  = recs.filter(r=> withdrawMonth(r)===m && r.transfer).length;
     }
 const baseNew = monthStart + newThis + tiThis;
-    const rate = baseNew>0 ? (wdThis/baseNew*100) : 0;
+    const rate = wdRatePct(wdThis, baseNew);
     const moveOutThis = mvOut ? (mvOut.get(m)||0) : 0;   // 이 달 다른 반으로 나감 → 다음달 월초 −
     const moveInThis  = mvIn  ? (mvIn.get(m)||0)  : 0;   // 이 달 다른 반에서 들어옴 → 다음달 월초 +
     // 이 달 월초가 반이동 때문에 바뀐 것(= 전달의 in/out). 하이라이트/툴팁용.
@@ -848,7 +871,6 @@ const baseNew = monthStart + newThis + tiThis;
     const startMoveOut = idx===0 ? 0 : prevMoveOut;
     if(active){
       cells.push({ month:m, monthStart, newThis, transferIn:tiThis, baseNew, withdraw:wdThis, transfer:trThis, rate, blank:false, startMoveIn, startMoveOut });
-      if(baseNew>0) rates.push(rate);
     } else {
       cells.push({ month:m, monthStart:0, newThis:0, transferIn:0, baseNew:0, withdraw:0, transfer:0, rate:0, blank:true, startMoveIn:0, startMoveOut:0 });
     }
@@ -860,7 +882,10 @@ const baseNew = monthStart + newThis + tiThis;
   const totTransfer = cells.reduce((a,c)=>a+(c.blank?0:c.transfer),0);
   const totNew = cells.reduce((a,c)=>a+(c.blank?0:c.newThis),0);
   const totTransferIn = cells.reduce((a,c)=>a+(c.blank?0:c.transferIn),0);
-  const avgRate = rates.length ? rates.reduce((a,c)=>a+c,0)/rates.length : 0;
+  /* 학기 퇴원율 = 누적. 월별 퇴원율의 평균이 아니다 (위 설명 참고).
+     분모는 '이 학기에 이 그룹이 데리고 있던 인원' = 첫 달 월초 + 학기 내내 들어온 신규·전입 */
+  const firstStart = cells.length ? (cells.find(c=>!c.blank)||{monthStart:0}).monthStart : 0;
+  const avgRate = wdRatePct(totWithdraw, firstStart + totNew + totTransferIn);
   return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate };
 }
 /* 일별 집계 — 한 달의 날짜별 인원 추적 (퇴원율 집계표용).
@@ -1155,12 +1180,12 @@ function teachersOf(branchId, semId){
     // 이 담임의 퇴원생 수 (status=withdraw, 같은 담임)
     const withdrawCnt = allRecs.filter(r=>r.teacher===teacher && r.status==='withdraw' && !r.transfer).length;
     const newCnt = trecs.filter(r=>r.origin==='new').length;
-    // 퇴원율 = 퇴원 / (현재 재원 + 퇴원) — 한때 맡았던 전체 대비
-    const base = trecs.length + withdrawCnt;
-    const withdrawRate = base>0 ? Math.round(withdrawCnt/base*100) : 0;
+    // 퇴원율 — 한때 맡았던 전체 대비. 전출도 한때 맡았던 인원이라 분모에 넣는다
+    const transferCnt = allRecs.filter(r=>r.teacher===teacher && r.status==='withdraw' && r.transfer).length;
+    const withdrawRate = wdRateSem(trecs.length, withdrawCnt, transferCnt);
     return { teacher, recs:trecs, studentCount:trecs.length,
              classCount:classes.size, rates,
-             withdrawCnt, newCnt, withdrawRate };
+             withdrawCnt, transferCnt, newCnt, withdrawRate };
   }).sort((a,b)=> a.teacher.localeCompare(b.teacher,'ko'));
 }
 
@@ -1816,13 +1841,10 @@ tot.start+=hc.start; tot.newCnt+=hc.newCnt; tot.transferIn+=hc.transferIn; tot.w
       totCa[k].ace   += hc.ca[k].ace;
       totCa[k].total += hc.ca[k].total;
     });
-    // 분원 퇴원율 = 퇴원 / (재원+퇴원)
-    const wbase = hc.active + hc.withdraw;
-    const withdrawRate = wbase>0 ? Math.round(hc.withdraw/wbase*100) : 0;
+    const withdrawRate = wdRateSem(hc.active, hc.withdraw, hc.transfer);
     return { b, hc, rates, withdrawRate };
   });
-  const totWbase = tot.active + tot.withdraw;
-  const totWithdrawRate = totWbase>0 ? Math.round(tot.withdraw/totWbase*100) : 0;
+  const totWithdrawRate = wdRateSem(tot.active, tot.withdraw, tot.transfer);
 
   let html = `
     <div class="page-head">
@@ -1835,7 +1857,7 @@ tot.start+=hc.start; tot.newCnt+=hc.newCnt; tot.transferIn+=hc.transferIn; tot.w
       ${kpiCard('전체 전입', tot.transferIn, {unit:'명', ca:totCa.transferIn})}
       ${kpiCard('전체 퇴원생', tot.withdraw, {unit:'명', ca:totCa.withdraw})}
       ${kpiCard('전체 전출', tot.transfer, {unit:'명', ca:totCa.transfer})}
-      ${kpiCard('전체 퇴원율', totWithdrawRate, {unit:'%'})}
+      ${kpiCard('전체 퇴원율', totWithdrawRate.toFixed(1), {unit:'%'})}
       ${kpiCard('현 재원생', tot.active, {unit:'명', accent:true, ca:totCa.active})}
     </div>`+ xferReconBox() +`
     <div class="sect-head">
@@ -1875,7 +1897,7 @@ tot.start+=hc.start; tot.newCnt+=hc.newCnt; tot.transferIn+=hc.transferIn; tot.w
         <div>
           <div class="card-name">${esc(b.name)}
             ${b.id===bestId?'<span class="tag-best">최고</span>':b.id===worstId?'<span class="tag-worst">최저</span>':''}</div>
-        <div class="card-sub">신규 <b style="color:var(--brand)">${hc.newCnt}</b> · 퇴원 <b style="color:${wrColor}">${hc.withdraw}</b> <span style="color:${wrColor}">(${withdrawRate}%)</span> · 상담률 <b style="color:${hasData?rateColor(rates.totalRate):'var(--ink-3)'}">${hasData?rates.totalRate+'%':'–'}</b></div>
+        <div class="card-sub">신규 <b style="color:var(--brand)">${hc.newCnt}</b> · 퇴원 <b style="color:${wrColor}">${hc.withdraw}</b> <span style="color:${wrColor}">(${withdrawRate.toFixed(1)}%)</span> · 상담률 <b style="color:${hasData?rateColor(rates.totalRate):'var(--ink-3)'}">${hasData?rates.totalRate+'%':'–'}</b></div>
           <div class="card-ca"><span class="ca-chess">CHESS ${hc.ca.active.chess}</span><span class="ca-ace">ACE ${hc.ca.active.ace}</span></div>
         </div>
         <div class="card-headcount">
@@ -1935,7 +1957,7 @@ tot.start+=hc.start; tot.newCnt+=hc.newCnt; tot.transferIn+=hc.transferIn; tot.w
             <td class="cc">${t.classCount}</td>
             <td class="cc">${t.studentCount}</td>
             <td class="cc"><span class="wd-pill" style="color:${wrColor}">${t.withdrawCnt}</span></td>
-            <td class="rt"><span class="wd-pill" style="color:${wrColor}">${t.withdrawRate}%</span></td>
+            <td class="rt"><span class="wd-pill" style="color:${wrColor}">${t.withdrawRate.toFixed(1)}%</span></td>
             <td class="rt"><div class="cell-rate">
               <div class="mini-track"><div class="mini-fill" style="width:${t.rates.totalRate}%;background:${rateColor(t.rates.totalRate)}"></div></div>
               <span class="pct" style="color:${rateColor(t.rates.totalRate)}">${t.rates.totalRate}%</span>
@@ -1945,7 +1967,7 @@ tot.start+=hc.start; tot.newCnt+=hc.newCnt; tot.transferIn+=hc.transferIn; tot.w
         </tbody>
       </table>
     </div></div>
-    <div style="margin-top:10px;font-size:12px;color:var(--ink-3)">행을 클릭하면 해당 담임 상세로 이동합니다. 퇴원율 = 퇴원 ÷ (현재 재원 + 퇴원).</div>`;
+    <div style="margin-top:10px;font-size:12px;color:var(--ink-3)">행을 클릭하면 해당 담임 상세로 이동합니다. 퇴원율 = 퇴원 ÷ (현재 재원 + 퇴원 + 전출).</div>`;
   }
 
   el('content').innerHTML = html;
