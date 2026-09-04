@@ -512,7 +512,7 @@ function renderDashHome(c){
     /* 반 개설현황 — 본사 관리자만. 분원 계정에는 버튼이 아예 안 뜬다.
        (이사님 요청 — 학기별로 분원마다 반이 몇 개 열렸는지) */
     +((session&&session.role)==='admin'
-      ? '<button onclick="setDashView(\'class\')" style="'+btn(state.dashView==='class')+'">🏫 반 개설현황</button>' : '')
+      ? '<button onclick="setDashView(\'class\')" style="'+btn(state.dashView==='class')+'">반 개설현황</button>' : '')
     +'</div><div id="dashBody"></div>';
   const body=$('dashBody');
   if(state.dashView==='mgmt') renderMgmtDash(body);
@@ -539,6 +539,24 @@ function coKindOf(rec){
   if((rec.kind||'regular')==='exam') return 'exam';        // 내신을 먼저 본다 (위 설명 참고)
   return isChess(rec.className) ? 'chess' : 'ace';
 }
+/* 화면에 보여줄 반 이름.
+   내신반은 괄호 안에 교과서 이름이 줄줄이 들어간다 —
+     내신반(동아윤/능률김/동아이/YBM박/비상황/YBM김) / FA4 / MWF / 중2
+   교과서까지 보여줄 이유가 없어서 괄호와 그 안 내용을 통째로 뺀다.
+   대신 부(FA4)·요일(MWF)·학년(중2)은 남긴다 — 그게 없으면 같은 학년 내신반끼리
+   이름이 똑같아져서 몇 개인지 구분이 안 된다. */
+function coLabelOf(rec){
+  const cn=String(rec.className||'');
+  if((rec.kind||'regular')==='exam'){
+    const t=cn.replace(/\([^)]*\)/g,'')          // 괄호와 그 안 내용 제거
+             .replace(/\s*\/\s*/g,' / ')        // 슬래시 둘레 공백 정리
+             .replace(/\s{2,}/g,' ')
+             .replace(/(^[\s\/]+|[\s\/]+$)/g,'')
+             .trim();
+    return t || cn;
+  }
+  return banLevelLabel(cn) || banLevel(cn) || cn;
+}
 /* 그 분원·학기에 열린 반 목록. 반이름으로 묶고, 재원이 0명이면 애초에 안 만들어진다. */
 function classOpenOf(branchId, semId){
   const m=new Map();
@@ -548,13 +566,23 @@ function classOpenOf(branchId, semId){
     const cn=String(r.className||'').trim();
     if(!cn) return;                                        // 반 배정 안 된 학생은 반이 아니다
     let e=m.get(cn);
-    if(!e){ e={ kind:coKindOf(r), label:(banLevelLabel(cn)||banLevel(cn)||cn), cn, n:0 }; m.set(cn,e); }
+    if(!e){ e={ kind:coKindOf(r), label:coLabelOf(r), cn, n:0 }; m.set(cn,e); }
     e.n++;
   });
   const all=[...m.values()];
   const pick=k=>all.filter(x=>x.kind===k).sort((a,b)=>String(a.label).localeCompare(String(b.label),'ko'));
   const o={ tot:all.length };
-  CO_KINDS.forEach(k=>{ o[k]=pick(k); });
+  CO_KINDS.forEach(k=>{
+    const list=pick(k);
+    /* 이름이 겹치면 뒤에 번호를 붙인다. 내신반은 괄호 안 교과서 이름만 다르고
+       나머지가 똑같은 반이 실제로 있다(서수원 중2 MWF 가 두 반). 괄호를 떼면
+       이름이 같아져서 두 반인지 한 반인지 화면에서 구분이 안 된다. */
+    const dup={}; list.forEach(x=>{ dup[x.label]=(dup[x.label]||0)+1; });
+    const seen={};
+    list.forEach(x=>{ if(dup[x.label]>1){ seen[x.label]=(seen[x.label]||0)+1;
+      x.label = x.label+' ('+seen[x.label]+')'; } });
+    o[k]=list;
+  });
   return o;
 }
 function coToggle(brId){
@@ -577,7 +605,8 @@ function coChips(o){
     const c=CO_C[k];
     return '<div style="font-size:10.5px;letter-spacing:.06em;font-weight:800;color:'+c.ink+';margin:12px 0 6px">'+c.nm+' '+o[k].length+'</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:5px">'
-      + o[k].map(x=>'<span title="'+esc(x.cn)+' · 재원 '+x.n+'명" style="font-size:11.5px;padding:3px 8px;border-radius:7px;white-space:nowrap;'
+      + o[k].map(x=>'<span title="'+esc(x.cn)+' · 재원 '+x.n+'명" style="font-size:11.5px;padding:3px 8px;border-radius:7px;'
+          +'max-width:100%;word-break:keep-all;line-height:1.5;'
           +'background:'+c.soft+';border:1px solid '+c.fill+';color:'+c.ink+'">'+esc(x.label)
           +'<span style="opacity:.65"> '+x.n+'</span></span>').join('')
       +'</div>';
@@ -594,8 +623,10 @@ function renderClassOpenDash(c){
   const T={ tot:rows.reduce((a,r)=>a+r.o.tot,0) };
   CO_KINDS.forEach(k=>{ T[k]=rows.reduce((a,r)=>a+r.o[k].length,0); });
 
-  const bigNum=(v,col)=>'<div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:27px;'
-    +'font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums'+(col?';color:'+col:'')+'">'+v+'</div>';
+  /* 숫자는 앱 글꼴 그대로 쓴다. 예전엔 monospace 를 줬는데 이 사이트는 NanumSquare 라
+     숫자만 딴 글꼴로 튀어 보였다. 자릿수만 tabular-nums 로 맞춘다. */
+  const bigNum=(v,col)=>'<div style="font-size:28px;font-weight:800;line-height:1.1;'
+    +'font-variant-numeric:tabular-nums;letter-spacing:-.5px'+(col?';color:'+col:'')+'">'+v+'</div>';
   const key=t=>'<div style="font-size:11px;color:#a9a2b6;letter-spacing:.03em">'+t+'</div>';
 
   let h='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
@@ -607,7 +638,7 @@ function renderClassOpenDash(c){
 
   h+='<div style="background:#fff;border:1px solid #ece8f5;border-radius:14px;padding:15px 18px;margin-bottom:13px;'
     +'display:flex;gap:30px;align-items:flex-end;flex-wrap:wrap">'
-    +'<div>'+key('전체 개설반')+bigNum(T.tot+'<span style="font-size:11.5px;color:#a9a2b6;font-family:inherit;font-weight:400"> 반</span>')+'</div>'
+    +'<div>'+key('전체 개설반')+bigNum(T.tot+'<span style="font-size:11.5px;color:#a9a2b6;font-weight:400"> 반</span>')+'</div>'
     + CO_KINDS.map(k=>'<div>'+key(CO_C[k].nm)+bigNum(T[k],CO_C[k].ink)+'</div>').join('')
     +'<div style="flex:1;min-width:200px">'+key('구성')+'<div style="margin-top:6px">'+coBar(T,12)+'</div></div>'
     +'</div>';
@@ -619,9 +650,9 @@ function renderClassOpenDash(c){
       +'border-radius:15px;padding:15px 16px 14px;cursor:pointer'+(open?';box-shadow:0 0 0 3px #f1ecfe':'')+'">'
       +'<div style="display:flex;align-items:baseline;gap:8px">'
         +'<span style="font-size:14.5px;font-weight:800">'+esc(b.name)+'</span>'
-        +'<span style="margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;'
-          +'font-weight:600;line-height:1;font-variant-numeric:tabular-nums">'+o.tot
-          +'<span style="font-size:11px;color:#a9a2b6;font-family:inherit;font-weight:400"> 반</span></span>'
+        +'<span style="margin-left:auto;font-size:27px;font-weight:800;line-height:1;'
+          +'font-variant-numeric:tabular-nums;letter-spacing:-.5px">'+o.tot
+          +'<span style="font-size:11px;color:#a9a2b6;font-weight:400"> 반</span></span>'
       +'</div>'
       +'<div style="display:flex;gap:13px;margin:10px 0 9px;font-size:12px;color:#7b7488;flex-wrap:wrap">'
       + CO_KINDS.map(k=>'<span style="display:inline-flex;align-items:center;gap:5px">'
