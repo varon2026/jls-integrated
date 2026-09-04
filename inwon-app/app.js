@@ -4954,7 +4954,7 @@ function importWithdrawals(file, branchId, semId){
 
     const recs = recordsOf(branchId, semId);
     let done=0, updated=0, notfound=0, ambiguous=0;
-    const notFoundList=[], ambiguousList=[];
+    const notFoundList=[], ambiguousList=[], reasonOddList=[];
 
     rows.slice(1).forEach(r=>{
       const name = idx.name>=0 ? String(r[idx.name]||'').trim() : '';
@@ -4977,8 +4977,9 @@ function importWithdrawals(file, branchId, semId){
 
       // 사유: 라벨('개인 사유')·코드('personal') 모두 허용, 없으면 개인 사유
       const reasonRaw = idx.reason>=0 ? String(r[idx.reason]||'').trim() : '';
-      const rf = WITHDRAW_REASONS.find(w=> w.code===reasonRaw || w.label===reasonRaw);
-      const reasonCode = rf ? rf.code : (reasonRaw ? 'other' : 'personal');
+      const rc = wdReasonCodeOf(reasonRaw);
+      if(rc===null) reasonOddList.push((name||code)+' → "'+reasonRaw+'"');   // 못 알아본 사유는 모아서 보여준다
+      const reasonCode = (rc==='') ? 'personal' : (rc || 'other');   // 빈칸=개인 사유, 못 알아봄=기타
       // 전출분원 값이 있으면 전출로 처리
       const transRaw = idx.transfer>=0 ? String(r[idx.transfer]||'').trim() : '';
       const toBranch = transRaw ? branchIdFromNote(transRaw) : null;
@@ -5010,8 +5011,10 @@ function importWithdrawals(file, branchId, semId){
       if(notfound) msg += ` · 못찾음 ${notfound}`;
       if(ambiguous) msg += ` · 동명이인 ${ambiguous}(회원코드 필요)`;
       toast(msg,'ok');
-      if(notFoundList.length) console.warn('[퇴원 일괄] 명단에서 못 찾음:', notFoundList.join(', '));
-      if(ambiguousList.length) console.warn('[퇴원 일괄] 동명이인 — 회원코드로 다시 올려주세요:', ambiguousList.join(', '));
+      /* 문제가 있으면 화면에 띄운다. 예전엔 콘솔에만 찍어서 운영자는 볼 수 없었고,
+         '올렸는데 갱신이 안 된 것 같다'는 말이 여기서 나왔다. */
+      showWithdrawReport({done, updated, notFoundList, ambiguousList, reasonOddList,
+                          hasReasonCol: idx.reason>=0, file:file.name});
     } else {
       toast('❌ 저장 실패 — 다시 시도해 주세요','err');
     }
@@ -5019,6 +5022,42 @@ function importWithdrawals(file, branchId, semId){
   });
 }
 
+/* 퇴원 일괄 업로드 결과 — 문제가 있을 때만 띄운다 */
+function showWithdrawReport(r){
+  const box=(title, color, list, hint)=> list.length ? `
+    <div style="margin-top:14px">
+      <div style="font-size:12.5px;font-weight:800;color:${color}">${title} ${list.length}명</div>
+      ${hint?`<div style="font-size:12px;color:var(--ink-2);margin:3px 0 6px">${hint}</div>`:''}
+      <div style="max-height:150px;overflow:auto;background:var(--surface-2);border:1px solid var(--line);
+                  border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.8">
+        ${list.map(x=>esc(x)).join('<br>')}
+      </div>
+    </div>` : '';
+  const problems = r.notFoundList.length + r.ambiguousList.length + r.reasonOddList.length;
+  const noReasonCol = !r.hasReasonCol;
+  if(!problems && !noReasonCol) return;          // 다 잘 됐으면 조용히 넘어간다
+
+  openModal(`
+    <div class="modal-head"><div><h3>퇴원 일괄 업로드 결과</h3></div>
+      <button class="modal-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:13.5px">퇴원 처리 <b>${r.done}</b>명 · 날짜·사유 갱신 <b>${r.updated}</b>명</div>
+      ${noReasonCol ? `
+      <div style="margin-top:13px;padding:11px 13px;border-radius:11px;background:var(--warn-soft);
+                  border:1px solid var(--warn);font-size:12.5px;line-height:1.65">
+        <b>퇴원사유 열을 못 찾았습니다.</b><br>
+        그래서 전부 <b>개인 사유</b>로 들어갔습니다. 엑셀 첫 줄에
+        <b>퇴원사유</b>(또는 <b>사유</b>)라는 열 이름이 있는지 봐주세요.
+      </div>` : ''}
+      ${box('명단에서 못 찾음','var(--neg)', r.notFoundList,
+            '이 학생들은 <b>아무 처리도 안 됐습니다.</b> 이름이 명단과 다르거나 이미 다른 학기에 있는 경우입니다.')}
+      ${box('동명이인이라 건너뜀','var(--warn)', r.ambiguousList,
+            '엑셀에 <b>회원코드</b>를 넣어 다시 올려주세요.')}
+      ${box('사유를 못 알아봐서 「기타」로 넣음','var(--warn)', r.reasonOddList,
+            '아래 말들이 사유 목록에 없습니다. 타학원 이동 · 개인 사유 · 학습 부담 · 담임 불만 · 교우 관계 · 스케줄 · 이사 · 졸업 · 폐강 · 기타 중에서 골라 적어주세요.')}
+    </div>
+    <div class="modal-foot"><button class="btn primary" onclick="closeModal()">확인</button></div>`);
+}
 /* 퇴원생 일괄 업로드용 엑셀 양식 다운로드
    (퇴원사유·전출분원 드롭다운이 들어간 정적 파일을 내려줌 — SheetJS 무료판은 드롭다운 생성 불가) */
 function downloadWithdrawTemplate(){
@@ -6263,7 +6302,35 @@ const WITHDRAW_REASONS = [
   { code:'closed',    label:'폐강' },
   { code:'other',     label:'기타' },
 ];
-function wdReasonLabel(code){
+/* 엑셀에 적힌 퇴원사유 → 코드. 분원마다 말이 제각각이라 넓게 잡는다.
+   예전엔 목록의 라벨과 '글자 하나까지 똑같을 때만' 알아들었다. 라벨에 띄어쓰기가
+   들어 있어서(개인 사유 · 타학원 이동 · 학습 부담), 분원이 붙여 쓴 '개인사유'는
+   전부 '기타'로 떨어졌다. 남동탄 여름 재업로드에서 사유가 안 맞은 원인이다. */
+const WD_REASON_ALIAS = {
+  academy : ['타학원','타학원이동','학원이동','타학원으로','다른학원','타원'],
+  personal: ['개인','개인사유','개인적사유','개인사정'],
+  burden  : ['학습부담','부담','공부부담','진도부담','수업부담'],
+  teacher : ['담임불만','담임','선생님','강사불만','교사불만'],
+  peer    : ['교우','교우관계','친구','친구관계','또래'],
+  schedule: ['스케줄','시간','시간표','일정','시간안맞음'],
+  moving  : ['이사','이사감','이전'],
+  graduate: ['졸업'],
+  closed  : ['폐강','반폐강','폐반'],
+  other   : ['기타','기타사유']
+};
+function wdNorm(v){ return String(v||'').replace(/\s+/g,'').toLowerCase(); }
+/* 못 알아들으면 null 을 준다 — 부르는 쪽에서 '기타'로 넣고 몇 건인지 알려주기 위함 */
+function wdReasonCodeOf(raw){
+  const n = wdNorm(raw);
+  if(!n) return '';
+  const byExact = WITHDRAW_REASONS.find(w=> wdNorm(w.code)===n || wdNorm(w.label)===n);
+  if(byExact) return byExact.code;
+  for(const code in WD_REASON_ALIAS){
+    if(WD_REASON_ALIAS[code].some(a=> wdNorm(a)===n)) return code;
+  }
+  return null;
+}
+function wdReasonLabel(code){
   const f = WITHDRAW_REASONS.find(r=>r.code===code);
   return f ? f.label : '';
 }
