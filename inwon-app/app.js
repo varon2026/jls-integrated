@@ -856,6 +856,13 @@ function monthlyClosing(recs, months, activeMonths, splits, moves, recsAt){
   (splits||[]).forEach(sp=> splitByMonth.set(sp.month, sp));
   const mvOut = (moves&&moves.out)||null, mvIn = (moves&&moves.in)||null;
   let carry = 0, prevMoveIn = 0, prevMoveOut = 0;
+  /* 넘겨받은 인원 — 신규도 전입도 아닌데 월초가 늘어난 몫.
+     담임 변경으로 반을 통째로 넘겨받으면 그 학생들은 '신규' 칸에 안 뜬다.
+     그래도 그 달부터는 이 선생님이 데리고 있던 인원이라, 학기 퇴원율 분모에는 들어가야 한다.
+     안 넣으면 넘겨받은 반에서 나간 학생까지 원래 반 인원으로만 나눠 퇴원율이 부풀어 오른다.
+     (2026 여름 장안 김세광 선생님 — 7월에 12명을 넘겨받았는데 분모에 안 들어가서
+      학기퇴원율이 17.2% 대신 21.7% 로 나왔다.) */
+  let totGained = 0, seenActive = false, moveAcc = 0;
   const cells = [];
   months.forEach((m, idx)=>{
     const active = !activeMonths || activeMonths.has(m);
@@ -864,13 +871,17 @@ function monthlyClosing(recs, months, activeMonths, splits, moves, recsAt){
     let monthStart = idx===0 ? startOfSem : carry;
     /* 이 달부터 맡는 반이 생겼거나 넘겨준 반이 빠졌으면, 월초는 전달 월말을 그대로
        물려받을 수 없다. 그 달 명단으로 다시 센다. */
-    if(idx>0 && recsAt && rosterKey(R)!==rosterKey(recsOf(months[idx-1]))) monthStart = startCountAt(R, m);
+    /* moveAcc — 여기까지 쌓인 반이동 증감. 다시 셀 때 R(반 명단)에는 반이동이 안 들어 있어서
+       더해 주지 않으면 옮겨 온 학생이 월초에서 사라진다. */
+    if(idx>0 && recsAt && rosterKey(R)!==rosterKey(recsOf(months[idx-1]))) monthStart = Math.max(0, startCountAt(R, m) + moveAcc);
 let newThis, tiThis=0, wdThis, trThis;
     if(sp){
       // 변경월: 날짜로 쪼갬
       const split = splitMonthForGroup(R, m, sp.cutDay);
       const part = sp.side==='before' ? split.before : split.after;
-      monthStart = part.monthStart;
+      /* 여기서도 반이동 보정(moveAcc)을 더한다. 반 명단만 보고 다시 세는 자리라
+         안 더하면 다른 반으로 옮겨 간 학생이 이 달 월초에 되살아난다. */
+      monthStart = Math.max(0, part.monthStart + moveAcc);
       newThis = part.newCnt;
       wdThis = part.wd;
       trThis = part.tr;
@@ -887,6 +898,15 @@ const baseNew = monthStart + newThis + tiThis;
     // 이 달 월초가 반이동 때문에 바뀐 것(= 전달의 in/out). 하이라이트/툴팁용.
     const startMoveIn  = idx===0 ? 0 : prevMoveIn;
     const startMoveOut = idx===0 ? 0 : prevMoveOut;
+    /* 이 달 월초가 전달 월말보다 많으면, 그 차이만큼 신규·전입 아닌 경로로 들어온 것이다.
+       담당을 시작한 첫 달은 그 자체가 분모의 출발점(firstStart)이라 세지 않는다. */
+    if(active){
+      /* 넘겨받은 반(월초가 전달 월말보다 많아진 몫) + 이 달 다른 반에서 옮겨 온 학생.
+         둘 다 '신규' 칸엔 안 뜨지만 이 선생님이 데리고 있던 인원이라 분모에 들어가야 한다. */
+      if(seenActive) totGained += Math.max(0, monthStart - carry);
+      totGained += moveInThis;
+      seenActive = true;
+    }
     if(active){
       cells.push({ month:m, monthStart, newThis, transferIn:tiThis, baseNew, withdraw:wdThis, transfer:trThis, rate, blank:false, startMoveIn, startMoveOut });
     } else {
@@ -894,6 +914,7 @@ const baseNew = monthStart + newThis + tiThis;
     }
     // 다음 달 월초 — 사람 수라 음수가 될 수 없다. 데이터가 어긋나도 '−1명'은 내보내지 않는다.
     carry = Math.max(0, baseNew - wdThis - trThis + moveInThis - moveOutThis);
+    moveAcc += moveInThis - moveOutThis;
     prevMoveIn = moveInThis; prevMoveOut = moveOutThis;
   });
  const totWithdraw = cells.reduce((a,c)=>a+(c.blank?0:c.withdraw),0);
@@ -903,7 +924,7 @@ const baseNew = monthStart + newThis + tiThis;
   /* 학기 퇴원율 = 누적. 월별 퇴원율의 평균이 아니다 (위 설명 참고).
      분모는 '이 학기에 이 그룹이 데리고 있던 인원' = 첫 달 월초 + 학기 내내 들어온 신규·전입 */
   const firstStart = cells.length ? (cells.find(c=>!c.blank)||{monthStart:0}).monthStart : 0;
-  const avgRate = wdRatePct(totWithdraw, firstStart + totNew + totTransferIn);
+  const avgRate = wdRatePct(totWithdraw, firstStart + totNew + totTransferIn + totGained);
   return { cells, totWithdraw, totTransfer, totNew, totTransferIn, avgRate };
 }
 /* 일별 집계 — 한 달의 날짜별 인원 추적 (퇴원율 집계표용).
