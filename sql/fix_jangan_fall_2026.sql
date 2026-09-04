@@ -145,6 +145,32 @@ select
 -- 여름 마감 417 · 여름 퇴원 26 · 가을 학기초 417 · 417 · 가을 퇴원 3
 
 
+/* ── 4-b. 사람별 확인 — 5명이 제대로 바뀌었는지 눈으로 보기 ───────────────── */
+
+select s.name as 학생, r.semester_id as 학기,
+       case r.status when 'active' then '재원' when 'withdraw' then '퇴원' else r.status end as 상태,
+       case r.origin when 'new' then '신규' when 'return' then '복귀' else '기존생' end as 구분,
+       coalesce(nullif(r.enroll_date::text,''),'(학기초)') as 입학일,
+       coalesce(nullif(r.withdraw_date::text,''),'-')       as 퇴원일
+from public.semester_records r
+join public.students s on s.id = r.student_id
+where s.code in ('U003247226','U003256051','U002758523','U002899034','U003074534')
+  and r.semester_id in ('sem_2026_summer','sem_2026_fall')
+  and coalesce(r.kind,'regular') <> 'exam'
+order by s.name, r.semester_id;
+
+/*  이렇게 나와야 맞습니다 —
+
+    오민서   여름  재원  신규    (여름에 들어온 게 맞으니 그대로 둡니다)
+    오민서   가을  재원  기존생  (학기초)     ← 여기가 고쳐지는 곳
+    전윤채   여름  재원  신규
+    전윤채   가을  재원  기존생  (학기초)     ← 여기가 고쳐지는 곳
+
+    정우진   여름  재원  ...     -            ← 여름은 다닌 걸로
+    정우진   가을  퇴원  ...     2026-09-01   ← 퇴원은 가을로
+    (정원우 · 정차율도 같은 모양)                                            */
+
+
 /* ── 되돌리기 (문제 생겼을 때만) ────────────────────────────────────────────
 update public.semester_records r
 set status=b.status, origin=b.origin, target_type=b.target_type,
