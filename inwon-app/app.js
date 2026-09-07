@@ -331,7 +331,10 @@ async function loadDB(){
      고쳐도(예: TT 를 화목으로 인식) 명단을 다시 올리기 전까지는 옛 라벨이 그대로 보였다.
      → 정규반은 반이름에서 매번 다시 만든다. 내신반·미배정은 이름 그대로 쓰므로 손대지 않는다. */
   (db.semesterRecords||[]).forEach(r=>{
-    if((r.kind||'regular')!=='exam' && r.className && /^\s*\[/.test(r.className)){
+    if((r.kind||'regular')==='exam' && r.className){
+      /* 내신반도 이름에서 다시 만든다 — 명단을 다시 올리기 전에도 화면이 정리되게 */
+      r.classLabel = examLabel(r.className) || r.classLabel;
+    } else if((r.kind||'regular')!=='exam' && r.className && /^\s*\[/.test(r.className)){
       r.classLabel = classLabel(r.className) || r.classLabel;
     } else if(r.classLabel && /^\s*\[/.test(r.classLabel)){
       r.classLabel = classLabel(r.classLabel) || r.classLabel;   // 라벨 자리에 원본 반이름이 들어간 옛 데이터
@@ -1822,6 +1825,31 @@ function incompleteTag(n){
 /* 내신반 회차 고르기 — 내신 기간은 학교·학년마다 달라 시스템이 알 수 없다.
    반마다 한 번 골라두면 그 회차만 내신반이 맡고, 그 학생들의 정규반 같은 회차는
    자동으로 빠진다. 안 고르면 이 내신반은 상담률에 아예 안 잡힌다. */
+/* 회차를 안 고른 내신반 경고.
+   내신반은 회차를 골라야 상담률에 잡힌다. 안 고르면 아예 안 잡히는데,
+   반 이름을 바꾸면 골라둔 회차가 끊어져서(회차가 반 이름에 붙어 있다)
+   모르는 사이에 상담률에서 빠진다. 그래서 대시보드 맨 위에 띄운다. */
+function examStageWarn(branchId, semId){
+  if(MISSING_TABLES.has('examClassStages')) return '';
+  const recs = (db.semesterRecords||[]).filter(r=>
+    r.branchId===branchId && r.semesterId===semId &&
+    (r.kind||'regular')==='exam' && r.status==='active');
+  if(!recs.length) return '';
+  const seen = {}, bad = [];
+  recs.forEach(r=>{
+    if(seen[r.className]) return; seen[r.className]=1;
+    if(!examStageOf(r)) bad.push(r);
+  });
+  if(!bad.length) return '';
+  return '<div style="border:1px solid #f2e2c8;background:var(--warn-soft);border-radius:14px;padding:13px 16px;margin-bottom:16px">'
+    + '<div style="font-size:13.5px;font-weight:800;color:#8a6a2f">회차를 안 고른 내신반이 '+bad.length+'개 있습니다 — 상담률에 안 잡힙니다</div>'
+    + '<div style="font-size:12px;color:#8a6a2f;margin-top:5px;line-height:1.8">'
+    + bad.map(r=>'<span onclick="go(\'branch/class/'+encodeURIComponent(r.teacher||'')+'/'+encodeURIComponent(r.className)+'\')" '
+        + 'style="display:inline-block;cursor:pointer;background:var(--surface);border:1px solid #f2e2c8;border-radius:8px;padding:3px 9px;margin:0 5px 5px 0">'
+        + esc(examLabel(r.className)) + ' <span style="color:var(--ink-3)">' + esc(r.teacher||'') + '</span></span>').join('')
+    + '</div>'
+    + '<div style="font-size:11.5px;color:#8a6a2f;opacity:.85">반을 눌러 상담표로 들어가면 위쪽에서 회차를 고를 수 있습니다.</div></div>';
+}
 function examStagePicker(className, cur){
   const can = canEditExempt() && !MISSING_TABLES.has('examClassStages');
   const opts = [['','회차 지정 안 함 (상담률 제외)'],['MC1','MC1'],['MC2','MC2'],['MC3','MC3']];
@@ -2277,7 +2305,31 @@ function banLevel(cn){
   m=s.match(/^\s*\[([^/\]]+)/);  if(m) return m[1].trim();
   return s;
 }
-function banRoom(cn){ const p=banParts(cn); const last=(p.length?p[p.length-1]:'').trim(); return (/^[A-Za-z]{1,2}$/.test(last) && !/^(mw|wf|tt)$/i.test(last)) ? last : ''; }  // 강의실=알파벳 1~2글자만. 요일(MWF/TTH/TT)·숫자·이상한 값은 빈칸
+/* 강의실 = 알파벳 1~2글자만. 요일(MWF/TTH/TT)·숫자·이상한 값은 빈칸.
+   내신반은 맨 뒤에 교과서를 괄호로 달기로 했다(…/O(천재이,미래엔문)) — 괄호는 떼고 본다. */
+function banRoom(cn){
+  const p=banParts(cn);
+  let last=(p.length?p[p.length-1]:'').trim().replace(/\([^()]*\)\s*$/,'').trim();
+  return (/^[A-Za-z]{1,2}$/.test(last) && !/^(mw|wf|tt)$/i.test(last)) ? last : '';
+}
+/* 내신반 이름 맨 뒤 괄호 = 교과서 목록. 화면·집계에서는 떼고 본다.
+   분원마다 '내신반(동아이/능률김)' '[내신] 중1/천재(이),미래(문)' 제각각이라
+   [내신]FA4/MWF/M3/O(천재이,미래엔문) 한 가지로 통일하기로 했다. */
+function examBooks(cn){ const m=String(cn||'').match(/\(([^()]*)\)\s*$/); return m ? m[1].trim() : ''; }
+function stripBooks(cn){ return String(cn||'').replace(/\([^()]*\)\s*$/,'').trim(); }
+/* 내신반 화면 이름 — '내신 · 월수금 4부 · M3 · O' (교과서는 안 넣는다) */
+function examLabel(cn){
+  const body=stripBooks(cn), parts=banParts(body);
+  const dayCode=parts.map(banDayCode).find(Boolean)||'';
+  const day=dayCode?(BAN_DAY_LABEL[dayCode]||''):'';
+  const tp=parts.find(p=>/^[A-Za-z]{2}\d+$/.test(p));
+  const time=tp?(tp.match(/\d+$/)[0]+'부'):'';
+  const grade=parts.map(banGrade).find(Boolean)||'';
+  const room=banRoom(body);
+  const head=[day,time].filter(Boolean).join(' ');
+  const tail=[head,grade,room].filter(Boolean).join(' \u00b7 ');
+  return tail ? '내신 \u00b7 '+tail : '내신';
+}
 /* 반이름 안의 학년 조각 → 한 가지 코드로. 초5·E5 / 중1·M1 을 같은 것으로 본다.
    (고등부는 없다 — 초5·초6·중1·중2·중3 다섯 가지뿐) */
 const BAN_GRADES={E5:'E5',E6:'E6',M1:'M1',M2:'M2',M3:'M3',
@@ -2389,7 +2441,7 @@ function renderBranchDashboard(){
   const rates = calcRates(rateRecordsOf(branchId, semId), branchId, semId);
   const teachers = teachersOf(branchId, semId);
 
-  let html = `
+  let html = examStageWarn(branchId, semId) + `
     <div class="page-head">
       <h2>${esc(b.name)} Dashboard</h2>
       <div class="sub">${esc(db.semesters.find(s=>s.id===semId).name)} 운영 현황</div>
@@ -2661,7 +2713,7 @@ const cells = STAGES.map(stg=>{
     ${backLink(teacher+' 담임', backTarget)}
     <div class="page-head">
       <h2>${esc(classLbl)} <span style="font-size:14px;font-weight:500;color:${isExamClass?'var(--warn)':'var(--ink-3)'}">${isExamClass?'내신반 상담표':'상담표'}</span></h2>
-      <div class="sub">${esc(b.name)} · ${esc(teacher)} 담임 · 학생 ${recs.length}명</div>
+      <div class="sub">${esc(b.name)} · ${esc(teacher)} 담임 · 학생 ${recs.length}명${isExamClass && examBooks(className) ? ` · <span style="color:var(--ink-3);font-size:11.5px">교재 ${esc(examBooks(className))}</span>` : ''}</div>
       ${isExamClass ? examStagePicker(className, examStageOf(recs[0])) : ''}
     </div>
     <div class="table-wrap">
@@ -4539,10 +4591,15 @@ function isRealClass(raw){
   return /^\s*\[/.test(String(raw||''));
 }
 /* 반 종류 판별: 대괄호로 시작 → 정규반(regular), 대괄호 없이 "내신" 포함 → 내신반(exam), 그 외 → null(제외) */
+/* 정규반 · 내신반 구분.
+   ★ 내신을 대괄호보다 먼저 본다. 예전엔 대괄호를 먼저 봐서 '[내신] 중1/천재(이)' 처럼
+   올린 분원의 내신반이 통째로 정규반으로 저장됐다. 장안 2026 가을 85명이 그렇게
+   정규 인원에 더해져 있었다(반배정표 'ACE 98명'). 반 이름은 [내신]FA4/MWF/M3/O(교과서)
+   한 가지로 통일하기로 했으므로, 대괄호 안에 '내신'이 있어도 내신반으로 읽어야 한다. */
 function classKind(raw){
   const s = String(raw||'').trim();
-  if(/^\[/.test(s)) return 'regular';
   if(s.includes('내신')) return 'exam';
+  if(/^\[/.test(s)) return 'regular';
   return null;
 }
 /* 반 이름에서 레벨 코드만 추출 (괄호 안 내용은 무시).
@@ -4799,7 +4856,7 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
       //   몰입/·문법/·셔틀·미배정·빈칸 등 대괄호로 시작하지 않는 행은 전부 제외.
       if(!kind){ excluded++; return; }
       const classFull = rawClass;
-      const classLbl = kind==='exam' ? rawClass : (unassigned ? '미배정' : classLabel(rawClass));  // 내신반/미배정은 이름 그대로 표시
+      const classLbl = kind==='exam' ? examLabel(rawClass) : (unassigned ? '미배정' : classLabel(rawClass));  // 내신반은 교과서를 뗀 이름으로
       const note = idx.note>=0 ? String(r[idx.note]||'').trim() : '';
       // '복귀' 글자 있으면 복귀, 없고 '신규'만 있으면 신규. 둘 다 섞여 있어도 복귀 우선.
       // (복귀생도 신규로 카운트되지만, 특이사항/배지엔 '복귀'로 구분 표시됨)

@@ -560,12 +560,16 @@ function coKindOf(rec){
 function coLabelOf(rec){
   const cn=String(rec.className||'');
   if((rec.kind||'regular')==='exam'){
-    const t=cn.replace(/\([^)]*\)/g,'')          // 괄호와 그 안 내용 제거
+    /* 내신반은 교과서를 뗀 '내신 · 월수금 4부 · M3 · O' 로 보여준다.
+       옛 이름(내신반(동아이/능률김) / FA4 / …)은 시간대·요일이 없어 '내신'만 남을 수 있다. */
+    const t=examLabel(cn);
+    if(t && t!=='내신') return t;
+    const u=cn.replace(/\([^)]*\)/g,'')          // 옛 이름: 괄호와 그 안 내용 제거
              .replace(/\s*\/\s*/g,' / ')        // 슬래시 둘레 공백 정리
              .replace(/\s{2,}/g,' ')
              .replace(/(^[\s\/]+|[\s\/]+$)/g,'')
              .trim();
-    return t || cn;
+    return u || cn;
   }
   return banLevelLabel(cn) || banLevel(cn) || cn;
 }
@@ -744,7 +748,31 @@ function banLevel(cn){
   m=s.match(/^\s*\[([^/\]]+)/);  if(m) return m[1].trim();
   return s;
 }
-function banRoom(cn){ const p=banParts(cn); const last=(p.length?p[p.length-1]:'').trim(); return (/^[A-Za-z]{1,2}$/.test(last) && !/^(mw|wf|tt)$/i.test(last)) ? last : ''; }  // 강의실=알파벳 1~2글자만. 요일(MWF/TTH/TT)·숫자·이상한 값은 빈칸
+/* 강의실 = 알파벳 1~2글자만. 요일(MWF/TTH/TT)·숫자·이상한 값은 빈칸.
+   내신반은 맨 뒤에 교과서를 괄호로 달기로 했다(…/O(천재이,미래엔문)) — 괄호는 떼고 본다. */
+function banRoom(cn){
+  const p=banParts(cn);
+  let last=(p.length?p[p.length-1]:'').trim().replace(/\([^()]*\)\s*$/,'').trim();
+  return (/^[A-Za-z]{1,2}$/.test(last) && !/^(mw|wf|tt)$/i.test(last)) ? last : '';
+}
+/* 내신반 이름 맨 뒤 괄호 = 교과서 목록. 화면·집계에서는 떼고 본다.
+   분원마다 '내신반(동아이/능률김)' '[내신] 중1/천재(이),미래(문)' 제각각이라
+   [내신]FA4/MWF/M3/O(천재이,미래엔문) 한 가지로 통일하기로 했다. */
+function examBooks(cn){ const m=String(cn||'').match(/\(([^()]*)\)\s*$/); return m ? m[1].trim() : ''; }
+function stripBooks(cn){ return String(cn||'').replace(/\([^()]*\)\s*$/,'').trim(); }
+/* 내신반 화면 이름 — '내신 · 월수금 4부 · M3 · O' (교과서는 안 넣는다) */
+function examLabel(cn){
+  const body=stripBooks(cn), parts=banParts(body);
+  const dayCode=parts.map(banDayCode).find(Boolean)||'';
+  const day=dayCode?(BAN_DAY_LABEL[dayCode]||''):'';
+  const tp=parts.find(p=>/^[A-Za-z]{2}\d+$/.test(p));
+  const time=tp?(tp.match(/\d+$/)[0]+'부'):'';
+  const grade=parts.map(banGrade).find(Boolean)||'';
+  const room=banRoom(body);
+  const head=[day,time].filter(Boolean).join(' ');
+  const tail=[head,grade,room].filter(Boolean).join(' \u00b7 ');
+  return tail ? '내신 \u00b7 '+tail : '내신';
+}
 /* 반이름 안의 학년 조각 → 한 가지 코드로. 초5·E5 / 중1·M1 을 같은 것으로 본다.
    (고등부는 없다 — 초5·초6·중1·중2·중3 다섯 가지뿐) */
 const BAN_GRADES={E5:'E5',E6:'E6',M1:'M1',M2:'M2',M3:'M3',
