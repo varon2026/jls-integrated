@@ -8012,7 +8012,11 @@ function rtTeacherMatch(a, b){
 }
 /* 학생 한 명 = 카드 한 장. 밀린 시험이 여러 개면 그 학생 밑으로 붙는다. */
 function retestStudents(branchId, semId){
-  const items = (db.retestItems||[]).filter(i=>i.branchId===branchId && i.semesterId===semId);
+  /* 퇴원생은 화면에서도 뺀다. 올릴 때 한 번 거르지만, 올린 뒤에 홈페이지에서 퇴원 처리하면
+     다음 업로드까지 그대로 남아 있어서 선생님이 이미 나간 학생을 붙들고 있게 된다.
+     기준은 언제나 홈페이지 명단이다 — 큐앱 파일에 계속 남아 있어도 상관없다. */
+  const wd = withdrawnCodes(branchId, semId);
+  const items = (db.retestItems||[]).filter(i=>i.branchId===branchId && i.semesterId===semId && !wd.has(i.studentCode));
   const acts  = (db.retestActions||[]).filter(a=>a.branchId===branchId && a.semesterId===semId);
   const byItem = {};
   acts.forEach(a=>{
@@ -8073,7 +8077,8 @@ function retestByTeacher(list){
 /* 그 날짜까지 아무 버튼도 안 눌린 시험을 담임별로 센다.
    지난 날짜를 볼 때는 그 뒤에 누른 조치를 빼고 본다 — '그날 퇴근할 때 상태'가 궁금한 거라서. */
 function retestMissed(branchId, semId, dayStr){
-  const items = (db.retestItems||[]).filter(i=>i.branchId===branchId && i.semesterId===semId);
+  const wd = withdrawnCodes(branchId, semId);
+  const items = (db.retestItems||[]).filter(i=>i.branchId===branchId && i.semesterId===semId && !wd.has(i.studentCode));
   const acts  = (db.retestActions||[]).filter(a=>a.branchId===branchId && a.semesterId===semId && a.actedOn<=dayStr);
   const done = {};
   acts.forEach(a=>{
