@@ -2949,7 +2949,7 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
             : `<td>
                  <select class="wd-inline-sel" onchange="setWdReason('${r.recId}', this.value)">
                    <option value="">미분류</option>
-                   ${WITHDRAW_REASONS.map(w=>`<option value="${w.code}" ${r.withdrawReason===w.code?'selected':''}>${esc(w.label)}</option>`).join('')}
+                   ${wdReasonOptions(r.withdrawReason)}
                  </select>
                </td>
                <td>
@@ -3062,7 +3062,7 @@ function downloadRosterXlsx(branchId){
     const base = [r.name, r.code, r.classLabel, r.teacher, r.school, r.grade, r.date];
     if(tab==='new')            base.push(r.memo||'');
     else if(tab==='transferIn')base.push((getBranch(r.transferTo)||{}).name||'', r.memo||'');
-    else if(tab==='withdraw'){ const wr=(WITHDRAW_REASONS.find(w=>w.code===r.withdrawReason)||{}).label||''; base.push(wr, r.withdrawMemo||''); }
+    else if(tab==='withdraw'){ base.push(wdReasonLabel(r.withdrawReason), r.withdrawMemo||''); }
     else if(tab==='transferOut')base.push((getBranch(r.transferTo)||{}).name||'', r.withdrawMemo||'');
     aoa.push(base);
   });
@@ -4094,7 +4094,7 @@ function renderStudentManagement(){
         <label>퇴원 사유</label>
         <select id="wdReason" onchange="toggleWdReason()">
           <option value="">선택하세요</option>
-          ${WITHDRAW_REASONS.map(r=>`<option value="${r.code}">${esc(r.label)}</option>`).join('')}
+          ${wdReasonOptions('')}
         </select>
       </div>
       <div class="field full"><label>메모 (선택)</label><input id="wdMemo" placeholder="상세 내용을 적어주세요"></div>
@@ -5002,7 +5002,9 @@ function importWithdrawals(file, branchId, semId){
       const reasonRaw = idx.reason>=0 ? String(r[idx.reason]||'').trim() : '';
       const rc = wdReasonCodeOf(reasonRaw);
       if(rc===null) reasonOddList.push((name||code)+' → "'+reasonRaw+'"');   // 못 알아본 사유는 모아서 보여준다
-      const reasonCode = (rc==='') ? 'personal' : (rc || 'other');   // 빈칸=개인 사유, 못 알아봄=기타
+      /* 사유가 10개로 고정되면서 '기타'가 없어졌다. 빈칸이나 못 알아본 말을 아무 데나
+         넣으면 숫자가 거짓이 되므로 비워 두고, 결과창에 이름까지 보여준다. */
+      const reasonCode = rc || null;
       // 전출분원 값이 있으면 전출로 처리
       const transRaw = idx.transfer>=0 ? String(r[idx.transfer]||'').trim() : '';
       const toBranch = transRaw ? branchIdFromNote(transRaw) : null;
@@ -5017,7 +5019,8 @@ function importWithdrawals(file, branchId, semId){
       rec.withdrawReason = isTransfer ? null : reasonCode;
       rec.withdrawMemo = memo;
       const toName = toBranch ? (getBranch(toBranch)?.name||'') : '';
-      const mvMemo = (isTransfer?`[전출→${toName}] `:`[${wdReasonLabel(reasonCode)}] `)+(memo||'퇴원 처리');
+      const rLabel = wdReasonLabel(reasonCode) || '사유 미분류';
+      const mvMemo = (isTransfer?`[전출→${toName}] `:`[${rLabel}] `)+(memo||'퇴원 처리');
       // 이미 있던 퇴원 이력이면 새로 쌓지 말고 날짜·메모만 갱신(정정), 없으면 새로 추가
       const mvOld = db.studentMovements.find(m=> m.studentId===rec.studentId && m.branchId===rec.branchId && m.semesterId===rec.semesterId && m.type==='withdraw');
       if(mvOld){ mvOld.date=wdDate; mvOld.memo=mvMemo; }
@@ -5076,8 +5079,8 @@ function showWithdrawReport(r){
             '이 학생들은 <b>아무 처리도 안 됐습니다.</b> 이름이 명단과 다르거나 이미 다른 학기에 있는 경우입니다.')}
       ${box('동명이인이라 건너뜀','var(--warn)', r.ambiguousList,
             '엑셀에 <b>회원코드</b>를 넣어 다시 올려주세요.')}
-      ${box('사유를 못 알아봐서 「기타」로 넣음','var(--warn)', r.reasonOddList,
-            '아래 말들이 사유 목록에 없습니다. 타학원 이동 · 개인 사유 · 학습 부담 · 담임 불만 · 교우 관계 · 스케줄 · 이사 · 졸업 · 폐강 · 기타 중에서 골라 적어주세요.')}
+      ${box('사유를 못 알아봐서 비워 둠','var(--warn)', r.reasonOddList,
+            '아래 말들이 사유 목록에 없습니다. '+WITHDRAW_REASONS.map(w=>w.label).join(' · ')+' 중에서 골라 적어주세요. (사유는 이 10개로 고정입니다)')}
     </div>
     <div class="modal-foot"><button class="btn primary" onclick="closeModal()">확인</button></div>`);
 }
@@ -6313,35 +6316,50 @@ const rates = calcRates(rateRecordsOfTeacher(branchId, semId, teacher), branchId
 /* ============================================================================
    17-4. 분원 — 세그먼트 공지 입력 (회차별 4섹션)
    ============================================================================ */
+/* 퇴원사유 — 본사(조부장)가 10개로 확정한 목록. 마음대로 늘리거나 줄이지 마세요.
+   '기타'가 없는 게 일부러 그런 겁니다. 사유를 반드시 이 10개 중에서 고르게 하려는 것입니다. */
 const WITHDRAW_REASONS = [
   { code:'academy',   label:'타학원 이동' },
-  { code:'personal',  label:'개인 사유' },
-  { code:'burden',    label:'학습 부담' },
   { code:'teacher',   label:'담임 불만' },
+  { code:'schedule',  label:'스케줄(시간이동 불가) / 폐강' },
   { code:'peer',      label:'교우 관계' },
-  { code:'schedule',  label:'스케줄' },
-  { code:'moving',    label:'이사' },
+  { code:'moving',    label:'이사 / 어학연수 / 캠프 / 여행(장기)' },
   { code:'graduate',  label:'졸업' },
-  { code:'closed',    label:'폐강' },
-  { code:'other',     label:'기타' },
+  { code:'bus',       label:'차량 불만' },
+  { code:'fee',       label:'학원비 부담' },
+  { code:'grade',     label:'성적 불만족' },
+  { code:'health',    label:'건강상의 문제' },
 ];
+/* 목록이 바뀌기 전에 저장된 값들. 화면·엑셀에 그대로 보이게만 하고 새로 고를 수는 없다.
+   ('폐강'은 새 목록의 '스케줄 / 폐강'에 합쳐졌으므로 그쪽으로 읽는다) */
+const WD_LEGACY_REASONS = [
+  { code:'personal',  label:'개인 사유 (옛 분류)' },
+  { code:'burden',    label:'학습 부담 (옛 분류)' },
+  { code:'other',     label:'기타 (옛 분류)' },
+];
+const WD_MERGED = { closed:'schedule' };   // 폐강 → 스케줄/폐강 으로 합침
 /* 엑셀에 적힌 퇴원사유 → 코드. 분원마다 말이 제각각이라 넓게 잡는다.
    예전엔 목록의 라벨과 '글자 하나까지 똑같을 때만' 알아들었다. 라벨에 띄어쓰기가
    들어 있어서(개인 사유 · 타학원 이동 · 학습 부담), 분원이 붙여 쓴 '개인사유'는
    전부 '기타'로 떨어졌다. 남동탄 여름 재업로드에서 사유가 안 맞은 원인이다. */
 const WD_REASON_ALIAS = {
   academy : ['타학원','타학원이동','학원이동','타학원으로','다른학원','타원'],
-  personal: ['개인','개인사유','개인적사유','개인사정'],
-  burden  : ['학습부담','부담','공부부담','진도부담','수업부담'],
   teacher : ['담임불만','담임','선생님','강사불만','교사불만'],
+  schedule: ['스케줄','스케쥴','시간','시간표','일정','시간안맞음','시간이동불가','시간이동',
+             '스케쥴시간이동불가','스케줄시간이동불가','폐강','반폐강','폐반'],
   peer    : ['교우','교우관계','친구','친구관계','또래'],
-  schedule: ['스케줄','시간','시간표','일정','시간안맞음'],
-  moving  : ['이사','이사감','이전'],
+  moving  : ['이사','이사감','이전','어학연수','연수','캠프','여행','장기여행','유학','해외'],
   graduate: ['졸업'],
-  closed  : ['폐강','반폐강','폐반'],
-  other   : ['기타','기타사유']
+  bus     : ['차량','차량불만','차량문제','셔틀','버스','통학'],
+  fee     : ['학원비','학원비부담','수강료','비용','학비','금전','경제적사유','경제적'],
+  grade   : ['성적','성적불만','성적불만족','성적부진','성적저하'],
+  health  : ['건강','건강문제','건강상의문제','건강상문제','병원','질병','아파서','수술']
 };
-function wdNorm(v){ return String(v||'').replace(/\s+/g,'').toLowerCase(); }
+/* 비교용으로 다듬기 — 공백뿐 아니라 괄호·빗금·가운뎃점도 뗀다.
+   분원이 '스케쥴(시간이동불가)' 처럼 적어 오면 괄호 때문에 못 알아들었다. */
+function wdNorm(v){
+  return String(v||'').replace(/[\s()（）/·,.\[\]「」－–—-]/g,'').toLowerCase();
+}
 /* 못 알아들으면 null 을 준다 — 부르는 쪽에서 '기타'로 넣고 몇 건인지 알려주기 위함 */
 function wdReasonCodeOf(raw){
   const n = wdNorm(raw);
@@ -6353,9 +6371,20 @@ function wdReasonCodeOf(raw){
   }
   return null;
 }
-function wdReasonLabel(code){
-  const f = WITHDRAW_REASONS.find(r=>r.code===code);
+function wdReasonLabel(code){
+  const c = WD_MERGED[code] || code;
+  const f = WITHDRAW_REASONS.find(r=>r.code===c) || WD_LEGACY_REASONS.find(r=>r.code===c);
   return f ? f.label : '';
+}
+/* 드롭다운 만들기 — 새 10개만 보여주되, 그 학생이 옛 분류로 저장돼 있으면
+   그것도 맨 아래에 같이 띄운다. 안 그러면 뭐였는지 모른 채 값이 지워진다. */
+function wdReasonOptions(cur){
+  const c = WD_MERGED[cur] || cur || '';
+  let h = WITHDRAW_REASONS.map(w=>
+    '<option value="'+w.code+'"'+(c===w.code?' selected':'')+'>'+esc(w.label)+'</option>').join('');
+  const lg = WD_LEGACY_REASONS.find(w=>w.code===c);
+  if(lg) h += '<option value="'+lg.code+'" selected>'+esc(lg.label)+'</option>';
+  return h;
 }
    const SEG_STAGES = ['MC1','MC2','MC3'];
 const SEG_SECTIONS = [
