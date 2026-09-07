@@ -271,6 +271,13 @@ const TABLES = [
     { key:'counselRejects', table:'counsel_rejects', optional:true,
     toRow:r=>({id:r.id,student_id:r.studentId,branch_id:r.branchId,semester_id:r.semesterId,stage:r.stage,content_key:r.contentKey,created_at:r.createdAt||null}),
     fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,stage:r.stage,contentKey:r.content_key,createdAt:r.created_at}) },
+    /* 미통과 관리(서수원 전용). sql/retest.sql 을 아직 안 돌렸어도 앱이 죽지 않게 optional */
+    { key:'retestItems', table:'retest_items', optional:true,
+    toRow:r=>({id:r.id,branch_id:r.branchId,semester_id:r.semesterId,student_code:r.studentCode,student_name:r.studentName,class_label:r.classLabel,teacher:r.teacher,gubun:r.gubun,hoi:r.hoi,lesson:r.lesson,textbook:r.textbook,exam_date:r.examDate,jumsu:r.jumsu,baejeom:r.baejeom,eungsi:r.eungsi,yeyak:r.yeyak,item_key:r.itemKey}),
+    fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,studentCode:r.student_code,studentName:r.student_name,classLabel:r.class_label,teacher:r.teacher,gubun:r.gubun,hoi:r.hoi,lesson:r.lesson,textbook:r.textbook,examDate:r.exam_date,jumsu:r.jumsu,baejeom:r.baejeom,eungsi:r.eungsi,yeyak:r.yeyak,itemKey:r.item_key}) },
+    { key:'retestActions', table:'retest_actions', optional:true,
+    toRow:a=>({id:a.id,branch_id:a.branchId,semester_id:a.semesterId,student_code:a.studentCode,item_key:a.itemKey,kind:a.kind,acted_on:a.actedOn,memo:a.memo||null,teacher:a.teacher||null,actor:a.actor||null}),
+    fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,studentCode:r.student_code,itemKey:r.item_key,kind:r.kind,actedOn:r.acted_on,memo:r.memo,teacher:r.teacher,actor:r.actor}) },
     { key:'teacherOverrides', table:'teacher_overrides', toRow:o=>({id:o.id,branch_id:o.branchId,semester_id:o.semesterId,class_label:o.classLabel,gubun:o.gubun,teacher:o.teacher}),
     fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,classLabel:r.class_label,gubun:r.gubun,teacher:r.teacher}) },
 ];
@@ -1510,7 +1517,7 @@ function enterApp(){
   const branchHome = (_P.roster||_P.closing)?'#/branch' : _P.students?'#/students' : _P.segments?'#/segments-edit' : _P.data?'#/data' : '#/branch';
   const home = session.role==='admin' ? '#/admin'
     : session.role==='teacher' ? '#/myclasses'
-    : session.role==='assistant' ? '#/start'
+    : session.role==='assistant' ? (canRetest() ? '#/retest' : '#/start')
     : branchHome;
   if(!location.hash || location.hash==='#' || location.hash==='#/'){
     location.hash = home;
@@ -1518,10 +1525,10 @@ function enterApp(){
     // 로그인 계정이 갈 수 없는 경로면 홈으로 강제
     const root = location.hash.replace(/^#\//,'').split('/')[0];
     const allowedRoots = {
-      admin:['admin','roster','closing','passrate-hub','accounts'],
-      teacher:['myclasses','segments','myaccount','branch','passrate'],
-      assistant:['start'],
-      branch:['branch','roster','closing','data','students','start','passrate','segments-edit','teachers']
+      admin:['admin','roster','closing','passrate-hub','accounts','retest'],
+      teacher:['myclasses','segments','myaccount','branch','passrate','retest'],
+      assistant:['start','retest','retest-up'],
+      branch:['branch','roster','closing','data','students','start','passrate','segments-edit','teachers','retest','retest-up']
     }[session.role]||[];
    if(!allowedRoots.includes(root)) location.hash = home;
     else render();
@@ -1615,17 +1622,21 @@ function buildShell(){
       <div class="sb-item" data-nav="admin">${I.dash}<span>통합 대시보드</span></div>
       <div class="sb-item" data-nav="ban">${I.roster}<span>반배정표</span></div>
       <div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>
-      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
+      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>
+      ${canRetest()?`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`:''}`;
 } else if(isTeacher){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
       <div class="sb-item" data-nav="myclasses">${I.dash}<span>내 반 현황</span></div>
       <div class="sb-item" data-nav="segments">${I.seg}<span>세그먼트</span></div>
+      ${canRetest()?`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`:''}
       <div class="sb-item" onclick="openMyGrading()">${I.closing}<span>시험채점</span></div>
       <div class="sb-item" data-nav="myaccount">${I.acct}<span>계정 관리</span></div>`;
   } else if(session.role==='assistant'){
     nav.innerHTML = `
       <div class="sb-sect">조교</div>
+      ${canRetest()?`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>
+      <div class="sb-item" data-nav="retest-up">${I.data}<span>성적 올리기</span></div>`:''}
       <div class="sb-item" data-nav="start">${I.stu}<span>STaRT 관리</span></div>`;
  } else {
     const P = curInwonPerms() || INWON_PALL;   // 세부메뉴 권한 (menus에서 계산, 없으면 전체)
@@ -1638,6 +1649,9 @@ function buildShell(){
       if(P.closing) nv+=`<div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
     }
     if(P.students) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
+    if(canRetest()) nv+=`<div class="sb-sect">미통과</div>`
+      +`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`
+      +`<div class="sb-item" data-nav="retest-up">${I.data}<span>성적 올리기</span></div>`;
     if(P.segments) nv+=`<div class="sb-sect">상담</div><div class="sb-item" data-nav="segments-edit">${I.seg}<span>세그먼트 공지</span></div>`;
     if(P.data){
       nv+=`<div class="sb-sect">설정</div><div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;
@@ -1679,7 +1693,7 @@ function render(){
   // branch 대시보드/데이터관리는 불가. branch는 admin/accounts 불가.
   if(session.role==='admin'){
     if(root==='branch' && parts[1]!=='teacher' && parts[1]!=='class'){ go('admin'); return; }
-   if(root==='data'||root==='students'||root==='segments-edit'||root==='teachers'||root==='start'||root==='passrate'||root==='assistants'){ go('admin'); return; }
+   if(root==='data'||root==='students'||root==='segments-edit'||root==='teachers'||root==='start'||root==='passrate'||root==='assistants'||root==='retest-up'){ go('admin'); return; }
   }
   // 선생님: 자기 반 관련 화면만 (myclasses / branch teacher·class 상세)
 if(session.role==='teacher'){
@@ -1687,13 +1701,15 @@ if(session.role==='teacher'){
       || (root==='segments')
       || (root==='myaccount')
       || (root==='passrate')
+      || (root==='retest')
       || (root==='branch' && (parts[1]==='teacher' || parts[1]==='class'));
     if(!allowed){ go('myclasses'); return; }
   }
   if(session.role==='assistant'){
-    if(root!=='start'){ go('start'); return; }
+    if(root!=='start' && root!=='retest' && root!=='retest-up'){ go(canRetest()?'retest':'start'); return; }
   }
   if(session.role==='branch' && (root==='admin'||root==='accounts')){ go('branch'); return; }
+  if((root==='retest'||root==='retest-up') && !canRetest()){ go(session.role==='admin'?'admin':(session.role==='teacher'?'myclasses':(session.role==='assistant'?'start':'branch'))); return; }
   // 분원 계정은 자기 분원 roster 상세만 (다른 분원 직접 접근 차단)
   if(session.role==='branch' && root==='roster' && parts[1]==='branch' && parts[2] && parts[2]!==session.branchId){ go('roster'); return; }
   if(session.role==='branch' && root==='closing' && parts[1]==='branch' && parts[2] && parts[2]!==session.branchId){ go('closing'); return; }
@@ -1730,6 +1746,8 @@ else if(root==='segments-edit'){ setActiveNav('segments-edit'); renderSegmentEdi
     if(parts[1]==='branch' && parts[2]){ setActiveNav('passrate-hub'); renderPassrate(parts[2]); }
     else { setActiveNav('passrate-hub'); renderPassrateHub(); }
   }
+  else if(root==='retest'){ setActiveNav('retest'); renderRetest(); }
+  else if(root==='retest-up'){ setActiveNav('retest-up'); renderRetestUpload(); }
   else if(root==='myaccount'){ setActiveNav('myaccount'); renderMyAccount(); }
   else if(root==='myclasses'){ setActiveNav('myclasses'); renderTeacherHome(); }
   else if(root==='myaccount'){ setActiveNav('myaccount'); renderMyAccount(); }
@@ -7890,6 +7908,639 @@ function importQappScores(file){
     render();
   });
 }
+/* ========================================================================
+   미통과 관리 — 서수원분원 전용
+   ------------------------------------------------------------------------
+   조교가 큐앱에서 받은 엑셀을 하루 한 번 올린다. 9월 1일부터 누적된
+   전 반 파일 한 개이고, 그 파일에는 '미통과'만 들어 있다.
+   통과 여부를 적어주는 칸이 따로 없기 때문에
+     "어제 파일엔 있었는데 오늘 파일에 없으면 그건 통과한 것"
+   으로 본다. 그래서 올릴 때마다 그 분원·학기 목록을 통째로 갈아끼운다.
+
+   담임이 눌러 둔 조치(retestActions)는 학생 회원코드 + 시험열쇠로 따로
+   저장하므로, 성적을 다시 올려 목록이 갈려도 지워지지 않는다.
+
+   '손 안 댐'의 기준은 운영자가 고른 쪽이다 —
+   그 시험에 예약·독려·학부모 연락·보강·자료 제공 중 아무것도 안 누른 상태.
+   (하루에 한 번만 누르면 넘어가는 기준으로 하면 대충 누르고 넘어가게 된다)
+   ======================================================================== */
+const RETEST_BRANCH_NAMES = ['서수원'];   // 다른 분원은 메뉴 자체가 안 보인다
+function retestOn(branchId){
+  const b = getBranch(branchId);
+  const nm = String(b && b.name || '').replace(/분원$/,'').replace(/JLS/gi,'').trim();
+  return RETEST_BRANCH_NAMES.includes(nm);
+}
+function canRetest(){
+  if(!session) return false;
+  if(session.role==='admin') return (db.branches||[]).some(b=>retestOn(b.id));
+  return retestOn(session.branchId);
+}
+/* 관리자는 서수원 분원을 골라 본다 (지금은 쓰는 분원이 하나뿐) */
+function retestBranchId(){
+  if(session.role!=='admin') return session.branchId;
+  const b = (db.branches||[]).find(x=>retestOn(x.id));
+  return b ? b.id : null;
+}
+/* 전체 숫자를 보는 사람 = 조교·주임·분원·본사. 담임은 자기 반만 */
+function retestSeesAll(){ return !!session && session.role!=='teacher'; }
+
+const RETEST_ACTS = [
+  {k:'yeyak',   l:'예약',        multi:false, ask:true},  // 다시 잡은 날짜·시간을 적는다
+  {k:'dokryeo', l:'독려',        multi:true},             // 여러 번 눌러 횟수를 센다
+  {k:'parent',  l:'학부모 연락', multi:false},
+  {k:'bogang',  l:'보강',        multi:false},
+  {k:'print',   l:'자료 제공',   multi:true}              // 프린트물도 횟수를 센다
+];
+const RETEST_ACT_L = {}; RETEST_ACTS.forEach(a=>{ RETEST_ACT_L[a.k]=a.l; });
+const RT_ORD = {no:0, late:1, ok:2};
+const RT_SEP = '~#~';
+
+function rtDayStr(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function rtToday(){ return rtDayStr(new Date()); }
+function rtItemKey(r){ return [r.gubun, r.hoi, r.textbook, r.lesson].map(v=>String(v==null?'':v).trim()).join('|'); }
+function rtPair(code, itemKey){ return code + RT_SEP + itemKey; }
+
+/* 예약 칸은 적는 모양이 제각각이다 — '2026-09-06 10:00' '9/6 10시' '9.6 10:00' 다 읽는다.
+   날짜를 먼저 떼어내고 남은 글자에서 시각을 찾는다.
+   안 그러면 날짜에 들어 있는 숫자를 시각으로 잘못 읽는다. */
+function rtParseWhen(v){
+  const t = String(v==null?'':v).trim();
+  if(!t) return null;
+  let y, mo, da, rest;
+  let m = t.match(/(\d{4})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})/);
+  if(m){ y=+m[1]; mo=+m[2]; da=+m[3]; rest=t.slice(m.index+m[0].length); }
+  else{
+    m = t.match(/(\d{1,2})\s*[-./월]\s*(\d{1,2})/);
+    if(!m) return null;
+    y = new Date().getFullYear(); mo=+m[1]; da=+m[2]; rest=t.slice(m.index+m[0].length);
+  }
+  const hm = rest.match(/(\d{1,2})\s*[:시]\s*(\d{1,2})?/);
+  const dt = new Date(y, mo-1, da, hm?+hm[1]:0, (hm&&hm[2])?+hm[2]:0);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+function rtWhenLabel(v){
+  const d = rtParseWhen(v);
+  if(!d) return String(v==null?'':v);
+  const hh = String(d.getHours()).padStart(2,'0'), mi = String(d.getMinutes()).padStart(2,'0');
+  return (d.getMonth()+1)+'/'+d.getDate() + ((hh==='00'&&mi==='00') ? '' : ' '+hh+':'+mi);
+}
+
+/* 학생 한 명 = 카드 한 장. 밀린 시험이 여러 개면 그 학생 밑으로 붙는다. */
+function retestStudents(branchId, semId){
+  const items = (db.retestItems||[]).filter(i=>i.branchId===branchId && i.semesterId===semId);
+  const acts  = (db.retestActions||[]).filter(a=>a.branchId===branchId && a.semesterId===semId);
+  const byItem = {};
+  acts.forEach(a=>{
+    const k = rtPair(a.studentCode, a.itemKey);
+    const o = byItem[k] || (byItem[k] = {cnt:{}, last:'', memo:{}});
+    o.cnt[a.kind] = (o.cnt[a.kind]||0) + 1;
+    if(!o.last || a.actedOn > o.last) o.last = a.actedOn;
+    if(a.memo) o.memo[a.kind] = a.memo;
+  });
+  const byStu = {};
+  items.forEach(i=>{
+    const st = byStu[i.studentCode] || (byStu[i.studentCode] = {
+      code:i.studentCode, name:i.studentName||i.studentCode,
+      classLabel:i.classLabel||'', teacher:i.teacher||'', exams:[]
+    });
+    const a = byItem[rtPair(i.studentCode, i.itemKey)] || {cnt:{}, last:'', memo:{}};
+    st.exams.push(Object.assign({}, i, {
+      acts:a.cnt, lastActed:a.last, memo:a.memo,
+      touched: Object.keys(a.cnt).length > 0
+    }));
+  });
+  const today = new Date(); today.setHours(0,0,0,0);
+  const list = Object.keys(byStu).map(code=>{
+    const st = byStu[code];
+    /* 예약은 파일에 적힌 것과 담임이 다시 잡아 준 것 둘 다 본다. 가장 이른 것을 대표로 */
+    let when=null, raw='';
+    st.exams.forEach(e=>{
+      const cand = (e.memo && e.memo.yeyak) ? e.memo.yeyak : e.yeyak;
+      if(!cand) return;
+      const d = rtParseWhen(cand);
+      if(d){ if(!when || d<when){ when=d; raw=cand; } }
+      else if(!raw){ raw = cand; }
+    });
+    st.bookRaw = raw; st.bookAt = when;
+    st.state = !raw ? 'no' : (when && when < today ? 'late' : 'ok');
+    st.untouched = st.exams.filter(e=>!e.touched).length;
+    st.exams.sort((a,b)=> String(a.examDate||'').localeCompare(String(b.examDate||'')));
+    return st;
+  });
+  list.sort((a,b)=> (RT_ORD[a.state]-RT_ORD[b.state]) || String(a.name).localeCompare(String(b.name),'ko'));
+  return list;
+}
+
+/* 담임별 묶음 — 표기만 다른 같은 사람(Rachel홍정복 / 홍정복)은 한 사람으로 본다 */
+function retestByTeacher(list){
+  const map = {};
+  list.forEach(st=>{
+    const key = teacherKey(st.teacher) || '(담임 없음)';
+    const g = map[key] || (map[key] = {key, label:st.teacher||'(담임 없음)', students:[], exams:0, untouched:0, noBook:0});
+    g.students.push(st);
+    g.exams += st.exams.length;
+    g.untouched += st.untouched;
+    if(st.state==='no') g.noBook++;
+    if(String(st.teacher||'').length > String(g.label).length) g.label = st.teacher;
+  });
+  return Object.keys(map).map(k=>map[k]).sort((a,b)=> b.exams-a.exams);
+}
+
+/* 그 날짜까지 아무 버튼도 안 눌린 시험을 담임별로 센다.
+   지난 날짜를 볼 때는 그 뒤에 누른 조치를 빼고 본다 — '그날 퇴근할 때 상태'가 궁금한 거라서. */
+function retestMissed(branchId, semId, dayStr){
+  const items = (db.retestItems||[]).filter(i=>i.branchId===branchId && i.semesterId===semId);
+  const acts  = (db.retestActions||[]).filter(a=>a.branchId===branchId && a.semesterId===semId && a.actedOn<=dayStr);
+  const done = {};
+  acts.forEach(a=>{
+    const k = rtPair(a.studentCode, a.itemKey);
+    (done[k] || (done[k]={}))[a.kind] = 1;
+  });
+  const map = {};
+  items.forEach(i=>{
+    /* 그날 아직 보지도 않은 시험은 그날의 몫이 아니다 */
+    const ed = rtParseWhen(i.examDate);
+    if(ed && rtDayStr(ed) > dayStr) return;
+    const key = teacherKey(i.teacher) || '(담임 없음)';
+    const g = map[key] || (map[key] = {key, label:i.teacher||'(담임 없음)', miss:0, students:{}, kinds:{}});
+    if(String(i.teacher||'').length > String(g.label).length) g.label = i.teacher;
+    const d = done[rtPair(i.studentCode, i.itemKey)];
+    if(d){ RETEST_ACTS.forEach(a=>{ if(d[a.k]) g.kinds[a.k]=1; }); return; }
+    g.miss++; g.students[i.studentCode] = 1;
+  });
+  return Object.keys(map).map(k=>{
+    const g = map[k];
+    g.people = Object.keys(g.students).length;
+    g.missKinds = RETEST_ACTS.filter(a=>!g.kinds[a.k]).map(a=>a.l);
+    return g;
+  }).filter(g=>g.miss>0).sort((a,b)=> b.miss-a.miss);
+}
+
+/* ------------------------------------------------------------------------
+   큐앱 엑셀 올리기 — 올린 파일이 그날의 정답이 된다
+   ------------------------------------------------------------------------ */
+function importRetestFile(file){
+  const branchId = retestBranchId(), semId = state.semId;
+  if(!branchId){ toast('미통과 관리를 쓰는 분원이 아닙니다','err'); return; }
+  readTable(file, async rows=>{
+    if(rows.length<2){ toast('데이터가 없습니다','err'); return; }
+    const HDR = {
+      code:['학생코드','회원코드','코드'],
+      name:['학생이름','이름','학생명'],
+      cls:['수강반','반'],
+      teacher:['담임선생님','담임','선생님'],
+      hoi:['회차'],
+      gubun:['시험구분'],
+      lesson:['단원명','단원','레슨'],
+      book:['교재명','교재'],
+      date:['시험일자','시험일','일자'],
+      baejeom:['배점'],
+      jumsu:['점수'],
+      eungsi:['응시'],
+      tonggwa:['통과'],
+      yeyak:['예약일/시간','예약','예약일']
+    };
+    let idx=null;
+    for(let i=0;i<Math.min(3,rows.length-1);i++){
+      const cand = mapHeader(rows[i].map(h=>String(h).trim()), HDR);
+      /* 통과 열은 없을 수도 있다 — 이 파일은 미통과만 담겨 오기 때문 */
+      if(cand.code>=0 && cand.gubun>=0){ idx=cand; rows=rows.slice(i); break; }
+    }
+    if(!idx){ toast('학생코드·시험구분 열을 찾지 못했습니다','err'); return; }
+
+    const g = (r,k)=> idx[k]>=0 ? String(r[idx[k]]==null?'':r[idx[k]]).trim() : '';
+    const wd = withdrawnCodes(branchId, semId);
+    const known = new Set((db.students||[]).map(s=>s.code));
+    const fresh = [], seen = new Set();
+    const unknown = [], withdrawn = [];
+
+    rows.slice(1).forEach(r=>{
+      const code = g(r,'code');
+      if(!code) return;
+      const gubun = g(r,'gubun');
+      if(!QAPP_GUBUNS.includes(gubun)) return;
+      /* 통과 열이 있는 파일이면 통과한 줄은 애초에 담지 않는다 */
+      if(idx.tonggwa>=0 && g(r,'tonggwa')==='통과') return;
+      if(wd.has(code)){ withdrawn.push(g(r,'name')||code); return; }
+      const rec = {
+        studentCode: code,
+        studentName: g(r,'name'),
+        classLabel:  g(r,'cls'),
+        teacher:     g(r,'teacher'),
+        gubun,
+        hoi:      g(r,'hoi'),
+        lesson:   g(r,'lesson'),
+        textbook: g(r,'book'),
+        examDate: g(r,'date'),
+        jumsu:    parseFloat(g(r,'jumsu'))||0,
+        baejeom:  parseFloat(g(r,'baejeom'))||0,
+        eungsi:   g(r,'eungsi'),
+        yeyak:    g(r,'yeyak')
+      };
+      rec.itemKey = rtItemKey(rec);
+      const pair = rtPair(code, rec.itemKey);
+      if(seen.has(pair)) return;            // 같은 시험이 두 줄로 오면 한 줄로
+      seen.add(pair);
+      if(!known.has(code)) unknown.push((rec.studentName||code));
+      rec.id = uid('rti');
+      rec.branchId = branchId;
+      rec.semesterId = semId;
+      fresh.push(rec);
+    });
+
+    if(!fresh.length){ toast('읽을 수 있는 줄이 없습니다 — 파일을 확인해 주세요','err'); return; }
+
+    const old = (db.retestItems||[]).filter(i=>i.branchId===branchId && i.semesterId===semId);
+    const oldKey = new Set(old.map(i=>rtPair(i.studentCode, i.itemKey)));
+    const oldYeyak = {}; old.forEach(i=>{ oldYeyak[rtPair(i.studentCode,i.itemKey)] = i.yeyak||''; });
+    const newKey = new Set(fresh.map(i=>rtPair(i.studentCode, i.itemKey)));
+
+    let added=0, booked=0;
+    fresh.forEach(i=>{
+      const k = rtPair(i.studentCode, i.itemKey);
+      if(!oldKey.has(k)) added++;
+      else if(!oldYeyak[k] && i.yeyak) booked++;
+    });
+    const passed = old.filter(i=>!newKey.has(rtPair(i.studentCode,i.itemKey))).length;
+    const kept   = fresh.length - added;
+
+    const apply = async ()=>{
+      closeModal();
+      db.retestItems = (db.retestItems||[]).filter(i=>!(i.branchId===branchId && i.semesterId===semId)).concat(fresh);
+      (db.uploadBatches||(db.uploadBatches=[])).push({
+        id: uid('ub'), branchId, semesterId:semId, kind:'retest',
+        fileName: file.name, uploadedAt: nowStamp(),
+        added, dup: kept, skip: passed,
+        payload: JSON.stringify({added, kept, passed, booked, total:fresh.length, by:(session&&session.username)||''})
+      });
+      showSaving('성적 저장 중… (잠시만요)');
+      const ok = await saveDB();
+      hideSaving();
+      if(!ok){ toast('저장 실패 — 다시 올려 주세요','err'); return; }
+      showRetestReport({file:file.name, total:fresh.length, added, kept, passed, booked, unknown, withdrawn});
+      render();
+    };
+
+    /* 안전장치 — 일부만 뽑아 올리면 나머지가 전부 '통과'로 사라져 버린다.
+       평소보다 확 짧으면 올리기 전에 한 번 물어본다. */
+    if(old.length>=20 && fresh.length < old.length*0.5){
+      openConfirm('파일이 평소보다 많이 짧습니다',
+        '지난번엔 '+old.length+'건이었는데 이번 파일은 '+fresh.length+'건입니다.\n'+
+        '이대로 올리면 파일에 없는 '+passed+'건이 통과한 것으로 처리되어 사라집니다.\n\n'+
+        '전 반이 9월 1일부터 누적된 파일이 맞나요?',
+        apply, {yesLabel:'맞습니다, 올릴게요', danger:false});
+      return;
+    }
+    apply();
+  });
+}
+
+function showRetestReport(r){
+  const line = (l,v,c)=>'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line-2)">'
+    + '<span style="font-size:12.5px;color:var(--ink-2)">'+esc(l)+'</span>'
+    + '<b style="font-size:14px;color:'+(c||'var(--ink)')+'">'+v+'</b></div>';
+  const names = (arr)=> arr.slice(0,12).map(esc).join(', ') + (arr.length>12 ? ' 외 '+(arr.length-12)+'명' : '');
+  openModal(
+    '<div class="modal-head"><div><h3>성적 올리기 결과</h3>'
+    + '<div style="font-size:11.5px;color:var(--ink-3);margin-top:2px">'+esc(r.file)+' · '+r.total+'건</div></div>'
+    + '<button class="modal-x" onclick="closeModal()">×</button></div>'
+    + '<div class="modal-body">'
+    +   line('새로 생긴 재시험', r.added, 'var(--neg)')
+    +   line('통과해서 없앤 것 (어제는 있었는데 없어짐)', r.passed, 'var(--pos)')
+    +   line('예약이 채워진 것', r.booked, 'var(--warn)')
+    +   line('그대로 둔 것', r.kept, 'var(--ink-3)')
+    + (r.unknown.length
+        ? '<div style="margin-top:12px;background:var(--warn-soft);border:1px solid #f2e2c8;border-radius:11px;padding:10px 12px;font-size:12px;color:#8a6a2f">'
+          + '<b>전체명단에서 이름을 못 찾은 학생 '+r.unknown.length+'명</b><br>'+names(r.unknown)
+          + '<div style="margin-top:4px;opacity:.85">목록에는 그대로 뜹니다. 학생관리에서 확인해 주세요.</div></div>' : '')
+    + (r.withdrawn.length
+        ? '<div style="margin-top:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:10px 12px;font-size:12px;color:var(--ink-2)">'
+          + '<b>퇴원생이라 뺀 학생 '+r.withdrawn.length+'명</b><br>'+names(r.withdrawn)+'</div>' : '')
+    + '</div>'
+    + '<div class="modal-foot"><button class="btn primary" onclick="closeModal()">확인</button></div>');
+}
+
+/* ------------------------------------------------------------------------
+   담임이 누르는 조치
+   ------------------------------------------------------------------------ */
+async function retestAct(code, itemKey, kind){
+  const branchId = retestBranchId(), semId = state.semId;
+  const act = RETEST_ACTS.find(a=>a.k===kind);
+  const push = async (memo)=>{
+    (db.retestActions||(db.retestActions=[])).push({
+      id: uid('rta'), branchId, semesterId:semId,
+      studentCode: code, itemKey, kind,
+      actedOn: rtToday(), memo: memo||null,
+      teacher: (session&&session.teacherName)||'', actor:(session&&session.username)||''
+    });
+    const ok = await saveDB();
+    toast(ok ? RETEST_ACT_L[kind]+' 기록했습니다' : '저장 실패 — 다시 눌러 주세요', ok?'ok':'err');
+    render();
+  };
+  if(act && act.ask){
+    const d = new Date(); d.setDate(d.getDate()+1);
+    openModal(
+      '<div class="modal-head"><div><h3>예약을 다시 잡았습니다</h3>'
+      + '<div style="font-size:11.5px;color:var(--ink-3);margin-top:2px">큐앱에 잡아 준 날짜와 시간을 적어 주세요</div></div>'
+      + '<button class="modal-x" onclick="closeModal()">×</button></div>'
+      + '<div class="modal-body"><div style="display:flex;gap:8px">'
+      +   '<input id="rtBookD" type="date" value="'+rtDayStr(d)+'" style="flex:1;height:40px;padding:0 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);font-family:inherit">'
+      +   '<input id="rtBookT" type="time" value="10:00" step="600" style="width:130px;height:40px;padding:0 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);font-family:inherit">'
+      + '</div></div>'
+      + '<div class="modal-foot"><button class="btn" onclick="closeModal()">취소</button>'
+      + '<button class="btn primary" id="rtBookOk">기록</button></div>');
+    el('rtBookOk').onclick = ()=>{
+      const dd = el('rtBookD').value, tt = el('rtBookT').value;
+      if(!dd){ toast('날짜를 골라 주세요','err'); return; }
+      closeModal();
+      push(dd + (tt ? ' '+tt : ''));
+    };
+    return;
+  }
+  await push(null);
+}
+/* 잘못 누른 것 되돌리기 — 그 학생·그 시험의 그 조치를 한 건만 지운다 */
+async function retestUndo(code, itemKey, kind){
+  const branchId = retestBranchId(), semId = state.semId;
+  const mine = (db.retestActions||[]).filter(a=>
+    a.branchId===branchId && a.semesterId===semId &&
+    a.studentCode===code && a.itemKey===itemKey && a.kind===kind);
+  if(!mine.length) return;
+  mine.sort((a,b)=> String(a.actedOn).localeCompare(String(b.actedOn)));
+  const last = mine[mine.length-1];
+  db.retestActions = db.retestActions.filter(a=>a.id!==last.id);
+  const ok = await saveDB();
+  toast(ok ? RETEST_ACT_L[kind]+' 한 건 되돌렸습니다' : '저장 실패','ok');
+  render();
+}
+
+/* ------------------------------------------------------------------------
+   화면
+   ------------------------------------------------------------------------ */
+function rtCard(label, value, sub, color, pct){
+  return '<div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 15px 14px">'
+    + '<div style="font-size:11.5px;font-weight:700;color:var(--ink-2)">'+esc(label)+'</div>'
+    + '<div style="font-size:28px;font-weight:800;line-height:1.1;letter-spacing:-.8px;font-variant-numeric:tabular-nums;color:'+color+'">'+value+'</div>'
+    + '<div style="font-size:10.5px;color:var(--ink-3)">'+esc(sub)+'</div>'
+    + '<div style="height:5px;border-radius:4px;background:var(--line-2);margin-top:9px;overflow:hidden">'
+    +   '<div style="height:100%;width:'+pct+'%;border-radius:4px;background:linear-gradient(90deg,#c9b9f5,#ffc0d4)"></div></div></div>';
+}
+function rtChip(id, label, sub, n, on, warn){
+  return '<button data-rtwho="'+esc(id)+'" style="font:inherit;cursor:pointer;border-radius:999px;padding:6px 7px 6px 13px;'
+    + 'display:flex;align-items:center;gap:8px;transition:.14s;'
+    + (on ? 'background:linear-gradient(135deg,#ffd4e4,#ffe9b8);border:1px solid transparent;color:#a35d7c'
+          : 'background:var(--surface);border:1px solid var(--line);color:var(--ink-2)') + '">'
+    + '<span style="font-size:12.5px;font-weight:800;letter-spacing:-.2px">'+esc(label)+'</span>'
+    + (sub ? '<span style="font-size:10.5px;font-weight:600;color:'+(on?'#b8798f':'var(--ink-3)')+'">'+esc(sub)+'</span>' : '')
+    + '<span style="min-width:22px;text-align:center;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;border-radius:999px;padding:2px 7px;'
+    +   (on ? 'background:rgba(255,255,255,.6);color:#a35d7c' : (warn ? 'background:var(--neg-soft);color:var(--neg)' : 'background:var(--line-2);color:var(--ink-2)'))
+    + '">'+n+'</span></button>';
+}
+function rtSeg(list, cur){
+  return '<div style="display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:14px">'
+    + list.map(x=>'<button data-rtstate="'+x[0]+'" style="font:inherit;font-size:11.5px;font-weight:700;border:none;cursor:pointer;padding:5px 13px;border-radius:9px;'
+      + (cur===x[0] ? 'background:var(--neg-soft);color:#c2557a;font-weight:800' : 'background:none;color:var(--ink-2)')+'">'
+      + esc(x[1]) + '<span style="font-variant-numeric:tabular-nums;opacity:.6;margin-left:4px">'+x[2]+'</span></button>').join('')
+    + '</div>';
+}
+function rtStudentCard(st, readOnly){
+  const pill = st.state==='no'
+      ? '<span style="font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:999px;background:var(--neg-soft);color:#c2557a">예약 없음</span>'
+    : st.state==='late'
+      ? '<span style="font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:999px;background:var(--warn-soft);color:#a3762f">예약일 지남 '+esc(rtWhenLabel(st.bookRaw))+'</span>'
+      : '<span style="font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:999px;background:var(--line-2);color:var(--ink-2)">'+esc(rtWhenLabel(st.bookRaw))+'</span>';
+
+  const exs = st.exams.map((e,i)=>{
+    const score = (e.eungsi==='미응시' || !e.baejeom)
+      ? '<span style="font-size:13px;font-weight:800;color:var(--neg)">'+(e.eungsi==='미응시'?'미응시':(e.jumsu||0))+'</span>'
+      : '<span style="font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--neg)">'+e.jumsu
+        +'<span style="font-weight:400;color:var(--ink-3);font-size:11px"> / '+e.baejeom+'</span></span>';
+    const acts = RETEST_ACTS.map(a=>{
+      const n = e.acts[a.k]||0;
+      const style = n
+        ? 'background:var(--pos-soft);border:1px solid #cfeade;color:#2f8c69'
+        : 'background:var(--line-2);border:1px solid transparent;color:var(--ink-3)';
+      const label = esc(a.l) + (n>1 ? ' <span style="font-variant-numeric:tabular-nums">'+n+'</span>' : '');
+      if(readOnly) return '<span style="font-size:10px;font-weight:700;border-radius:7px;padding:2px 8px;'+style+'">'+label+'</span>';
+      return '<button data-rtact="'+esc(st.code)+'|'+esc(e.itemKey)+'|'+a.k+'" title="'+esc(a.l)+(n?' — 오른쪽 클릭하면 한 건 되돌립니다':'')+'"'
+        + ' style="font:inherit;cursor:pointer;font-size:10px;font-weight:700;border-radius:7px;padding:2px 8px;'+style+'">'+label+'</button>';
+    }).join('');
+    const memo = (e.memo && e.memo.yeyak) ? '<span style="font-size:10px;color:var(--warn)">다시 잡음 '+esc(rtWhenLabel(e.memo.yeyak))+'</span>' : '';
+    return '<div style="padding:7px 0'+(i?';border-top:1px solid var(--line-2)':'')+'">'
+      + '<div style="display:flex;align-items:baseline;gap:7px">'
+      +   '<span style="font-size:11px;font-weight:800;color:#6b4fd0;background:var(--brand-soft);border-radius:6px;padding:1px 7px">'+esc(e.gubun)+'</span>'
+      +   score
+      +   '<span style="font-size:10.5px;color:var(--ink-3);margin-left:auto;font-variant-numeric:tabular-nums">'+esc(e.examDate||'')+'</span>'
+      + '</div>'
+      + '<div style="font-size:10.5px;color:var(--ink-3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+      +   esc(e.textbook||'') + (e.lesson ? '<span style="opacity:.45;margin:0 5px">·</span>'+esc(e.lesson) : '')
+      +   (e.hoi ? '<span style="opacity:.45;margin:0 5px">·</span>'+esc(e.hoi)+'회차' : '') + '</div>'
+      + '<div style="display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap">' + acts
+      +   (e.touched ? '<span style="margin-left:auto;font-size:10.5px;color:var(--ink-3)">'+esc(e.lastActed||'')+'</span>'
+                     : '<span style="margin-left:auto;font-size:10.5px;color:var(--neg);font-weight:800">손 안 댐</span>')
+      +   memo + '</div>'
+      + '</div>';
+  }).join('');
+
+  return '<div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px 10px;'
+    + 'break-inside:avoid;-webkit-column-break-inside:avoid;margin-bottom:10px">'
+    + '<div style="display:flex;align-items:center;gap:7px;padding-bottom:8px;border-bottom:1px solid var(--line-2)">'
+    +   '<span style="font-size:14.5px;font-weight:800;letter-spacing:-.3px">'+esc(st.name)+'</span>'
+    +   '<span style="font-size:10.5px;color:var(--ink-3);background:var(--line-2);border-radius:6px;padding:1px 7px">'+esc(st.classLabel)+'</span>'
+    +   (st.exams.length>1 ? '<span style="font-size:10.5px;color:var(--neg);font-weight:800">'+st.exams.length+'개 밀림</span>' : '')
+    +   '<span style="margin-left:auto">'+pill+'</span></div>'
+    + exs + '</div>';
+}
+
+/* 미통과 관리 본화면 — 담임이면 자기 반만, 나머지는 분원 전체 */
+function renderRetest(){
+  crumbs([{label:'미통과 관리'}]);
+  const c = el('content');
+  const branchId = retestBranchId(), semId = state.semId;
+  if(!branchId || !retestOn(branchId)){
+    c.innerHTML = '<div class="page-head"><h2>미통과 관리</h2></div>'
+      + '<div style="background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:30px;text-align:center;color:var(--ink-3);font-size:13px">'
+      + '이 기능은 서수원분원에서만 씁니다.</div>';
+    return;
+  }
+  /* 버튼을 누르는 건 담임과 분원 계정만. 조교는 올리기만 하고, 본사는 보기만 한다. */
+  const readOnly = (session.canEdit===false) || session.role==='admin' || session.role==='assistant';
+  let list = retestStudents(branchId, semId);
+  const seesAll = retestSeesAll();
+  const myKey = teacherKey(session.teacherName||'');
+  if(!seesAll) list = list.filter(st=> teacherKey(st.teacher)===myKey);
+
+  const totalExams = list.reduce((a,s)=>a+s.exams.length,0);
+  const noBook = list.filter(s=>s.state==='no').length;
+  const late   = list.filter(s=>s.state==='late').length;
+  const noShow = list.filter(s=>s.exams.some(e=>e.eungsi==='미응시')).length;
+  const untouchedExams = list.reduce((a,s)=>a+s.untouched,0);
+  const untouchedStu   = list.filter(s=>s.untouched>0).length;
+  const pc = (n)=> totalExams ? Math.round(n*100/Math.max(1,list.length)) : 0;
+
+  /* 칩 — 전체를 보는 사람은 담임별, 담임은 자기 반별 */
+  const who = state.rtWho || 'all';
+  let chips;
+  if(seesAll){
+    const gs = retestByTeacher(list);
+    chips = [rtChip('all','전체','',totalExams, who==='all', false)]
+      .concat(gs.map(g=>{
+        const ko = teacherKey(g.label), en = String(g.label||'').replace(/[가-힣]/g,'').replace(/[/\s]+/g,' ').trim();
+        return rtChip(g.key, ko||g.label, en, g.exams, who===g.key, g.untouched>0);
+      })).join('');
+  } else {
+    const cls = [];
+    list.forEach(s=>{ if(cls.indexOf(s.classLabel)<0) cls.push(s.classLabel); });
+    chips = [rtChip('all','전체','',totalExams, who==='all', false)]
+      .concat(cls.map(cl=>{
+        const m = list.filter(s=>s.classLabel===cl);
+        return rtChip(cl, cl, '', m.reduce((a,s)=>a+s.exams.length,0), who===cl, m.some(s=>s.untouched>0));
+      })).join('');
+  }
+
+  let rows = who==='all' ? list
+    : (seesAll ? list.filter(s=>teacherKey(s.teacher)===who) : list.filter(s=>s.classLabel===who));
+  const cnt = k=> rows.filter(s=>s.state===k).length;
+  const segCur = state.rtState || (seesAll ? 'no' : 'all');
+  const segs = rtSeg([['all','전체',rows.length],['no','예약 없음',cnt('no')],['late','예약일 지남',cnt('late')],['ok','예약 있음',cnt('ok')]], segCur);
+  const shown = segCur==='all' ? rows : rows.filter(s=>s.state===segCur);
+
+  /* 담임 화면 알림 — 어제까지 손 안 댄 게 있으면 맨 위에 크게 */
+  let alarm = '';
+  if(!seesAll && untouchedExams>0){
+    const y = new Date(); y.setDate(y.getDate()-1);
+    alarm = '<div style="border:1px solid #f5d7e2;background:var(--neg-soft);border-radius:14px;padding:15px 17px 14px;margin-bottom:18px">'
+      + '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:9px">'
+      +   '<span style="font-size:15.5px;font-weight:800;color:#c2557a;letter-spacing:-.3px">아직 손을 안 댄 학생이 '+untouchedStu+'명 있습니다</span>'
+      +   '<span style="font-size:11.5px;color:#c2557a;opacity:.8;margin-left:auto">밀린 시험 '+untouchedExams+'건</span></div>'
+      + '<div style="background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:12px;color:var(--ink-2)">'
+      +   '예약이 없는 학생 <b style="color:var(--neg)">'+noBook+'</b>명 · 예약일이 지난 학생 <b style="color:var(--warn)">'+late+'</b>명'
+      +   ' — 아래 카드에서 <b>예약·독려·학부모 연락·보강·자료 제공</b>을 눌러 주세요.</div></div>';
+  }
+  /* 전체를 보는 사람 화면 — 날짜별 미조치 알림 + 최근 7일 */
+  let admin = '';
+  if(seesAll){
+    const days = [];
+    for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); days.push(d); }
+    const sel = state.rtDay && days.some(d=>rtDayStr(d)===state.rtDay) ? state.rtDay : rtDayStr(days[6]);
+    const missed = retestMissed(branchId, semId, sel);
+    const WK = ['일','월','화','수','목','금','토'];
+    const strip = days.map(d=>{
+      const ds = rtDayStr(d), n = retestMissed(branchId, semId, ds).length, on = ds===sel;
+      return '<button data-rtday="'+ds+'" style="flex:1;font:inherit;cursor:pointer;border:none;padding:6px 2px 5px;border-radius:14px;'
+        + (on ? 'background:var(--surface-2);box-shadow:0 0 0 1.5px var(--line)' : 'background:none')+'">'
+        + '<div style="font-size:10.5px;font-weight:700;color:var(--ink-3)">'+WK[d.getDay()]+'</div>'
+        + '<div style="width:38px;height:38px;margin:5px auto 4px;border-radius:50%;display:grid;place-items:center;font-size:'+(n?'16px':'15px')+';font-weight:800;font-variant-numeric:tabular-nums;'
+        +   (n ? 'background:linear-gradient(135deg,#ffd0e2,#ffb9d2);color:#b3557c' : 'background:var(--pos-soft);color:var(--pos)')+'">'+(n||'✓')+'</div>'
+        + '<div style="font-size:10px;color:'+(on?'#c2557a':'var(--ink-3)')+';font-weight:'+(on?'800':'400')+';font-variant-numeric:tabular-nums">'+(d.getMonth()+1)+'/'+d.getDate()+'</div></button>';
+    }).join('');
+    const dd = (+sel.slice(5,7))+'/'+(+sel.slice(8,10));
+    admin = (missed.length
+      ? '<div style="border:1px solid #f5d7e2;background:var(--neg-soft);border-radius:14px;padding:15px 17px 14px;margin-bottom:18px">'
+        + '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:11px">'
+        +   '<span style="font-size:15.5px;font-weight:800;color:#c2557a;letter-spacing:-.3px">'+dd+' 조치가 없던 담임 '+missed.length+'명</span>'
+        +   '<span style="font-size:11.5px;color:#c2557a;opacity:.8;margin-left:auto">'+esc(getBranch(branchId).name)+'</span></div>'
+        + '<div style="display:grid;gap:6px">'
+        + missed.map(g=>'<div data-rtwho="'+esc(g.key)+'" style="cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:9px 12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
+            + '<span style="font-size:12.5px;font-weight:800;min-width:118px">'+esc(teacherKey(g.label)||g.label)+'</span>'
+            + '<span style="display:flex;gap:4px;flex-wrap:wrap">'
+            + g.missKinds.map(m=>'<span style="font-size:10px;font-weight:700;background:var(--neg-soft);color:#c2557a;border-radius:7px;padding:2px 8px">'+esc(m)+' 없음</span>').join('')
+            + '</span>'
+            + '<span style="margin-left:auto;font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums">손 안 댄 학생 <b style="color:var(--neg);font-weight:800">'+g.people+'</b>명</span>'
+          + '</div>').join('')
+        + '</div></div>'
+      : '<div style="border:1px solid #cfeade;background:var(--pos-soft);border-radius:14px;padding:13px;text-align:center;font-size:12.5px;color:var(--pos);font-weight:800;margin-bottom:18px">'
+        + dd+' — 담임 전원이 조치를 마쳤습니다</div>')
+      + '<div style="font-size:12.5px;font-weight:800;color:var(--ink-2);margin:0 0 9px;display:flex;align-items:center">최근 7일'
+      +   '<span style="margin-left:auto;font-size:11px;font-weight:400;color:var(--ink-3)">날짜를 누르면 그날 조치가 없던 담임이 보입니다</span></div>'
+      + '<div style="display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 12px 11px;margin-bottom:20px">'+strip+'</div>';
+  }
+
+  const brName = esc(getBranch(branchId).name);
+  c.innerHTML =
+      '<div class="page-head"><h2>미통과 관리</h2>'
+    + '<p style="font-size:12.5px;color:var(--ink-3);margin-top:2px">'+brName
+    +   (seesAll ? ' 전체' : ' · '+esc(session.teacherName||''))+' · 통과하면 성적을 올리는 순간 알아서 사라집니다</p></div>'
+    + alarm
+    + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'
+    +   rtCard(seesAll?'현재 재시험 대상':'우리 반 재시험', totalExams, '학생 '+list.length+'명 · 시험 '+totalExams+'건', 'var(--brand)', 100)
+    +   rtCard('예약이 없는 학생', noBook, noShow?('그중 미응시 '+noShow+'명'):'큐앱에 예약을 잡아야 합니다', 'var(--neg)', pc(noBook))
+    +   rtCard('예약일이 지난 학생', late, '다시 잡아야 함', 'var(--warn)', pc(late))
+    +   rtCard('아직 손 안 댄 건', untouchedExams, '학생 '+untouchedStu+'명', 'var(--ink-3)', pc(untouchedStu))
+    + '</div>'
+    + admin
+    + '<div style="font-size:12.5px;font-weight:800;color:var(--ink-2);margin:0 0 9px;display:flex;align-items:center">'
+    +   (seesAll?'담임':'반')
+    +   '<span style="margin-left:auto;font-size:11px;font-weight:400;color:var(--ink-3)">'
+    +   (seesAll?'이름을 누르면 그 선생님 학생만 보입니다':'반을 누르면 그 반 학생만 보입니다')+'</span></div>'
+    + '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">'+chips+'</div>'
+    + segs
+    + (shown.length
+        ? '<div style="column-count:2;column-gap:10px">'+shown.map(st=>rtStudentCard(st, readOnly)).join('')+'</div>'
+        : '<div style="background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:26px;text-align:center;color:var(--ink-3);font-size:12.5px">해당하는 학생이 없습니다.</div>');
+
+  c.querySelectorAll('[data-rtwho]').forEach(b=>{ b.onclick=()=>{ state.rtWho=b.dataset.rtwho; render(); }; });
+  c.querySelectorAll('[data-rtstate]').forEach(b=>{ b.onclick=()=>{ state.rtState=b.dataset.rtstate; render(); }; });
+  c.querySelectorAll('[data-rtday]').forEach(b=>{ b.onclick=()=>{ state.rtDay=b.dataset.rtday; render(); }; });
+  c.querySelectorAll('[data-rtact]').forEach(b=>{
+    const p = b.dataset.rtact.split('|');
+    const kind = p.pop(), code = p.shift(), itemKey = p.join('|');
+    b.onclick = ()=> retestAct(code, itemKey, kind);
+    b.oncontextmenu = (e)=>{ e.preventDefault(); retestUndo(code, itemKey, kind); };
+  });
+}
+
+/* 성적 올리기 — 조교·주임·분원 계정 */
+function renderRetestUpload(){
+  crumbs([{label:'성적 올리기'}]);
+  const c = el('content');
+  const branchId = retestBranchId(), semId = state.semId;
+  if(!branchId || !retestOn(branchId)){ c.innerHTML='<div class="page-head"><h2>성적 올리기</h2></div>'; return; }
+  const logs = (db.uploadBatches||[]).filter(b=>b.branchId===branchId && b.semesterId===semId && b.kind==='retest')
+    .sort((a,b)=> String(b.uploadedAt).localeCompare(String(a.uploadedAt))).slice(0,10);
+  const pl = (b)=>{ try{ return JSON.parse(b.payload||'{}'); }catch(e){ return {}; } };
+
+  c.innerHTML =
+      '<div class="page-head"><h2>성적 올리기</h2>'
+    + '<p style="font-size:12.5px;color:var(--ink-3);margin-top:2px">하루 한 번, 9월 1일부터 누적된 전 반 파일 한 개를 올리면 됩니다. 지난 것을 지울 필요 없습니다.</p></div>'
+    + '<label style="display:block;border:2px dashed var(--line);background:var(--surface);border-radius:14px;padding:30px 20px 26px;text-align:center;cursor:pointer;margin-bottom:16px">'
+    +   '<div style="width:52px;height:52px;margin:0 auto 10px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,#e2d6fb,#ffd9c9);color:#7c5cd9;font-size:15px;font-weight:800">XLS</div>'
+    +   '<div style="font-size:15px;font-weight:800;letter-spacing:-.3px">큐앱 엑셀 파일을 올려 주세요</div>'
+    +   '<div style="font-size:12px;color:var(--ink-3);margin-top:3px">.xlsx · 9월 1일부터 전 반이 누적된 파일 한 개 (골라내지 않아도 됩니다)</div>'
+    +   '<span class="btn primary" style="display:inline-block;margin-top:13px">파일 고르기</span>'
+    +   '<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="if(this.files[0]){importRetestFile(this.files[0]); this.value=\'\';}">'
+    + '</label>'
+    + '<div style="font-size:12.5px;font-weight:800;color:var(--ink-2);margin:0 0 9px">최근에 올린 기록</div>'
+    + (logs.length
+      ? '<table class="tbl" style="width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden">'
+        + '<thead><tr>'
+        + ['올린 날짜','올린 사람','파일','새 재시험','통과 처리','예약 반영'].map((h,i)=>
+            '<th style="padding:9px 13px;font-size:11px;font-weight:800;color:var(--ink-2);background:var(--surface-2);text-align:'+(i<3?'left':'right')+';border-bottom:1px solid var(--line-2)">'+h+'</th>').join('')
+        + '</tr></thead><tbody>'
+        + logs.map(b=>{ const p=pl(b); return '<tr>'
+            + '<td style="padding:8px 13px;font-size:12px;border-bottom:1px solid var(--line-2)">'+esc(String(b.uploadedAt||'').slice(0,16).replace('T',' '))+'</td>'
+            + '<td style="padding:8px 13px;font-size:12px;border-bottom:1px solid var(--line-2)">'+esc(p.by||'')+'</td>'
+            + '<td style="padding:8px 13px;font-size:12px;color:var(--ink-3);border-bottom:1px solid var(--line-2)">'+esc(b.fileName||'')+'</td>'
+            + '<td style="padding:8px 13px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:var(--neg);border-bottom:1px solid var(--line-2)">'+(b.added||0)+'</td>'
+            + '<td style="padding:8px 13px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:var(--pos);border-bottom:1px solid var(--line-2)">'+(b.skip||0)+'</td>'
+            + '<td style="padding:8px 13px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;border-bottom:1px solid var(--line-2)">'+(p.booked||0)+'</td>'
+          + '</tr>'; }).join('')
+        + '</tbody></table>'
+      : '<div style="background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:24px;text-align:center;color:var(--ink-3);font-size:12.5px">아직 올린 기록이 없습니다.</div>')
+    + '<div style="border-left:3px solid var(--brand);background:var(--surface);border-radius:0 12px 12px 0;padding:12px 15px;margin-top:20px;font-size:12.5px;color:var(--ink-2);line-height:1.75">'
+    +   '<b style="color:var(--ink)">규칙은 이렇습니다.</b>'
+    +   '<ul style="margin:7px 0 0;padding-left:17px">'
+    +     '<li><b>올린 파일이 그날의 정답입니다.</b> 화면은 그 파일대로 다시 맞춰집니다.</li>'
+    +     '<li>파일에는 미통과만 들어 있으니, <b>어제 파일엔 있었는데 오늘 파일에 없으면 통과한 것</b>으로 봅니다.</li>'
+    +     '<li>비어 있던 예약이 채워져 올라오면 <b>예약 날짜·시간을 자동으로 넣습니다.</b></li>'
+    +     '<li>점수 칸이 비어 있으면 <b>미응시</b>로 표시합니다. 와서 못 통과한 학생은 점수가 찍혀 그대로 남습니다.</li>'
+    +     '<li><b>담임이 눌러 둔 조치는 지워지지 않습니다.</b> 성적만 갈아 끼웁니다.</li>'
+    +     '<li>파일이 평소보다 많이 짧으면 <b>올리기 전에 한 번 더 여쭤봅니다.</b></li>'
+    +   '</ul></div>';
+}
+
 /* ---- 메인 렌더 ---- */
 async function renderStart(){
   crumbs([{label:'STaRT 외출·시험 관리'}]);
