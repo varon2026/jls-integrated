@@ -8106,17 +8106,42 @@ function retestSqlBanner(){
     +   'Supabase → SQL Editor 에서 <b>sql/retest.sql</b> 을 한 번 실행한 뒤, 이 화면을 <b>새로고침</b>해 주세요.'
     +   '<br>표(retest_items · retest_actions)가 없어서 올린 성적도, 담임이 누른 조치도 남지 않습니다.</div></div>';
 }
+/* 미통과 목록도 saveDB를 거치지 않고 이 표에만 바로 쓴다.
+   주임·조교처럼 명단은 못 건드려야 하는 계정도 성적은 올려야 하는데,
+   saveDB는 계정 전체를 읽기 전용으로 막아 버려 '저장 실패'만 떴다.
+   여기서 열어 주는 건 retest_items · upload_batches 두 개뿐이다. */
+async function retestReplaceItems(branchId, semId, fresh, logRow){
+  if(MISSING_TABLES.has('retestItems')) return false;
+  if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
+  const T  = TABLES.find(t=>t.key==='retestItems');
+  const TB = TABLES.find(t=>t.key==='uploadBatches');
+  try{
+    /* 올린 파일이 그날의 정답이므로 그 분원·학기 것은 통째로 지우고 다시 넣는다 */
+    const { error: delErr } = await sb.from('retest_items').delete()
+      .eq('branch_id', branchId).eq('semester_id', semId);
+    if(delErr) throw delErr;
+    for(let i=0;i<fresh.length;i+=200){
+      const { error } = await sb.from('retest_items').insert(fresh.slice(i,i+200).map(T.toRow));
+      if(error) throw error;
+    }
+    if(logRow){
+      const { error } = await sb.from('upload_batches').insert(TB.toRow(logRow));
+      if(error) console.error('업로드 기록 저장 실패', error);   // 기록이 안 남아도 성적은 들어갔다
+      else (db.uploadBatches||(db.uploadBatches=[])).push(logRow);
+    }
+    /* 메모리와 스냅샷을 같이 맞춰 둔다 — 안 그러면 나중에 saveDB가 되돌려 놓는다 */
+    const others = (db.retestItems||[]).filter(i=>!(i.branchId===branchId && i.semesterId===semId));
+    db.retestItems = others.concat(fresh);
+    if(dbSnapshot){
+      dbSnapshot.retestItems = JSON.parse(JSON.stringify(db.retestItems));
+      if(logRow) dbSnapshot.uploadBatches = JSON.parse(JSON.stringify(db.uploadBatches||[]));
+    }
+    return true;
+  }catch(e){ console.error('미통과 저장 실패', e); return false; }
+}
 function importRetestFile(file){
   const branchId = retestBranchId(), semId = state.semId;
   if(!branchId){ toast('미통과 관리를 쓰는 분원이 아닙니다','err'); return; }
-  if(session && session.canEdit===false){
-    openConfirm('이 계정은 올릴 수 없습니다',
-      '읽기 전용 계정이라 파일 올리기가 막혀 있습니다.\n\n'+
-      '통합관리 › 설정 › 계정 관리에서 이 계정을 편집하고 \'수정 권한 허용\'을 켜 주세요.\n'+
-      '(조교 직급으로 만든 계정은 처음부터 올릴 수 있습니다)',
-      ()=>closeModal(), {yesLabel:'알겠습니다', danger:false});
-    return;
-  }
   if(retestTablesMissing()){
     openConfirm('아직 표가 없습니다',
       'Supabase → SQL Editor 에서 sql/retest.sql 을 한 번 실행한 뒤 이 화면을 새로고침해 주세요.\n\n'+
@@ -8209,15 +8234,14 @@ function importRetestFile(file){
 
     const apply = async ()=>{
       closeModal();
-      db.retestItems = (db.retestItems||[]).filter(i=>!(i.branchId===branchId && i.semesterId===semId)).concat(fresh);
-      (db.uploadBatches||(db.uploadBatches=[])).push({
+      const logRow = {
         id: uid('ub'), branchId, semesterId:semId, kind:'retest',
         fileName: file.name, uploadedAt: nowStamp(),
         added, dup: kept, skip: passed,
         payload: JSON.stringify({added, kept, passed, booked, total:fresh.length, by:(session&&session.username)||''})
-      });
+      };
       showSaving('성적 저장 중… (잠시만요)');
-      const ok = await saveDB();
+      const ok = await retestReplaceItems(branchId, semId, fresh, logRow);
       /* 정말 서버에 들어갔는지 세어 본다 — '저장됐다'는 말만 믿었다가
          선생님 화면에 아무것도 안 뜬 적이 있다 */
       let saved = null;
