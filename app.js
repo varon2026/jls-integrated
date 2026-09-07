@@ -261,7 +261,7 @@ function savePerms(p){ localStorage.setItem(PKEY,JSON.stringify(p)); }
 function permOf(role){ const saved=loadPerms(); return saved[role] || ROLE_PRESET[role] || ROLE_PRESET.teacher; }
 /* ===== 계정별 메뉴 권한 (users.is_manager / users.menus) ===== */
 const ALL_MENUS=['dashboard','leveltest','inwon','grading','chongmu','insa','unyoung'];
-const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황','inwon.roster':'신규·퇴원명단','inwon.closing':'인원마감표','inwon.students':'학생관리','inwon.segments':'세그먼트공지','inwon.accounts':'계정관리','inwon.data':'데이터관리',grading:'시험채점',chongmu:'교재관리',insa:'인사',unyoung:'운영비'};
+const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황','inwon.roster':'신규·퇴원명단','inwon.closing':'인원마감표','inwon.students':'학생관리','inwon.segments':'세그먼트공지','inwon.accounts':'계정관리','inwon.data':'데이터관리','inwon.retest':'미통과 관리','inwon.retestup':'성적 올리기',grading:'시험채점',chongmu:'교재관리',insa:'인사',unyoung:'운영비'};
 /* ===== 직급(title) & 권한 프리셋 (계정 시스템 v2) ===== */
 // 메뉴 트리(계층): 대시보드 / 원무[레벨테스트·인원현황(6세부)·시험채점] / 총무[교재관리·운영비] / 인사
 // 원무·총무는 k 없는 '묶음'(권한 아님, 접기/펴기만). 실제 권한은 그 밑 항목들.
@@ -275,6 +275,10 @@ const MENU_TREE=[
       {k:'inwon.students',label:'학생관리'},
       {k:'inwon.segments',label:'세그먼트공지'},
       {k:'inwon.data',    label:'데이터관리'},
+      /* 미통과 관리는 서수원분원만 쓴다. 다른 분원 계정에 체크해 둬도 학사관리 쪽에서
+         분원 이름으로 한 번 더 막으므로 메뉴가 뜨지 않는다. */
+      {k:'inwon.retest',  label:'미통과 관리'},
+      {k:'inwon.retestup',label:'성적 올리기'},
     ]},
     {k:'grading',label:'시험채점'},
   ]},
@@ -284,7 +288,7 @@ const MENU_TREE=[
   ]},
   {k:'insa',label:'인사'},
 ];
-const INWON_SUBS=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.data'];
+const INWON_SUBS=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.data','inwon.retest','inwon.retestup'];
 const VIEW_ALL=['dashboard','leveltest','inwon',...INWON_SUBS,'grading','chongmu','insa','unyoung'];
 // 직급 목록 (tier: hq본사/branch분원/teacher담임)
 const TITLES=[
@@ -299,13 +303,20 @@ const TITLES=[
   {k:'junior',      label:'주임',            tier:'branch',  edit:false, manage:false},
   {k:'gwajang',     label:'과장',            tier:'branch',  edit:false, manage:false},
   {k:'teacher',     label:'담임',            tier:'teacher', edit:false, manage:false, teacherView:true},
+  /* 조교 — 스타트실·미통과 관리용. 학사관리에서 role 'assistant' 로 읽힌다 */
+  {k:'assistant',   label:'조교',            tier:'branch',  edit:true,  manage:false},
 ];
 // 계정관리 컨텍스트별 만들 수 있는 직급
 const HQ_TITLES=['branch_acct','admin','hq_staff','admin_staff','counsel_head']; // 본사(admin)가 만드는 것
-const BR_TITLES=['teacher','daeri','team','junior','gwajang','bm','counsel_head'];// 분원(행정직원)이 만드는 것
+const BR_TITLES=['teacher','assistant','daeri','team','junior','gwajang','bm','counsel_head'];// 분원(행정직원)이 만드는 것
 const TITLE_MAP={}; TITLES.forEach(t=>TITLE_MAP[t.k]=t);
 // 직급 → 기본 메뉴 프리셋 (담임=자기반 인원+시험채점 / 그 외=전체 뷰, 행정직원이 세부 조정)
-function titlePresetMenus(tk){ return tk==='teacher' ? ['inwon','grading'] : VIEW_ALL.slice(); }
+function titlePresetMenus(tk){
+  if(tk==='teacher')   return ['inwon','grading'];
+  /* 조교는 미통과 관리와 성적 올리기만 — 나머지 명단은 볼 일이 없다 */
+  if(tk==='assistant') return ['inwon','inwon.retest','inwon.retestup'];
+  return VIEW_ALL.slice();
+}
 // 현재 로그인 계정의 능력치 (하위호환: 기존 isManager도 인정)
 function curCanManage(){ const u=curUser(); return !!(u.canManage||u.isManager); }
 function curCanEdit(){ const u=curUser(); return !!(u.canEdit||u.isManager); }
@@ -393,7 +404,8 @@ function enterApp(){
   const br=db.branches.find(b=>b.id===session.branchId);
   $('sbScope').textContent = session.role==='admin' ? '통합관리 · 전체' : ('통합관리 · '+(br?br.name:'분원'));
   // 담임: 통합 셸 없이 인원현황(담임 화면)으로 바로 — 학원 전체 인원 같은 건 안 보여줌
-  if(session.role==='teacher'){ state.view='wonmu'; wonmuState.view='inwon'; render(); return; }
+  /* 담임·조교는 통합관리에서 볼 게 없다 — 바로 학사관리(인원현황)로 보낸다 */
+  if(session.role==='teacher'||session.role==='assistant'){ state.view='wonmu'; wonmuState.view='inwon'; render(); return; }
   state.view = firstView();
   wonmuState.view = 'hub';   // 원무 내부 상태도 초기화 (다음에 원무 들어가면 첫 화면부터)
   buildSidebar();
@@ -4311,7 +4323,7 @@ async function createAccount(){
   if((db.users||[]).some(u=>u.username===user)){ toast('이미 존재하는 아이디입니다','err'); return; }
   const branchId = T.tier==='hq' ? null : (isHQ ? (accView.branch||null) : session.branchId);
   if(T.tier!=='hq' && !branchId){ toast('분원을 선택하세요','err'); return; }
-  const role = T.tier==='hq' ? 'admin' : (tk==='teacher'?'teacher':'branch');
+  const role = T.tier==='hq' ? 'admin' : (tk==='teacher'?'teacher':(tk==='assistant'?'assistant':'branch'));
   const canEdit = T.editToggle ? !!($('acEdit')&&$('acEdit').checked) : !!T.edit;
   const row={ id:uid('u'), username:user, role, teacher_name:name||null, branch_id:branchId,
     is_manager:!!T.manage, menus:JSON.stringify(readMenuChk()), title:tk, active:true, can_manage:!!T.manage, can_edit:canEdit };
@@ -4327,7 +4339,7 @@ async function saveAccountEdit(id){
   const canEdit = T.editToggle ? !!($('acEdit')&&$('acEdit').checked) : !!T.edit;
   const patch={ title:tk, menus:JSON.stringify(readMenuChk()), can_manage:!!T.manage, can_edit:canEdit,
     active:!!($('acActive')&&$('acActive').checked), is_manager:!!T.manage,
-    role: T.tier==='hq'?'admin':(tk==='teacher'?'teacher':'branch') };
+    role: T.tier==='hq'?'admin':(tk==='teacher'?'teacher':(tk==='assistant'?'assistant':'branch')) };
   const np=($('acPw')?$('acPw').value:'').trim();
   try{ const { error }=await sb.from('users').update(patch).eq('id',id); if(error) throw error;
     if(np) await setUserPwSafe(id, np);

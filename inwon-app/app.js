@@ -559,7 +559,7 @@ async function setUserPwSafe(targetId, newPw){
    구버전 키(inwon.hyeon/stu/counsel/set)도 새 6종으로 매핑(하위호환). */
 function inwonPermsFromMenus(menusArr){
   let s; try{ s=new Set(Array.isArray(menusArr)?menusArr:JSON.parse(menusArr||'[]')); }catch(e){ s=new Set(); }
-  const NEW=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.data'];
+  const NEW=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.data','inwon.retest','inwon.retestup'];
   const OLD=['inwon.hyeon','inwon.stu','inwon.counsel','inwon.set'];
   if(!NEW.some(k=>s.has(k)) && !OLD.some(k=>s.has(k))) return null;   // 세부지정 없음 → 전체 허용
   return {
@@ -568,6 +568,10 @@ function inwonPermsFromMenus(menusArr){
     students: s.has('inwon.students') || s.has('inwon.stu'),
     segments: s.has('inwon.segments') || s.has('inwon.counsel'),
     data:     s.has('inwon.data')     || s.has('inwon.set'),
+    /* 미통과 관리는 나중에 생긴 메뉴다. 예전에 세부권한을 지정해 둔 계정에는
+       이 키가 없으니, 그런 계정에는 안 열어 준다 (필요하면 계정관리에서 체크). */
+    retest:   s.has('inwon.retest'),
+    retestUp: s.has('inwon.retestup'),
   };
 }
 /* 현재 로그인 계정의 인원현황 세부권한 (db.users의 menus에서 계산). null이면 전체 허용 */
@@ -575,7 +579,7 @@ function curInwonPerms(){
   const u=(db.users||[]).find(x=> session && (x.id===session.userId || x.username===session.username));
   return inwonPermsFromMenus(u && u.menus);
 }
-const INWON_PALL={roster:1,closing:1,students:1,segments:1,data:1};
+const INWON_PALL={roster:1,closing:1,students:1,segments:1,data:1,retest:1,retestUp:1};
 
 /* ============================================================================
    2. (시드 함수 제거됨 — 분원·계정·학기는 Supabase에서 관리)
@@ -1648,9 +1652,11 @@ function buildShell(){
       if(P.closing) nv+=`<div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
     }
     if(P.students) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
-    if(canRetest()) nv+=`<div class="sb-sect">미통과</div>`
-      +`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`
-      +`<div class="sb-item" data-nav="retest-up">${I.data}<span>성적 올리기</span></div>`;
+    if(canRetest() && (P.retest||P.retestUp)){
+      nv+=`<div class="sb-sect">미통과</div>`;
+      if(P.retest)   nv+=`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`;
+      if(P.retestUp) nv+=`<div class="sb-item" data-nav="retest-up">${I.data}<span>성적 올리기</span></div>`;
+    }
     if(P.segments) nv+=`<div class="sb-sect">상담</div><div class="sb-item" data-nav="segments-edit">${I.seg}<span>세그먼트 공지</span></div>`;
     if(P.data){
       nv+=`<div class="sb-sect">설정</div><div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;
