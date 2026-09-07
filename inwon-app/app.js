@@ -7946,11 +7946,14 @@ function retestBranchId(){ return session ? session.branchId : null; }
 function retestSeesAll(){ return !!session && session.role!=='teacher'; }
 
 const RETEST_ACTS = [
-  {k:'yeyak',   l:'예약',        multi:false, ask:true},  // 다시 잡은 날짜·시간을 적는다
-  {k:'dokryeo', l:'독려',        multi:true},             // 여러 번 눌러 횟수를 센다
-  {k:'parent',  l:'학부모 연락', multi:false},
-  {k:'bogang',  l:'보강',        multi:false},
-  {k:'print',   l:'자료 제공',   multi:true}              // 프린트물도 횟수를 센다
+  {k:'yeyak',   l:'예약',        ask:true},                       // 다시 잡은 날짜·시간을 적는다
+  /* 예약일이 지난 학생에게만 뜬다 — 그날 왔는지 안 왔는지는 담임이 확인해야 안다 */
+  {k:'attend',  l:'왔는지 확인', pick:['왔음','안 왔음'], lateOnly:true},
+  {k:'dokryeo', l:'독려',        multi:true},                     // 여러 번 눌러 횟수를 센다
+  /* 전화인지 문자인지 남겨야 나중에 무슨 연락을 했는지 안다 */
+  {k:'parent',  l:'학부모 연락', pick:['전화','문자','카톡']},
+  {k:'bogang',  l:'보강'},
+  {k:'print',   l:'자료 제공',   multi:true}                      // 프린트물도 횟수를 센다
 ];
 const RETEST_ACT_L = {}; RETEST_ACTS.forEach(a=>{ RETEST_ACT_L[a.k]=a.l; });
 const RT_ORD = {no:0, late:1, ok:2};
@@ -8347,6 +8350,20 @@ async function retestAct(code, itemKey, kind){
     toast(ok ? RETEST_ACT_L[kind]+' 기록했습니다' : '저장 실패 — 다시 눌러 주세요', ok?'ok':'err');
     render();
   };
+  if(act && act.pick){
+    openModal(
+      '<div class="modal-head"><div><h3>'+esc(act.l)+'</h3>'
+      + '<div style="font-size:11.5px;color:var(--ink-3);margin-top:2px">어느 쪽인지 골라 주세요 — 나중에 기록에 그대로 남습니다</div></div>'
+      + '<button class="modal-x" onclick="closeModal()">×</button></div>'
+      + '<div class="modal-body"><div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + act.pick.map(v=>'<button class="btn" data-rtpick="'+esc(v)+'" style="flex:1;min-width:96px;font-size:13px;font-weight:800;padding:12px 10px">'+esc(v)+'</button>').join('')
+      + '</div></div>'
+      + '<div class="modal-foot"><button class="btn" onclick="closeModal()">취소</button></div>');
+    el('modalBox').querySelectorAll('[data-rtpick]').forEach(b=>{
+      b.onclick = ()=>{ closeModal(); push(b.dataset.rtpick); };
+    });
+    return;
+  }
   if(act && act.ask){
     const d = new Date(); d.setDate(d.getDate()+1);
     openModal(
@@ -8426,11 +8443,16 @@ function rtStudentCard(st, readOnly){
       : '<span style="font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--neg)">'+e.jumsu
         +'<span style="font-weight:400;color:var(--ink-3);font-size:11px"> / '+e.baejeom+'</span></span>';
     const acts = RETEST_ACTS.map(a=>{
+      /* '왔는지 확인'은 예약일이 지난 학생에게만 띄운다 — 아직 안 온 날짜에 물어봐야 소용없다 */
+      if(a.lateOnly && st.state!=='late' && !(e.acts[a.k])) return '';
       const n = e.acts[a.k]||0;
+      const memo = (e.memo && e.memo[a.k]) || '';
       const style = n
         ? 'background:var(--pos-soft);border:1px solid #cfeade;color:#2f8c69'
         : 'background:var(--line-2);border:1px solid transparent;color:var(--ink-3)';
-      const label = esc(a.l) + (n>1 ? ' <span style="font-variant-numeric:tabular-nums">'+n+'</span>' : '');
+      const label = esc(a.l)
+        + (a.multi && n>1 ? ' <span style="font-variant-numeric:tabular-nums">'+n+'</span>' : '')
+        + (a.pick && memo ? ' · '+esc(memo) : '');
       if(readOnly) return '<span style="font-size:10px;font-weight:700;border-radius:7px;padding:2px 8px;'+style+'">'+label+'</span>';
       return '<button data-rtact="'+esc(st.code)+'|'+esc(e.itemKey)+'|'+a.k+'" title="'+esc(a.l)+(n?' — 오른쪽 클릭하면 한 건 되돌립니다':'')+'"'
         + ' style="font:inherit;cursor:pointer;font-size:10px;font-weight:700;border-radius:7px;padding:2px 8px;'+style+'">'+label+'</button>';
@@ -8460,6 +8482,136 @@ function rtStudentCard(st, readOnly){
     +   (st.exams.length>1 ? '<span style="font-size:10.5px;color:var(--neg);font-weight:800">'+st.exams.length+'개 밀림</span>' : '')
     +   '<span style="margin-left:auto">'+pill+'</span></div>'
     + exs + '</div>';
+}
+
+
+/* ------------------------------------------------------------------------
+   조치 현황 — 선생님별로 이번 학기에 무엇을 몇 번 했는지
+   ------------------------------------------------------------------------
+   통과해서 목록에서 사라진 시험의 조치도 여기엔 그대로 남는다.
+   retest_items 는 올릴 때마다 갈아끼우지만 retest_actions 는 손대지 않기 때문이다.
+   (그래서 사라진 건의 담임 이름은 조치를 누를 때 적어 둔 것을 쓰고,
+    비어 있으면 지금 목록에서 찾아본다) */
+function retestActionLog(branchId, semId){
+  const acts = (db.retestActions||[]).filter(a=>a.branchId===branchId && a.semesterId===semId);
+  const itemBy = {}, nameBy = {};
+  (db.retestItems||[]).forEach(i=>{
+    if(i.branchId!==branchId || i.semesterId!==semId) return;
+    itemBy[rtPair(i.studentCode, i.itemKey)] = i;
+    nameBy[i.studentCode] = i.studentName;
+  });
+  /* 통과해서 사라진 건은 목록에 이름이 없다 — 전체명단에서 회원코드로 찾아 붙인다 */
+  (db.students||[]).forEach(st=>{ if(st.code && !nameBy[st.code]) nameBy[st.code] = st.name; });
+  return acts.map(a=>{
+    const it = itemBy[rtPair(a.studentCode, a.itemKey)];
+    const kp = String(a.itemKey||'').split('|');
+    return {
+      date: a.actedOn || '',
+      teacher: a.teacher || (it && it.teacher) || '(모름)',
+      code: a.studentCode,
+      name: (it && it.studentName) || nameBy[a.studentCode] || a.studentCode,
+      classLabel: (it && it.classLabel) || '',
+      gubun: (it && it.gubun) || kp[0] || '',
+      hoi: (it && it.hoi) || kp[1] || '',
+      textbook: (it && it.textbook) || kp[2] || '',
+      lesson: (it && it.lesson) || kp[3] || '',
+      kind: a.kind,
+      kindLabel: RETEST_ACT_L[a.kind] || a.kind,
+      memo: a.memo || '',
+      gone: !it,                    // 통과해서 목록에서 사라진 건
+      actor: a.actor || ''
+    };
+  }).sort((x,y)=> String(y.date).localeCompare(String(x.date)) || String(x.name).localeCompare(String(y.name),'ko'));
+}
+function retestTeacherTotals(log){
+  const map = {};
+  log.forEach(r=>{
+    const key = teacherKey(r.teacher) || r.teacher;
+    const g = map[key] || (map[key] = {key, label:r.teacher, total:0, last:'', people:{}, memo:{}});
+    if(String(r.teacher||'').length > String(g.label).length) g.label = r.teacher;
+    RETEST_ACTS.forEach(a=>{ if(g[a.k]==null) g[a.k]=0; });
+    g[r.kind] = (g[r.kind]||0) + 1;
+    g.total++;
+    g.people[r.code] = 1;
+    if(r.memo) g.memo[r.kind+'|'+r.memo] = (g.memo[r.kind+'|'+r.memo]||0)+1;
+    if(!g.last || r.date > g.last) g.last = r.date;
+  });
+  return Object.keys(map).map(k=>{
+    const g = map[k]; g.peopleN = Object.keys(g.people).length; return g;
+  }).sort((a,b)=> b.total-a.total);
+}
+function renderRetestLog(branchId, semId){
+  const log = retestActionLog(branchId, semId);
+  const tot = retestTeacherTotals(log);
+  const sum = (k)=> log.filter(r=>r.kind===k).length;
+  const th = (t,right)=>'<th style="padding:9px 12px;font-size:11px;font-weight:800;color:var(--ink-2);background:var(--surface-2);text-align:'+(right?'right':'left')+';border-bottom:1px solid var(--line-2);white-space:nowrap">'+t+'</th>';
+  const td = (t,right,bold)=>'<td style="padding:8px 12px;font-size:12px;text-align:'+(right?'right':'left')+';border-bottom:1px solid var(--line-2);'+(right?'font-variant-numeric:tabular-nums;':'')+(bold?'font-weight:800;':'')+'">'+t+'</td>';
+
+  if(!log.length){
+    return '<div style="background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:30px;text-align:center;color:var(--ink-3);font-size:12.5px">'
+      + '아직 담임이 누른 조치가 없습니다.</div>';
+  }
+  const memoLine = (g)=>{
+    const parts = Object.keys(g.memo).filter(k=>k.indexOf('parent|')===0)
+      .map(k=>k.split('|')[1]+' '+g.memo[k]);
+    return parts.length ? '<div style="font-size:10px;color:var(--ink-3)">'+esc(parts.join(' · '))+'</div>' : '';
+  };
+  return '<div style="display:flex;align-items:center;margin-bottom:10px">'
+    + '<div style="font-size:12.5px;font-weight:800;color:var(--ink-2)">담임별 조치 (이번 학기 전체)</div>'
+    + '<button onclick="downloadRetestLogXlsx()" style="margin-left:auto;font:inherit;font-size:12px;font-weight:800;cursor:pointer;'
+    +   'border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:10px;padding:7px 14px">엑셀로 받기</button></div>'
+    + '<table style="width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:18px">'
+    + '<thead><tr>' + th('담임') + th('학생', true)
+    +   RETEST_ACTS.map(a=>th(a.l, true)).join('') + th('합계', true) + th('마지막', true) + '</tr></thead><tbody>'
+    + tot.map(g=>'<tr>'
+        + td('<b>'+esc(teacherKey(g.label)||g.label)+'</b>'+memoLine(g))
+        + td(g.peopleN, true)
+        + RETEST_ACTS.map(a=>td(g[a.k]||'<span style="color:var(--ink-3);font-weight:400">–</span>', true)).join('')
+        + td('<b style="color:var(--brand)">'+g.total+'</b>', true)
+        + td('<span style="color:var(--ink-3)">'+esc(g.last)+'</span>', true)
+      + '</tr>').join('')
+    + '<tr style="background:var(--surface-2)">'
+    +   td('<b>합계</b>') + td('<b>'+new Set(log.map(r=>r.code)).size+'</b>', true)
+    +   RETEST_ACTS.map(a=>td('<b>'+(sum(a.k)||0)+'</b>', true)).join('')
+    +   td('<b>'+log.length+'</b>', true) + td('', true)
+    + '</tr></tbody></table>'
+    + '<div style="font-size:12.5px;font-weight:800;color:var(--ink-2);margin:0 0 9px">최근 조치 <span style="font-weight:400;color:var(--ink-3)">(50건까지)</span></div>'
+    + '<table style="width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden">'
+    + '<thead><tr>' + th('날짜') + th('담임') + th('학생') + th('시험') + th('조치') + '</tr></thead><tbody>'
+    + log.slice(0,50).map(r=>'<tr>'
+        + td('<span style="color:var(--ink-3)">'+esc(r.date)+'</span>')
+        + td(esc(teacherKey(r.teacher)||r.teacher))
+        + td(esc(r.name) + (r.gone?' <span style="font-size:10px;color:var(--pos);font-weight:700">통과</span>':'')
+             + (r.classLabel?' <span style="font-size:10px;color:var(--ink-3)">'+esc(r.classLabel)+'</span>':''))
+        + td('<span style="font-size:11px;font-weight:700;color:#6b4fd0;background:var(--brand-soft);border-radius:6px;padding:1px 6px">'+esc(r.gubun)+'</span>'
+             + ' <span style="font-size:11px;color:var(--ink-3)">'+esc(r.textbook)+(r.lesson?' · '+esc(r.lesson):'')+'</span>')
+        + td('<b>'+esc(r.kindLabel)+'</b>'+(r.memo?' <span style="color:var(--ink-2)">· '+esc(r.memo)+'</span>':''))
+      + '</tr>').join('')
+    + '</tbody></table>'
+    + '<div style="border-left:3px solid var(--brand);background:var(--surface);border-radius:0 12px 12px 0;padding:12px 15px;margin-top:18px;font-size:12.5px;color:var(--ink-2);line-height:1.75">'
+    +   '통과해서 목록에서 사라진 시험의 조치도 <b>여기엔 그대로 남습니다.</b> 성적을 다시 올려도 지워지지 않습니다.'
+    +   ' 학생 이름 옆의 <span style="font-size:10px;color:var(--pos);font-weight:700">통과</span> 표시가 그런 건입니다.</div>';
+}
+function downloadRetestLogXlsx(){
+  const branchId = retestBranchId(), semId = state.semId;
+  const b = getBranch(branchId) || {};
+  const semNm = (db.semesters.find(s=>s.id===semId)||{}).name || semId;
+  const log = retestActionLog(branchId, semId);
+  const tot = retestTeacherTotals(log);
+  if(typeof XLSX==='undefined'){ toast('엑셀 모듈 로드 실패 — 인터넷 연결을 확인하세요','err'); return; }
+  const head1 = ['담임','학생 수'].concat(RETEST_ACTS.map(a=>a.l)).concat(['합계','마지막 조치']);
+  const rows1 = tot.map(g=>[teacherKey(g.label)||g.label, g.peopleN]
+    .concat(RETEST_ACTS.map(a=>g[a.k]||0)).concat([g.total, g.last]));
+  const sum = (k)=> log.filter(r=>r.kind===k).length;
+  rows1.push(['합계', new Set(log.map(r=>r.code)).size].concat(RETEST_ACTS.map(a=>sum(a.k))).concat([log.length, '']));
+  const head2 = ['날짜','담임','학생','회원코드','반','시험구분','회차','교재','단원','조치','상세','통과 여부','누른 계정'];
+  const rows2 = log.map(r=>[r.date, teacherKey(r.teacher)||r.teacher, r.name, r.code, r.classLabel,
+    r.gubun, r.hoi, r.textbook, r.lesson, r.kindLabel, r.memo, r.gone?'통과':'미통과', r.actor]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head1].concat(rows1)), '담임별 합계');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head2].concat(rows2)), '조치 이력');
+  XLSX.writeFile(wb, (b.name||'분원')+'_미통과조치_'+semNm+'.xlsx');
+  toast('엑셀을 다운로드했습니다','ok');
 }
 
 /* 미통과 관리 본화면 — 담임이면 자기 반만, 나머지는 분원 전체 */
@@ -8580,10 +8732,29 @@ function renderRetest(){
   }
 
   const brName = esc(getBranch(branchId).name);
+  /* 전체를 보는 사람(조교·주임·분원)은 '조치 현황' 탭을 같이 본다.
+     통과해서 목록에서 사라진 조치는 여기서만 볼 수 있다. */
+  const tab = (seesAll && state.rtTab==='log') ? 'log' : 'list';
+  const tabs = seesAll
+    ? '<div style="display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:16px">'
+      + [['list','미통과 목록'],['log','조치 현황']].map(x=>
+          '<button data-rttab="'+x[0]+'" style="font:inherit;font-size:12.5px;font-weight:'+(tab===x[0]?'800':'700')+';border:none;cursor:pointer;padding:6px 16px;border-radius:9px;'
+          + (tab===x[0] ? 'background:var(--brand-soft);color:#6b4fd0' : 'background:none;color:var(--ink-2)')+'">'+x[1]+'</button>').join('')
+      + '</div>'
+    : '';
+  if(tab==='log'){
+    c.innerHTML = retestSqlBanner()
+      + '<div class="page-head"><h2>미통과 관리</h2>'
+      + '<p style="font-size:12.5px;color:var(--ink-3);margin-top:2px">'+brName+' 전체 · 선생님이 누른 조치가 그대로 쌓입니다</p></div>'
+      + tabs + renderRetestLog(branchId, semId);
+    c.querySelectorAll('[data-rttab]').forEach(b=>{ b.onclick=()=>{ state.rtTab=b.dataset.rttab; render(); }; });
+    return;
+  }
   c.innerHTML = retestSqlBanner() +
       '<div class="page-head"><h2>미통과 관리</h2>'
     + '<p style="font-size:12.5px;color:var(--ink-3);margin-top:2px">'+brName
     +   (seesAll ? ' 전체' : ' · '+esc(session.teacherName||''))+' · 통과하면 성적을 올리는 순간 알아서 사라집니다</p></div>'
+    + tabs
     + alarm
     + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'
     +   rtCard(seesAll?'현재 재시험 대상':'우리 반 재시험', totalExams, '학생 '+list.length+'명 · 시험 '+totalExams+'건', 'var(--brand)', 100)
@@ -8602,6 +8773,7 @@ function renderRetest(){
         ? '<div style="column-count:2;column-gap:10px">'+shown.map(st=>rtStudentCard(st, readOnly)).join('')+'</div>'
         : '<div style="background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:26px;text-align:center;color:var(--ink-3);font-size:12.5px">해당하는 학생이 없습니다.</div>');
 
+  c.querySelectorAll('[data-rttab]').forEach(b=>{ b.onclick=()=>{ state.rtTab=b.dataset.rttab; render(); }; });
   c.querySelectorAll('[data-rtwho]').forEach(b=>{ b.onclick=()=>{ state.rtWho=b.dataset.rtwho; render(); }; });
   c.querySelectorAll('[data-rtstate]').forEach(b=>{ b.onclick=()=>{ state.rtState=b.dataset.rtstate; render(); }; });
   c.querySelectorAll('[data-rtday]').forEach(b=>{ b.onclick=()=>{ state.rtDay=b.dataset.rtday; render(); }; });
