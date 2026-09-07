@@ -7988,6 +7988,17 @@ function rtWhenLabel(v){
   return (d.getMonth()+1)+'/'+d.getDate() + ((hh==='00'&&mi==='00') ? '' : ' '+hh+':'+mi);
 }
 
+/* 담임 이름 맞추기 — 큐앱 파일은 '홍정복/Rachel', 계정은 'Rachel홍정복' 또는 'Rachel'처럼
+   표기가 제각각이다. 한글이 있으면 한글로, 한쪽이 영어뿐이면 글자가 서로 품는지로 본다.
+   이걸 한글 비교만으로 했더니 영어 이름만 넣어 둔 계정에서 아무것도 안 떴다. */
+function rtTeacherMatch(a, b){
+  const ka = teacherKey(a), kb = teacherKey(b);
+  if(!ka || !kb) return false;
+  if(ka === kb) return true;
+  const na = String(a||'').replace(/[\s/]/g,'').toLowerCase();
+  const nb = String(b||'').replace(/[\s/]/g,'').toLowerCase();
+  return !!na && !!nb && (na.includes(nb) || nb.includes(na));
+}
 /* 학생 한 명 = 카드 한 장. 밀린 시험이 여러 개면 그 학생 밑으로 붙는다. */
 function retestStudents(branchId, semId){
   const items = (db.retestItems||[]).filter(i=>i.branchId===branchId && i.semesterId===semId);
@@ -8082,9 +8093,29 @@ function retestMissed(branchId, semId, dayStr){
 /* ------------------------------------------------------------------------
    큐앱 엑셀 올리기 — 올린 파일이 그날의 정답이 된다
    ------------------------------------------------------------------------ */
+/* 표가 아직 없으면 saveDB가 조용히 건너뛴다 — 올렸는데 아무 데도 안 남는 일이 실제로 있었다.
+   그래서 여기서 먼저 막고, 저장 뒤에도 서버에 실제로 들어갔는지 한 번 더 세어 본다. */
+function retestTablesMissing(){
+  return MISSING_TABLES.has('retestItems') || MISSING_TABLES.has('retestActions');
+}
+function retestSqlBanner(){
+  if(!retestTablesMissing()) return '';
+  return '<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:14px 16px;margin-bottom:16px">'
+    + '<div style="font-size:14px;font-weight:800;color:#b8474b">아직 준비가 안 끝났습니다 — 올려도 저장되지 않습니다</div>'
+    + '<div style="font-size:12.5px;color:#8f5a5c;margin-top:4px;line-height:1.7">'
+    +   'Supabase → SQL Editor 에서 <b>sql/retest.sql</b> 을 한 번 실행한 뒤, 이 화면을 <b>새로고침</b>해 주세요.'
+    +   '<br>표(retest_items · retest_actions)가 없어서 올린 성적도, 담임이 누른 조치도 남지 않습니다.</div></div>';
+}
 function importRetestFile(file){
   const branchId = retestBranchId(), semId = state.semId;
   if(!branchId){ toast('미통과 관리를 쓰는 분원이 아닙니다','err'); return; }
+  if(retestTablesMissing()){
+    openConfirm('아직 표가 없습니다',
+      'Supabase → SQL Editor 에서 sql/retest.sql 을 한 번 실행한 뒤 이 화면을 새로고침해 주세요.\n\n'+
+      '지금 올리면 화면에는 잠깐 보여도 저장이 되지 않습니다.',
+      ()=>closeModal(), {yesLabel:'알겠습니다', danger:false});
+    return;
+  }
   readTable(file, async rows=>{
     if(rows.length<2){ toast('데이터가 없습니다','err'); return; }
     const HDR = {
@@ -8158,9 +8189,10 @@ function importRetestFile(file){
     const oldYeyak = {}; old.forEach(i=>{ oldYeyak[rtPair(i.studentCode,i.itemKey)] = i.yeyak||''; });
     const newKey = new Set(fresh.map(i=>rtPair(i.studentCode, i.itemKey)));
 
-    let added=0, booked=0;
+    let added=0, booked=0, hasBook=0;
     fresh.forEach(i=>{
       const k = rtPair(i.studentCode, i.itemKey);
+      if(i.yeyak) hasBook++;
       if(!oldKey.has(k)) added++;
       else if(!oldYeyak[k] && i.yeyak) booked++;
     });
@@ -8178,9 +8210,18 @@ function importRetestFile(file){
       });
       showSaving('성적 저장 중… (잠시만요)');
       const ok = await saveDB();
+      /* 정말 서버에 들어갔는지 세어 본다 — '저장됐다'는 말만 믿었다가
+         선생님 화면에 아무것도 안 뜬 적이 있다 */
+      let saved = null;
+      try{
+        const r = await sb.from('retest_items').select('id',{count:'exact',head:true})
+                          .eq('branch_id',branchId).eq('semester_id',semId);
+        saved = r.error ? -1 : (r.count==null ? null : r.count);
+      }catch(e){ saved = -1; }
       hideSaving();
       if(!ok){ toast('저장 실패 — 다시 올려 주세요','err'); return; }
-      showRetestReport({file:file.name, total:fresh.length, added, kept, passed, booked, unknown, withdrawn});
+      showRetestReport({file:file.name, total:fresh.length, added, kept, passed, booked,
+                        hasBook, unknown, withdrawn, saved});
       render();
     };
 
@@ -8210,8 +8251,12 @@ function showRetestReport(r){
     + '<div class="modal-body">'
     +   line('새로 생긴 재시험', r.added, 'var(--neg)')
     +   line('통과해서 없앤 것 (어제는 있었는데 없어짐)', r.passed, 'var(--pos)')
-    +   line('예약이 채워진 것', r.booked, 'var(--warn)')
+    +   line('예약이 잡혀 있는 것', r.hasBook + (r.booked?' <span style="font-size:11px;font-weight:400;color:var(--ink-3)">(새로 채워진 것 '+r.booked+')</span>':''), 'var(--warn)')
     +   line('그대로 둔 것', r.kept, 'var(--ink-3)')
+    + ((r.saved===-1 || r.saved===0)
+        ? '<div style="margin-top:12px;background:#fdecec;border:1px solid #f3c9c9;border-radius:11px;padding:10px 12px;font-size:12px;color:#b8474b">'
+          + '<b>서버에 저장되지 않았습니다.</b><br>Supabase에서 <b>sql/retest.sql</b> 을 실행했는지 확인하고, 화면을 새로고침한 뒤 다시 올려 주세요.</div>'
+        : (r.saved!=null ? '<div style="margin-top:12px;font-size:11.5px;color:var(--ink-3);text-align:right">서버에 저장된 미통과 '+r.saved+'건</div>' : ''))
     + (r.unknown.length
         ? '<div style="margin-top:12px;background:var(--warn-soft);border:1px solid #f2e2c8;border-radius:11px;padding:10px 12px;font-size:12px;color:#8a6a2f">'
           + '<b>전체명단에서 이름을 못 찾은 학생 '+r.unknown.length+'명</b><br>'+names(r.unknown)
@@ -8370,8 +8415,8 @@ function renderRetest(){
   const readOnly = (session.canEdit===false) || session.role==='assistant';
   let list = retestStudents(branchId, semId);
   const seesAll = retestSeesAll();
-  const myKey = teacherKey(session.teacherName||'');
-  if(!seesAll) list = list.filter(st=> teacherKey(st.teacher)===myKey);
+  const branchTotal = list.length;
+  if(!seesAll) list = list.filter(st=> rtTeacherMatch(st.teacher, session.teacherName||''));
 
   const totalExams = list.reduce((a,s)=>a+s.exams.length,0);
   const noBook = list.filter(s=>s.state==='no').length;
@@ -8410,6 +8455,17 @@ function renderRetest(){
 
   /* 담임 화면 알림 — 어제까지 손 안 댄 게 있으면 맨 위에 크게 */
   let alarm = '';
+  if(!seesAll && list.length===0 && branchTotal>0){
+    /* 분원엔 미통과가 있는데 이 선생님만 0이면 대개 이름이 안 맞는 것이다 */
+    const names = [...new Set((db.retestItems||[])
+      .filter(i=>i.branchId===branchId && i.semesterId===semId && i.teacher).map(i=>i.teacher))];
+    alarm = '<div style="border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:14px 16px;margin-bottom:16px">'
+      + '<div style="font-size:13.5px;font-weight:800">우리 반 미통과가 없습니다</div>'
+      + '<div style="font-size:12.5px;color:var(--ink-2);margin-top:4px;line-height:1.7">'
+      +   '분원 전체로는 '+branchTotal+'명이 있는데 이 계정(<b>'+esc(session.teacherName||'이름 없음')+'</b>)으로 잡히는 학생이 없습니다.<br>'
+      +   '큐앱 파일에 적힌 담임 이름: '+esc(names.slice(0,12).join(', ')) + (names.length>12?' 외':'')
+      +   '<br>이름이 다르면 분원에 말씀해 주세요 — 계정의 이름을 파일과 맞춰 주면 바로 뜹니다.</div></div>';
+  }
   if(!seesAll && untouchedExams>0){
     const y = new Date(); y.setDate(y.getDate()-1);
     alarm = '<div style="border:1px solid #f5d7e2;background:var(--neg-soft);border-radius:14px;padding:15px 17px 14px;margin-bottom:18px">'
@@ -8460,7 +8516,7 @@ function renderRetest(){
   }
 
   const brName = esc(getBranch(branchId).name);
-  c.innerHTML =
+  c.innerHTML = retestSqlBanner() +
       '<div class="page-head"><h2>미통과 관리</h2>'
     + '<p style="font-size:12.5px;color:var(--ink-3);margin-top:2px">'+brName
     +   (seesAll ? ' 전체' : ' · '+esc(session.teacherName||''))+' · 통과하면 성적을 올리는 순간 알아서 사라집니다</p></div>'
@@ -8503,7 +8559,7 @@ function renderRetestUpload(){
     .sort((a,b)=> String(b.uploadedAt).localeCompare(String(a.uploadedAt))).slice(0,10);
   const pl = (b)=>{ try{ return JSON.parse(b.payload||'{}'); }catch(e){ return {}; } };
 
-  c.innerHTML =
+  c.innerHTML = retestSqlBanner() +
       '<div class="page-head"><h2>성적 올리기</h2>'
     + '<p style="font-size:12.5px;color:var(--ink-3);margin-top:2px">하루 한 번, 9월 1일부터 누적된 전 반 파일 한 개를 올리면 됩니다. 지난 것을 지울 필요 없습니다.</p></div>'
     + '<label style="display:block;border:2px dashed var(--line);background:var(--surface);border-radius:14px;padding:30px 20px 26px;text-align:center;cursor:pointer;margin-bottom:16px">'
