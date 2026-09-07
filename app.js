@@ -299,9 +299,9 @@ const TITLES=[
   {k:'counsel_head',label:'상담실장',        tier:'branch',  edit:true,  manage:true},
   {k:'bm',          label:'원장/부원장(BM)', tier:'branch',  edit:false, manage:false, editToggle:true},
   {k:'daeri',       label:'대리',            tier:'branch',  edit:true,  manage:false},
-  {k:'team',        label:'팀장',            tier:'branch',  edit:false, manage:false},
-  {k:'junior',      label:'주임',            tier:'branch',  edit:false, manage:false},
-  {k:'gwajang',     label:'과장',            tier:'branch',  edit:false, manage:false},
+  {k:'team',        label:'팀장',            tier:'branch',  edit:false, manage:false, editToggle:true},
+  {k:'junior',      label:'주임',            tier:'branch',  edit:false, manage:false, editToggle:true},
+  {k:'gwajang',     label:'과장',            tier:'branch',  edit:false, manage:false, editToggle:true},
   {k:'teacher',     label:'담임',            tier:'teacher', edit:false, manage:false, teacherView:true},
   /* 조교 — 스타트실·미통과 관리용. 학사관리에서 role 'assistant' 로 읽힌다 */
   {k:'assistant',   label:'조교',            tier:'branch',  edit:true,  manage:false},

@@ -8109,6 +8109,14 @@ function retestSqlBanner(){
 function importRetestFile(file){
   const branchId = retestBranchId(), semId = state.semId;
   if(!branchId){ toast('미통과 관리를 쓰는 분원이 아닙니다','err'); return; }
+  if(session && session.canEdit===false){
+    openConfirm('이 계정은 올릴 수 없습니다',
+      '읽기 전용 계정이라 파일 올리기가 막혀 있습니다.\n\n'+
+      '통합관리 › 설정 › 계정 관리에서 이 계정을 편집하고 \'수정 권한 허용\'을 켜 주세요.\n'+
+      '(조교 직급으로 만든 계정은 처음부터 올릴 수 있습니다)',
+      ()=>closeModal(), {yesLabel:'알겠습니다', danger:false});
+    return;
+  }
   if(retestTablesMissing()){
     openConfirm('아직 표가 없습니다',
       'Supabase → SQL Editor 에서 sql/retest.sql 을 한 번 실행한 뒤 이 화면을 새로고침해 주세요.\n\n'+
@@ -8271,17 +8279,40 @@ function showRetestReport(r){
 /* ------------------------------------------------------------------------
    담임이 누르는 조치
    ------------------------------------------------------------------------ */
+/* 조치는 saveDB를 거치지 않고 이 표에만 바로 쓴다.
+   담임 계정은 '읽기 전용'이라 saveDB가 통째로 막혀 있는데(명단을 못 건드리게 하려는 것),
+   미통과 조치는 담임이 누르는 게 이 기능의 전부라서 눌러도 아무것도 안 남았다.
+   여기서만 열어 주면 담임은 여전히 명단·상담은 못 고치고 조치만 남길 수 있다. */
+async function retestSaveAction(row, remove){
+  if(MISSING_TABLES.has('retestActions')){ return false; }
+  if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
+  const T = TABLES.find(t=>t.key==='retestActions');
+  try{
+    const { error } = remove
+      ? await sb.from('retest_actions').delete().eq('id', row.id)
+      : await sb.from('retest_actions').insert(T.toRow(row));
+    if(error) throw error;
+    /* 스냅샷도 같이 맞춰 둔다 — 안 그러면 나중에 saveDB가 같은 걸 또 쓰거나 지운다 */
+    if(dbSnapshot){
+      const arr = dbSnapshot.retestActions || (dbSnapshot.retestActions = []);
+      if(remove) dbSnapshot.retestActions = arr.filter(a=>a.id!==row.id);
+      else arr.push(JSON.parse(JSON.stringify(row)));
+    }
+    return true;
+  }catch(e){ console.error('조치 저장 실패', e); return false; }
+}
 async function retestAct(code, itemKey, kind){
   const branchId = retestBranchId(), semId = state.semId;
   const act = RETEST_ACTS.find(a=>a.k===kind);
   const push = async (memo)=>{
-    (db.retestActions||(db.retestActions=[])).push({
+    const row = {
       id: uid('rta'), branchId, semesterId:semId,
       studentCode: code, itemKey, kind,
       actedOn: rtToday(), memo: memo||null,
       teacher: (session&&session.teacherName)||'', actor:(session&&session.username)||''
-    });
-    const ok = await saveDB();
+    };
+    const ok = await retestSaveAction(row, false);
+    if(ok) (db.retestActions||(db.retestActions=[])).push(row);
     toast(ok ? RETEST_ACT_L[kind]+' 기록했습니다' : '저장 실패 — 다시 눌러 주세요', ok?'ok':'err');
     render();
   };
@@ -8316,9 +8347,9 @@ async function retestUndo(code, itemKey, kind){
   if(!mine.length) return;
   mine.sort((a,b)=> String(a.actedOn).localeCompare(String(b.actedOn)));
   const last = mine[mine.length-1];
-  db.retestActions = db.retestActions.filter(a=>a.id!==last.id);
-  const ok = await saveDB();
-  toast(ok ? RETEST_ACT_L[kind]+' 한 건 되돌렸습니다' : '저장 실패','ok');
+  const ok = await retestSaveAction(last, true);
+  if(ok) db.retestActions = db.retestActions.filter(a=>a.id!==last.id);
+  toast(ok ? RETEST_ACT_L[kind]+' 한 건 되돌렸습니다' : '저장 실패 — 다시 해주세요', ok?'ok':'err');
   render();
 }
 
@@ -8411,8 +8442,10 @@ function renderRetest(){
       + '이 기능은 서수원분원에서만 씁니다.</div>';
     return;
   }
-  /* 버튼을 누르는 건 담임과 분원 계정만. 조교는 올리기만 하고, 본사는 보기만 한다. */
-  const readOnly = (session.canEdit===false) || session.role==='assistant';
+  /* 버튼을 누르는 건 담임과 분원 계정. 조교는 올리기만 한다.
+     담임 계정은 원래 '읽기 전용'(명단을 못 건드리게)이지만, 조치는 담임이 누르는 게
+     이 기능의 전부라 여기서만 열어 준다 — 저장도 조치 표에만 바로 쓴다. */
+  const readOnly = session.role==='assistant';
   let list = retestStudents(branchId, semId);
   const seesAll = retestSeesAll();
   const branchTotal = list.length;
