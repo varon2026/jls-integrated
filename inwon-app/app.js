@@ -2286,9 +2286,14 @@ function banDayCode(seg){
 /* 시간대(FA3·SU1)와 요일(MWF·TTH)을 '몇 번째 조각인지'가 아니라 '생김새'로 찾는다.
    반이름에 닫는 대괄호가 빠지면([MA1(4~6) / FA3 / MWF / …) 조각이 한 칸씩 밀려
    예전엔 통째로 못 읽고 '부 미지정'으로 떨어졌다. */
+/* 반이름 조각에서 괄호와 그 안 내용을 떼어 낸다. 분원이 같은 이름의 반을 구분하려고
+   '(1)FA1' 처럼 붙여 오는 경우가 있어, 시간대·요일을 읽을 때는 떼고 본다. */
+function banBare(seg){ return String(seg==null?'':seg).replace(/\([^()]*\)/g,'').trim(); }
 function banBu(className){
   const parts=banParts(className);
-  const timeSeg=parts.find(p=>/^[A-Za-z]{2}\d+$/.test(p))||'';   // FA3 · SU1 · SM4
+  /* 시간대 조각은 괄호를 떼고 본다 — 장안이 '[A2(1-3)](1)FA1/TTH/E6/N' 처럼
+     대괄호 뒤에 (1) 을 붙여 올려서 'FA1'을 못 읽고 통째로 부 미지정이 됐다. */
+  const timeSeg=parts.map(banBare).find(p=>/^[A-Za-z]{2}\d+$/.test(p))||'';   // FA3 · SU1 · SM4
   const dayCode=parts.map(banDayCode).find(Boolean)||'';
   const day = dayCode==='TT' ? 'TT' : (dayCode ? 'MWF' : '');
   const mm = timeSeg.match(/(\d)/); const num = mm?parseInt(mm[1],10):0;
@@ -2322,7 +2327,7 @@ function examLabel(cn){
   const body=stripBooks(cn), parts=banParts(body);
   const dayCode=parts.map(banDayCode).find(Boolean)||'';
   const day=dayCode?(BAN_DAY_LABEL[dayCode]||''):'';
-  const tp=parts.find(p=>/^[A-Za-z]{2}\d+$/.test(p));
+  const tp=parts.map(banBare).find(p=>/^[A-Za-z]{2}\d+$/.test(p));
   const time=tp?(tp.match(/\d+$/)[0]+'부'):'';
   const grade=parts.map(banGrade).find(Boolean)||'';
   const room=banRoom(body);
@@ -4649,7 +4654,7 @@ function classLabel(raw){
   const dayCode = parts.map(banDayCode).find(Boolean) || '';
   const day = dayCode ? (BAN_DAY_LABEL[dayCode] || '') : '';
   // 시간대 (SU1, SP2 등 학기약자+숫자 → n부). 체스반 등은 없을 수 있음.
-  const timePart = parts.find(p=> /^[A-Z]{2}\d+$/i.test(p));
+  const timePart = parts.map(banBare).find(p=> /^[A-Z]{2}\d+$/i.test(p));   // '(1)FA1' 처럼 괄호가 붙어 와도 읽는다
   const time = timePart ? (timePart.match(/\d+$/)[0]+'부') : '';
   // 앞부분: "요일 시간부" (있는 것만). 예: "월수금 3부", "화목", "3부"
   const front = [day, time].filter(Boolean).join(' ');
