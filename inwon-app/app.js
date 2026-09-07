@@ -7981,6 +7981,14 @@ function rtParseWhen(v){
   const dt = new Date(y, mo-1, da, hm?+hm[1]:0, (hm&&hm[2])?+hm[2]:0);
   return isNaN(dt.getTime()) ? null : dt;
 }
+/* 큐앱 엑셀의 '예약일/시간' 칸은 예약이 없으면 비어 있는 게 아니라
+   버튼 글자('예약하기')가 그대로 찍혀 나온다. 그걸 예약으로 읽는 바람에
+   68건이 전부 '예약 있음'으로 잡혔다. 날짜로 읽히는 것만 예약으로 본다. */
+function rtCleanBook(v){
+  const t = String(v==null?'':v).trim();
+  if(!t) return '';
+  return rtParseWhen(t) ? t : '';
+}
 function rtWhenLabel(v){
   const d = rtParseWhen(v);
   if(!d) return String(v==null?'':v);
@@ -8029,11 +8037,10 @@ function retestStudents(branchId, semId){
     /* 예약은 파일에 적힌 것과 담임이 다시 잡아 준 것 둘 다 본다. 가장 이른 것을 대표로 */
     let when=null, raw='';
     st.exams.forEach(e=>{
-      const cand = (e.memo && e.memo.yeyak) ? e.memo.yeyak : e.yeyak;
+      const cand = rtCleanBook((e.memo && e.memo.yeyak) ? e.memo.yeyak : e.yeyak);
       if(!cand) return;
       const d = rtParseWhen(cand);
-      if(d){ if(!when || d<when){ when=d; raw=cand; } }
-      else if(!raw){ raw = cand; }
+      if(d && (!when || d<when)){ when=d; raw=cand; }
     });
     st.bookRaw = raw; st.bookAt = when;
     st.state = !raw ? 'no' : (when && when < today ? 'late' : 'ok');
@@ -8202,7 +8209,7 @@ function importRetestFile(file){
         jumsu:    parseFloat(g(r,'jumsu'))||0,
         baejeom:  parseFloat(g(r,'baejeom'))||0,
         eungsi:   g(r,'eungsi'),
-        yeyak:    g(r,'yeyak')
+        yeyak:    rtCleanBook(g(r,'yeyak'))   // '예약하기' 같은 버튼 글자는 예약이 아니다
       };
       rec.itemKey = rtItemKey(rec);
       const pair = rtPair(code, rec.itemKey);
