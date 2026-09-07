@@ -1525,7 +1525,7 @@ function enterApp(){
     // 로그인 계정이 갈 수 없는 경로면 홈으로 강제
     const root = location.hash.replace(/^#\//,'').split('/')[0];
     const allowedRoots = {
-      admin:['admin','roster','closing','passrate-hub','accounts','retest'],
+      admin:['admin','roster','closing','passrate-hub','accounts'],
       teacher:['myclasses','segments','myaccount','branch','passrate','retest'],
       assistant:['start','retest','retest-up'],
       branch:['branch','roster','closing','data','students','start','passrate','segments-edit','teachers','retest','retest-up']
@@ -1622,8 +1622,7 @@ function buildShell(){
       <div class="sb-item" data-nav="admin">${I.dash}<span>통합 대시보드</span></div>
       <div class="sb-item" data-nav="ban">${I.roster}<span>반배정표</span></div>
       <div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>
-      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>
-      ${canRetest()?`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`:''}`;
+      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
 } else if(isTeacher){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
@@ -1693,7 +1692,7 @@ function render(){
   // branch 대시보드/데이터관리는 불가. branch는 admin/accounts 불가.
   if(session.role==='admin'){
     if(root==='branch' && parts[1]!=='teacher' && parts[1]!=='class'){ go('admin'); return; }
-   if(root==='data'||root==='students'||root==='segments-edit'||root==='teachers'||root==='start'||root==='passrate'||root==='assistants'||root==='retest-up'){ go('admin'); return; }
+   if(root==='data'||root==='students'||root==='segments-edit'||root==='teachers'||root==='start'||root==='passrate'||root==='assistants'||root==='retest'||root==='retest-up'){ go('admin'); return; }
   }
   // 선생님: 자기 반 관련 화면만 (myclasses / branch teacher·class 상세)
 if(session.role==='teacher'){
@@ -7932,15 +7931,11 @@ function retestOn(branchId){
 }
 function canRetest(){
   if(!session) return false;
-  if(session.role==='admin') return (db.branches||[]).some(b=>retestOn(b.id));
+  /* 본사는 안 본다 — 서수원 안에서만 쓰는 기능이라 본사 화면에는 아예 안 띄운다 */
+  if(session.role==='admin') return false;
   return retestOn(session.branchId);
 }
-/* 관리자는 서수원 분원을 골라 본다 (지금은 쓰는 분원이 하나뿐) */
-function retestBranchId(){
-  if(session.role!=='admin') return session.branchId;
-  const b = (db.branches||[]).find(x=>retestOn(x.id));
-  return b ? b.id : null;
-}
+function retestBranchId(){ return session ? session.branchId : null; }
 /* 전체 숫자를 보는 사람 = 조교·주임·분원·본사. 담임은 자기 반만 */
 function retestSeesAll(){ return !!session && session.role!=='teacher'; }
 
@@ -8366,7 +8361,7 @@ function renderRetest(){
     return;
   }
   /* 버튼을 누르는 건 담임과 분원 계정만. 조교는 올리기만 하고, 본사는 보기만 한다. */
-  const readOnly = (session.canEdit===false) || session.role==='admin' || session.role==='assistant';
+  const readOnly = (session.canEdit===false) || session.role==='assistant';
   let list = retestStudents(branchId, semId);
   const seesAll = retestSeesAll();
   const myKey = teacherKey(session.teacherName||'');
