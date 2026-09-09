@@ -142,7 +142,10 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .rtmg-block .bh{padding:13px 18px 10px;font-weight:800;font-size:13px;color:var(--rdt);display:flex;align-items:center;gap:8px}
 .rtmg-block.at .bh{color:var(--rat)}
 .rtmg-block .bh .n{margin-left:auto;color:var(--ink3);font-weight:800;font-size:11.5px}
-.rtmg-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12.5px;background:#fff}
+/* 칸 너비는 %가 아니라 고정 px로 — %로 하면 화면이 넓을수록 "학생" 칸도 같이 넓어져서
+   글자는 짧은데 빈칸만 커지는 문제가 있었다(운영자 넓은 모니터에서 확인됨). 표는 필요한
+   만큼만 차지하고 남는 공간은 그냥 비워둔다(좁은 화면은 기존처럼 가로 스크롤). */
+.rtmg-tbl{table-layout:fixed;border-collapse:collapse;font-size:12.5px;background:#fff}
 .rtmg-tbl td.stu,.rtmg-tbl th.stu{white-space:normal}
 .rtmg-tbl th{color:var(--ink3);font-weight:800;font-size:10.3px;padding:8px 6px;text-align:center;border-bottom:1px solid var(--rdt-line);white-space:nowrap}
 .rtmg-block.at .rtmg-tbl th{border-color:var(--rat-line)}
@@ -185,14 +188,14 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .rtmg-pop-foot .ok{background:var(--brand);color:#fff}
 .rtmg-hover{position:relative;cursor:default}
 .rtmg-hover .hn{border-bottom:1.5px dotted var(--ink3);cursor:help}
-.rtmg-tip{position:absolute;left:0;top:calc(100% + 8px);background:#fff;border:1px solid var(--line);border-radius:11px;font-size:12.5px;min-width:220px;opacity:0;visibility:hidden;transform:translateY(-4px);transition:.14s;z-index:70;box-shadow:0 12px 32px rgba(80,70,120,.18);text-align:left;overflow:hidden}
+.rtmg-tip{position:absolute;left:0;top:calc(100% + 8px);background:#fff;border:1px solid var(--line);border-radius:11px;font-size:12.5px;width:max-content;opacity:0;visibility:hidden;transform:translateY(-4px);transition:.14s;z-index:70;box-shadow:0 12px 32px rgba(80,70,120,.18);text-align:left}
 .rtmg-hover:hover .rtmg-tip{opacity:1;visibility:visible;transform:translateY(0)}
-.rtmg-tip .tt{font-weight:800;font-size:11.5px;color:#fff;background:var(--brand);padding:8px 14px}
+.rtmg-tip .tt{font-weight:800;font-size:11.5px;color:#fff;background:var(--brand);padding:8px 14px;border-radius:11px 11px 0 0;white-space:nowrap}
 .rtmg-tip .tb{padding:4px 14px 8px}
-.rtmg-tip .tr{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--line2);font-size:11.8px}
+.rtmg-tip .tr{display:flex;align-items:baseline;gap:18px;padding:6px 0;border-bottom:1px solid var(--line2);font-size:11.8px}
 .rtmg-tip .tr:last-child{border-bottom:none}
-.rtmg-tip .tr b{color:var(--ink)}
-.rtmg-tip .tr span{color:var(--ink2);font-weight:700}
+.rtmg-tip .tr b{color:var(--ink);white-space:nowrap}
+.rtmg-tip .tr span{color:var(--ink2);font-weight:700;white-space:nowrap;margin-left:auto}
 </style>
 </head>
 <body>
@@ -569,7 +572,7 @@ function rtDtBlock(list){
   </tr>`).join('');
   return `<div class="rtmg-block dt"><div class="bh">체스 · DT — 재시험 대상<span class="n">${list.length}명</span></div>
     <div style="overflow-x:auto"><table class="rtmg-tbl">
-    <colgroup><col style="width:24%"><col style="width:16%"><col style="width:12%"><col style="width:20%"><col style="width:12%"><col style="width:10%"><col style="width:6%"></colgroup>
+    <colgroup><col style="width:180px"><col style="width:120px"><col style="width:90px"><col style="width:150px"><col style="width:90px"><col style="width:90px"><col style="width:70px"></colgroup>
     <thead><tr>
       <th style="text-align:left">학생</th><th>담임</th><th>본시험</th><th>일정</th><th>재시험</th><th>성장폭</th><th>보강</th>
     </tr></thead><tbody>${rows}</tbody></table></div></div>`;
@@ -591,7 +594,7 @@ function rtAtBlock(list){
   </tr>`).join('');
   return `<div class="rtmg-block at"><div class="bh">에이스 · AT — 재시험 대상<span class="n">${list.length}명</span></div>
     <div style="overflow-x:auto"><table class="rtmg-tbl">
-    <colgroup><col style="width:16%"><col style="width:11%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:16%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:7%"><col style="width:6%"></colgroup>
+    <colgroup><col style="width:160px"><col style="width:110px"><col style="width:64px"><col style="width:64px"><col style="width:70px"><col style="width:150px"><col style="width:64px"><col style="width:64px"><col style="width:70px"><col style="width:80px"><col style="width:70px"></colgroup>
     <thead><tr>
       <th style="text-align:left">학생</th><th>담임</th><th>독해</th><th>문법</th><th>합계</th><th>일정</th><th>독해</th><th>문법</th><th>합계</th><th>성장폭</th><th>보강</th>
     </tr></thead><tbody>${rows}</tbody></table></div></div>`;
