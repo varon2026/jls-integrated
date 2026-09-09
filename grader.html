@@ -152,7 +152,11 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .rtmg-block.at .rtmg-tbl th{border-color:var(--rat-line)}
 .rtmg-tbl td{padding:9px 6px;text-align:center;border-bottom:1px solid var(--line2);white-space:nowrap}
 .rtmg-tbl td.stu{text-align:left}
-.rtmg-tbl td.stu .c{display:block;font-size:10.5px;color:var(--ink3);font-weight:700;margin-top:2px}
+/* 학교명 줄이 이름 줄보다 길어서 그 긴 줄 기준으로 칸이 넓어지고, 정작 짧은 이름 옆엔
+   빈 칸만 남았다(운영자가 계속 지적한 "간격 허벌창" 문제의 진짜 원인). 학교명은
+   최대 76px까지만 보여주고 넘으면 "…"로 자른다 — 칸 너비가 학교명이 아니라
+   이름 기준으로 좁아진다. 전체 학교명은 마우스 올리면(title) 뜬다. */
+.rtmg-tbl td.stu .c{display:block;font-size:10.5px;color:var(--ink3);font-weight:700;margin-top:2px;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rtmg-tbl tr:last-child td{border-bottom:none}
 .rtmg-zone{background:#fbf9ff}
 .rtmg-final{font-weight:800;font-size:14px}
@@ -563,7 +567,7 @@ function rtSchedBtn(x,type){const info=rtFmtSched(x.scheduledAt);return `<button
 function rtDtBlock(list){
   if(!list.length)return `<div class="rtmg-block dt"><div class="bh">체스 · DT — 재시험 대상<span class="n">0명</span></div><div class="rtmg-empty">체스(DT) 재시험 대상이 없습니다</div></div>`;
   const rows=list.map(x=>`<tr>
-    <td class="stu">${esc(x.name)}<span class="c">${esc(gradeKey(x.grade)||'')} · ${esc(x.school||'')}</span></td>
+    <td class="stu">${esc(x.name)}<span class="c" title="${esc(gradeKey(x.grade)||'')} · ${esc(x.school||'')}">${esc(gradeKey(x.grade)||'')}</span></td>
     <td>${esc(x.teacher||'')}</td>
     <td><b>${x.baseTotal}</b></td>
     <td class="rtmg-zone">${rtSchedBtn(x,'DT')}</td>
@@ -579,7 +583,7 @@ function rtDtBlock(list){
 function rtAtBlock(list){
   if(!list.length)return `<div class="rtmg-block at"><div class="bh">에이스 · AT — 재시험 대상<span class="n">0명</span></div><div class="rtmg-empty">에이스(AT) 재시험 대상이 없습니다</div></div>`;
   const rows=list.map(x=>`<tr>
-    <td class="stu">${esc(x.name)}<span class="c">${esc(gradeKey(x.grade)||'')} · ${esc(x.school||'')}</span></td>
+    <td class="stu">${esc(x.name)}<span class="c" title="${esc(gradeKey(x.grade)||'')} · ${esc(x.school||'')}">${esc(gradeKey(x.grade)||'')}</span></td>
     <td>${esc(x.teacher||'')}</td>
     <td>${x.baseRead==null?'<span class="hint">—</span>':x.baseRead}</td>
     <td>${x.baseGram==null?'<span class="hint">—</span>':x.baseGram}</td>
