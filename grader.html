@@ -275,7 +275,7 @@ let SCOREDCODES=new Set();  // 현재 시험종류·학기에서 이미 채점 �
    RT_RAW_DT/AT = 이번 학기 DT/AT exam_scores 원본(캐시, 컷라인만 바뀌면 재조회 없이 다시 계산).
    RT_DT/AT = 원본에서 계산한 "재시험 대상" 목록(화면에 그리는 배열). RT_SCHEDULES = retest_schedule 표 캐시. */
 let PAGE='exam';
-let RT_RAW_DT=null, RT_RAW_AT=null, RT_DT=[], RT_AT=[], RT_SCHEDULES={}, RT_TABLE_OK=true, RT_LOADING=false;
+let RT_RAW_DT=null, RT_RAW_AT=null, RT_DT=[], RT_AT=[], RT_SCHEDULES={}, RT_TABLE_OK=true, RT_MAKEUP_COL_OK=true, RT_LOADING=false;
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -449,7 +449,15 @@ async function loadRetestSchedule(){
     const rows=await fetchAll('retest_schedule','*',q=>q.eq('semester',SEM));
     RT_TABLE_OK=true;RT_SCHEDULES={};
     rows.forEach(r=>{RT_SCHEDULES[r.test_type+'|'+r.student_code]=r;});
-  }catch(e){ RT_TABLE_OK=false;RT_SCHEDULES={}; }   // 표가 아직 없으면(sql/retest_schedule.sql 미실행) 조용히 꺼둠 — 배너로 알림
+  }catch(e){ RT_TABLE_OK=false;RT_SCHEDULES={}; return; }   // 표가 아직 없으면(sql/retest_schedule.sql 미실행) 조용히 꺼둠 — 배너로 알림
+  /* makeup_at 칸(보강일정)은 나중에 추가된 칸이라 표는 있어도 이 칸만 없을 수 있음
+     (sql/retest_schedule_makeup_at.sql 미실행). 행이 0개면 위 select('*')만으론 칸
+     존재 여부를 알 수 없어서 따로 한 번 짚어본다 — 없으면 저장 시도할 때 매번 기술적인
+     에러문구만 뜨는 대신 미리 배너로 알려준다. */
+  try{
+    const{error:mkErr}=await sb.from('retest_schedule').select('makeup_at').limit(1);
+    RT_MAKEUP_COL_OK=!mkErr;
+  }catch(e){ RT_MAKEUP_COL_OK=false; }
 }
 /* DT: exam_scores 한 줄(학생당 최신 회차)에서 첫 회차·최신 회차 점수를 뽑아 컷라인과 비교 */
 function computeRetestDT(rawRows){
@@ -471,7 +479,7 @@ function computeRetestDT(rawRows){
       baseTotal:firstScore,hasRetest,retestTotal:hasRetest?latestScore:null,
       growth:hasRetest?Math.round((latestScore-firstScore)*10)/10:null,
       passed:latestScore>=cut,
-      scheduledAt:sched?sched.scheduled_at:null,makeupDone:sched?!!sched.makeup_done:false});
+      scheduledAt:sched?sched.scheduled_at:null,makeupAt:sched?sched.makeup_at:null,makeupDone:sched?!!sched.makeup_done:false});
   });
   return out;
 }
@@ -509,7 +517,7 @@ function computeRetestAT(rawRows){
       hasRetest,retestRead:hasRetest?dsc:null,retestGram:hasRetest?gsc:null,retestTotal:hasRetest?latestTotal:null,
       growth:(hasRetest&&baseTotal!=null&&latestTotal!=null)?Math.round((latestTotal-baseTotal)*10)/10:null,
       passed:fullyGraded&&latestTotal>=cut,
-      scheduledAt:sched?sched.scheduled_at:null,makeupDone:sched?!!sched.makeup_done:false});
+      scheduledAt:sched?sched.scheduled_at:null,makeupAt:sched?sched.makeup_at:null,makeupDone:sched?!!sched.makeup_done:false});
   });
   return out;
 }
@@ -565,8 +573,8 @@ function rtRenderSummary(mode,branchFilter){
       <tbody>${rowsHtml(atGroups,'at')}</tbody></table></div>
   </div>`;
 }
-function rtFmtSched(v){
-  if(!v)return{label:'일정 선택',set:false};
+function rtFmtSched(v,placeholder){
+  if(!v)return{label:placeholder||'일정 선택',set:false};
   const d=new Date(v);const w=['일','월','화','수','목','금','토'][d.getDay()];
   return{label:`${d.getMonth()+1}/${d.getDate()}(${w}) ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,set:true};
 }
@@ -576,23 +584,30 @@ function rtChkHtml(x,type){
   if(TEACHER)return `<span class="rtmg-chk ${on?'on':''}" onclick="rtToggleMakeup('${type}','${esc(x.code)}')" title="클릭해서 보강 완료 체크">${on?'✓':''}</span>`;
   return `<span class="rtmg-chk ro ${on?'on':''}" title="담임만 체크할 수 있어요">${on?'✓':''}</span>`;
 }
-function rtSchedBtn(x,type){const info=rtFmtSched(x.scheduledAt);return `<button class="rtmg-schbtn ${info.set?'set':''}" onclick="rtOpenPop(event,'${type}','${esc(x.code)}')">📅 ${esc(info.label)}</button>`;}
+/* field: 'sched'=재시험 보는 날짜, 'makeup'=보강 받는 날짜 — 부장님 요청으로 둘을 따로 잡음.
+   같은 팝오버(달력)를 재사용하되 어느 칸을 저장할지만 field로 구분한다. */
+function rtSchedBtn(x,type,field){
+  const isMk=field==='makeup';
+  const info=rtFmtSched(isMk?x.makeupAt:x.scheduledAt, isMk?'보강 선택':'재시험 선택');
+  return `<button class="rtmg-schbtn ${info.set?'set':''}${isMk?' mk':''}" onclick="rtOpenPop(event,'${type}','${esc(x.code)}','${field}')">${isMk?'✏️':'📅'} ${esc(info.label)}</button>`;
+}
 function rtDtBlock(list){
   if(!list.length)return `<div class="rtmg-block dt"><div class="bh">체스 · DT — 재시험 대상<span class="n">0명</span></div><div class="rtmg-empty">체스(DT) 재시험 대상이 없습니다</div></div>`;
   const rows=list.map(x=>`<tr>
     <td class="stu">${esc(x.name)}<span class="c" title="${esc(gradeKey(x.grade)||'')} · ${esc(x.school||'')}">${esc(gradeKey(x.grade)||'')}</span></td>
     <td>${esc(x.teacher||'')}</td>
     <td><b>${x.baseTotal}</b></td>
-    <td class="rtmg-zone">${rtSchedBtn(x,'DT')}</td>
+    <td class="rtmg-zone">${rtSchedBtn(x,'DT','sched')}</td>
+    <td class="rtmg-zone">${rtSchedBtn(x,'DT','makeup')}</td>
     <td class="rtmg-zone">${x.hasRetest?`<span class="rtmg-final">${x.retestTotal}</span>`:'<span class="hint">—</span>'}</td>
     <td class="rtmg-zone">${rtGrowHtml(x.growth)}</td>
     <td class="rtmg-zone">${rtChkHtml(x,'DT')}</td>
   </tr>`).join('');
   return `<div class="rtmg-block dt"><div class="bh">체스 · DT — 재시험 대상<span class="n">${list.length}명</span></div>
     <div style="overflow-x:auto"><table class="rtmg-tbl">
-    <colgroup><col style="width:11%"><col style="width:21%"><col style="width:10%"><col style="width:27%"><col style="width:10%"><col style="width:12%"><col style="width:9%"></colgroup>
+    <colgroup><col style="width:9%"><col style="width:17%"><col style="width:8%"><col style="width:21%"><col style="width:21%"><col style="width:8%"><col style="width:10%"><col style="width:6%"></colgroup>
     <thead><tr>
-      <th style="text-align:left">학생</th><th>담임</th><th>본시험</th><th>일정</th><th>재시험</th><th>성장폭</th><th>보강</th>
+      <th style="text-align:left">학생</th><th>담임</th><th>본시험</th><th>재시험일정</th><th>보강일정</th><th>재시험</th><th>성장폭</th><th>보강</th>
     </tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function rtAtBlock(list){
@@ -603,7 +618,8 @@ function rtAtBlock(list){
     <td>${x.baseRead==null?'<span class="hint">—</span>':x.baseRead}</td>
     <td>${x.baseGram==null?'<span class="hint">—</span>':x.baseGram}</td>
     <td><b>${x.baseTotal==null?'<span class="hint">판단보류</span>':x.baseTotal}</b></td>
-    <td class="rtmg-zone">${rtSchedBtn(x,'AT')}</td>
+    <td class="rtmg-zone">${rtSchedBtn(x,'AT','sched')}</td>
+    <td class="rtmg-zone">${rtSchedBtn(x,'AT','makeup')}</td>
     <td class="rtmg-zone">${x.hasRetest&&x.retestRead!=null?x.retestRead:'<span class="hint">—</span>'}</td>
     <td class="rtmg-zone">${x.hasRetest&&x.retestGram!=null?x.retestGram:'<span class="hint">—</span>'}</td>
     <td class="rtmg-zone">${x.hasRetest?`<span class="rtmg-final">${x.retestTotal}</span>`:'<span class="hint">—</span>'}</td>
@@ -612,9 +628,9 @@ function rtAtBlock(list){
   </tr>`).join('');
   return `<div class="rtmg-block at"><div class="bh">에이스 · AT — 재시험 대상<span class="n">${list.length}명</span></div>
     <div style="overflow-x:auto"><table class="rtmg-tbl">
-    <colgroup><col style="width:9%"><col style="width:18%"><col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:22%"><col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:8%"><col style="width:7%"></colgroup>
+    <colgroup><col style="width:7%"><col style="width:15%"><col style="width:5%"><col style="width:5%"><col style="width:5%"><col style="width:18%"><col style="width:18%"><col style="width:5%"><col style="width:5%"><col style="width:5%"><col style="width:7%"><col style="width:5%"></colgroup>
     <thead><tr>
-      <th style="text-align:left">학생</th><th>담임</th><th>독해</th><th>문법</th><th>합계</th><th>일정</th><th>독해</th><th>문법</th><th>합계</th><th>성장폭</th><th>보강</th>
+      <th style="text-align:left">학생</th><th>담임</th><th>독해</th><th>문법</th><th>합계</th><th>재시험일정</th><th>보강일정</th><th>독해</th><th>문법</th><th>합계</th><th>성장폭</th><th>보강</th>
     </tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function rtRenderBoxes(branchFilter){
@@ -667,7 +683,8 @@ function renderRetestView(){
     return;
   }
   if(RT_LOADING){host.innerHTML='<div class="loading">재시험 대상 계산 중…</div>';return;}
-  const banner=RT_TABLE_OK?'':`<div class="card" style="border-color:#f0b6b8;background:var(--neg-s)"><b style="color:var(--neg)">⚠️ retest_schedule 표가 아직 없어요</b><div class="hint" style="margin-top:6px;color:var(--neg)">일정·보강 체크를 저장할 수 없어요. <code>sql/retest_schedule.sql</code>을 Supabase SQL Editor에서 한 번 실행해주세요.</div></div>`;
+  let banner=RT_TABLE_OK?'':`<div class="card" style="border-color:#f0b6b8;background:var(--neg-s)"><b style="color:var(--neg)">⚠️ retest_schedule 표가 아직 없어요</b><div class="hint" style="margin-top:6px;color:var(--neg)">일정·보강 체크를 저장할 수 없어요. <code>sql/retest_schedule.sql</code>을 Supabase SQL Editor에서 한 번 실행해주세요.</div></div>`;
+  if(RT_TABLE_OK&&!RT_MAKEUP_COL_OK)banner+=`<div class="card" style="border-color:var(--warn-s);background:var(--warn-s)"><b style="color:var(--warn)">⚠️ 보강일정 칸이 아직 없어요</b><div class="hint" style="margin-top:6px;color:var(--warn)">"보강일정" 버튼은 저장이 안 돼요. <code>sql/retest_schedule_makeup_at.sql</code>을 Supabase SQL Editor에서 한 번 실행해주세요.</div></div>`;
   const scoped=rtScoped();
   const hero=rtHero(scoped.dt,scoped.at);
   const cutlineBar=`<div class="rtmg-bar">
@@ -691,13 +708,14 @@ function renderRetestView(){
     </div>`;
 }
 /* ── 일정 팝오버 (담임/분원/본사 모두 잡을 수 있음 — 보강 체크만 담임 전용) ── */
-let rtPopCtx={type:null,code:null,year:0,month:0,day:null,time:'18:00'};
+let rtPopCtx={type:null,code:null,field:'sched',year:0,month:0,day:null,time:'18:00'};
 const RT_TIME_OPTS=['17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30'];
 function rtFindRow(type,code){return (type==='DT'?RT_DT:RT_AT).find(x=>x.code===code);}
 function ensureRtPop(){
   if($('rtPop'))return;
   const div=document.createElement('div');div.id='rtPop';div.className='rtmg-pop';
-  div.innerHTML=`<div class="rtmg-cal-head"><button onclick="rtCalMove(-1)">‹</button><b id="rtCalTitle"></b><button onclick="rtCalMove(1)">›</button></div>
+  div.innerHTML=`<div class="hint" id="rtPopKind" style="font-weight:800;color:var(--brand);margin-bottom:6px"></div>
+    <div class="rtmg-cal-head"><button onclick="rtCalMove(-1)">‹</button><b id="rtCalTitle"></b><button onclick="rtCalMove(1)">›</button></div>
     <div class="rtmg-cal-grid" id="rtCalGrid"></div>
     <div class="hint" style="font-weight:800;font-size:11px;margin-bottom:6px">자주 쓰는 시간</div>
     <div class="rtmg-time-chips" id="rtTimeChips"></div>
@@ -713,12 +731,14 @@ function ensureRtPop(){
     pop.classList.remove('open');
   });
 }
-function rtOpenPop(ev,type,code){
+function rtOpenPop(ev,type,code,field){
   ensureRtPop();
   const x=rtFindRow(type,code);if(!x)return;
+  const cur=field==='makeup'?x.makeupAt:x.scheduledAt;
   const now=new Date();let y=now.getFullYear(),m=now.getMonth(),d=null,tm='18:00';
-  if(x.scheduledAt){const dd=new Date(x.scheduledAt);y=dd.getFullYear();m=dd.getMonth();d=dd.getDate();tm=String(dd.getHours()).padStart(2,'0')+':'+String(dd.getMinutes()).padStart(2,'0');}
-  rtPopCtx={type,code,year:y,month:m,day:d,time:tm};
+  if(cur){const dd=new Date(cur);y=dd.getFullYear();m=dd.getMonth();d=dd.getDate();tm=String(dd.getHours()).padStart(2,'0')+':'+String(dd.getMinutes()).padStart(2,'0');}
+  rtPopCtx={type,code,field,year:y,month:m,day:d,time:tm};
+  $('rtPopKind').textContent=(field==='makeup'?'✏️ 보강 일정 — ':'📅 재시험 일정 — ')+esc(x.name);
   rtRenderCal();rtRenderTimeChips();$('rtTimeCustom').value=tm;
   const pop=$('rtPop');const rect=ev.currentTarget.getBoundingClientRect();
   pop.style.top=Math.min(rect.bottom+8,window.innerHeight-420)+'px';
@@ -740,16 +760,18 @@ function rtRenderTimeChips(){
   RT_TIME_OPTS.forEach(t=>{const sel=t===rtPopCtx.time?' sel':'';wrap.insertAdjacentHTML('beforeend',`<div class="rtmg-time-chip${sel}" onclick="rtPickTime('${t}')">${t}</div>`);});
 }
 function rtPickTime(t){rtPopCtx.time=t;$('rtTimeCustom').value=t;rtRenderTimeChips();}
-async function rtSaveSchedule(type,code,iso){
+async function rtSaveSchedule(type,code,field,iso){
   const row=rtFindRow(type,code);if(!row)return false;
-  const payload={semester:SEM,test_type:type,student_code:code,branch:row.branchName,teacher:row.teacher,class_name:row.className,scheduled_at:iso,updated_at:new Date().toISOString()};
+  const col=field==='makeup'?'makeup_at':'scheduled_at';
+  const payload={semester:SEM,test_type:type,student_code:code,branch:row.branchName,teacher:row.teacher,class_name:row.className,[col]:iso,updated_at:new Date().toISOString()};
   const{error}=await sb.from('retest_schedule').upsert(payload,{onConflict:'semester,test_type,student_code'});
   if(error){toast('일정 저장 실패: '+error.message,false);return false;}
-  row.scheduledAt=iso;RT_SCHEDULES[type+'|'+code]={...(RT_SCHEDULES[type+'|'+code]||{}),scheduled_at:iso,makeup_done:row.makeupDone};
+  if(field==='makeup')row.makeupAt=iso;else row.scheduledAt=iso;
+  RT_SCHEDULES[type+'|'+code]={...(RT_SCHEDULES[type+'|'+code]||{}),[col]:iso};
   return true;
 }
 async function rtClearSched(){
-  const{type,code}=rtPopCtx;const ok=await rtSaveSchedule(type,code,null);
+  const{type,code,field}=rtPopCtx;const ok=await rtSaveSchedule(type,code,field,null);
   $('rtPop').classList.remove('open');if(ok)render();
 }
 async function rtConfirmSched(){
@@ -757,9 +779,9 @@ async function rtConfirmSched(){
   if(rtPopCtx.day==null){$('rtPop').classList.remove('open');return;}
   const[hh,mm]=rtPopCtx.time.split(':');
   const iso=`${rtPopCtx.year}-${String(rtPopCtx.month+1).padStart(2,'0')}-${String(rtPopCtx.day).padStart(2,'0')}T${hh}:${mm}:00`;
-  const{type,code}=rtPopCtx;
-  const ok=await rtSaveSchedule(type,code,iso);
-  $('rtPop').classList.remove('open');if(ok){toast('일정 저장됨 ✓');render();}
+  const{type,code,field}=rtPopCtx;
+  const ok=await rtSaveSchedule(type,code,field,iso);
+  $('rtPop').classList.remove('open');if(ok){toast((field==='makeup'?'보강':'재시험')+' 일정 저장됨 ✓');render();}
 }
 async function rtToggleMakeup(type,code){
   if(!TEACHER){toast('담임만 체크할 수 있어요',false);return;}
