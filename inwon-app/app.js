@@ -1040,10 +1040,13 @@ function isTarget(rec, stage, semId){
     return examStageOf(rec) === stage;
   }
 
+  // 사람이 하이픈으로 내린 회차 — 그냥 제외하고 거기서 끝(HC·MC 공통, 상담률 분모에서 빠짐).
+  // 예전엔 MC만 이 처리를 했는데, 해피콜도 똑같이 하이픈으로 내려서 뺄 수 있어야 한다는
+  // 요청으로 HC1·HC2도 같이 봄.
+  if(isExempt(rec.studentId, rec.branchId, sid, stage)) return false;
   if(stage!=='HC1' && stage!=='HC2'){
-    // 사람이 하이픈으로 내린 회차 — 그냥 제외하고 거기서 끝. 내신반으로 넘기지 않는다.
-    if(isExempt(rec.studentId, rec.branchId, sid, stage)) return false;
-    // 이 학생이 그 회차를 내신반에서 하는 중이면 정규반에선 대상 아님 (자동)
+    // 이 학생이 그 회차를 내신반에서 하는 중이면 정규반에선 대상 아님 (자동) — HC는
+    // 애초에 내신반 자체가 대상이 아니라서(위에서 이미 걸러짐) 이 자동이관 개념이 없다.
     if(examCovers(rec.studentId, rec.branchId, sid, stage)) return false;
   }
 
@@ -2630,13 +2633,16 @@ const isExamClass = recs.length>0 && (recs[0].kind||'regular')==='exam';
     const isExam = (rec.kind||'regular')==='exam';
 const cells = STAGES.map(stg=>{
       const isMc = (stg==='MC1'||stg==='MC2'||stg==='MC3');
-      const exempt = isMc && isExempt(rec.studentId, branchId, semId, stg);
+      const isHc = (stg==='HC1'||stg==='HC2');
+      const exempt = (isMc||isHc) && isExempt(rec.studentId, branchId, semId, stg);
 
       if(!isTarget(rec, stg, semId)){
-        // 정규반에서 면제된 MC = 내신반으로 넘김. 분원관리자는 클릭해서 해제 가능.
+        // 정규반에서 면제된 MC = 내신반으로 넘김. HC는 내신반 개념이 없어서 그냥 '면제 처리'.
+        // 분원관리자는 클릭해서 해제 가능.
         if(exempt && !isExam){
           const clk = canEditExempt() ? `onclick="onToggleExempt('${rec.studentId}','${stg}')"` : '';
-          return `<td class="cc"><span class="cc-mark exempt ${canEditExempt()?'editable':''}" title="내신반으로 이관됨(면제). ${canEditExempt()?'클릭하면 해제':''}" ${clk}>–</span></td>`;
+          const exTitle = isMc ? '내신반으로 이관됨(면제)' : '면제 처리됨';
+          return `<td class="cc"><span class="cc-mark exempt ${canEditExempt()?'editable':''}" title="${exTitle}. ${canEditExempt()?'클릭하면 해제':''}" ${clk}>–</span></td>`;
         }
         let why;
         if(stg==='HC1'||stg==='HC2') why = isExam ? '내신반은 HC 대상 아님' : '대상 아님(기존생)';
@@ -2682,13 +2688,14 @@ const cells = STAGES.map(stg=>{
           title="대괄호 회차 오기재 의심 — 내용 확인&#10;클릭: 내용 보기 · 우클릭: 메뉴"
           onclick="openCounseling('${rec.studentId}','${stg}','${esc(stu.name)}')">⚠</span></td>`;
       }
-      // 미완료(✕). 정규반 MC면 분원관리자가 클릭해서 면제(–)로 바꿀 수 있음.
+      // 미완료(✕). 정규반 MC·HC면 분원관리자가 클릭해서 면제(–)로 바꿀 수 있음.
       // 퇴원생인데 회차가 아직 잡혀 있으면 왜 잡히는지 같이 알려준다.
       const wdWhy = (rec.status==='withdraw' && isMc)
         ? `&#10;퇴원생 — 퇴원한 달(${rec.withdrawDate||'날짜 없음'})까지의 회차는 상담 대상입니다`
         : '';
-      if(isMc && !isExam && canEditExempt()){
-        return `<td class="cc"><span class="cc-mark undone editable" title="미완료 — 클릭하면 내신반으로 이관(면제)${wdWhy}"
+      if((isMc||isHc) && !isExam && canEditExempt()){
+        const exHint = isMc ? '클릭하면 내신반으로 이관(면제)' : '클릭하면 면제 처리';
+        return `<td class="cc"><span class="cc-mark undone editable" title="미완료 — ${exHint}${wdWhy}"
           onclick="onToggleExempt('${rec.studentId}','${stg}')">✕</span></td>`;
       }
       return `<td class="cc"><span class="cc-mark undone" title="미완료${wdWhy}">✕</span></td>`;
