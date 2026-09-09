@@ -1082,7 +1082,7 @@ function buildGrid(){
     ans.forEach((a,ci)=>{const sa=a.type==='sa';
       cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="numeric" maxlength="1" ${sa?'placeholder="1/0"':''} ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?'주관식: 맞으면 1, 틀리면 0 입력':'객관식: 1~5'}" oninput="onCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
     parts.forEach(p=>{cells+=`<td class="sc" data-part="${esc(p)}">0</td>`;});
-    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button></td>`;
+    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}</td>`;
     body+=`<tr data-sid="${r.studentId}" data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   area.innerHTML=head+`
@@ -1154,6 +1154,34 @@ function cancelRetest(btn){
   reScore(tr);
   if(EXAM==='AT')applyAceCutline();
   toast('재시험 취소 — 이전 답안 복원');
+}
+/* 초기화 — 이 학생 채점을 완전히 지운다(화면 입력칸 + DB에 저장된 성적).
+   답안칸만 비우고 [채점 결과 저장]을 누르면, 저장 로직이 "빈 칸인 학생은 건너뛴다"고
+   짜여 있어서 지운 게 반영되지 않는 문제가 있었다(운영자가 실제로 겪음 — "입력된
+   학생이 없다"고만 뜨고 저장된 성적은 그대로 남음). 그래서 화면 지우기와 DB 삭제를
+   버튼 하나로 한 번에 하게 만들었다. */
+async function resetRow(btn){
+  const tr=btn.closest('tr');
+  if(!confirm(`${tr.dataset.name} 학생의 채점을 완전히 지울까요?\n저장된 성적이 있으면 함께 삭제되고, 다시 미채점 상태가 됩니다.`))return;
+  if(EXAM==='AT'){
+    const section=CURTAB;
+    if(section==='총점'){toast('총점 탭에서는 초기화할 수 없어요. 독해나 문법 탭에서 눌러주세요',false);return;}
+    const{error}=await sb.from('exam_scores').delete().eq('test_type','AT').eq('key_name',CURVARIANT).eq('section',section).eq('student_code',tr.dataset.code);
+    if(error){toast('초기화 실패: '+error.message,false);return;}
+  }else{
+    const key=curKey();
+    if(key){
+      const{error}=await sb.from('exam_scores').delete().eq('test_type',EXAM).eq('key_id',key.id).eq('student_code',tr.dataset.code);
+      if(error){toast('초기화 실패: '+error.message,false);return;}
+    }
+  }
+  tr.querySelectorAll('td.qcell').forEach(td=>{td.classList.remove('ok','no','partial');const i=td.querySelector('input');if(i)i.value='';});
+  tr.querySelectorAll('td.sc,td.tot').forEach(td=>td.textContent='0');
+  delete tr.dataset.attempt;delete tr.dataset.prev;delete tr.dataset.bak;
+  const h=tr.querySelector('.hist');if(h)h.innerHTML='';
+  tr.querySelector('td.act').innerHTML=`<button class="ghost mini rtbtn" onclick="retest(this)">재시험</button><button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>`;
+  toast(tr.dataset.name+' 채점 초기화됨 ✓');
+  await loadScored();
 }
 async function toggleOff(code){
   const off=CONFIG[EXAM]||(CONFIG[EXAM]=new Set());off.has(code)?off.delete(code):off.add(code);
@@ -1298,7 +1326,7 @@ function buildAceGrid(section){
   studs.forEach((r,ri)=>{
     let cells=`<td class="stu"><b>${esc(r.name)}</b><div class="c">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
     ans.forEach((a,ci)=>{const sa=a.type==='sa';cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="${sa?'decimal':'numeric'}" ${sa?'':'maxlength="1"'} ${sa?`placeholder="0~${a.pt||2}"`:''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?`주관식: 획득 점수 입력 (0~${a.pt||2}, 부분점수 가능)`:'객관식: 1~5'}" oninput="onAceCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
-    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button></td>`;
+    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}</td>`;
     body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   return `<div class="legend">
