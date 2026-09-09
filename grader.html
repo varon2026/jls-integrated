@@ -111,6 +111,87 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .keyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--ink2);font-weight:700;margin-bottom:6px}
 .keyrow b{color:var(--ink)}
 .loading{padding:60px;text-align:center;color:var(--ink3);font-weight:800}
+/* ============================================================================
+   재시험관리 (Phase 2) — DT(체스)=파랑, AT(에이스)=초록. 시안(v16) 색상 그대로.
+   기존 --chess/--ace는 답안입력 화면의 작은 태그용이라 그대로 두고, 이 화면 전용 색만 새로 둠.
+   ============================================================================ */
+:root{--rdt:#3f7cd6;--rdt-soft:#e7f0fd;--rdt-line:#d3e4fa;--rdt-strong:#4f8fe0;--rdt-tint:#f6faff;
+  --rat:#1f9d5c;--rat-soft:#e5f7ee;--rat-line:#cdedda;--rat-strong:#34b871;--rat-tint:#f5fbf8}
+.sgrp>.gh .badge-new{font-size:8.5px;background:var(--brand);color:#fff;padding:2.5px 7px;border-radius:999px;font-weight:800;letter-spacing:.2px;margin-left:auto}
+.rtmg-bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 20px;margin-bottom:16px;box-shadow:0 4px 18px rgba(80,70,120,.05);display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+.rtmg-bar b{color:var(--ink);font-weight:800}
+.rtmg-bar .val{color:var(--brand);font-weight:800}
+.rtmg-bar .div{width:1px;height:16px;background:var(--line)}
+.rtmg-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:900px){.rtmg-grid2{grid-template-columns:1fr}}
+.rtmg-sumcard{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:0 4px 18px rgba(80,70,120,.05)}
+.rtmg-sumcard h3{font-size:14px;margin:0 0 10px;font-weight:800;display:flex;align-items:center;gap:8px}
+.rtmg-plabel{font-weight:800;padding:3px 10px;border-radius:999px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
+.rtmg-plabel::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.rtmg-plabel.dt{color:var(--rdt);background:var(--rdt-soft)}
+.rtmg-plabel.at{color:var(--rat);background:var(--rat-soft)}
+.rtmg-sumtbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.rtmg-sumtbl th{color:var(--ink3);font-weight:800;font-size:10.5px;padding:0 6px 7px;text-align:center}
+.rtmg-sumtbl th:first-child{text-align:left}
+.rtmg-sumtbl td{padding:8px 6px;text-align:center;border-top:1px solid var(--line2)}
+.rtmg-sumtbl td:first-child{text-align:left;font-weight:800}
+.rtmg-pbar{width:52px;height:6px;background:var(--line2);border-radius:99px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:6px}
+.rtmg-pbar i{display:block;height:100%;border-radius:99px}
+.rtmg-block{border-radius:16px;overflow:hidden;border:1px solid var(--rdt-line);background:var(--rdt-tint);margin-bottom:14px}
+.rtmg-block.at{border-color:var(--rat-line);background:var(--rat-tint)}
+.rtmg-block .bh{padding:13px 18px 10px;font-weight:800;font-size:13px;color:var(--rdt);display:flex;align-items:center;gap:8px}
+.rtmg-block.at .bh{color:var(--rat)}
+.rtmg-block .bh .n{margin-left:auto;color:var(--ink3);font-weight:800;font-size:11.5px}
+.rtmg-tbl{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff}
+.rtmg-tbl th{color:var(--ink3);font-weight:800;font-size:10.3px;padding:8px 6px;text-align:center;border-bottom:1px solid var(--rdt-line);white-space:nowrap}
+.rtmg-block.at .rtmg-tbl th{border-color:var(--rat-line)}
+.rtmg-tbl td{padding:9px 6px;text-align:center;border-bottom:1px solid var(--line2);white-space:nowrap}
+.rtmg-tbl td.stu{text-align:left}
+.rtmg-tbl td.stu .c{display:block;font-size:10.5px;color:var(--ink3);font-weight:700;margin-top:2px}
+.rtmg-tbl tr:last-child td{border-bottom:none}
+.rtmg-zone{background:#fbf9ff}
+.rtmg-final{font-weight:800;font-size:14px}
+.rtmg-block.dt .rtmg-final{color:var(--rdt)}
+.rtmg-block.at .rtmg-final{color:var(--rat)}
+.rtmg-grow{font-weight:800}
+.rtmg-grow.up{color:var(--pos)}.rtmg-grow.down{color:var(--neg)}.rtmg-grow.none{color:var(--ink3);font-weight:700}
+.rtmg-schbtn{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--line);background:#fff;padding:6px 12px;border-radius:999px;font-size:11.3px;color:var(--ink2);cursor:pointer;font-weight:700;min-width:104px;justify-content:center}
+.rtmg-block.dt .rtmg-schbtn.set{border-color:var(--rdt-line);background:var(--rdt-soft);color:var(--rdt)}
+.rtmg-block.at .rtmg-schbtn.set{border-color:var(--rat-line);background:var(--rat-soft);color:var(--rat)}
+.rtmg-chk{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;border:1.5px solid var(--line);cursor:pointer;color:transparent;background:#fff;font-size:12px;font-weight:900}
+.rtmg-chk.on{background:var(--pos);border-color:var(--pos);color:#fff}
+.rtmg-chk.ro{cursor:not-allowed;opacity:.5}
+.rtmg-empty{padding:18px;text-align:center;color:var(--ink3);font-weight:700}
+.rtmg-pop{position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 44px -14px rgba(80,50,180,.3);padding:15px;width:270px;display:none}
+.rtmg-pop.open{display:block}
+.rtmg-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.rtmg-cal-head b{font-size:13px}
+.rtmg-cal-head button{border:none;background:var(--soft);width:24px;height:24px;border-radius:999px;cursor:pointer;color:var(--brand);font-weight:800}
+.rtmg-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:12px}
+.rtmg-cal-grid .wd{font-size:10px;color:var(--ink3);font-weight:800;padding-bottom:4px}
+.rtmg-cal-grid .day{padding:6px 0;border-radius:999px;font-size:12px;cursor:pointer;font-weight:700}
+.rtmg-cal-grid .day:hover{background:var(--soft)}
+.rtmg-cal-grid .day.sel{background:var(--brand);color:#fff;font-weight:800}
+.rtmg-cal-grid .day.blank{visibility:hidden}
+.rtmg-time-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.rtmg-time-chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;color:var(--ink2)}
+.rtmg-time-chip.sel{background:var(--brand);border-color:var(--brand);color:#fff}
+.rtmg-time-custom{display:flex;align-items:center;gap:7px;margin-bottom:11px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.rtmg-time-custom input{border:none;background:none;font-size:12.5px;font-weight:800;color:var(--ink);font-family:inherit;flex:1}
+.rtmg-pop-foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:11px}
+.rtmg-pop-foot button{border:none;border-radius:999px;font-size:12px;font-weight:800;cursor:pointer;padding:7px 14px}
+.rtmg-pop-foot .clear{background:none;color:var(--ink3)}
+.rtmg-pop-foot .ok{background:var(--brand);color:#fff}
+.rtmg-hover{position:relative;cursor:default}
+.rtmg-hover .hn{border-bottom:1.5px dotted var(--ink3);cursor:help}
+.rtmg-tip{position:absolute;left:0;top:calc(100% + 8px);background:#fff;border:1px solid var(--line);border-radius:11px;font-size:12.5px;min-width:220px;opacity:0;visibility:hidden;transform:translateY(-4px);transition:.14s;z-index:70;box-shadow:0 12px 32px rgba(80,70,120,.18);text-align:left;overflow:hidden}
+.rtmg-hover:hover .rtmg-tip{opacity:1;visibility:visible;transform:translateY(0)}
+.rtmg-tip .tt{font-weight:800;font-size:11.5px;color:#fff;background:var(--brand);padding:8px 14px}
+.rtmg-tip .tb{padding:4px 14px 8px}
+.rtmg-tip .tr{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--line2);font-size:11.8px}
+.rtmg-tip .tr:last-child{border-bottom:none}
+.rtmg-tip .tr b{color:var(--ink)}
+.rtmg-tip .tr span{color:var(--ink2);font-weight:700}
 </style>
 </head>
 <body>
@@ -166,6 +247,13 @@ const CUTLINE_FROM_RANK=semRankLocal('sem_2026_fall');
 function cutlineActive(){return semRankLocal(SEM)>=CUTLINE_FROM_RANK;}
 let CURVARIANT='', CURTAB='독해';   // ACE: 선택한 기간·버전(전체레벨명) / 탭(독해·문법·총점)
 let SCOREDCODES=new Set();  // 현재 시험종류·학기에서 이미 채점 저장된 학생 회원코드
+
+/* ---- 재시험관리(Phase 2) 전역 상태 ----
+   PAGE='exam'(기존 답안입력/정답등록) 또는 'retest'(새 화면). 사이드바 맨 아래 별도 메뉴로 들어감.
+   RT_RAW_DT/AT = 이번 학기 DT/AT exam_scores 원본(캐시, 컷라인만 바뀌면 재조회 없이 다시 계산).
+   RT_DT/AT = 원본에서 계산한 "재시험 대상" 목록(화면에 그리는 배열). RT_SCHEDULES = retest_schedule 표 캐시. */
+let PAGE='exam';
+let RT_RAW_DT=null, RT_RAW_AT=null, RT_DT=[], RT_AT=[], RT_SCHEDULES={}, RT_TABLE_OK=true, RT_LOADING=false;
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -315,6 +403,315 @@ async function applyAceCutline(){
     btn.style.display=(total>=cut)?'none':'';
   });
 }
+/* ============================================================================
+   재시험관리 (Phase 2)
+   DT·AT 컷라인 미달 학생을 분원 전체에서 한 화면에 모아 일정을 잡고 보강을 체크한다.
+   본사=전 분원(분원별 요약) · 분원=우리 분원 전체(담임별 요약) · 담임=내 반만(보강 체크 직접 가능).
+   위 세 화면은 전부 이 파일이 이미 받는 ROLE/BRANCH/TEACHER 쿼리 파라미터로 갈린다 — 새로 만들 필요 없음.
+   ============================================================================ */
+function retestCutlineFor(type){const c=CUTLINE[type];return c!=null?c:(type==='DT'?80:70);}
+async function editRtCutline(type){
+  if(isTeacherRO()){toast('담임 계정은 기준점수를 바꿀 수 없어요',false);return;}
+  const cur=retestCutlineFor(type);
+  const label=type==='DT'?'DT 재시험 기준(총점)':'AT 재시험 기준(독해+문법 합계)';
+  const v=prompt(label+'을(를) 몇 점으로 할까요?\n(이 점수 미만이면 재시험 대상이에요)',cur);
+  if(v==null)return;
+  const num=parseFloat(v);if(isNaN(num)){toast('숫자를 입력하세요',false);return;}
+  const{error}=await sb.from('exam_config').upsert({test_type:type,cutline:num,updated_at:new Date().toISOString()},{onConflict:'test_type'});
+  if(error){toast('저장 실패: '+error.message,false);return;}
+  CUTLINE[type]=num;toast(type+' 재시험 기준 '+num+'점으로 저장됨 ✓');
+  recomputeRetest();render();
+}
+async function loadRetestSchedule(){
+  try{
+    const rows=await fetchAll('retest_schedule','*',q=>q.eq('semester',SEM));
+    RT_TABLE_OK=true;RT_SCHEDULES={};
+    rows.forEach(r=>{RT_SCHEDULES[r.test_type+'|'+r.student_code]=r;});
+  }catch(e){ RT_TABLE_OK=false;RT_SCHEDULES={}; }   // 표가 아직 없으면(sql/retest_schedule.sql 미실행) 조용히 꺼둠 — 배너로 알림
+}
+/* DT: exam_scores 한 줄(학생당 최신 회차)에서 첫 회차·최신 회차 점수를 뽑아 컷라인과 비교 */
+function computeRetestDT(rawRows){
+  const byCode={};rawRows.forEach(r=>_latest(byCode,r.student_code,r));
+  const cut=retestCutlineFor('DT');const out=[];
+  ROSTER.forEach(rec=>{
+    if(!rec.chess)return;
+    const row=byCode[rec.code];if(!row)return;   // 아직 채점 자체가 안 된 학생은 대상 아님
+    const key=KEYS.find(k=>k.id===row.key_id);if(!key)return;
+    const cp=computeParts(row.responses,key.answers||[]);
+    const prev=Array.isArray(row.prev_scores)?row.prev_scores:[];
+    const firstScore=prev.length?prev[0]:cp.score;
+    if(firstScore>=cut)return;   // 원래부터 통과 → 재시험 대상 아님
+    const hasRetest=prev.length>0||(+(row.round||1))>1;
+    const latestScore=cp.score;
+    const sched=RT_SCHEDULES['DT|'+rec.code];
+    out.push({code:rec.code,name:rec.name,school:rec.school,grade:rec.grade,
+      branchId:rec.branchId,branchName:rec.branchName,teacher:rec.teacher,className:rec.className,
+      baseTotal:firstScore,hasRetest,retestTotal:hasRetest?latestScore:null,
+      growth:hasRetest?Math.round((latestScore-firstScore)*10)/10:null,
+      passed:latestScore>=cut,
+      scheduledAt:sched?sched.scheduled_at:null,makeupDone:sched?!!sched.makeup_done:false});
+  });
+  return out;
+}
+/* AT: 독해·문법이 별도 행이라 두 영역을 합쳐서 판단. 한쪽만 채점됐으면 판단 보류로 두고
+   계속 대상에 남긴다(Phase 1의 답안입력 화면과 같은 원칙 — 확실히 통과라고 못 볼 땐 숨기지 않는다). */
+function computeRetestAT(rawRows){
+  const dBy={},gBy={};
+  rawRows.forEach(r=>{const map=r.section==='독해'?dBy:(r.section==='문법'?gBy:null);if(!map)return;_latest(map,r.student_code+'|'+r.key_name,r);});
+  const cut=retestCutlineFor('AT');const out=[];
+  ROSTER.forEach(rec=>{
+    if(rec.chess)return;
+    if(!atHasKey(rec))return;
+    const base=levelCode(rec.className);const variants=variantsForBase(base);if(!variants.length)return;
+    let dRec=null,gRec=null,variant=null;
+    for(const v of variants){const d=dBy[rec.code+'|'+v],g=gBy[rec.code+'|'+v];if(d||g){dRec=d;gRec=g;variant=v;break;}}
+    if(!dRec&&!gRec)return;   // 아직 채점 자체가 안 됨
+    const key=keyOfVariant(variant);if(!key)return;
+    const dAns=(key.answers||[]).filter(a=>(a.part||'')==='독해').sort((a,b)=>a.n-b.n);
+    const gAns=(key.answers||[]).filter(a=>(a.part||'')==='문법').sort((a,b)=>a.n-b.n);
+    const d=dRec?computeAce(dRec.responses,dAns):null,g=gRec?computeAce(gRec.responses,gAns):null;
+    const dsc=d?d.got:null,gsc=g?g.got:null;
+    const fullyGraded=(dsc!=null&&gsc!=null);
+    const dPrev=(dRec&&Array.isArray(dRec.prev_scores))?dRec.prev_scores:[];
+    const gPrev=(gRec&&Array.isArray(gRec.prev_scores))?gRec.prev_scores:[];
+    const d1=dPrev.length?dPrev[0]:dsc,g1=gPrev.length?gPrev[0]:gsc;
+    const baseTotal=(d1!=null&&g1!=null)?Math.round((d1+g1)*10)/10:null;
+    const latestTotal=fullyGraded?Math.round((dsc+gsc)*10)/10:null;
+    const target=!fullyGraded ? true : (baseTotal!=null?baseTotal<cut:true);
+    if(!target)return;
+    const hasRetest=(dPrev.length>0||gPrev.length>0);
+    const sched=RT_SCHEDULES['AT|'+rec.code];
+    out.push({code:rec.code,name:rec.name,school:rec.school,grade:rec.grade,
+      branchId:rec.branchId,branchName:rec.branchName,teacher:rec.teacher,className:rec.className,
+      baseRead:d1,baseGram:g1,baseTotal,
+      hasRetest,retestRead:hasRetest?dsc:null,retestGram:hasRetest?gsc:null,retestTotal:hasRetest?latestTotal:null,
+      growth:(hasRetest&&baseTotal!=null&&latestTotal!=null)?Math.round((latestTotal-baseTotal)*10)/10:null,
+      passed:fullyGraded&&latestTotal>=cut,
+      scheduledAt:sched?sched.scheduled_at:null,makeupDone:sched?!!sched.makeup_done:false});
+  });
+  return out;
+}
+function recomputeRetest(){RT_DT=computeRetestDT(RT_RAW_DT||[]);RT_AT=computeRetestAT(RT_RAW_AT||[]);}
+async function loadRetestData(){
+  if(!cutlineActive()){RT_RAW_DT=[];RT_RAW_AT=[];RT_DT=[];RT_AT=[];return;}
+  RT_LOADING=true;if(PAGE==='retest')render();
+  try{
+    const[dtRows,atRows]=await Promise.all([
+      fetchAll('exam_scores','*',q=>q.eq('test_type','DT').eq('semester',semName(SEM))),
+      fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('semester',semName(SEM))),
+    ]);
+    RT_RAW_DT=dtRows;RT_RAW_AT=atRows;
+  }catch(e){ RT_RAW_DT=[];RT_RAW_AT=[];toast('재시험 데이터 로드 실패: '+(e.message||e),false); }
+  await loadRetestSchedule();
+  recomputeRetest();
+  RT_LOADING=false;
+}
+function rtGroup(list,keyFn){const m=new Map();list.forEach(x=>{const k=keyFn(x);if(!m.has(k))m.set(k,[]);m.get(k).push(x);});return m;}
+function rtStats(arr){const need=arr.length,done=arr.filter(x=>x.passed).length,mk=arr.filter(x=>x.makeupDone).length;return{need,done,mk,pct:need?Math.round(done/need*100):100};}
+function rtTooltip(label,arr){
+  const byTeacher=rtGroup(arr,x=>x.teacher||'미배정');
+  const rows=[...byTeacher.entries()].map(([t,list])=>{const s=rtStats(list);return `<div class="tr"><b>${esc(t)}</b><span>대상 ${s.need} · 완료 ${s.done} · 보강 ${s.mk}</span></div>`;}).join('');
+  return `<div class="rtmg-tip"><div class="tt">${esc(label)} 담임별 내역</div><div class="tb">${rows}</div></div>`;
+}
+function rtRenderSummary(mode,branchFilter){
+  let dtList=RT_DT,atList=RT_AT;
+  if(branchFilter){dtList=dtList.filter(x=>x.branchId===branchFilter);atList=atList.filter(x=>x.branchId===branchFilter);}
+  const keyFn=mode==='branch'?(x=>x.branchId):(x=>x.teacher||'미배정');
+  const labelFn=mode==='branch'?(k=>BRANCHES[k]||k):(k=>k);
+  const dtGroups=rtGroup(dtList,keyFn),atGroups=rtGroup(atList,keyFn);
+  const labels=[...new Set([...dtGroups.keys(),...atGroups.keys()])].sort((a,b)=>labelFn(a).localeCompare(labelFn(b),'ko'));
+  const headLabel=mode==='branch'?'분원':'담임';
+  function rowsHtml(groups,cls){
+    if(!labels.length)return `<tr><td colspan="5" class="rtmg-empty">대상 없음</td></tr>`;
+    return labels.map(lb=>{
+      const arr=groups.get(lb)||[];const s=rtStats(arr);const label=labelFn(lb);
+      const tip=mode==='branch'?rtTooltip(label,arr):'';
+      return `<tr><td class="${tip?'rtmg-hover':''}" style="text-align:left">${tip?`<span class="hn">${esc(label)}</span>${tip}`:esc(label)}</td>
+        <td>${s.need}</td><td>${s.done}</td><td>${s.mk}</td>
+        <td><span class="rtmg-pbar"><i style="width:${s.pct}%;background:var(--${cls==='dt'?'rdt':'rat'}-strong)"></i></span>${s.pct}%</td></tr>`;
+    }).join('');
+  }
+  return `<div class="rtmg-grid2">
+    <div class="rtmg-sumcard"><h3><span class="rtmg-plabel dt">체스 · DT</span> 한눈에 보기</h3>
+      <table class="rtmg-sumtbl"><thead><tr><th style="text-align:left">${headLabel}</th><th>대상</th><th>완료</th><th>보강</th><th>진행률</th></tr></thead>
+      <tbody>${rowsHtml(dtGroups,'dt')}</tbody></table></div>
+    <div class="rtmg-sumcard"><h3><span class="rtmg-plabel at">에이스 · AT</span> 한눈에 보기</h3>
+      <table class="rtmg-sumtbl"><thead><tr><th style="text-align:left">${headLabel}</th><th>대상</th><th>완료</th><th>보강</th><th>진행률</th></tr></thead>
+      <tbody>${rowsHtml(atGroups,'at')}</tbody></table></div>
+  </div>`;
+}
+function rtFmtSched(v){
+  if(!v)return{label:'일정 선택',set:false};
+  const d=new Date(v);const w=['일','월','화','수','목','금','토'][d.getDay()];
+  return{label:`${d.getMonth()+1}/${d.getDate()}(${w}) ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,set:true};
+}
+function rtGrowHtml(g){if(g==null)return '<span class="rtmg-grow none">—</span>';return `<span class="rtmg-grow ${g>=0?'up':'down'}">${g>=0?'▲':'▼'}${Math.abs(g)}</span>`;}
+function rtChkHtml(x,type){
+  const on=x.makeupDone;
+  if(TEACHER)return `<span class="rtmg-chk ${on?'on':''}" onclick="rtToggleMakeup('${type}','${esc(x.code)}')" title="클릭해서 보강 완료 체크">${on?'✓':''}</span>`;
+  return `<span class="rtmg-chk ro ${on?'on':''}" title="담임만 체크할 수 있어요">${on?'✓':''}</span>`;
+}
+function rtSchedBtn(x,type){const info=rtFmtSched(x.scheduledAt);return `<button class="rtmg-schbtn ${info.set?'set':''}" onclick="rtOpenPop(event,'${type}','${esc(x.code)}')">📅 ${esc(info.label)}</button>`;}
+function rtDtBlock(list){
+  if(!list.length)return `<div class="rtmg-block dt"><div class="bh">체스 · DT — 재시험 대상<span class="n">0명</span></div><div class="rtmg-empty">체스(DT) 재시험 대상이 없습니다</div></div>`;
+  const rows=list.map(x=>`<tr>
+    <td class="stu">${esc(x.name)}<span class="c">${esc(gradeKey(x.grade)||'')} · ${esc(x.school||'')}</span></td>
+    <td>${esc(x.teacher||'')}</td>
+    <td><b>${x.baseTotal}</b></td>
+    <td class="rtmg-zone">${rtSchedBtn(x,'DT')}</td>
+    <td class="rtmg-zone">${x.hasRetest?`<span class="rtmg-final">${x.retestTotal}</span>`:'<span class="hint">—</span>'}</td>
+    <td class="rtmg-zone">${rtGrowHtml(x.growth)}</td>
+    <td class="rtmg-zone">${rtChkHtml(x,'DT')}</td>
+  </tr>`).join('');
+  return `<div class="rtmg-block dt"><div class="bh">체스 · DT — 재시험 대상<span class="n">${list.length}명</span></div>
+    <div style="overflow-x:auto"><table class="rtmg-tbl"><thead><tr>
+      <th style="text-align:left">학생</th><th>담임</th><th>본시험</th><th>일정</th><th>재시험</th><th>성장폭</th><th>보강</th>
+    </tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+function rtAtBlock(list){
+  if(!list.length)return `<div class="rtmg-block at"><div class="bh">에이스 · AT — 재시험 대상<span class="n">0명</span></div><div class="rtmg-empty">에이스(AT) 재시험 대상이 없습니다</div></div>`;
+  const rows=list.map(x=>`<tr>
+    <td class="stu">${esc(x.name)}<span class="c">${esc(gradeKey(x.grade)||'')} · ${esc(x.school||'')}</span></td>
+    <td>${esc(x.teacher||'')}</td>
+    <td>${x.baseRead==null?'<span class="hint">—</span>':x.baseRead}</td>
+    <td>${x.baseGram==null?'<span class="hint">—</span>':x.baseGram}</td>
+    <td><b>${x.baseTotal==null?'<span class="hint">판단보류</span>':x.baseTotal}</b></td>
+    <td class="rtmg-zone">${rtSchedBtn(x,'AT')}</td>
+    <td class="rtmg-zone">${x.hasRetest&&x.retestRead!=null?x.retestRead:'<span class="hint">—</span>'}</td>
+    <td class="rtmg-zone">${x.hasRetest&&x.retestGram!=null?x.retestGram:'<span class="hint">—</span>'}</td>
+    <td class="rtmg-zone">${x.hasRetest?`<span class="rtmg-final">${x.retestTotal}</span>`:'<span class="hint">—</span>'}</td>
+    <td class="rtmg-zone">${rtGrowHtml(x.growth)}</td>
+    <td class="rtmg-zone">${rtChkHtml(x,'AT')}</td>
+  </tr>`).join('');
+  return `<div class="rtmg-block at"><div class="bh">에이스 · AT — 재시험 대상<span class="n">${list.length}명</span></div>
+    <div style="overflow-x:auto"><table class="rtmg-tbl"><thead><tr>
+      <th style="text-align:left">학생</th><th>담임</th><th>독해</th><th>문법</th><th>합계</th><th>일정</th><th>독해</th><th>문법</th><th>합계</th><th>성장폭</th><th>보강</th>
+    </tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+function rtRenderBoxes(branchFilter){
+  const active=new Set([...RT_DT,...RT_AT].map(x=>x.branchId));
+  let branchIds=branchFilter?[branchFilter]:Object.keys(BRANCHES).filter(id=>active.has(id));
+  if(!branchIds.length)return `<div class="card"><div class="rtmg-empty">재시험 대상이 없습니다 🎉</div></div>`;
+  return branchIds.map(bid=>{
+    const dtL=RT_DT.filter(x=>x.branchId===bid),atL=RT_AT.filter(x=>x.branchId===bid);
+    return `<div class="card"><h2 style="font-size:15px;margin-bottom:10px">${esc(BRANCHES[bid]||'')} <span class="hint">체스(DT) ${dtL.length}명 · 에이스(AT) ${atL.length}명 재시험 대상</span></h2>
+      ${rtDtBlock(dtL)}${rtAtBlock(atL)}</div>`;
+  }).join('');
+}
+function rtRenderTeacherBox(teacher){
+  const match=x=>String(x.teacher||'').split(',').some(t=>t.trim()===teacher);
+  const dtL=RT_DT.filter(match),atL=RT_AT.filter(match);
+  return `<div class="card"><h2 style="font-size:15px;margin-bottom:10px">내 반 재시험 대상 <span class="hint">체스(DT) ${dtL.length}명 · 에이스(AT) ${atL.length}명</span></h2>
+    ${rtDtBlock(dtL)}${rtAtBlock(atL)}</div>`;
+}
+function renderRetestView(){
+  const host=$('content');
+  if(!cutlineActive()){
+    host.innerHTML=`<div class="h2">재시험관리</div><div class="card"><div class="hint">이 기능은 2026년 가을학기부터 적용돼요. <b>${esc(semName(SEM))}</b>은 대상 학기가 아니에요.</div></div>`;
+    return;
+  }
+  if(RT_LOADING){host.innerHTML='<div class="loading">재시험 대상 계산 중…</div>';return;}
+  const banner=RT_TABLE_OK?'':`<div class="card" style="border-color:#f0b6b8;background:var(--neg-s)"><b style="color:var(--neg)">⚠️ retest_schedule 표가 아직 없어요</b><div class="hint" style="margin-top:6px;color:var(--neg)">일정·보강 체크를 저장할 수 없어요. <code>sql/retest_schedule.sql</code>을 Supabase SQL Editor에서 한 번 실행해주세요.</div></div>`;
+  const cutlineBar=`<div class="rtmg-bar">
+      <b>체스(DT)</b> 총점 <span class="val">${retestCutlineFor('DT')}</span>점 미만 → 재시험
+      <div class="div"></div>
+      <b>에이스(AT)</b> 합계 <span class="val">${retestCutlineFor('AT')}</span>점 미만 → 재시험
+      ${isTeacherRO()?'':`<button class="ghost mini" onclick="editRtCutline('DT')">DT 기준 수정</button><button class="ghost mini" onclick="editRtCutline('AT')">AT 기준 수정</button>`}
+    </div>`;
+  let bodyHtml;
+  if(TEACHER){
+    bodyHtml=rtRenderTeacherBox(TEACHER);
+  }else if(ROLE==='admin'&&!BRANCH){
+    bodyHtml=rtRenderSummary('branch',null)+rtRenderBoxes(null);
+  }else{
+    bodyHtml=rtRenderSummary('teacher',BRANCH)+rtRenderBoxes(BRANCH);
+  }
+  host.innerHTML=`<div class="h2">재시험관리</div>
+    <div class="sub">${esc(semName(SEM))} · 체스(DT)·에이스(AT) 컷라인 미달 학생을 한 화면에서 관리해요.</div>
+    ${banner}${cutlineBar}${bodyHtml}`;
+}
+/* ── 일정 팝오버 (담임/분원/본사 모두 잡을 수 있음 — 보강 체크만 담임 전용) ── */
+let rtPopCtx={type:null,code:null,year:0,month:0,day:null,time:'18:00'};
+const RT_TIME_OPTS=['17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30'];
+function rtFindRow(type,code){return (type==='DT'?RT_DT:RT_AT).find(x=>x.code===code);}
+function ensureRtPop(){
+  if($('rtPop'))return;
+  const div=document.createElement('div');div.id='rtPop';div.className='rtmg-pop';
+  div.innerHTML=`<div class="rtmg-cal-head"><button onclick="rtCalMove(-1)">‹</button><b id="rtCalTitle"></b><button onclick="rtCalMove(1)">›</button></div>
+    <div class="rtmg-cal-grid" id="rtCalGrid"></div>
+    <div class="hint" style="font-weight:800;font-size:11px;margin-bottom:6px">자주 쓰는 시간</div>
+    <div class="rtmg-time-chips" id="rtTimeChips"></div>
+    <div class="rtmg-time-custom"><label style="font-size:11px;font-weight:700;color:var(--ink2)">직접입력</label><input type="time" id="rtTimeCustom" value="18:00"></div>
+    <div class="rtmg-pop-foot"><button class="clear" onclick="rtClearSched()">일정 지우기</button><button class="ok" onclick="rtConfirmSched()">확인</button></div>`;
+  document.body.appendChild(div);
+  $('rtTimeCustom').addEventListener('input',e=>{rtPopCtx.time=e.target.value||rtPopCtx.time;rtRenderTimeChips();});
+  document.addEventListener('click',e=>{
+    const pop=$('rtPop');if(!pop||!pop.classList.contains('open'))return;
+    const path=e.composedPath();
+    if(path.includes(pop))return;
+    if(path.some(el=>el.classList&&el.classList.contains('rtmg-schbtn')))return;
+    pop.classList.remove('open');
+  });
+}
+function rtOpenPop(ev,type,code){
+  ensureRtPop();
+  const x=rtFindRow(type,code);if(!x)return;
+  const now=new Date();let y=now.getFullYear(),m=now.getMonth(),d=null,tm='18:00';
+  if(x.scheduledAt){const dd=new Date(x.scheduledAt);y=dd.getFullYear();m=dd.getMonth();d=dd.getDate();tm=String(dd.getHours()).padStart(2,'0')+':'+String(dd.getMinutes()).padStart(2,'0');}
+  rtPopCtx={type,code,year:y,month:m,day:d,time:tm};
+  rtRenderCal();rtRenderTimeChips();$('rtTimeCustom').value=tm;
+  const pop=$('rtPop');const rect=ev.currentTarget.getBoundingClientRect();
+  pop.style.top=Math.min(rect.bottom+8,window.innerHeight-420)+'px';
+  pop.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-284))+'px';
+  pop.classList.add('open');
+}
+function rtCalMove(delta){rtPopCtx.month+=delta;if(rtPopCtx.month<0){rtPopCtx.month=11;rtPopCtx.year--;}if(rtPopCtx.month>11){rtPopCtx.month=0;rtPopCtx.year++;}rtRenderCal();}
+function rtRenderCal(){
+  $('rtCalTitle').textContent=`${rtPopCtx.year}년 ${rtPopCtx.month+1}월`;
+  const grid=$('rtCalGrid');grid.innerHTML=['일','월','화','수','목','금','토'].map(w=>`<div class="wd">${w}</div>`).join('');
+  const first=new Date(rtPopCtx.year,rtPopCtx.month,1).getDay();
+  const days=new Date(rtPopCtx.year,rtPopCtx.month+1,0).getDate();
+  for(let i=0;i<first;i++)grid.insertAdjacentHTML('beforeend','<div class="day blank"></div>');
+  for(let d=1;d<=days;d++){const sel=(d===rtPopCtx.day)?' sel':'';grid.insertAdjacentHTML('beforeend',`<div class="day${sel}" onclick="rtPickDay(${d})">${d}</div>`);}
+}
+function rtPickDay(d){rtPopCtx.day=d;rtRenderCal();}
+function rtRenderTimeChips(){
+  const wrap=$('rtTimeChips');wrap.innerHTML='';
+  RT_TIME_OPTS.forEach(t=>{const sel=t===rtPopCtx.time?' sel':'';wrap.insertAdjacentHTML('beforeend',`<div class="rtmg-time-chip${sel}" onclick="rtPickTime('${t}')">${t}</div>`);});
+}
+function rtPickTime(t){rtPopCtx.time=t;$('rtTimeCustom').value=t;rtRenderTimeChips();}
+async function rtSaveSchedule(type,code,iso){
+  const row=rtFindRow(type,code);if(!row)return false;
+  const payload={semester:SEM,test_type:type,student_code:code,branch:row.branchName,teacher:row.teacher,class_name:row.className,scheduled_at:iso,updated_at:new Date().toISOString()};
+  const{error}=await sb.from('retest_schedule').upsert(payload,{onConflict:'semester,test_type,student_code'});
+  if(error){toast('일정 저장 실패: '+error.message,false);return false;}
+  row.scheduledAt=iso;RT_SCHEDULES[type+'|'+code]={...(RT_SCHEDULES[type+'|'+code]||{}),scheduled_at:iso,makeup_done:row.makeupDone};
+  return true;
+}
+async function rtClearSched(){
+  const{type,code}=rtPopCtx;const ok=await rtSaveSchedule(type,code,null);
+  $('rtPop').classList.remove('open');if(ok)render();
+}
+async function rtConfirmSched(){
+  const tv=$('rtTimeCustom').value;if(tv)rtPopCtx.time=tv;
+  if(rtPopCtx.day==null){$('rtPop').classList.remove('open');return;}
+  const[hh,mm]=rtPopCtx.time.split(':');
+  const iso=`${rtPopCtx.year}-${String(rtPopCtx.month+1).padStart(2,'0')}-${String(rtPopCtx.day).padStart(2,'0')}T${hh}:${mm}:00`;
+  const{type,code}=rtPopCtx;
+  const ok=await rtSaveSchedule(type,code,iso);
+  $('rtPop').classList.remove('open');if(ok){toast('일정 저장됨 ✓');render();}
+}
+async function rtToggleMakeup(type,code){
+  if(!TEACHER){toast('담임만 체크할 수 있어요',false);return;}
+  const row=rtFindRow(type,code);if(!row)return;
+  const next=!row.makeupDone;
+  const payload={semester:SEM,test_type:type,student_code:code,branch:row.branchName,teacher:row.teacher,class_name:row.className,makeup_done:next,updated_at:new Date().toISOString()};
+  const{error}=await sb.from('retest_schedule').upsert(payload,{onConflict:'semester,test_type,student_code'});
+  if(error){toast('저장 실패: '+error.message,false);return;}
+  row.makeupDone=next;RT_SCHEDULES[type+'|'+code]={...(RT_SCHEDULES[type+'|'+code]||{}),makeup_done:next};
+  render();
+}
+
 function scopedRoster(brOverride){const br=(brOverride===undefined)?BRANCH:brOverride;return ROSTER.filter(r=>(!br||r.branchId===br)&&(!TEACHER||String(r.teacher||'').split(',').some(t=>t.trim()===TEACHER))&&inScopeFor(EXAM,r));}
 function levelsForExam(br){
   const m=new Map();
@@ -349,11 +746,11 @@ function keyOfLevel(code){return KEYS.find(k=>k.test_type===EXAM&&normLv(k.level
 
 /* ---- 사이드바(아코디언) ---- */
 function renderSide(){
-  $('snav').innerHTML=EXAMS.map(ex=>{
+  const examsHtml=EXAMS.map(ex=>{
     const n=ROSTER.filter(r=>(!BRANCH||r.branchId===BRANCH)&&inScopeFor(ex,r)).length;
     const meta=ex==='DT'?'CHESS':ex==='AT'?'ACE':'초등6·중등1';
     const below=(ex==='내신모의고사');
-    const open=OPEN[ex], cur=EXAM===ex;
+    const open=OPEN[ex], cur=(PAGE==='exam'&&EXAM===ex);
     return `<div class="sgrp ${open?'open':''} ${cur?'cur':''}">
       <div class="gh" onclick="toggleGrp('${ex}')">
         <span class="ghn ${below?'col':''}"><span>${ex}</span> <span class="gmeta">${meta}</span></span>
@@ -364,12 +761,25 @@ function renderSide(){
         <button class="${cur&&VIEW==='key'?'on':''}" onclick="go('${ex}','key')"><span class="dot"></span>정답등록</button>
       </div></div>`;
   }).join('');
+  const retestHtml=`<div class="sgrp ${PAGE==='retest'?'cur':''}">
+      <div class="gh" onclick="goRetest()">
+        <span class="ghn"><span>재시험관리</span></span>
+        <span class="badge-new">NEW</span>
+      </div></div>`;
+  $('snav').innerHTML=examsHtml+retestHtml;
 }
 function toggleGrp(ex){OPEN[ex]=!OPEN[ex];renderSide();}
-async function go(ex,v){EXAM=ex;VIEW=v;CURLEVEL='';CURCLASS='';OPEN[ex]=true;renderSide();render();await loadScored();render();}
+async function go(ex,v){PAGE='exam';EXAM=ex;VIEW=v;CURLEVEL='';CURCLASS='';OPEN[ex]=true;renderSide();render();await loadScored();render();}
+async function goRetest(){
+  PAGE='retest';renderSide();render();
+  if(RT_RAW_DT==null) await loadRetestData();
+  render();
+}
 
 function renderTop(){
-  $('crumb').innerHTML=`<span class="mut">시험 채점 ›</span> ${EXAM} <span class="mut">·</span> ${VIEW==='answer'?'답안입력':'정답등록'}`;
+  $('crumb').innerHTML=PAGE==='retest'
+    ? `<span class="mut">시험 채점 ›</span> 재시험관리`
+    : `<span class="mut">시험 채점 ›</span> ${EXAM} <span class="mut">·</span> ${VIEW==='answer'?'답안입력':'정답등록'}`;
   const semIds=[...new Set([...SEM_IDS, ...SEMS.map(s=>s.id)])];
   $('semSel').innerHTML=semIds.map(id=>`<option value="${id}" ${id===SEM?'selected':''}>${esc(semName(id))}</option>`).join('');
   const brs=Object.keys(BRANCHES).map(id=>({id,name:BRANCHES[id]}));
@@ -379,9 +789,19 @@ function renderTop(){
   $('status').textContent=semName(SEM)+(BRANCH?' · '+BRANCHES[BRANCH]:' · 전 분원')+' · 명단 '+rc+'명';
   $('status').className='status ok';
 }
-async function onSemChange(v){SEM=v;$('status').textContent='불러오는 중…';$('status').className='status';await loadRoster();await loadScored();renderSide();renderTop();render();}
+async function onSemChange(v){
+  SEM=v;$('status').textContent='불러오는 중…';$('status').className='status';
+  RT_RAW_DT=null;RT_RAW_AT=null;   // 학기 바뀌면 재시험 데이터 캐시 무효화
+  await loadRoster();await loadScored();renderSide();renderTop();
+  if(PAGE==='retest')await loadRetestData();
+  render();
+}
 function onBranchChange(v){BRANCH=v;CURLEVEL='';renderSide();render();}
-function render(){renderTop();VIEW==='key'?renderKeyView():renderAnswerView();}
+function render(){
+  renderTop();
+  if(PAGE==='retest'){renderRetestView();return;}
+  VIEW==='key'?renderKeyView():renderAnswerView();
+}
 
 /* ============================================================================
    정답등록 (레벨 드롭다운 → 선택 레벨 정답키 박스)
