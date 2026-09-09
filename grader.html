@@ -118,59 +118,72 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 :root{--rdt:#3f7cd6;--rdt-soft:#e7f0fd;--rdt-line:#d3e4fa;--rdt-strong:#4f8fe0;--rdt-tint:#f6faff;
   --rat:#1f9d5c;--rat-soft:#e5f7ee;--rat-line:#cdedda;--rat-strong:#34b871;--rat-tint:#f5fbf8}
 .sgrp>.gh .badge-new{font-size:8.5px;background:var(--brand);color:#fff;padding:2.5px 7px;border-radius:999px;font-weight:800;letter-spacing:.2px;margin-left:auto}
-.rtmg-bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 20px;margin-bottom:16px;box-shadow:0 4px 18px rgba(80,70,120,.05);display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+/* 재시험관리 화면 전체 폭 — 2048px 같은 넓은 모니터에서 카드가 화면 좌측에만 쏠려 보인다는
+   지적(운영자)이 있었음. 무한정 넓히진 않되(사람 눈이 한 줄에 다 못 읽음), 카드 안 표는
+   이 폭을 100% 채우도록(칸 너비는 %로 재배분, 아래 참고) 만들어서 "왼쪽만 쓰고 오른쪽은
+   허허벌판"인 느낌을 없앤다. */
+.rtmg-page{max-width:1520px}
+/* 화면 맨 위 — "지금 총 몇 명 처리해야 하는지"가 제일 먼저 보여야 한다는 지적 반영.
+   컷라인 숫자보다 이 배너가 시각적으로 훨씬 커야 함(우선순위). */
+.rtmg-hero{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border-radius:18px;
+  padding:24px 28px;margin-bottom:16px;display:flex;align-items:center;gap:26px;flex-wrap:wrap;
+  box-shadow:0 14px 34px rgba(139,110,232,.28)}
+.rtmg-hero.zero{background:linear-gradient(135deg,#2bab6e,#3ec98a)}
+.rtmg-hero .hero-num{font-size:44px;font-weight:800;line-height:1;display:flex;align-items:baseline;gap:5px;white-space:nowrap}
+.rtmg-hero .hero-num span{font-size:17px;font-weight:700;opacity:.85}
+.rtmg-hero .hero-label{font-size:15px;font-weight:800;opacity:.92}
+.rtmg-hero .hero-chips{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
+.rtmg-hero .chip{background:rgba(255,255,255,.2);padding:9px 16px;border-radius:999px;font-size:13.5px;font-weight:800;white-space:nowrap}
+.rtmg-bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 20px;margin-bottom:16px;box-shadow:0 4px 18px rgba(80,70,120,.05);display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px;color:var(--ink2)}
 .rtmg-bar b{color:var(--ink);font-weight:800}
 .rtmg-bar .val{color:var(--brand);font-weight:800}
 .rtmg-bar .div{width:1px;height:16px;background:var(--line)}
 .rtmg-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 @media(max-width:900px){.rtmg-grid2{grid-template-columns:1fr}}
-.rtmg-sumcard{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:0 4px 18px rgba(80,70,120,.05)}
-.rtmg-sumcard h3{font-size:14px;margin:0 0 10px;font-weight:800;display:flex;align-items:center;gap:8px}
-.rtmg-plabel{font-weight:800;padding:3px 10px;border-radius:999px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
+.rtmg-sumcard{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:0 4px 18px rgba(80,70,120,.05)}
+.rtmg-sumcard h3{font-size:16px;margin:0 0 12px;font-weight:800;display:flex;align-items:center;gap:8px}
+.rtmg-plabel{font-weight:800;padding:4px 11px;border-radius:999px;font-size:12.5px;display:inline-flex;align-items:center;gap:5px}
 .rtmg-plabel::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
 .rtmg-plabel.dt{color:var(--rdt);background:var(--rdt-soft)}
 .rtmg-plabel.at{color:var(--rat);background:var(--rat-soft)}
-.rtmg-sumtbl{width:100%;border-collapse:collapse;font-size:12.5px}
-.rtmg-sumtbl th{color:var(--ink3);font-weight:800;font-size:10.5px;padding:0 6px 7px;text-align:center}
+.rtmg-sumtbl{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
+.rtmg-sumtbl th{color:var(--ink3);font-weight:800;font-size:11.5px;padding:0 6px 9px;text-align:center}
 .rtmg-sumtbl th:first-child{text-align:left}
-.rtmg-sumtbl td{padding:8px 6px;text-align:center;border-top:1px solid var(--line2)}
-.rtmg-sumtbl td:first-child{text-align:left;font-weight:800}
-.rtmg-pbar{width:52px;height:6px;background:var(--line2);border-radius:99px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:6px}
+.rtmg-sumtbl td{padding:11px 6px;text-align:center;border-top:1px solid var(--line2);font-size:15px;font-weight:700}
+.rtmg-sumtbl td:first-child{text-align:left;font-weight:800;font-size:15px}
+.rtmg-pbar{width:56px;height:7px;background:var(--line2);border-radius:99px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:7px}
 .rtmg-pbar i{display:block;height:100%;border-radius:99px}
 .rtmg-block{border-radius:16px;overflow:hidden;border:1px solid var(--rdt-line);background:var(--rdt-tint);margin-bottom:14px}
 .rtmg-block.at{border-color:var(--rat-line);background:var(--rat-tint)}
-.rtmg-block .bh{padding:13px 18px 10px;font-weight:800;font-size:13px;color:var(--rdt);display:flex;align-items:center;gap:8px}
+.rtmg-block .bh{padding:15px 20px 12px;font-weight:800;font-size:15px;color:var(--rdt);display:flex;align-items:center;gap:8px}
 .rtmg-block.at .bh{color:var(--rat)}
-.rtmg-block .bh .n{margin-left:auto;color:var(--ink3);font-weight:800;font-size:11.5px}
-/* 칸 너비를 %도, 고정 px도 아니라 아예 안 정한다 — 둘 다 숫자를 사람이 어림짐작해야 해서
-   실제 글자 길이랑 안 맞으면 그대로 빈 여백이 됐다(% 버전도, px 버전도 "학생" 칸이 남아돎).
-   table-layout을 기본값(auto)으로 두고 width도 안 주면, 브라우저가 각 칸 안의 실제 글자
-   길이만 보고 딱 맞는 폭으로 줄여준다. */
-.rtmg-tbl{border-collapse:collapse;font-size:12.5px;background:#fff}
+.rtmg-block .bh .n{margin-left:auto;color:var(--ink3);font-weight:800;font-size:12.5px}
+/* 칸 너비 — 표가 카드 폭을 꽉 채우게 %로 재배분(이전엔 내용 길이만 보고 줄여서
+   표가 카드 왼쪽 30~40%에만 몰리고 오른쪽이 허허벌판이었음, 운영자 지적).
+   "학생" 칸은 이름+학년만 짧게 보여주도록 이미 줄여놨어서(학교명 제거) %를 줘도
+   예전처럼 혼자 비대해지지 않는다. 실제 칸 비율은 rtDtBlock/rtAtBlock의 colgroup에서 정함. */
+.rtmg-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px;background:#fff}
 .rtmg-tbl td.stu,.rtmg-tbl th.stu{white-space:normal}
-.rtmg-tbl th{color:var(--ink3);font-weight:800;font-size:10.3px;padding:8px 6px;text-align:center;border-bottom:1px solid var(--rdt-line);white-space:nowrap}
+.rtmg-tbl th{color:var(--ink3);font-weight:800;font-size:12px;padding:12px 10px;text-align:center;border-bottom:1px solid var(--rdt-line);white-space:nowrap}
 .rtmg-block.at .rtmg-tbl th{border-color:var(--rat-line)}
-.rtmg-tbl td{padding:9px 6px;text-align:center;border-bottom:1px solid var(--line2);white-space:nowrap}
+.rtmg-tbl td{padding:14px 10px;text-align:center;border-bottom:1px solid var(--line2);white-space:nowrap;font-size:14.5px}
 .rtmg-tbl td.stu{text-align:left}
-/* 학교명 줄이 이름 줄보다 길어서 그 긴 줄 기준으로 칸이 넓어지고, 정작 짧은 이름 옆엔
-   빈 칸만 남았다(운영자가 계속 지적한 "간격 허벌창" 문제의 진짜 원인). 학교명은
-   최대 76px까지만 보여주고 넘으면 "…"로 자른다 — 칸 너비가 학교명이 아니라
-   이름 기준으로 좁아진다. 전체 학교명은 마우스 올리면(title) 뜬다. */
-.rtmg-tbl td.stu .c{display:block;font-size:10.5px;color:var(--ink3);font-weight:700;margin-top:2px;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rtmg-tbl td.stu b{font-size:15px}
+.rtmg-tbl td.stu .c{display:block;font-size:12px;color:var(--ink3);font-weight:700;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rtmg-tbl tr:last-child td{border-bottom:none}
 .rtmg-zone{background:#fbf9ff}
-.rtmg-final{font-weight:800;font-size:14px}
+.rtmg-final{font-weight:800;font-size:16px}
 .rtmg-block.dt .rtmg-final{color:var(--rdt)}
 .rtmg-block.at .rtmg-final{color:var(--rat)}
-.rtmg-grow{font-weight:800}
+.rtmg-grow{font-weight:800;font-size:14.5px}
 .rtmg-grow.up{color:var(--pos)}.rtmg-grow.down{color:var(--neg)}.rtmg-grow.none{color:var(--ink3);font-weight:700}
-.rtmg-schbtn{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--line);background:#fff;padding:6px 12px;border-radius:999px;font-size:11.3px;color:var(--ink2);cursor:pointer;font-weight:700;min-width:104px;justify-content:center}
+.rtmg-schbtn{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);background:#fff;padding:8px 14px;border-radius:999px;font-size:12.5px;color:var(--ink2);cursor:pointer;font-weight:700;min-width:118px;justify-content:center}
 .rtmg-block.dt .rtmg-schbtn.set{border-color:var(--rdt-line);background:var(--rdt-soft);color:var(--rdt)}
 .rtmg-block.at .rtmg-schbtn.set{border-color:var(--rat-line);background:var(--rat-soft);color:var(--rat)}
-.rtmg-chk{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;border:1.5px solid var(--line);cursor:pointer;color:transparent;background:#fff;font-size:12px;font-weight:900}
+.rtmg-chk{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);cursor:pointer;color:transparent;background:#fff;font-size:13px;font-weight:900}
 .rtmg-chk.on{background:var(--pos);border-color:var(--pos);color:#fff}
 .rtmg-chk.ro{cursor:not-allowed;opacity:.5}
-.rtmg-empty{padding:18px;text-align:center;color:var(--ink3);font-weight:700}
+.rtmg-empty{padding:20px;text-align:center;color:var(--ink3);font-weight:700;font-size:14px}
 .rtmg-pop{position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 44px -14px rgba(80,50,180,.3);padding:15px;width:270px;display:none}
 .rtmg-pop.open{display:block}
 .rtmg-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
@@ -576,7 +589,9 @@ function rtDtBlock(list){
     <td class="rtmg-zone">${rtChkHtml(x,'DT')}</td>
   </tr>`).join('');
   return `<div class="rtmg-block dt"><div class="bh">체스 · DT — 재시험 대상<span class="n">${list.length}명</span></div>
-    <div style="overflow-x:auto"><table class="rtmg-tbl"><thead><tr>
+    <div style="overflow-x:auto"><table class="rtmg-tbl">
+    <colgroup><col style="width:20%"><col style="width:16%"><col style="width:10%"><col style="width:24%"><col style="width:10%"><col style="width:12%"><col style="width:8%"></colgroup>
+    <thead><tr>
       <th style="text-align:left">학생</th><th>담임</th><th>본시험</th><th>일정</th><th>재시험</th><th>성장폭</th><th>보강</th>
     </tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
@@ -596,7 +611,9 @@ function rtAtBlock(list){
     <td class="rtmg-zone">${rtChkHtml(x,'AT')}</td>
   </tr>`).join('');
   return `<div class="rtmg-block at"><div class="bh">에이스 · AT — 재시험 대상<span class="n">${list.length}명</span></div>
-    <div style="overflow-x:auto"><table class="rtmg-tbl"><thead><tr>
+    <div style="overflow-x:auto"><table class="rtmg-tbl">
+    <colgroup><col style="width:14%"><col style="width:12%"><col style="width:6%"><col style="width:6%"><col style="width:8%"><col style="width:18%"><col style="width:6%"><col style="width:6%"><col style="width:8%"><col style="width:10%"><col style="width:6%"></colgroup>
+    <thead><tr>
       <th style="text-align:left">학생</th><th>담임</th><th>독해</th><th>문법</th><th>합계</th><th>일정</th><th>독해</th><th>문법</th><th>합계</th><th>성장폭</th><th>보강</th>
     </tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
@@ -616,14 +633,43 @@ function rtRenderTeacherBox(teacher){
   return `<div class="card"><h2 style="font-size:15px;margin-bottom:10px">내 반 재시험 대상 <span class="hint">체스(DT) ${dtL.length}명 · 에이스(AT) ${atL.length}명</span></h2>
     ${rtDtBlock(dtL)}${rtAtBlock(atL)}</div>`;
 }
+/* 현재 역할(본사/분원/담임)이 보는 범위의 DT·AT 목록만 뽑는다 — 맨 위 큰 숫자 배너와
+   요약표·상세카드가 전부 "같은 범위"를 세도록 한 곳에서만 필터링(따로 짜면 숫자가 어긋난다). */
+function rtScoped(){
+  if(TEACHER){
+    const match=x=>String(x.teacher||'').split(',').some(t=>t.trim()===TEACHER);
+    return{dt:RT_DT.filter(match),at:RT_AT.filter(match)};
+  }
+  if(ROLE==='admin'&&!BRANCH)return{dt:RT_DT,at:RT_AT};
+  return{dt:RT_DT.filter(x=>x.branchId===BRANCH),at:RT_AT.filter(x=>x.branchId===BRANCH)};
+}
+/* 맨 위 큰 숫자 배너 — "지금 총 몇 명 처리해야 하는지"가 컷라인 숫자보다 먼저 눈에 들어와야
+   한다는 지적을 반영. 진행률(완료·보강)까지 여기서 한눈에 보여준다. */
+function rtHero(dt,at){
+  const total=dt.length+at.length;
+  const done=dt.filter(x=>x.passed).length+at.filter(x=>x.passed).length;
+  const mk=dt.filter(x=>x.makeupDone).length+at.filter(x=>x.makeupDone).length;
+  if(total===0)return `<div class="rtmg-hero zero"><div class="hero-num">0<span>명</span></div><div class="hero-label">지금 재시험 대상 없음 🎉</div></div>`;
+  return `<div class="rtmg-hero">
+      <div><div class="hero-num">${total}<span>명</span></div><div class="hero-label">재시험 대상</div></div>
+      <div class="hero-chips">
+        <span class="chip">체스(DT) ${dt.length}명</span>
+        <span class="chip">에이스(AT) ${at.length}명</span>
+        <span class="chip">완료 ${done}명</span>
+        <span class="chip">보강 ${mk}명</span>
+      </div>
+    </div>`;
+}
 function renderRetestView(){
   const host=$('content');
   if(!cutlineActive()){
-    host.innerHTML=`<div class="h2">재시험관리</div><div class="card"><div class="hint">이 기능은 2026년 가을학기부터 적용돼요. <b>${esc(semName(SEM))}</b>은 대상 학기가 아니에요.</div></div>`;
+    host.innerHTML=`<div class="rtmg-page"><div class="h2">재시험관리</div><div class="card"><div class="hint">이 기능은 2026년 가을학기부터 적용돼요. <b>${esc(semName(SEM))}</b>은 대상 학기가 아니에요.</div></div></div>`;
     return;
   }
   if(RT_LOADING){host.innerHTML='<div class="loading">재시험 대상 계산 중…</div>';return;}
   const banner=RT_TABLE_OK?'':`<div class="card" style="border-color:#f0b6b8;background:var(--neg-s)"><b style="color:var(--neg)">⚠️ retest_schedule 표가 아직 없어요</b><div class="hint" style="margin-top:6px;color:var(--neg)">일정·보강 체크를 저장할 수 없어요. <code>sql/retest_schedule.sql</code>을 Supabase SQL Editor에서 한 번 실행해주세요.</div></div>`;
+  const scoped=rtScoped();
+  const hero=rtHero(scoped.dt,scoped.at);
   const cutlineBar=`<div class="rtmg-bar">
       <b>체스(DT)</b> 총점 <span class="val">${retestCutlineFor('DT')}</span>점 미만 → 재시험
       <div class="div"></div>
@@ -638,9 +684,11 @@ function renderRetestView(){
   }else{
     bodyHtml=rtRenderSummary('teacher',BRANCH)+rtRenderBoxes(BRANCH);
   }
-  host.innerHTML=`<div class="h2">재시험관리</div>
+  host.innerHTML=`<div class="rtmg-page">
+    <div class="h2">재시험관리</div>
     <div class="sub">${esc(semName(SEM))} · 체스(DT)·에이스(AT) 컷라인 미달 학생을 한 화면에서 관리해요.</div>
-    ${banner}${cutlineBar}${bodyHtml}`;
+    ${banner}${hero}${cutlineBar}${bodyHtml}
+    </div>`;
 }
 /* ── 일정 팝오버 (담임/분원/본사 모두 잡을 수 있음 — 보강 체크만 담임 전용) ── */
 let rtPopCtx={type:null,code:null,year:0,month:0,day:null,time:'18:00'};
