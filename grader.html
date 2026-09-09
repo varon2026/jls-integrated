@@ -157,6 +157,13 @@ let EXAM='DT', VIEW='answer';
 let SEM=null, BRANCH='', ROLE='admin', TEACHER='';   // TEACHER 지정 시 담임모드(자기반만·읽기전용)
 let OPEN={DT:true,AT:false,'내신모의고사':false};
 let BRANCHES={}, STUDENTS={}, SEMS=[], SEM_IDS=[], ROSTER=[], KEYS=[], CONFIG={}, CURLEVEL='', CURCLASS='';
+/* 재시험 기준점수(컷라인) — DT는 총점, AT는 독해+문법 합계. 이 점수 이상이면 재시험 버튼을 숨김.
+   exam_config 테이블의 cutline 칸에 저장(없으면 기본값).
+   2026 가을학기부터만 적용 — 그 이전 학기는 재시험 버튼이 예전처럼 항상 보임(과거 기록 그대로 보존). */
+let CUTLINE={DT:80,AT:70};
+function semRankLocal(id){const m=String(id).match(/sem_(\d+)_(\w+)/);if(!m)return -1;const o={spring:0,summer:1,fall:2,winter:3};return parseInt(m[1],10)*10+(o[m[2]]||0);}
+const CUTLINE_FROM_RANK=semRankLocal('sem_2026_fall');
+function cutlineActive(){return semRankLocal(SEM)>=CUTLINE_FROM_RANK;}
 let CURVARIANT='', CURTAB='독해';   // ACE: 선택한 기간·버전(전체레벨명) / 탭(독해·문법·총점)
 let SCOREDCODES=new Set();  // 현재 시험종류·학기에서 이미 채점 저장된 학생 회원코드
 
@@ -248,7 +255,7 @@ async function loadRoster(){
     className:r.class_name||'',classLabel:r.class_label||r.class_name||'',branchId:r.branch_id,branchName:BRANCHES[r.branch_id]||'',chess:isChess(r.class_name)};});
 }
 async function loadKeys(){const{data,error}=await sb.from('exam_keys').select('*').order('created_at',{ascending:false});if(!error)KEYS=data||[];}
-async function loadConfig(){const{data,error}=await sb.from('exam_config').select('*');CONFIG={};if(!error&&data)data.forEach(r=>CONFIG[r.test_type]=new Set(r.disabled||[]));}
+async function loadConfig(){const{data,error}=await sb.from('exam_config').select('*');CONFIG={};if(!error&&data)data.forEach(r=>{CONFIG[r.test_type]=new Set(r.disabled||[]);if(r.cutline!=null&&r.cutline!=='')CUTLINE[r.test_type]=Number(r.cutline);});}
 async function loadScored(){
   try{ const rows=await fetchAll('exam_scores','student_code,test_type,semester',q=>q.eq('test_type',EXAM).eq('semester',semName(SEM)));
     SCOREDCODES=new Set(rows.map(r=>r.student_code)); }
@@ -258,6 +265,56 @@ function gradedOf(cls){return cls.recs.filter(r=>SCOREDCODES.has(r.code)).length
 function prettySem(id){const m=String(id).match(/(\d{4})[_-]?(spring|summer|fall|autumn|winter)/i);if(m){const t={spring:'봄',summer:'여름',fall:'가을',autumn:'가을',winter:'겨울'}[m[2].toLowerCase()];return `${m[1]}년 ${t}학기`;}return id;}
 function semName(id){const s=SEMS.find(x=>x.id===id);return s&&s.name?s.name:prettySem(id);}
 function disabledSet(){return CONFIG[EXAM]||new Set();}
+/* ---- 재시험 기준점수(컷라인): 점수가 기준 이상이면 재시험 버튼 자동 숨김 ---- */
+function retestCutline(){const c=CUTLINE[EXAM];return c!=null?c:(EXAM==='DT'?80:70);}
+function cutlineLabel(){return EXAM==='DT'?'DT 재시험 기준(총점)':EXAM==='AT'?'AT 재시험 기준(독해+문법 합계)':'';}
+function cutlineChip(){
+  if(!cutlineActive()||(EXAM!=='DT'&&EXAM!=='AT'))return '';
+  const cut=retestCutline();
+  return `<span class="hint" style="background:var(--soft);color:var(--brand);padding:5px 12px;border-radius:20px;font-weight:800">${esc(cutlineLabel())} ${cut}점 미만이면 재시험 버튼 표시</span>`
+    +(isTeacherRO()?'':` <button class="ghost mini" onclick="editCutline()">기준점수 수정</button>`);
+}
+async function editCutline(){
+  if(isTeacherRO()){toast('담임 계정은 기준점수를 바꿀 수 없어요',false);return;}
+  const cur=retestCutline();
+  const v=prompt(cutlineLabel()+'을(를) 몇 점으로 할까요?\n(이 점수 미만이면 재시험 버튼이 보여요)',cur);
+  if(v==null)return;
+  const num=parseFloat(v);
+  if(isNaN(num)){toast('숫자를 입력하세요',false);return;}
+  const{error}=await sb.from('exam_config').upsert({test_type:EXAM,cutline:num,updated_at:new Date().toISOString()},{onConflict:'test_type'});
+  if(error){toast('저장 실패: '+error.message,false);return;}
+  CUTLINE[EXAM]=num;
+  toast(EXAM+' 재시험 기준 '+num+'점으로 저장됨 ✓');
+  render();
+}
+/* DT: 화면에 이미 계산돼 있는 총점으로 바로 판정 */
+function updateRetestVisible(tr,score){
+  if(!cutlineActive())return;
+  const btn=tr.querySelector('td.act button.rtbtn');if(!btn)return;
+  const cut=retestCutline();
+  btn.style.display=(score!=null&&score>=cut)?'none':'';
+}
+/* AT: 독해·문법이 각각 별도 화면·별도 exam_scores 행이라, 두 영역 점수를 저장된 값에서
+   합쳐서 판정해야 함. 한쪽만 채점됐으면(합계를 모르면) 안전하게 버튼을 계속 보여줌. */
+async function applyAceCutline(){
+  if(!cutlineActive())return;
+  if(CURTAB==='총점')return;
+  const rows=[...document.querySelectorAll('#aceContent tbody tr')];if(!rows.length)return;
+  const dAns=aceAns('독해'),gAns=aceAns('문법');
+  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('key_name',CURVARIANT));}catch(e){return;}
+  const dBy={},gBy={};(data||[]).forEach(r=>{const map=r.section==='독해'?dBy:(r.section==='문법'?gBy:null);if(!map)return;
+    const cur=map[r.student_code];const rn=+(r.round||'1'),cn=cur?+(cur.round||'1'):-1;
+    if(!cur||rn>cn||(rn===cn&&String(r.graded_at||'')>String(cur.graded_at||''))) map[r.student_code]=r;});
+  const cut=retestCutline();
+  rows.forEach(tr=>{
+    const btn=tr.querySelector('td.act button.rtbtn');if(!btn)return;
+    const dRec=dBy[tr.dataset.code],gRec=gBy[tr.dataset.code];
+    if(!dRec||!gRec){btn.style.display='';return;}   // 한쪽 미채점 → 판단 보류(계속 표시)
+    const d=computeAce(dRec.responses,dAns),g=computeAce(gRec.responses,gAns);
+    const total=Math.round(((d.got||0)+(g.got||0))*10)/10;
+    btn.style.display=(total>=cut)?'none':'';
+  });
+}
 function scopedRoster(brOverride){const br=(brOverride===undefined)?BRANCH:brOverride;return ROSTER.filter(r=>(!br||r.branchId===br)&&(!TEACHER||String(r.teacher||'').split(',').some(t=>t.trim()===TEACHER))&&inScopeFor(EXAM,r));}
 function levelsForExam(br){
   const m=new Map();
@@ -484,6 +541,7 @@ function buildGrid(){
       <div style="font-size:16px;font-weight:800">${esc(noDays(code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
       <div class="hint">응시 ${studs.length}명 · <b style="color:var(--pos)">채점 ${gradedOf(cls)}/${studs.length}명</b> · ${key?`정답키 ${key.num_q}문항`:'<b style="color:var(--warn)">정답키 없음</b>'}</div>
       <div style="flex:1"></div>
+      ${cutlineChip()}
       ${key?`<button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>`:''}
       ${isTeacherRO()?'':`<button class="ghost mini ${isOff?'':'danger'}" onclick="toggleOff('${esc(code)}')">${isOff?'✓ 미응시 해제':'✕ 이 레벨 시험없음(미응시)'}</button>
       ${key&&!isOff?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
@@ -511,7 +569,7 @@ function buildGrid(){
     ans.forEach((a,ci)=>{const sa=a.type==='sa';
       cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="numeric" maxlength="1" ${sa?'placeholder="1/0"':''} ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?'주관식: 맞으면 1, 틀리면 0 입력':'객관식: 1~5'}" oninput="onCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
     parts.forEach(p=>{cells+=`<td class="sc" data-part="${esc(p)}">0</td>`;});
-    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini" onclick="retest(this)">재시험</button></td>`;
+    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button></td>`;
     body+=`<tr data-sid="${r.studentId}" data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   area.innerHTML=head+`
@@ -538,6 +596,7 @@ function scoreRow(tr){
   parts.forEach(p=>{const c=tr.querySelector(`td.sc[data-part="${CSS.escape(p)}"]`);if(c)c.textContent=Math.round(got[p]*10)/10;});
   const tg=parts.reduce((s,p)=>s+got[p],0),tp=parts.reduce((s,p)=>s+pt[p],0);const score=tp>0?Math.round(tg/tp*1000)/10:0;
   const t=tr.querySelector('td.tot');if(t)t.textContent=score;updateHist(tr);
+  updateRetestVisible(tr,score);
   return{got,pt,score,totGot:tg,totPt:tp};
 }
 function navKey(e,inp,cols){
@@ -569,7 +628,7 @@ function retest(btn){
   tr.querySelectorAll('td.qcell').forEach(td=>{td.classList.remove('ok','no');const i=td.querySelector('input');if(i)i.value='';});
   tr.querySelectorAll('td.sc,td.tot').forEach(td=>td.textContent='0');
   updateHist(tr);
-  tr.querySelector('td.act').innerHTML='<button class="ghost mini" onclick="retest(this)">재시험</button><button class="ghost mini danger" style="margin-top:4px" onclick="cancelRetest(this)">취소</button>';
+  tr.querySelector('td.act').innerHTML='<button class="ghost mini rtbtn" onclick="retest(this)">재시험</button><button class="ghost mini danger" style="margin-top:4px" onclick="cancelRetest(this)">취소</button>';
   toast(`${tr.dataset.attempt}차 재시험 입력 준비 (실수면 취소)`);
 }
 function cancelRetest(btn){
@@ -578,8 +637,9 @@ function cancelRetest(btn){
   const prev=JSON.parse(tr.dataset.prev||'[]');prev.pop();tr.dataset.prev=JSON.stringify(prev);
   tr.dataset.attempt=String(Math.max(1,(+(tr.dataset.attempt||1))-1));
   delete tr.dataset.bak;
-  tr.querySelector('td.act').innerHTML='<button class="ghost mini" onclick="retest(this)">재시험</button>';
+  tr.querySelector('td.act').innerHTML='<button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>';
   reScore(tr);
+  if(EXAM==='AT')applyAceCutline();
   toast('재시험 취소 — 이전 답안 복원');
 }
 async function toggleOff(code){
@@ -709,9 +769,10 @@ function buildAceArea(){
       </div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="hint">시험지:</span>${vbtns}</div>
       <div style="margin-top:10px;display:flex;gap:8px">${tabs}</div>
+      ${CURTAB!=='총점'?`<div style="margin-top:10px">${cutlineChip()}</div>`:''}
     </div>
     <div id="aceContent">${content}</div>`;
-  if(CURTAB==='총점')loadAceSummary(); else loadAceSaved(CURTAB);
+  if(CURTAB==='총점')loadAceSummary(); else loadAceSaved(CURTAB).then(applyAceCutline);
 }
 function buildAceGrid(section){
   const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
@@ -724,7 +785,7 @@ function buildAceGrid(section){
   studs.forEach((r,ri)=>{
     let cells=`<td class="stu"><b>${esc(r.name)}</b><div class="c">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
     ans.forEach((a,ci)=>{const sa=a.type==='sa';cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="${sa?'decimal':'numeric'}" ${sa?'':'maxlength="1"'} ${sa?`placeholder="0~${a.pt||2}"`:''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?`주관식: 획득 점수 입력 (0~${a.pt||2}, 부분점수 가능)`:'객관식: 1~5'}" oninput="onAceCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
-    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini" onclick="retest(this)">재시험</button></td>`;
+    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button></td>`;
     body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   return `<div class="legend">
