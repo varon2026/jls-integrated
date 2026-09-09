@@ -865,7 +865,11 @@ function toggleGrp(ex){OPEN[ex]=!OPEN[ex];renderSide();}
 async function go(ex,v){PAGE='exam';EXAM=ex;VIEW=v;CURLEVEL='';CURCLASS='';OPEN[ex]=true;renderSide();render();await loadScored();render();}
 async function goRetest(){
   PAGE='retest';renderSide();render();
-  if(RT_RAW_DT==null) await loadRetestData();
+  /* 답안입력에서 방금 채점·저장하고 바로 재시험관리로 넘어와도 반영되게, 캐시가
+     있어도(RT_RAW_DT!=null) 매번 새로 불러온다 — 예전엔 이번 세션에서 한 번 본
+     뒤로는 새로고침 전까진 그때 그 데이터를 계속 재사용해서 방금 채점한 게 안
+     보였다(운영자 실제로 겪음). */
+  await loadRetestData();
   render();
 }
 
