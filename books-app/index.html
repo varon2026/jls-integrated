@@ -881,10 +881,10 @@ tbody tr:hover{background:rgba(139,110,232,.05)!important;}
     <div class="retro-strip"></div>
     <div class="card-title">교재 등록</div>
     <div class="fgrid">
-      <div class="fg">
+      <div class="fg" style="grid-column:span 2">
         <label class="fl">바코드 * <span id="isbn-status" style="font-weight:400;font-size:11px"></span></label>
         <div class="scan-row" style="margin-bottom:0">
-          <div class="sinput-wrap" style="flex:1"><span class="sicon">📷</span><input type="text" id="book-barcode" placeholder="스캔하면 자동조회" onkeydown="if(event.key==='Enter'){event.preventDefault();searchBookByISBN();}"></div>
+          <div class="sinput-wrap" style="flex:1"><span class="sicon">📷</span><input class="sinput" type="text" id="book-barcode" placeholder="스캔하면 자동조회" onkeydown="if(event.key==='Enter'){event.preventDefault();searchBookByISBN();}"></div>
           <button class="btn btn-cam" onclick="openCam('book-barcode', false)">카메라</button>
         </div>
       </div>
