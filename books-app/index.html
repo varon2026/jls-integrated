@@ -1308,9 +1308,13 @@ function doLogin(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('branch-display').innerHTML='<span class="branch-badge">'+BRANCHES[code].name+'</span>';
   // 관리자 탭 제어
+  // '등록·설정' 탭엔 "교재 등록" 카드가 있는데, 본사 계정은 이 탭 자체가 숨겨져 있어서
+  // 새 교재를 추가할 방법이 아예 없었다(운영자가 실제로 겪음 — "교재 추가 버튼이 없다").
+  // books 테이블엔 분원 구분 칼럼이 없어(분원과 무관한 공통 카탈로그) 본사가 등록해도
+  // 문제없어서, adminHide에서 'settings'만 뺀다(bulk·stock·barcode는 분원별 화면이라 그대로 둠).
   document.querySelectorAll('.tab').forEach(function(t){
     var oc=t.getAttribute('onclick')||'';
-    var adminHide=["'bulk'","'stock'","'barcode'","'settings'"];
+    var adminHide=["'bulk'","'stock'","'barcode'"];
     var hide=isAdmin()&&adminHide.some(function(k){return oc.includes(k);});
     t.style.display=hide?'none':'';
   });
@@ -2082,7 +2086,12 @@ function showTab(id,tabEl){
   if(id==='barcode') initBarcodePage();
   if(id==='settings'){
     loadStudentList();loadTeacherList();loadSemesterList();loadBranchBookList();
-    var isMain=currentBranch==='namdongtanjls';
+    // 교재 등록·가격수정·매입업체수정은 원래 남동탄분원 계정에서만 보이게 돼 있었다(공통
+    // 카탈로그를 손보는 기능이라 한 곳에서만 관리하려 했던 듯). 근데 본사(admin) 계정은
+    // 아예 이 탭 자체가 막혀 있었다가(위 doLogin의 adminHide) 방금 풀어줬는데, 이 카드들은
+    // 또 남동탄 전용이라 이중으로 막혀 있어서 본사에서 "교재 추가" 버튼이 안 보였다.
+    // 본사도 공통 카탈로그를 관리할 수 있어야 하므로 admin도 같이 보이게 함.
+    var isMain=currentBranch==='namdongtanjls'||isAdmin();
     var pc=document.getElementById('price-edit-card');if(pc) pc.style.display=isMain?'':'none';
     var vc=document.getElementById('vendor-edit-card');if(vc) vc.style.display=isMain?'':'none';
     var bc=document.getElementById('book-register-card');if(bc) bc.style.display=isMain?'':'none';
