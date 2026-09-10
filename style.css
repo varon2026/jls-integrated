@@ -229,9 +229,9 @@ tr.sum .col-now{background:#f5f1fc}
 .now-num{font-size:25px;font-weight:500;letter-spacing:-.5px;line-height:1}
 .now-ca{display:flex;flex-direction:column;gap:4px}
 .now-ca .ca-chess,.now-ca .ca-ace{font-size:10.5px;padding:2px 7px;text-align:center}
-.ca-line{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;row-gap:2px}
-/* 총원 대비 비율 — CHESS/ACE 뱃지와 색을 안 섞이게 별도 박스로 분리 */
-.ca-pct{font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;background:#eee9f7;color:#7d6fa3}
+.ca-line{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;row-gap:2px}
+/* 총원 대비 비율 — 뱃지는 그대로 두고 옆에 회색 글씨로만 붙인다 (박스로 분리했더니 세로로 너무 길어져서 원복) */
+.ca-pct{font-size:10px;font-weight:400;color:var(--ink-3)}
 
 /* ============================================================================
    원무 · 레벨테스트 예약
