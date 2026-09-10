@@ -87,7 +87,7 @@ button{cursor:pointer}
 .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:20px}
 .kpi .unit{font-size:13px;font-weight:400;color:var(--ink-3);margin-left:2px}
 .kpi .ca{display:flex;flex-direction:column;gap:4px;margin-top:9px}
-.ca-chess,.ca-ace{font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:6px;width:-moz-fit-content;width:fit-content}
+.ca-chess,.ca-ace{font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:6px;width:-moz-fit-content;width:fit-content;white-space:nowrap}
 .ca-chess{background:#fbeced;color:#c24a4a}
 .ca-ace{background:#eaf2fc;color:#356fb2}
 .ca-sub{font-size:10.5px;font-weight:400;color:var(--ink-3);margin-top:3px;display:block}
@@ -229,8 +229,9 @@ tr.sum .col-now{background:#f5f1fc}
 .now-num{font-size:25px;font-weight:500;letter-spacing:-.5px;line-height:1}
 .now-ca{display:flex;flex-direction:column;gap:4px}
 .now-ca .ca-chess,.now-ca .ca-ace{font-size:10.5px;padding:2px 7px;text-align:center}
-/* 총원 대비 비율 — 뱃지 안 숫자 옆에 옅게 붙인다. 숫자보다 흐리게 해서 원래 인원수가 먼저 눈에 들어오게 함 */
-.ca-pct{font-weight:400;opacity:.72}
+.ca-line{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;row-gap:2px}
+/* 총원 대비 비율 — CHESS/ACE 뱃지와 색을 안 섞이게 별도 박스로 분리 */
+.ca-pct{font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;background:#eee9f7;color:#7d6fa3}
 
 /* ============================================================================
    원무 · 레벨테스트 예약
