@@ -22,18 +22,14 @@ const BOOKS_NAME = (code)=>{ const b=BOOKS_BRANCHES.find(x=>x.code===code); retu
 
 /* 통합 분원 → 교재 앱 분원코드 (이름 기준, 공백·"분원" 제거 후 매칭) */
 function booksBranchCode(){
-  // 엄윤경 계정은 role이 'branch'(서수원 소속)인데도 지난학기 잠금해제 등 관리자급
-  // 권한을 이미 특례로 받고 있다(canSwitchBranch/canUnlockPast와 같은 패턴, app.js 참고).
-  // 교재관리에서도 "서수원분원"으로만 로그인돼서 교재 등록 버튼이 안 보였던 문제라,
-  // 이 계정만 관리자 코드로 로그인시킨다.
-  if(session.role==='admin' || session.username==='엄윤경') return 'varon';   // 관리자 = 전체
+  if(session.role==='admin') return 'varon';            // 관리자 = 전체
   const nm = String((typeof bName==='function'?bName(session.branchId):'')||'').replace(/\s/g,'').replace(/분원$/,'');
   const map = {'서수원':'seosuwonjls','장안':'suwonjls2009','수원':'suwon_jls','운정1':'unjeongjls','운정2':'unjeongjls2','남동탄':'namdongtanjls','바론':'baronbooks'};
   return map[nm] || '';
 }
 /* 이 계정이 입금현황에서 볼 분원 코드들 (admin=6개 / 분원=자기 1개) */
 function booksScopeCodes(){
-  if(session.role==='admin' || session.username==='엄윤경') return BOOKS_BRANCHES.map(b=>b.code);
+  if(session.role==='admin') return BOOKS_BRANCHES.map(b=>b.code);
   const c = booksBranchCode();
   return (c && c!=='varon' && c!=='baronbooks') ? [c] : [];
 }
@@ -321,11 +317,20 @@ function renderBooks(c){
       <div class="empty-msg">이 분원은 교재 시스템 분원코드가 연결되지 않았어요.<br>관리자에게 문의해주세요.</div>`;
     return;
   }
-  try{ sessionStorage.setItem('jls_branch', code); }catch(e){}   // 같은 origin → 자동 로그인
+  try{
+    sessionStorage.setItem('jls_branch', code); // 같은 origin → 자동 로그인
+    /* 엄윤경 계정은 서수원분원 소속으로 보이는 화면(분원 범위)은 그대로 두되, 교재
+       등록·가격수정·매입업체수정만 열어준다(요청: "서수원만 보이는데 교재등록은
+       되게"). 분원코드 자체를 admin으로 바꾸면 화면 범위까지 전체로 넓어져버려서
+       분원코드는 그대로 두고, books-app이 따로 확인하는 플래그만 별도로 심는다
+       (app.js의 canUnlockPast()·canSwitchBranch()와 같은 특례 판정 방식). */
+    if(session.username==='엄윤경') sessionStorage.setItem('jls_books_reg_override','1');
+    else sessionStorage.removeItem('jls_books_reg_override');
+  }catch(e){}
   c.innerHTML = `<div class="bk-fs">
       <div class="bk-fs-bar">
         <button class="bk-fs-back" onclick="chongmuGo('hub')">‹ 총무 홈</button>
-        <span class="bk-fs-title">교재 재고관리 · ${esc((session.role==='admin'||session.username==='엄윤경')?'전체':(BOOKS_NAME(code)||'분원'))}</span>
+        <span class="bk-fs-title">교재 재고관리 · ${esc(session.role==='admin'?'전체':(BOOKS_NAME(code)||'분원'))}</span>
         <a class="bk-fs-open" href="${BOOKS_APP_URL}" target="_blank" rel="noopener">새 탭으로 열기 ↗</a>
       </div>
       <iframe class="bk-fs-frame" id="booksFrame" src="${BOOKS_APP_URL}?embed=1" title="교재 재고관리" allow="clipboard-write"></iframe>

@@ -2087,11 +2087,11 @@ function showTab(id,tabEl){
   if(id==='settings'){
     loadStudentList();loadTeacherList();loadSemesterList();loadBranchBookList();
     // 교재 등록·가격수정·매입업체수정은 원래 남동탄분원 계정에서만 보이게 돼 있었다(공통
-    // 카탈로그를 손보는 기능이라 한 곳에서만 관리하려 했던 듯). 근데 본사(admin) 계정은
-    // 아예 이 탭 자체가 막혀 있었다가(위 doLogin의 adminHide) 방금 풀어줬는데, 이 카드들은
-    // 또 남동탄 전용이라 이중으로 막혀 있어서 본사에서 "교재 추가" 버튼이 안 보였다.
-    // 본사도 공통 카탈로그를 관리할 수 있어야 하므로 admin도 같이 보이게 함.
-    var isMain=currentBranch==='namdongtanjls'||isAdmin();
+    // 카탈로그를 손보는 기능이라 한 곳에서만 관리하려 했던 듯). 본사(admin) 계정도 같이 열어줌.
+    // + 엄윤경 계정은 "서수원분원 화면 범위는 그대로 두고 이 카드만 열어달라"는 요청이라,
+    // 분원코드는 안 건드리고 통합관리(books.js)가 별도로 심어주는 세션 플래그만 확인한다.
+    var regOverride=false; try{ regOverride=sessionStorage.getItem('jls_books_reg_override')==='1'; }catch(e){}
+    var isMain=currentBranch==='namdongtanjls'||isAdmin()||regOverride;
     var pc=document.getElementById('price-edit-card');if(pc) pc.style.display=isMain?'':'none';
     var vc=document.getElementById('vendor-edit-card');if(vc) vc.style.display=isMain?'':'none';
     var bc=document.getElementById('book-register-card');if(bc) bc.style.display=isMain?'':'none';
