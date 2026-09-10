@@ -229,6 +229,8 @@ tr.sum .col-now{background:#f5f1fc}
 .now-num{font-size:25px;font-weight:500;letter-spacing:-.5px;line-height:1}
 .now-ca{display:flex;flex-direction:column;gap:4px}
 .now-ca .ca-chess,.now-ca .ca-ace{font-size:10.5px;padding:2px 7px;text-align:center}
+/* 총원 대비 비율 — 뱃지 안 숫자 옆에 옅게 붙인다. 숫자보다 흐리게 해서 원래 인원수가 먼저 눈에 들어오게 함 */
+.ca-pct{font-weight:400;opacity:.72}
 
 /* ============================================================================
    원무 · 레벨테스트 예약

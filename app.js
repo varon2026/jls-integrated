@@ -2184,6 +2184,9 @@ function renderDashboard(c){
       ${months.map((m,i)=>`<option value="${i}" ${i===mi?'selected':''}>${m}월</option>`).join('')}
     </select></div></div>`;
 
+  // 분원별 표의 CHESS/ACE 뱃지 옆에 "총원 대비 몇 %"를 소수점 한 자리로 붙여준다.
+  // 총원이 0이면(아산탕정처럼 아직 학생이 없는 분원) 나눗셈이 안 되니 비워둔다.
+  const caPct=(n,total)=>total?` <span class="ca-pct">${(n/total*100).toFixed(1)}%</span>`:'';
   // KPI 카드 (CHESS/ACE 포함)
   const caCard=(label,dot,ca)=>`<div class="kpi"><div class="l"><span class="kdot" style="background:${dot}"></span>${label}</div>
     <div class="v num">${fmt(ca.total)}<span class="unit">명</span></div>
@@ -2217,14 +2220,14 @@ function renderDashboard(c){
     h+=`<tr><td class="col-b">${esc(d.b.name)}</td><td class="num">${b2}</td>
       <td class="num in sep-l">${nw?'+'+nw:'·'}</td><td class="num jin">${ti?'+'+ti:'·'}</td>
       <td class="num out">${wd?'-'+wd:'·'}</td><td class="num out">${tr?'-'+tr:'·'}</td>
-      <td class="col-now"><div class="now-wrap"><span class="now-num num">${ca.total}</span><span class="now-ca"><span class="ca-chess">CHESS ${ca.chess}</span><span class="ca-ace">ACE ${ca.ace}</span></span></div></td>
+      <td class="col-now"><div class="now-wrap"><span class="now-num num">${ca.total}</span><span class="now-ca"><span class="ca-chess">CHESS ${ca.chess}${caPct(ca.chess,ca.total)}</span><span class="ca-ace">ACE ${ca.ace}${caPct(ca.ace,ca.total)}</span></span></div></td>
       <td class="col-rate"><span class="rate ${rateCls(rate)} ${isBest?'best':''}">${rate.toFixed(1)}%</span></td>
       <td class="col-note">${notes.length?notes.join(''):'<span class="mut">·</span>'}</td></tr>`;
   });
   if(data.length>1){   // 분원이 여러 개(=어드민)일 때만 합계 행 표시. 분원 계정은 자기 한 줄뿐이라 합계 불필요
   h+=`<tr class="sum"><td class="col-b">합계</td><td class="num">${fmt(baseTot)}</td>
     <td class="num sep-l">+${caNew.total}</td><td class="num">${caTi.total?'+'+caTi.total:'·'}</td><td class="num">-${caWd.total}</td><td class="num">${caTr.total?'-'+caTr.total:'·'}</td>
-    <td class="col-now"><div class="now-wrap"><span class="now-num num">${fmt(caAct.total)}</span><span class="now-ca"><span class="ca-chess">CHESS ${caAct.chess}</span><span class="ca-ace">ACE ${caAct.ace}</span></span></div></td>
+    <td class="col-now"><div class="now-wrap"><span class="now-num num">${fmt(caAct.total)}</span><span class="now-ca"><span class="ca-chess">CHESS ${caAct.chess}${caPct(caAct.chess,caAct.total)}</span><span class="ca-ace">ACE ${caAct.ace}${caPct(caAct.ace,caAct.total)}</span></span></div></td>
     <td class="col-rate"><span class="rate ${rateCls(sumRate)}">${sumRate.toFixed(1)}%</span></td><td class="col-note"></td></tr>`;
   }
   h+='</tbody></table></div></div>';
