@@ -22,14 +22,18 @@ const BOOKS_NAME = (code)=>{ const b=BOOKS_BRANCHES.find(x=>x.code===code); retu
 
 /* 통합 분원 → 교재 앱 분원코드 (이름 기준, 공백·"분원" 제거 후 매칭) */
 function booksBranchCode(){
-  if(session.role==='admin') return 'varon';            // 관리자 = 전체
+  // 엄윤경 계정은 role이 'branch'(서수원 소속)인데도 지난학기 잠금해제 등 관리자급
+  // 권한을 이미 특례로 받고 있다(canSwitchBranch/canUnlockPast와 같은 패턴, app.js 참고).
+  // 교재관리에서도 "서수원분원"으로만 로그인돼서 교재 등록 버튼이 안 보였던 문제라,
+  // 이 계정만 관리자 코드로 로그인시킨다.
+  if(session.role==='admin' || session.username==='엄윤경') return 'varon';   // 관리자 = 전체
   const nm = String((typeof bName==='function'?bName(session.branchId):'')||'').replace(/\s/g,'').replace(/분원$/,'');
   const map = {'서수원':'seosuwonjls','장안':'suwonjls2009','수원':'suwon_jls','운정1':'unjeongjls','운정2':'unjeongjls2','남동탄':'namdongtanjls','바론':'baronbooks'};
   return map[nm] || '';
 }
 /* 이 계정이 입금현황에서 볼 분원 코드들 (admin=6개 / 분원=자기 1개) */
 function booksScopeCodes(){
-  if(session.role==='admin') return BOOKS_BRANCHES.map(b=>b.code);
+  if(session.role==='admin' || session.username==='엄윤경') return BOOKS_BRANCHES.map(b=>b.code);
   const c = booksBranchCode();
   return (c && c!=='varon' && c!=='baronbooks') ? [c] : [];
 }
@@ -321,7 +325,7 @@ function renderBooks(c){
   c.innerHTML = `<div class="bk-fs">
       <div class="bk-fs-bar">
         <button class="bk-fs-back" onclick="chongmuGo('hub')">‹ 총무 홈</button>
-        <span class="bk-fs-title">교재 재고관리 · ${esc(session.role==='admin'?'전체':(BOOKS_NAME(code)||'분원'))}</span>
+        <span class="bk-fs-title">교재 재고관리 · ${esc((session.role==='admin'||session.username==='엄윤경')?'전체':(BOOKS_NAME(code)||'분원'))}</span>
         <a class="bk-fs-open" href="${BOOKS_APP_URL}" target="_blank" rel="noopener">새 탭으로 열기 ↗</a>
       </div>
       <iframe class="bk-fs-frame" id="booksFrame" src="${BOOKS_APP_URL}?embed=1" title="교재 재고관리" allow="clipboard-write"></iframe>
