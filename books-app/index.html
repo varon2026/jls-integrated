@@ -4012,7 +4012,13 @@ async function deleteBranchBook(barcode){
 async function doAddBook(){
   var barcode=normalizeBarcode(document.getElementById('book-barcode').value);
   var name=document.getElementById('book-name').value.trim();
-  if(!barcode||!name) return toast('바코드와 교재명은 필수입니다.',false);
+  // 바코드·교재명 중 뭐가 비었는지 구분 없이 같은 문구를 띄워서, 교재명을 넣었는데도
+  // "교재명은 필수"라는 것처럼 보여 헷갈렸다(운영자 실제 문의). 정확히 뭐가 비었는지 알려줌.
+  // 바코드는 실제 스캔되는 것일 필요 없음 — 자체 제작물은 원래 직접 지어낸 코드를 쓴다
+  // (예: MS-Suwon-2026, T-PFDSD1-01 등 기존에도 이미 그렇게 등록돼 있음).
+  if(!barcode&&!name) return toast('바코드와 교재명을 입력하세요.',false);
+  if(!barcode) return toast('바코드를 입력하세요 (스캔 안 되는 자체 제작물이면 아무 글자나 겹치지 않게 지어서 넣으면 됩니다).',false);
+  if(!name) return toast('교재명을 입력하세요.',false);
   try{
     var pp=document.getElementById('book-purchase-price');var res=await call('addBook',{barcode:barcode,name:name,subject:document.getElementById('book-subject').value.trim(),publisher:document.getElementById('book-publisher').value.trim(),vendor:document.getElementById('book-vendor').value.trim(),price:document.getElementById('book-price').value.replace(/,/g,''),note:document.getElementById('book-note').value.trim()});
     toast(res.msg,res.ok);
