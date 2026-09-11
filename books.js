@@ -52,28 +52,67 @@ async function booksSb(table, params){
   return all;
 }
 
+/* 학기 문자열("26년가을" 등)을 정렬 가능한 순번으로 바꾼다. 형식이 다르거나
+   비어있으면(예전에 학기 태그 없이 저장된 옛날 자료) 가장 오래된 것으로 쳐서
+   "이번 학기"로 잘못 뽑히지 않게 한다. */
+function bkSemRank(s){
+  const m = String(s||'').match(/^(\d+)년(봄|여름|가을|겨울)$/);
+  if(!m) return -1;
+  const order = {'봄':0,'여름':1,'가을':2,'겨울':3};
+  return Number(m[1])*10 + order[m[2]];
+}
+
 /* ===== 집계 (순수함수 · 테스트 대상) =====
-   교재 시스템 자체 통계와 동일: 학기 구분 없이 학생별로 판매(출고)합·입금합을 모아 미수금 계산.
+   분원마다 지금 진행 중인 학기가 다르므로(장안은 아직 여름학기 자료뿐인데 서수원은
+   이미 가을학기가 시작됨), "이번 학기"는 분원별로 그 분원 자료에서 가장 최근 학기를
+   찾아서 정한다. 청구·입금·미수금은 그 학기 것만 집계해서, 이미 끝난 학기 미납이
+   이번 학기 것과 섞여 보이지 않게 한다.
+   그 직전 학기(딱 한 학기 전)에 남은 미납은 pastUnpaid에 참고용으로 대략만 따로 담아둔다.
    학생별: 청구 c = Σ sales.total, 입금 p = Σ payments.paid_amount
    분원 집계: charged += c, paid += min(c,p), unpaid += max(0,c-p)  → 항상 charged = paid + unpaid */
 function aggBooksPayments(sales, payments, branchCodes){
   const sidOf=(id,name)=> (id&&id!=='null'&&id!=='')?('#'+id):('@'+(name||'__no__'));
   const keyOf=(b,id,name)=> b+'||'+sidOf(id,name);
 
-  const charged={};
+  // 분원별로 등장한 학기 중 가장 최근 것 = 이번 학기, 그 다음이 직전 학기
+  const semsByBranch={};
+  branchCodes.forEach(b=>{ semsByBranch[b]=new Set(); });
+  sales.forEach(r=>{ if(branchCodes.indexOf(r.branch)>=0 && r.semester) semsByBranch[r.branch].add(r.semester); });
+  payments.forEach(p=>{ if(branchCodes.indexOf(p.branch)>=0 && p.semester) semsByBranch[p.branch].add(p.semester); });
+  const curSemOf={}, prevSemOf={};
+  branchCodes.forEach(b=>{
+    const sorted = Array.from(semsByBranch[b]).sort((x,y)=>bkSemRank(y)-bkSemRank(x));
+    curSemOf[b]=sorted[0]||'';
+    prevSemOf[b]=sorted[1]||'';
+  });
+
+  const charged={}, paid={};
   sales.forEach(r=>{
-    const b=r.branch; if(branchCodes.indexOf(b)<0) return;
+    const b=r.branch; if(branchCodes.indexOf(b)<0 || r.semester!==curSemOf[b]) return;
     const k=keyOf(b,r.student_id,r.student_name);
     charged[k]=(charged[k]||0)+Number(r.total||0);
   });
-  const paid={};
   payments.forEach(p=>{
-    const b=p.branch; if(branchCodes.indexOf(b)<0) return;
+    const b=p.branch; if(branchCodes.indexOf(b)<0 || p.semester!==curSemOf[b]) return;
     const k=keyOf(b,p.student_id,p.student_name);
     paid[k]=(paid[k]||0)+Number(p.paid_amount||0);
   });
+
+  // 직전 학기(딱 한 학기 전)만 따로 — 그보다 더 옛날 것은 안 봄(참고용 "대략" 수치라 단순하게)
+  const pastCharged={}, pastPaid={};
+  sales.forEach(r=>{
+    const b=r.branch; if(branchCodes.indexOf(b)<0 || !prevSemOf[b] || r.semester!==prevSemOf[b]) return;
+    const k=keyOf(b,r.student_id,r.student_name);
+    pastCharged[k]=(pastCharged[k]||0)+Number(r.total||0);
+  });
+  payments.forEach(p=>{
+    const b=p.branch; if(branchCodes.indexOf(b)<0 || !prevSemOf[b] || p.semester!==prevSemOf[b]) return;
+    const k=keyOf(b,p.student_id,p.student_name);
+    pastPaid[k]=(pastPaid[k]||0)+Number(p.paid_amount||0);
+  });
+
   const per={};
-  branchCodes.forEach(b=>{ per[b]={code:b, name:BOOKS_NAME(b), sem:'', charged:0, paid:0, unpaid:0, students:0, unpaidStudents:0}; });
+  branchCodes.forEach(b=>{ per[b]={code:b, name:BOOKS_NAME(b), sem:curSemOf[b], charged:0, paid:0, unpaid:0, students:0, unpaidStudents:0, pastSem:prevSemOf[b], pastUnpaid:0}; });
   Object.keys(charged).forEach(k=>{
     const b=k.split('||')[0]; if(!per[b]) return;
     const c=charged[k], p=paid[k]||0;
@@ -85,6 +124,13 @@ function aggBooksPayments(sales, payments, branchCodes){
     if(bal>0) per[b].unpaidStudents++;
   });
   branchCodes.forEach(b=>{ per[b].rate = per[b].charged>0 ? Math.round(per[b].paid/per[b].charged*100) : null; });
+
+  const pastKeys = new Set([...Object.keys(pastCharged), ...Object.keys(pastPaid)]);
+  pastKeys.forEach(k=>{
+    const b=k.split('||')[0]; if(!per[b]) return;
+    per[b].pastUnpaid += Math.max(0, (pastCharged[k]||0)-(pastPaid[k]||0));
+  });
+
   return branchCodes.map(b=>per[b]);
 }
 
@@ -282,7 +328,7 @@ function renderBkPayBody(rows, isAdmin){
 
   let h='';
   // 범례
-  h += `<div class="bkpay-legend"><span class="lg"><i style="background:#a892e2"></i>입금</span><span class="lg"><i style="background:#e9e3f6"></i>미입금</span><span class="bkpay-mo">전체 학기 · 분원별</span></div>`;
+  h += `<div class="bkpay-legend"><span class="lg"><i style="background:#a892e2"></i>입금</span><span class="lg"><i style="background:#e9e3f6"></i>미입금</span><span class="bkpay-mo">이번 학기 · 분원별</span></div>`;
 
   // 분원별 컴팩트 리스트 (미입금 큰 순)
   const sorted = rows.slice().sort((a,b)=> b.unpaid-a.unpaid);
@@ -296,6 +342,7 @@ function renderBkPayBody(rows, isAdmin){
       <div class="bp-right">
         <span class="bp-unpaid${r.unpaid>0?' hot':''}">미입금 ${won(r.unpaid)}${r.unpaidStudents?` <b>(${r.unpaidStudents}명)</b>`:''}</span>
         <span class="bp-sub">청구 ${won(r.charged)} · 입금 ${won(r.paid)}</span>
+        ${r.pastUnpaid>0?`<span class="bp-past">지난 학기(${esc(r.pastSem)}) 미납 약 ${won(r.pastUnpaid)}</span>`:''}
       </div>
     </div>`;
   });

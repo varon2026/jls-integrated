@@ -56,6 +56,7 @@
 .bkpay-ic.exp{background:linear-gradient(135deg,#c3a0e0,#d9b8ee)}
 .bp-unpaid b{font-weight:800}
 .bp-sub{font-size:10.5px;font-weight:700;color:#a49cb8}
+.bp-past{font-size:10px;font-weight:700;color:#cf7d97;margin-top:1px}
 
 /* 합계 푸터 */
 .bkpay-foot{margin-top:11px;padding-top:11px;border-top:1.5px solid #ece8f5;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;font-weight:700;color:#8b8398}
