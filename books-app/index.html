@@ -885,7 +885,7 @@ tbody tr:hover{background:rgba(139,110,232,.05)!important;}
       <div class="fg">
         <label class="fl">바코드 * <span id="isbn-status" style="font-weight:400;font-size:11px"></span></label>
         <div class="scan-row" style="margin-bottom:0">
-          <div class="sinput-wrap" style="flex:1"><span class="sicon">📷</span><input type="text" id="book-barcode" placeholder="스캔하면 자동조회" onkeydown="if(event.key==='Enter'){event.preventDefault();searchBookByISBN();}"></div>
+          <div class="sinput-wrap" style="flex:1"><span class="sicon">📷</span><input class="sinput" type="text" id="book-barcode" placeholder="스캔하면 자동조회" onkeydown="if(event.key==='Enter'){event.preventDefault();searchBookByISBN();}"></div>
           <button class="btn btn-cam" onclick="openCam('book-barcode', false)">카메라</button>
         </div>
       </div>
@@ -1311,7 +1311,11 @@ function doLogin(){
   // 관리자 탭 제어
   document.querySelectorAll('.tab').forEach(function(t){
     var oc=t.getAttribute('onclick')||'';
-    var adminHide=["'bulk'","'stock'","'barcode'","'settings'"];
+    // '등록·설정' 탭엔 "교재 등록" 카드가 있는데, 본사 계정은 이 탭 자체가 숨겨져 있어서
+    // 새 교재를 추가할 방법이 아예 없었다(운영자가 실제로 겪음 — "교재 추가 버튼이 없다").
+    // books 테이블엔 분원 구분 칼럼이 없어(분원과 무관한 공통 카탈로그) 본사가 등록해도
+    // 문제없어서, adminHide에서 'settings'만 뺀다(bulk·stock·barcode는 분원별 화면이라 그대로 둠).
+    var adminHide=["'bulk'","'stock'","'barcode'"];
     var hide=isAdmin()&&adminHide.some(function(k){return oc.includes(k);});
     t.style.display=hide?'none':'';
   });
@@ -2084,7 +2088,12 @@ function showTab(id,tabEl){
   if(id==='barcode') initBarcodePage();
   if(id==='settings'){
     loadStudentList();loadTeacherList();loadSemesterList();loadBranchBookList();
-    var isMain=currentBranch==='namdongtanjls';
+    // 교재 등록·가격수정·매입업체수정은 원래 남동탄분원 계정에서만 보이게 돼 있었다(공통
+    // 카탈로그를 손보는 기능이라 한 곳에서만 관리하려 했던 듯). 본사(admin) 계정도 같이 열어줌.
+    // + 엄윤경 계정은 "서수원분원 화면 범위는 그대로 두고 이 카드만 열어달라"는 요청이라,
+    // 분원코드는 안 건드리고 통합관리(books.js)가 별도로 심어주는 세션 플래그만 확인한다.
+    var regOverride=false; try{ regOverride=sessionStorage.getItem('jls_books_reg_override')==='1'; }catch(e){}
+    var isMain=currentBranch==='namdongtanjls'||isAdmin()||regOverride;
     var pc=document.getElementById('price-edit-card');if(pc) pc.style.display=isMain?'':'none';
     var vc=document.getElementById('vendor-edit-card');if(vc) vc.style.display=isMain?'':'none';
     var bc=document.getElementById('book-register-card');if(bc) bc.style.display=isMain?'':'none';
@@ -2569,8 +2578,9 @@ function toggleStudentField(){
   // 분원 드랍다운 채우기
   if((isBranchOut||isBranchIn)&&document.getElementById('sales-branch')){
     var sel=document.getElementById('sales-branch');
+    var _myBranch=currentBranch==='varon'?'baronbooks':currentBranch;
     sel.innerHTML='<option value="">-- 분원 선택 --</option>'+
-      Object.keys(BRANCHES).filter(function(k){return k!==currentBranch&&k!=='varon'&&k!=='testjls'&&k!=='baronbooks';}).map(function(k){
+      Object.keys(BRANCHES).filter(function(k){return k!==_myBranch&&k!=='varon'&&k!=='testjls';}).map(function(k){
         return '<option value="'+k+'">'+BRANCHES[k].name+'</option>';
       }).join('');
   }
