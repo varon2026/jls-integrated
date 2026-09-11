@@ -37,11 +37,14 @@ insert into storage.buckets (id, name, public)
 values ('vendor-docs', 'vendor-docs', true)
 on conflict (id) do nothing;
 
-create policy if not exists "vendor-docs 읽기" on storage.objects
+drop policy if exists "vendor-docs 읽기" on storage.objects;
+create policy "vendor-docs 읽기" on storage.objects
   for select using (bucket_id = 'vendor-docs');
-create policy if not exists "vendor-docs 업로드" on storage.objects
+drop policy if exists "vendor-docs 업로드" on storage.objects;
+create policy "vendor-docs 업로드" on storage.objects
   for insert with check (bucket_id = 'vendor-docs');
-create policy if not exists "vendor-docs 수정" on storage.objects
+drop policy if exists "vendor-docs 수정" on storage.objects;
+create policy "vendor-docs 수정" on storage.objects
   for update using (bucket_id = 'vendor-docs');
 
 -- 검증: 아래 두 줄을 실행해서 테이블이 비어있는 상태로 잘 만들어졌는지 확인
