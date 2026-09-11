@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>거래업체 관리</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --bg:#faf9fc;
+  --surface:#ffffff;
+  --surface-2:#f4f1fa;
+  --surface-3:#ede8f7;
+  --border:#e4dff0;
+  --border-strong:#d3caea;
+  --ink:#241f33;
+  --ink-2:#6b6480;
+  --ink-3:#9c93b3;
+  --accent:#6e56cf;
+  --accent-ink:#3d2e8a;
+  --accent-soft:#ede9fb;
+  --accent-soft-strong:#ddd4f7;
+  --good:#1f9d6c;
+  --good-soft:#e1f5ec;
+  --warn:#b87b14;
+  --warn-soft:#fbf1dd;
+  --bad:#c5537b;
+  --bad-soft:#fbe7ef;
+  --shadow:0 1px 2px rgba(36,31,51,.04),0 8px 24px rgba(36,31,51,.06);
+  --font-display:'Gowun Dodum','IBM Plex Sans KR',sans-serif;
+  --font-body:'IBM Plex Sans KR','Noto Sans KR',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:14px;line-height:1.5}
+button,input,select{font-family:inherit;font-size:inherit;color:inherit}
+::selection{background:var(--accent-soft-strong)}
+.app{display:flex;min-height:100vh}
+.tabnum{font-variant-numeric:tabular-nums}
+
+/* ---- sidebar ---- */
+.side{width:212px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:22px 14px;display:flex;flex-direction:column;gap:26px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px}
+.brand-mark{width:32px;height:32px;border-radius:9px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.brand-tt{font-family:var(--font-display);font-size:15px;font-weight:400;color:var(--ink)}
+.brand-sub{font-size:10.5px;color:var(--ink-3);letter-spacing:.04em}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--ink-2);font-weight:500;font-size:13px;cursor:pointer;border:1px solid transparent}
+.nav-item:hover{background:var(--surface-2)}
+.nav-item.active{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.nav-item svg{flex-shrink:0}
+.nav-count{margin-left:auto;font-size:10.5px;color:var(--ink-3);background:var(--surface-2);border-radius:20px;padding:1px 7px}
+.nav-item.active .nav-count{background:var(--accent-soft-strong);color:var(--accent-ink)}
+.side-note{margin-top:auto;font-size:11px;color:var(--ink-3);line-height:1.6;padding:12px 10px;background:var(--surface-2);border-radius:10px}
+
+/* ---- main ---- */
+.main{flex:1;min-width:0;padding:26px 32px 60px}
+.pagehd{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:18px}
+.pagehd h1{font-family:var(--font-display);font-weight:400;font-size:24px;margin:0;letter-spacing:-.01em}
+.pagehd p{margin:4px 0 0;color:var(--ink-2);font-size:13px}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);font-weight:600;font-size:13px;padding:9px 14px;cursor:pointer;transition:border-color .12s,background .12s}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+.btn:disabled{opacity:.6;cursor:default}
+.btn-sm{padding:6px 11px;font-size:12px;border-radius:8px}
+
+.searchrow{position:relative;margin-bottom:20px}
+.searchrow svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ink-3)}
+.searchrow input{width:100%;padding:12px 14px 12px 40px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--ink)}
+.searchrow input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.searchrow input::placeholder{color:var(--ink-3)}
+
+.stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:22px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:15px 16px}
+.stat-top{display:flex;justify-content:space-between;align-items:flex-start;color:var(--ink-3);margin-bottom:10px}
+.stat-top span:first-child{font-size:12px;font-weight:500}
+.stat-n{font-size:25px;font-weight:600;letter-spacing:-.01em}
+.stat-sub{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+.stat-n.bad{color:var(--bad)}
+
+.cols{display:grid;grid-template-columns:1.7fr 1fr;gap:16px;align-items:start}
+@media (max-width:920px){.cols{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.panel-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px}
+.panel-hd h2{font-size:14.5px;font-weight:600;margin:0}
+.panel-hd p{font-size:11.5px;color:var(--ink-3);margin:2px 0 0}
+
+.vrow{display:grid;grid-template-columns:34px 1fr auto auto;align-items:center;gap:12px;padding:11px 18px;border-top:1px solid var(--border);cursor:pointer}
+.vrow:hover{background:var(--surface-2)}
+.avat{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent-ink)}
+.vname{font-size:13px;font-weight:600}
+.vmeta{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+.vphone{font-size:12px;color:var(--ink-2);text-align:right;white-space:nowrap}
+.pill{font-size:10.5px;font-weight:600;border-radius:20px;padding:3px 9px;white-space:nowrap}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+
+.actrow{padding:11px 18px;border-top:1px solid var(--border)}
+.act-tt{font-size:12.5px;font-weight:600}
+.act-sub{font-size:11px;color:var(--ink-3);margin-top:3px;display:flex;justify-content:space-between;gap:8px}
+
+.lockband{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-top:16px;font-size:12px;color:var(--ink-2)}
+.lockband svg{flex-shrink:0;color:var(--ink-3)}
+
+table.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-size:11px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;padding:10px 18px;border-bottom:1px solid var(--border)}
+.tbl td{padding:12px 18px;border-bottom:1px solid var(--border);font-size:13px}
+.tbl tr:last-child td{border-bottom:none}
+.doc-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11.5px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:5px 9px;margin:2px 4px 2px 0;text-decoration:none;color:var(--ink-2)}
+.doc-chip:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+.hidden{display:none !important}
+
+/* ---- modal / drawer ---- */
+.overlay{position:fixed;inset:0;background:rgba(28,24,38,.42);display:flex;justify-content:flex-end;z-index:80;overflow-y:auto}
+.drawer{width:420px;max-width:92vw;min-height:100%;background:var(--surface);box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:18px;box-sizing:border-box}
+.overlay.center{align-items:flex-start;justify-content:center;padding:5vh 16px}
+.overlay.center .drawer{width:480px;max-width:100%;min-height:0;border-radius:16px}
+.drawer-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.drawer-hd h3{font-family:var(--font-display);font-weight:400;font-size:19px;margin:0}
+.iconbtn{border:1px solid var(--border);background:var(--surface);border-radius:9px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-2);flex-shrink:0}
+.iconbtn:hover{border-color:var(--accent);color:var(--accent)}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label{font-size:12px;font-weight:600;color:var(--ink-2)}
+.field input,.field select{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--ink);box-sizing:border-box;min-width:0}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.file-field{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:9px;background:var(--bg);padding:5px;min-width:0}
+.file-field:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.file-btn{flex-shrink:0;font-size:12px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:6px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.file-btn:hover{background:var(--accent-soft-strong)}
+.file-input-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.file-name{font-size:12px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-width:0}
+@media (max-width:460px){.field-row{grid-template-columns:1fr}}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.kv:last-child{border-bottom:none}
+.kv span:first-child{color:var(--ink-3)}
+.kv span:last-child{font-weight:500;text-align:right}
+.hist-item{padding:10px 0;border-bottom:1px solid var(--border)}
+.hist-item:last-child{border-bottom:none}
+.hist-add{display:flex;gap:8px;margin-top:6px}
+.hist-add input{flex:1}
+.badge-cat{display:inline-block;font-size:11px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:20px;padding:3px 10px;width:fit-content}
+.loading-full{display:flex;align-items:center;justify-content:center;height:100vh;width:100%;color:var(--ink-3);font-size:13px}
+</style>
+</head>
+<body>
+
+<div id="app-root" class="loading-full">불러오는 중…</div>
+
+<script>
+const SB_URL='https://hplndiuoohantbalixwu.supabase.co';
+const SB_KEY='sb_publishable_xO8KB46SzMx8KeuEE-OVSw_su22mv9X';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+
+const CAT_OPTIONS=['에어컨','정수기','전기·조명','승강기','CCTV·보안','방역·위생','기타'];
+const BRANCH_OPTIONS=['전분원','서수원','장안','수원','운정1','운정2','남동탄'];
+
+let vendors = [];
+let loadError = null;
+
+function won(n){ return n==null ? '—' : '₩'+n.toLocaleString(); }
+function initials(name){ return name.slice(0,2); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function allHistory(){
+  const rows=[];
+  vendors.forEach(v=>(v.vd_history||[]).forEach(h=>rows.push(Object.assign({vendor:v.name,vendorId:v.id,cat:v.category},h))));
+  return rows.sort((a,b)=> b.date.localeCompare(a.date));
+}
+
+function docStatus(v){ return !!v.biz_doc_url && !!v.bank_doc_url; }
+
+function statusPill(status){
+  if(status==='완료') return `<span class="pill good">완료</span>`;
+  if(status==='예정') return `<span class="pill warn">예정</span>`;
+  return `<span class="pill">${esc(status)}</span>`;
+}
+
+/* ===== 데이터 로드 ===== */
+async function loadVendors(){
+  const {data, error} = await sb.from('vd_vendors').select('*, vd_history(*)').order('name');
+  if(error){ loadError = error.message; vendors=[]; return; }
+  loadError = null;
+  vendors = data||[];
+}
+
+/* ===== 렌더 ===== */
+function renderStats(){
+  const missing = vendors.filter(v=>!docStatus(v)).length;
+  const h = allHistory();
+  const ym = new Date().toISOString().slice(0,7);
+  const thisMonth = h.filter(x=>x.date.slice(0,7)===ym);
+  const done = thisMonth.filter(x=>x.status==='완료').length;
+  const upcoming = thisMonth.filter(x=>x.status==='예정').length;
+  const docCount = vendors.reduce((s,v)=>s+(v.biz_doc_url?1:0)+(v.bank_doc_url?1:0),0);
+  const cats = new Set(vendors.map(v=>v.category)).size;
+
+  document.getElementById('stat-grid').innerHTML = `
+    <div class="stat"><div class="stat-top"><span>등록된 거래처</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+      <div class="stat-n tabnum">${vendors.length}곳</div><div class="stat-sub">카테고리 ${cats}개</div></div>
+    <div class="stat"><div class="stat-top"><span>이번 달 수리·점검</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l1 1.5L11.3 13a4 4 0 0 1 5.4-5.4L20 4.3 18.5 3l-3.8 3.3Z"/></svg></div>
+      <div class="stat-n tabnum">${thisMonth.length}건</div><div class="stat-sub">완료 ${done} · 예정 ${upcoming}</div></div>
+    <div class="stat"><div class="stat-top"><span>서류 미비</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg></div>
+      <div class="stat-n tabnum ${missing?'bad':''}">${missing}곳</div><div class="stat-sub">사업자등록증·통장사본 없음</div></div>
+    <div class="stat"><div class="stat-top"><span>보관 문서</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <div class="stat-n tabnum">${docCount}건</div><div class="stat-sub">본사만 열람 가능</div></div>
+  `;
+}
+
+function renderDash(){
+  const q = (document.getElementById('dash-search').value||'').toLowerCase();
+  const list = vendors.filter(v=>!q || v.name.toLowerCase().includes(q) || (v.manager||'').toLowerCase().includes(q) || v.category.toLowerCase().includes(q)).slice(0,5);
+  document.getElementById('dash-vendor-list').innerHTML = list.map(v=>`
+    <div class="vrow" onclick="openVendor(${v.id})">
+      <div class="avat">${esc(initials(v.name))}</div>
+      <div><div class="vname">${esc(v.name)}</div><div class="vmeta">${esc(v.category)} · ${esc(v.manager||'담당자 미입력')}</div></div>
+      <div class="vphone tabnum">${esc(v.phone)}</div>
+      ${docStatus(v)?'<span class="pill good">서류 완비</span>':'<span class="pill bad">서류 미비</span>'}
+    </div>
+  `).join('') || (vendors.length
+      ? `<div class="actrow" style="color:var(--ink-3)">검색 결과가 없어요.</div>`
+      : `<div class="actrow" style="color:var(--ink-3)">아직 등록된 거래처가 없어요. 오른쪽 위 "업체 추가"로 첫 업체를 등록해보세요.</div>`);
+
+  const hist = allHistory().slice(0,4);
+  document.getElementById('dash-history-list').innerHTML = hist.length ? hist.map(h=>`
+    <div class="actrow">
+      <div class="act-tt">${esc(h.memo)}</div>
+      <div class="act-sub"><span>${esc(h.vendor)} · ${h.date.slice(5).replace('-','.')}</span>${statusPill(h.status)}</div>
+    </div>
+  `).join('') : `<div class="actrow" style="color:var(--ink-3)">아직 수리·점검 이력이 없어요.</div>`;
+
+  renderStats();
+  document.getElementById('nav-count-vendors').textContent = vendors.length;
+  document.getElementById('nav-count-history').textContent = allHistory().length;
+  document.getElementById('nav-count-docs').textContent = vendors.reduce((s,v)=>s+(v.biz_doc_url?1:0)+(v.bank_doc_url?1:0),0);
+}
+
+function renderVendorTable(){
+  document.getElementById('vendor-table-body').innerHTML = vendors.length ? vendors.map(v=>`
+    <tr style="cursor:pointer" onclick="openVendor(${v.id})">
+      <td><div class="vname">${esc(v.name)}</div><div class="vmeta">${esc(v.branch)}</div></td>
+      <td><span class="badge-cat">${esc(v.category)}</span></td>
+      <td>${esc(v.manager||'—')}</td>
+      <td class="tabnum">${esc(v.phone)}</td>
+      <td>${docStatus(v)?'<span class="pill good">완비</span>':'<span class="pill bad">미비</span>'}</td>
+    </tr>
+  `).join('') : `<tr><td colspan="5" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 등록된 거래처가 없어요.</td></tr>`;
+}
+
+function renderHistoryTable(){
+  const rows = allHistory();
+  document.getElementById('history-table-body').innerHTML = rows.length ? rows.map(h=>`
+    <tr>
+      <td class="tabnum">${h.date}</td>
+      <td>${esc(h.vendor)}</td>
+      <td>${esc(h.memo)}</td>
+      <td>${statusPill(h.status)}</td>
+      <td class="tabnum">${won(h.cost)}</td>
+    </tr>
+  `).join('') : `<tr><td colspan="5" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 수리·점검 이력이 없어요.</td></tr>`;
+}
+
+function renderDocsTable(){
+  document.getElementById('docs-table-body').innerHTML = vendors.length ? vendors.map(v=>`
+    <tr>
+      <td>${esc(v.name)}</td>
+      <td>${v.biz_doc_url?`<a class="doc-chip" href="${v.biz_doc_url}" target="_blank" rel="noopener">📄 사업자등록증 보기</a>`:'<span class="pill bad">없음</span>'}</td>
+      <td>${v.bank_doc_url?`<a class="doc-chip" href="${v.bank_doc_url}" target="_blank" rel="noopener">📄 통장사본 보기</a>`:'<span class="pill bad">없음</span>'}</td>
+    </tr>
+  `).join('') : `<tr><td colspan="3" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 등록된 거래처가 없어요.</td></tr>`;
+}
+
+function renderAll(){ renderDash(); renderVendorTable(); renderHistoryTable(); renderDocsTable(); }
+
+let mounted = false;
+async function refreshAll(){
+  await loadVendors();
+  if(loadError){
+    if(!mounted){
+      document.getElementById('app-root').innerHTML = `<div class="loading-full">불러오지 못했어요 (${esc(loadError)}) — 새로고침해보세요.</div>`;
+    }
+    return;
+  }
+  if(!mounted){ mountApp(); mounted = true; }
+  renderAll();
+}
+
+/* ---- nav ---- */
+function wireNav(){
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+      el.classList.add('active');
+      document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
+      document.getElementById('view-'+el.dataset.view).classList.remove('hidden');
+    });
+  });
+}
+
+/* ---- vendor detail drawer ---- */
+function openVendor(id){
+  const v = vendors.find(x=>x.id===id);
+  if(!v) return;
+  const root = document.getElementById('modal-root');
+  const hist = (v.vd_history||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  root.innerHTML = `
+    <div class="overlay" onclick="if(event.target===this) closeModal()">
+      <div class="drawer">
+        <div class="drawer-hd">
+          <div>
+            <span class="badge-cat">${esc(v.category)}</span>
+            <h3 style="margin-top:8px">${esc(v.name)}</h3>
+          </div>
+          <button class="iconbtn" onclick="closeModal()" aria-label="닫기">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="kv"><span>담당자</span><span>${esc(v.manager||'—')}</span></div>
+        <div class="kv"><span>연락처</span><span class="tabnum">${esc(v.phone)}</span></div>
+        <div class="kv"><span>사업자등록번호</span><span class="tabnum" style="font-family:var(--font-mono)">${esc(v.biz_no||'—')}</span></div>
+        <div class="kv"><span>담당 지점</span><span>${esc(v.branch)}</span></div>
+
+        <div>
+          <div style="margin-bottom:8px;font-size:12px;font-weight:600;color:var(--ink-2)">보관 서류</div>
+          ${v.biz_doc_url?`<a class="doc-chip" href="${v.biz_doc_url}" target="_blank" rel="noopener">📄 사업자등록증 보기</a>`:'<span class="pill bad">사업자등록증 없음</span>'}
+          ${v.bank_doc_url?`<a class="doc-chip" href="${v.bank_doc_url}" target="_blank" rel="noopener">📄 통장사본 보기</a>`:'<span class="pill bad">통장사본 없음</span>'}
+        </div>
+
+        <div>
+          <div style="margin-bottom:4px;font-size:12px;font-weight:600;color:var(--ink-2)">수리·점검 이력</div>
+          <div id="drawer-history">
+            ${hist.map(h=>`
+              <div class="hist-item">
+                <div class="act-tt">${esc(h.memo)}</div>
+                <div class="act-sub"><span class="tabnum">${h.date}</span>${statusPill(h.status)}</div>
+              </div>
+            `).join('') || '<div style="color:var(--ink-3);font-size:12.5px;padding:8px 0">아직 이력이 없어요.</div>'}
+          </div>
+          <div class="hist-add">
+            <input id="hist-memo" placeholder="예: 필터 교체">
+            <button class="btn btn-sm" id="hist-add-btn" onclick="addHistory(${v.id})">추가</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function addHistory(id){
+  const input = document.getElementById('hist-memo');
+  const memo = input.value.trim();
+  if(!memo){ input.focus(); return; }
+  const btn = document.getElementById('hist-add-btn');
+  btn.disabled = true; btn.textContent='추가 중…';
+  const {error} = await sb.from('vd_history').insert({
+    vendor_id: id, date: new Date().toISOString().slice(0,10), memo, status:'완료', cost:null
+  });
+  if(error){ alert('저장하지 못했어요: '+error.message); btn.disabled=false; btn.textContent='추가'; return; }
+  await refreshAll();
+  openVendor(id);
+}
+
+/* ---- add vendor modal ---- */
+function openAddVendor(){
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="overlay center" onclick="if(event.target===this) closeModal()">
+      <div class="drawer">
+        <div class="drawer-hd">
+          <h3>업체 추가</h3>
+          <button class="iconbtn" onclick="closeModal()" aria-label="닫기">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="field"><label>업체명</label><input id="nf-name" placeholder="예: 한빛냉난방" oninput="document.getElementById('nf-err').textContent=''"></div>
+        <div class="field-row">
+          <div class="field"><label>카테고리</label>
+            <select id="nf-cat">${CAT_OPTIONS.map(c=>`<option>${c}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>담당 지점</label>
+            <select id="nf-branch">${BRANCH_OPTIONS.map(b=>`<option>${b}</option>`).join('')}</select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>담당자</label><input id="nf-manager" placeholder="이름 + 직함"></div>
+          <div class="field"><label>연락처</label><input id="nf-phone" placeholder="010-0000-0000" oninput="document.getElementById('nf-err').textContent=''"></div>
+        </div>
+        <div class="field"><label>사업자등록번호 (선택)</label><input id="nf-biz" placeholder="000-00-00000"></div>
+        <div class="field-row">
+          <div class="field"><label>사업자등록증</label>
+            <div class="file-field">
+              <label class="file-btn" for="nf-doc-biz">파일 선택</label>
+              <input type="file" id="nf-doc-biz" class="file-input-hidden" onchange="onFilePicked(this,'nf-doc-biz-name')">
+              <span class="file-name" id="nf-doc-biz-name">선택된 파일 없음</span>
+            </div>
+          </div>
+          <div class="field"><label>통장사본</label>
+            <div class="file-field">
+              <label class="file-btn" for="nf-doc-bank">파일 선택</label>
+              <input type="file" id="nf-doc-bank" class="file-input-hidden" onchange="onFilePicked(this,'nf-doc-bank-name')">
+              <span class="file-name" id="nf-doc-bank-name">선택된 파일 없음</span>
+            </div>
+          </div>
+        </div>
+        <div id="nf-err" style="color:var(--bad);font-size:12px;min-height:14px"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+          <button class="btn" onclick="closeModal()">취소</button>
+          <button class="btn btn-primary" id="nf-submit-btn" onclick="submitVendor()">추가</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('nf-name').focus();
+}
+
+function onFilePicked(input,nameElId){
+  document.getElementById(nameElId).textContent = input.files.length ? input.files[0].name : '선택된 파일 없음';
+}
+
+/* 사업자등록증·통장사본은 vendor-docs 버킷에 올리고 공개 URL만 테이블에 저장한다 */
+async function uploadVendorDoc(vendorId, file, kind){
+  const ext = (file.name.split('.').pop()||'file');
+  const path = `${vendorId}_${kind}_${Date.now()}.${ext}`;
+  const {error} = await sb.storage.from('vendor-docs').upload(path, file, {upsert:true});
+  if(error) throw error;
+  const {data} = sb.storage.from('vendor-docs').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+async function submitVendor(){
+  const name = document.getElementById('nf-name').value.trim();
+  const phone = document.getElementById('nf-phone').value.trim();
+  const err = document.getElementById('nf-err');
+  if(!name){ err.textContent='업체명을 입력해주세요.'; document.getElementById('nf-name').focus(); return; }
+  if(!phone){ err.textContent='연락처를 입력해주세요.'; document.getElementById('nf-phone').focus(); return; }
+
+  const bizFile = document.getElementById('nf-doc-biz').files[0]||null;
+  const bankFile = document.getElementById('nf-doc-bank').files[0]||null;
+  const btn = document.getElementById('nf-submit-btn');
+  btn.disabled = true; btn.textContent='추가 중…';
+
+  try{
+    const payload = {
+      name,
+      category: document.getElementById('nf-cat').value,
+      manager: document.getElementById('nf-manager').value.trim() || null,
+      phone,
+      biz_no: document.getElementById('nf-biz').value.trim() || null,
+      branch: document.getElementById('nf-branch').value,
+      biz_doc_url: null,
+      bank_doc_url: null
+    };
+    const {data:inserted, error:insErr} = await sb.from('vd_vendors').insert(payload).select().single();
+    if(insErr) throw insErr;
+
+    const updates = {};
+    if(bizFile) updates.biz_doc_url = await uploadVendorDoc(inserted.id, bizFile, 'biz');
+    if(bankFile) updates.bank_doc_url = await uploadVendorDoc(inserted.id, bankFile, 'bank');
+    if(Object.keys(updates).length){
+      const {error:updErr} = await sb.from('vd_vendors').update(updates).eq('id', inserted.id);
+      if(updErr) throw updErr;
+    }
+
+    closeModal();
+    await refreshAll();
+  }catch(e){
+    err.textContent = '저장하지 못했어요: '+(e.message||'알 수 없는 오류');
+    btn.disabled = false; btn.textContent='추가';
+  }
+}
+
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+/* ===== 초기 화면 구성 ===== */
+function mountApp(){
+  document.getElementById('app-root').outerHTML = `
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l1 1.5L11.3 13a4 4 0 0 1 5.4-5.4L20 4.3 18.5 3l-3.8 3.3Z"/><path d="m3 21 3-3"/></svg>
+      </div>
+      <div>
+        <div class="brand-tt">거래업체 관리</div>
+        <div class="brand-sub">정상어학원 · 총무</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-item active" data-view="dash">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        대시보드
+      </div>
+      <div class="nav-item" data-view="vendors">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        거래처 연락처 <span class="nav-count" id="nav-count-vendors">0</span>
+      </div>
+      <div class="nav-item" data-view="history">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l1 1.5L11.3 13a4 4 0 0 1 5.4-5.4L20 4.3 18.5 3l-3.8 3.3Z"/></svg>
+        수리·점검 이력 <span class="nav-count" id="nav-count-history">0</span>
+      </div>
+      <div class="nav-item" data-view="docs">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+        문서함 <span class="nav-count" id="nav-count-docs">0</span>
+      </div>
+    </nav>
+
+    <div class="side-note">이 메뉴는 본사 소속 계정에서만 보여요. 분원 계정에는 총무 화면에 아예 나타나지 않아요.</div>
+  </aside>
+
+  <main class="main">
+
+    <section id="view-dash">
+      <div class="pagehd">
+        <div>
+          <h1>대시보드</h1>
+          <p>거래업체 연락처와 수리 이력을 한 곳에서 찾아보세요.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddVendor()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          업체 추가
+        </button>
+      </div>
+
+      <div class="searchrow">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="dash-search" placeholder="예: 에어컨 — 업체명·담당자·카테고리로 검색" oninput="renderDash()">
+      </div>
+
+      <div class="stat-grid" id="stat-grid"></div>
+
+      <div class="cols">
+        <div class="panel">
+          <div class="panel-hd">
+            <div>
+              <h2>거래처 &amp; 연락처</h2>
+              <p>업체를 누르면 담당자·서류·수리 이력을 볼 수 있어요</p>
+            </div>
+          </div>
+          <div id="dash-vendor-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-hd">
+            <div>
+              <h2>최근 수리·점검</h2>
+              <p>누가, 언제, 무엇을 처리했는지</p>
+            </div>
+          </div>
+          <div id="dash-history-list"></div>
+        </div>
+      </div>
+
+      <div class="lockband">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        거래업체 관리는 본사 소속 계정에서만 보여요. 분원 계정은 총무 화면에서 이 메뉴 자체가 보이지 않아요.
+      </div>
+    </section>
+
+    <section id="view-vendors" class="hidden">
+      <div class="pagehd">
+        <div><h1>거래처 연락처</h1><p>등록된 모든 거래업체입니다.</p></div>
+        <button class="btn btn-primary" onclick="openAddVendor()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          업체 추가
+        </button>
+      </div>
+      <div class="panel">
+        <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>업체명</th><th>카테고리</th><th>담당자</th><th>연락처</th><th>서류</th></tr></thead>
+          <tbody id="vendor-table-body"></tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-history" class="hidden">
+      <div class="pagehd"><div><h1>수리·점검 이력</h1><p>모든 업체의 수리·점검 기록입니다.</p></div></div>
+      <div class="panel">
+        <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>날짜</th><th>업체</th><th>내용</th><th>상태</th><th>비용</th></tr></thead>
+          <tbody id="history-table-body"></tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-docs" class="hidden">
+      <div class="pagehd"><div><h1>문서함</h1><p>업체별 사업자등록증·통장사본 보관 현황입니다.</p></div></div>
+      <div class="panel">
+        <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>업체명</th><th>사업자등록증</th><th>통장사본</th></tr></thead>
+          <tbody id="docs-table-body"></tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+<div id="modal-root"></div>
+  `;
+  wireNav();
+}
+
+(async function init(){
+  await refreshAll();
+})();
+</script>
+</body>
+</html>

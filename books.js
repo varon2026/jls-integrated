@@ -6,7 +6,8 @@
    ========================================================================== */
 
 const BOOKS_APP_URL = 'books-app/index.html';
-let chongmuView = 'hub';   // 'hub' | 'books'
+const VENDOR_APP_URL = 'vendor-app/index.html';
+let chongmuView = 'hub';   // 'hub' | 'books' | 'expense' | 'vendor'
 function chongmuGo(v){ chongmuView = v; if(state.view==='chongmu') render(); window.scrollTo(0,0); }
 
 /* ===== 6개 분원 (교재코드 ↔ 이름) ===== */
@@ -276,6 +277,7 @@ function renderExpBody(rows, isAdmin){
 function renderChongmu(c){
   if(chongmuView==='books'){ renderBooks(c); return; }
   if(chongmuView==='expense'){ renderExpense(c); return; }
+  if(chongmuView==='vendor'){ renderVendorApp(c); return; }
 
   const isAdmin = session.role==='admin';
   const canBooks   = (typeof hasMenu==='function') ? hasMenu('chongmu') : true;
@@ -308,6 +310,29 @@ function renderChongmu(c){
   // 운영비 현황 카드 (교재비 입금현황과 같은 요약 형태, 카드 클릭 = 운영비 시스템)
   if(canExpense){
     h += renderExpCard();
+  }
+
+  // 거래업체 관리 카드 — 본사(admin)만. 그래프 없이 요약 숫자만 (이세진 대리 요청, 2026-09)
+  if(isAdmin){
+    loadVendorSummary(false);
+    h += `<div class="bkpay-card clickable" onclick="chongmuGo('vendor')" title="클릭하면 거래업체 관리 화면이 열려요">
+      <div class="bkpay-hd">
+        <div class="bkpay-ic" style="background:linear-gradient(135deg,#8b6ee8,#a892e2)">${icon('unyoung',22)}</div>
+        <div class="bkpay-tt" style="flex:1"><h3>거래업체 관리 <span class="bkpay-open">목록 보기 ›</span></h3><p>수리·설비 업체 연락처와 서류 보관 · 본사 전용</p></div>
+      </div>`;
+    if(vendorSummary.status==='loading'){
+      h += `<div class="bkpay-loading"><span class="spin-sm"></span> 불러오는 중…</div>`;
+    } else if(vendorSummary.status==='error'){
+      h += `<div class="bkpay-err">불러오지 못했어요 <span class="e">(${esc(vendorSummary.error||'')})</span><button onclick="event.stopPropagation();refreshVendorSummary()">다시 시도</button></div>`;
+    } else if(vendorSummary.status==='ok'){
+      h += `<div class="vd-mini">
+        <span>등록된 거래처 <b>${vendorSummary.count}곳</b></span>
+        <span>서류 미비 <b class="${vendorSummary.missing?'warn':''}">${vendorSummary.missing}곳</b></span>
+      </div>`;
+    } else {
+      h += `<div class="bkpay-loading"><span class="spin-sm"></span> 준비 중…</div>`;
+    }
+    h += `</div>`;
   }
 
   // 준비중 항목 (교재 권한)
@@ -441,5 +466,34 @@ function expenseHookSso(u){
   });
 }
 
+/* ===== 거래업체 관리 (본사 전용) — 자체 Supabase(ktizqd, 교재·운영비와 같은 프로젝트) =====
+   분원 계정은 이 카드 자체가 안 보인다(총무 화면에서 hasMenu 여부와 무관하게 admin만).
+   자세한 화면은 별도 화면(vendor-app)에서, 이 카드는 요약 숫자 두 개만 보여준다. */
+let vendorSummary = { status:'idle', count:0, missing:0, error:null };
+function loadVendorSummary(force){
+  if(!force && vendorSummary.status!=='idle' && vendorSummary.status!=='error') return Promise.resolve();
+  vendorSummary = { status:'loading', count:0, missing:0, error:null };
+  return expSb('vd_vendors','select=id,biz_doc_url,bank_doc_url')
+    .then(rows=>{
+      const missing = (rows||[]).filter(v=>!v.biz_doc_url || !v.bank_doc_url).length;
+      vendorSummary = { status:'ok', count:(rows||[]).length, missing, error:null };
+    })
+    .catch(e=>{ vendorSummary = { status:'error', count:0, missing:0, error:(e&&e.message)||'조회 실패' }; })
+    .then(()=>{ if(state.view==='chongmu' && chongmuView==='hub') render(); });
+}
+function refreshVendorSummary(){ loadVendorSummary(true); render(); }
+
+function renderVendorApp(c){
+  c.innerHTML = `<div class="bk-fs">
+      <div class="bk-fs-bar">
+        <button class="bk-fs-back" onclick="chongmuGo('hub')">‹ 총무 홈</button>
+        <span class="bk-fs-title">거래업체 관리</span>
+        <a class="bk-fs-open" href="${VENDOR_APP_URL}" target="_blank" rel="noopener">새 탭으로 열기 ↗</a>
+      </div>
+      <iframe class="bk-fs-frame" id="vendorFrame" src="${VENDOR_APP_URL}?embed=1" title="거래업체 관리" allow="clipboard-write"></iframe>
+    </div>`;
+}
+
 window.chongmuGo=chongmuGo; window.renderChongmu=renderChongmu; window.renderBooks=renderBooks;
 window.renderExpense=renderExpense; window.refreshBooksPay=refreshBooksPay; window.refreshExpSummary=refreshExpSummary;
+window.renderVendorApp=renderVendorApp; window.refreshVendorSummary=refreshVendorSummary;
