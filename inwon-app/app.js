@@ -792,6 +792,19 @@ function withdrawMonth(rec){
   const m = String(d).match(/\d{4}-(\d{1,2})/) || String(d).match(/\d{4}\.(\d{1,2})/);
   return m ? parseInt(m[1],10) : null;
 }
+/* 그 달 1일 시점에 재원 중이었는지 — 학기초/월초 인원 계산에 공통으로 쓴다.
+   같은 학기 안에서 퇴원했다가 복귀한 경우(퇴원일이 지금 입학일보다 빠름) 주의:
+   복귀하면 입학일 칸이 복귀일로 덮어써져서 "학기초부터 있었다"는 기록 자체가
+   사라진다. 그러면 원래 있던 첫 구간(~퇴원월)이 통째로 안 잡혀서, 학기초 인원이
+   실제보다 1명씩 적게 나온다.
+   (2026 여름 서수원 오윤진 — 6/30 퇴원(타학원 이동) 후 8/3 복귀. 입학일이 8월로
+    남아서 6월 학기초 인원에서 1명 빠졌었다. 대시보드는 원래 이 문제가 없다 —
+    입학일을 안 보고 '재원+퇴원+전출−신규−전입' 공식으로만 학기초를 구하기 때문.) */
+function presentAtMonthStart(rec, m){
+  const em = enrollMonth(rec), wm = withdrawMonth(rec);
+  if(em!=null && wm!=null && wm<em) return m<=wm || em<m;   // 나갔다 돌아온 경우 — 두 구간 중 하나에 걸치면 그 달엔 있었던 것
+  return (em==null || em<m) && (wm==null || wm>=m);
+}
 /* 변경월을 변경일(cutDay) 기준으로 앞/뒤 구간 실적으로 쪼갬.
    퇴원 책임: 변경일 당일까지(<=cutDay) = 이전 담임(마지막 수업이 이전 담임),
             변경일 다음날부터(>cutDay) = 새 담임.
@@ -862,11 +875,8 @@ function monthlyClosing(recs, months, activeMonths, splits, moves, recsAt){
   const startsOf = (m)=> (recsAt ? (recsAt(m,true)||recs)  : recs);   // 그 달 1일에 맡고 있던 명단
   const rosterKey = (rs)=> rs.map(r=>r.studentId).join('\u0001');
   /* 그 달 시작 시점에 이미 다니고 있던 사람 수 — splitMonthForGroup 의 월초와 같은 뜻 */
-  const startCountAt = (rs, m)=> rs.filter(r=>{
-    const em=enrollMonth(r), wm=withdrawMonth(r);
-    return (em==null || em<m) && (wm==null || wm>=m);
-  }).length;
-  const startOfSem = startsOf(months[0]).filter(r=> enrollMonth(r)==null).length;
+  const startCountAt = (rs, m)=> rs.filter(r=>presentAtMonthStart(r,m)).length;
+  const startOfSem = startsOf(months[0]).filter(r=>presentAtMonthStart(r, months[0])).length;
   const splitByMonth = new Map();
   (splits||[]).forEach(sp=> splitByMonth.set(sp.month, sp));
   const mvOut = (moves&&moves.out)||null, mvIn = (moves&&moves.in)||null;
@@ -3817,8 +3827,8 @@ return `<tr>
   const monthNewRecs = recs.filter(r=> (r.origin==='new'||r.origin==='return') && !r.transferIn && enrollMonth(r)===month );
   const monthWdRecs  = recs.filter(r=> withdrawMonth(r)===month && !r.transfer );
   const monthTrRecs  = recs.filter(r=> withdrawMonth(r)===month && r.transfer );
-  const startRecs    = recs.filter(r=> (enrollMonth(r)==null || enrollMonth(r)<month) && (withdrawMonth(r)==null || withdrawMonth(r)>=month) );
-  const endRecs      = recs.filter(r=> (enrollMonth(r)==null || enrollMonth(r)<=month) && (withdrawMonth(r)==null || withdrawMonth(r)>month) );
+  const startRecs    = recs.filter(r=> presentAtMonthStart(r, month) );
+  const endRecs      = recs.filter(r=> presentAtMonthStart(r, month+1) );
   let html = headHtml + `
     <div class="sort-bar" style="margin-bottom:14px">${monthBtns}</div>
 <div class="kpi-row c6">
