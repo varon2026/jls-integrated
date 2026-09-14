@@ -858,7 +858,7 @@ function renderAceMoveDash(c){
   </div>`;
 
   h+=`<div class="twrap"><div class="tw-h"><div class="t">분원별 이관 현황</div></div>
-    <table class="grid"><thead><tr><th>분원</th><th>대상자</th><th>얼리버드</th><th>이관율</th></tr></thead><tbody>`;
+    <table class="grid"><thead><tr><th style="width:140px">분원</th><th>대상자</th><th>얼리버드</th><th>이관율</th></tr></thead><tbody>`;
   perBranch.forEach(x=>{
     h+=`<tr><td>${esc(x.b.name)}</td><td style="text-align:center">${x.mv.total}</td><td style="text-align:center">${x.mv.early}</td><td style="text-align:center">${x.mv.rate}%</td></tr>`;
   });
