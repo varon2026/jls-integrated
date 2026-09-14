@@ -514,6 +514,7 @@ function setDashView(v){ state.dashView=v; render(); }
 function renderDashHome(c){
   if(!state.dashView) state.dashView='inwon';
   if(state.dashView==='class' && (session&&session.role)!=='admin') state.dashView='inwon';   // 본사 전용
+  if(state.dashView==='acemove' && (session&&session.role)!=='admin') state.dashView='inwon';   // 본사 전용
   $('crumbs').innerHTML='<b>대시보드</b>';
   const btn=(on)=>'border:1px solid '+(on?'transparent':'#e2dcf2')+';background:'+(on?'linear-gradient(135deg,#8b6ee8,#6f9ad6)':'#fff')+';color:'+(on?'#fff':'#7b7488')+';font:inherit;font-weight:800;font-size:13.5px;padding:9px 20px;border-radius:20px;cursor:pointer';
   c.innerHTML='<div style="display:flex;gap:8px;margin-bottom:18px">'
@@ -525,12 +526,17 @@ function renderDashHome(c){
        (이사님 요청 — 학기별로 분원마다 반이 몇 개 열렸는지) */
     +((session&&session.role)==='admin'
       ? '<button onclick="setDashView(\'class\')" style="'+btn(state.dashView==='class')+'">반 개설현황</button>' : '')
+    /* ACE 이관 — 본사 관리자만. 분원은 사이드바 '현황 > ACE 이관생'(inwon-app)에서 본다.
+       분원 계정도 이 탭으로 들어오면 안 되니 반개설현황과 같이 admin 전용으로 둔다. */
+    +((session&&session.role)==='admin'
+      ? '<button onclick="setDashView(\'acemove\')" style="'+btn(state.dashView==='acemove')+'">ACE 이관</button>' : '')
     +'</div><div id="dashBody"></div>';
   const body=$('dashBody');
   if(state.dashView==='mgmt') renderMgmtDash(body);
   else if(state.dashView==='jh') renderJeonhyeongDash(body);
   else if(state.dashView==='ban') renderBanDash(body);
   else if(state.dashView==='class') renderClassOpenDash(body);
+  else if(state.dashView==='acemove' && (session&&session.role)==='admin') renderAceMoveDash(body);
   else renderDashboard(body);
 }
 /* ============================================================================
@@ -815,6 +821,68 @@ function banLvRank(lv){
 }
 function banScope(){ if(session.role!=='admin') return session.branchId; return (state.banBranch && state.banBranch!=='all') ? state.banBranch : (state.banBranch||(db.branches[0]&&db.branches[0].id)); }
 function banSetBranch(v){ state.banBranch=v; render(); }
+
+/* ============================================================================
+   ACE 이관 (체스→에이스) — 본사 대시보드 탭. 점수·자동레벨 칸은 아직 없음
+   (이관테스트 시험지 형식이 아직 안 정해짐 — 정해지면 그때 추가).
+   ============================================================================ */
+function aceMoveSetBranch(v){ state.aceMoveBranch=v; render(); }
+function renderAceMoveDash(c){
+  const semId=state.semId;
+  const brs=branchList();
+  const perBranch = brs.map(b=>({b, mv:aceMoveStats(b.id, semId)}));
+  const total = perBranch.reduce((s,x)=>s+x.mv.total,0);
+  const early = perBranch.reduce((s,x)=>s+x.mv.early,0);
+  const rate = total? Math.round(early/total*1000)/10 : 0;
+
+  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('clip',24)}</span><span class="em">ACE 이관 현황</span></h2><p>${esc(semName(semId))} · 전체 분원 기준</p></div></div>`;
+
+  if(!aceMoveSeasonOn(semId)){
+    h+=`<div class="twrap" style="padding:24px;text-align:center;color:#6b6385;font-size:13.5px">가을·겨울학기에만 집계됩니다. 이관은 가을학기 이관테스트를 거쳐 겨울학기부터 반영되는 절차라, 그 외 학기엔 대상자가 없습니다.</div>`;
+    c.innerHTML=h; return;
+  }
+
+  h+=`<div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+    <div class="kpi"><div class="l"><span class="kdot" style="background:var(--brand)"></span>전체 이관 대상자</div><div class="v num">${fmt(total)}<span class="unit">명</span></div></div>
+    <div class="kpi"><div class="l"><span class="kdot" style="background:var(--warn)"></span>얼리버드</div><div class="v num">${fmt(early)}<span class="unit">명</span></div></div>
+    <div class="kpi"><div class="l"><span class="kdot" style="background:var(--pos)"></span>전체 이관율</div><div class="v num">${rate}<span class="unit">%</span></div></div>
+  </div>`;
+
+  h+=`<div class="twrap"><div class="tw-h"><div class="t">분원별 이관 현황</div></div>
+    <table class="grid"><thead><tr><th>분원</th><th>대상자</th><th>얼리버드</th><th>이관율</th></tr></thead><tbody>`;
+  perBranch.forEach(x=>{
+    h+=`<tr><td>${esc(x.b.name)}</td><td style="text-align:center">${x.mv.total}</td><td style="text-align:center">${x.mv.early}</td><td style="text-align:center">${x.mv.rate}%</td></tr>`;
+  });
+  h+=`<tr style="font-weight:800;background:#faf8fe"><td>합계</td><td style="text-align:center">${total}</td><td style="text-align:center">${early}</td><td style="text-align:center">${rate}%</td></tr>`;
+  h+=`</tbody></table></div>`;
+
+  if(session.role==='admin' && brs.length>1){
+    if(!state.aceMoveBranch) state.aceMoveBranch='all';
+    h+=`<div class="pick" style="margin:14px 0"><span>분원</span><select onchange="aceMoveSetBranch(this.value)">
+      <option value="all" ${state.aceMoveBranch==='all'?'selected':''}>전체</option>
+      ${brs.map(b=>`<option value="${b.id}" ${state.aceMoveBranch===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}
+    </select></div>`;
+  }
+  const showBranch = state.aceMoveBranch && state.aceMoveBranch!=='all' ? state.aceMoveBranch : null;
+  const flatList=[];
+  perBranch.forEach(x=>{ if(!showBranch || showBranch===x.b.id) aceMoveCandidates(x.b.id, semId).forEach(item=>flatList.push({b:x.b, item})); });
+
+  h+=`<div class="twrap"><div class="tw-h"><div class="t">이관 대상자 명단</div><div class="leg"><span style="font-size:12px;color:#6b6385;font-weight:700">${flatList.length}명</span></div></div>
+    <table class="grid"><thead><tr><th>분원</th><th>이름</th><th>담임</th><th>현재 반</th><th>학년</th><th>상태</th></tr></thead><tbody>`;
+  flatList.forEach(({b,item})=>{
+    const r=item.rec, st=getStudent(r.studentId);
+    h+=`<tr><td>${esc(b.name)}</td><td>${esc(st?st.name:'')}</td><td>${esc(r.teacher)}</td>
+      <td><span class="${isChess(r.className)?'ca-chess':'ca-ace'}" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(r.classLabel||r.className)}</span></td>
+      <td>${esc(r.grade||(st?st.grade:''))}</td>
+      <td>${item.early?'<span style="background:#fdf0d9;color:#b8790a;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">얼리버드</span>':'<span style="background:#f1eef8;color:#8b859c;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">대상</span>'}</td>
+    </tr>`;
+  });
+  h+=`</tbody></table></div>
+  <div style="font-size:12px;color:#9a93b0;margin-top:8px">점수(E6·단어·해석)와 자동 레벨 칸은 이관테스트 시험지 형식이 정해지면 추가됩니다. 최종 레벨은 분원이 정하고, 본사는 조회만 합니다.</div>`;
+
+  c.innerHTML=h;
+}
+
 function renderBanDash(c){
   const semId=state.semId;
   const brId=banScope();
@@ -2071,6 +2139,46 @@ function countCA(recs){ let c=0,a=0; recs.forEach(r=>{ isChess(r.className)?c++:
 function getStudent(id){ return (db.students||[]).find(s=>s.id===id); }
 function bName(x){ const b=(db.branches||[]).find(v=>v.id===x||v.name===x); return b?b.name:(x||''); }
 function sName(r){ const s=getStudent(r.studentId); return s?s.name:'?'; }
+
+/* ============================================================================
+   ACE 이관 (체스→에이스) — 본사 대시보드용. 분원 쪽(inwon-app/app.js)에 같은
+   개념의 aceMoveCandidates()가 하나 더 있다 — CHESS/ACE 판정이 원래 세 군데
+   따로 있던 것처럼(CLAUDE.md 참고) 이것도 화면이 서로 다른 앱이라 각자 둔다.
+   로직을 바꿀 땐 양쪽 다 같이 고칠 것.
+   ============================================================================ */
+function prevSemId(semId){
+  const m=String(semId||'').match(/sem_(\d+)_(\w+)/); if(!m) return null;
+  const order=['spring','summer','fall','winter']; let year=+m[1], idx=order.indexOf(m[2]);
+  if(idx<0) return null;
+  idx--; if(idx<0){ idx=3; year--; }
+  return `sem_${year}_${order[idx]}`;
+}
+function aceMoveSeasonOn(semId){ const m=String(semId||'').match(/sem_\d+_(\w+)/); return !!m && (m[1]==='fall'||m[1]==='winter'); }
+function isGradeE5(grade){ return /5/.test(String(grade||'')); }
+/* 이관 대상자 — 초5이면서 체스 트랙(지금 체스거나, 이번 학기 들어 이미 체스→에이스로 넘어간 얼리버드). */
+function aceMoveCandidates(branchId, semId){
+  const recs = recordsOf(branchId, semId).filter(r=>r.status==='active' && isGradeE5(r.grade));
+  const prevId = prevSemId(semId);
+  const prevMap = new Map();
+  if(prevId){
+    db.semesterRecords.filter(r=>r.branchId===branchId && r.semesterId===prevId && (r.kind||'regular')!=='exam')
+      .forEach(r=>prevMap.set(r.studentId, r));
+  }
+  return recs.filter(r=>{
+    if(isChess(r.className)) return true;
+    const prev=prevMap.get(r.studentId);
+    return !!(prev && isChess(prev.className));
+  }).map(r=>{
+    const prev=prevMap.get(r.studentId);
+    const early = !isChess(r.className) && !!(prev && isChess(prev.className));
+    return {rec:r, early, prevClassName: prev?prev.className:null};
+  });
+}
+function aceMoveStats(branchId, semId){
+  const list=aceMoveCandidates(branchId, semId);
+  const early=list.filter(x=>x.early).length, total=list.length;
+  return {total, early, rate: total? Math.round(early/total*1000)/10 : 0};
+}
 
 /* ── 전출입 매칭 현황 (학기를 넘나드는 이동도 회원코드로 짝지어 한 화면에 · 어드민 전용) ── */
 function _xrSemShort(id){ const m=String(id).match(/sem_(\d+)_(\w+)/); if(!m) return String(id); const yy=String(m[1]).slice(2); const s={spring:'봄',summer:'여름',fall:'가을',winter:'겨울'}[m[2]]||m[2]; return yy+s; }

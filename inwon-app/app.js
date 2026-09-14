@@ -1234,6 +1234,59 @@ function headcountClean(branchId, semId){
   };
 }
 
+/* ============================================================================
+   ACE 이관 (체스→에이스) — 2026 가을학기 신설.
+   ----------------------------------------------------------------------------
+   · 원래는 가을학기에 이관테스트를 보고 겨울학기부터 초5(예비초6)가 체스에서
+     에이스로 넘어간다. 2026년만 예외로 여름→가을에 얼리버드 이관이 있었고,
+     그 학생들도 11월 이관테스트를 다시 본다(1차/2차로 안 나눔 — 부장님 확인).
+   · "이관했다"를 따로 저장하지 않는다. 학기마다 반 이름은 이미 저장되어 있으니
+     "직전에 재원했던 학기엔 체스반, 이번 학기는 에이스반"이면 그게 곧 이관이다.
+   · 이관 대상자 = 초5이면서 "체스 트랙"인 학생. 지금 체스반이거나, 이번 학기
+     들어 체스→에이스로 이미 넘어간(얼리버드) 학생 둘 다 포함한다 — 얼리버드도
+     11월에 다시 시험을 보기 때문. 초5인데 레벨이 높아 원래부터 에이스인 학생
+     (예: 서수원 2명)은 체스 기록이 아예 없어서 자동으로 빠진다.
+   · 학년 표기가 분원마다 "초등5"/"초5"/"5학년"로 제각각이라 숫자만 본다
+     (CLAUDE.md 관습과 동일).
+   ============================================================================ */
+const ACE_MOVE_SEASONS = ['fall','winter'];   // 대시보드 박스·메뉴는 가을·겨울학기에만 노출
+function semSeasonOf(semId){ const m=String(semId||'').match(/sem_\d+_(\w+)/); return m?m[1]:''; }
+function semYearOf(semId){ const m=String(semId||'').match(/sem_(\d+)_/); return m?+m[1]:0; }
+function aceMoveSeasonOn(semId){ return ACE_MOVE_SEASONS.includes(semSeasonOf(semId)); }
+function prevSemId(semId){
+  const order=['spring','summer','fall','winter'];
+  const y=semYearOf(semId), idx=order.indexOf(semSeasonOf(semId));
+  if(idx<0) return null;
+  return idx===0 ? `sem_${y-1}_winter` : `sem_${y}_${order[idx-1]}`;
+}
+function isGradeE5(grade){ return /5/.test(String(grade||'')); }
+function aceSemName(semId){ const s=(db.semesters||[]).find(x=>x.id===semId); return s?s.name:semId; }
+/* 이관 대상자 목록 — {rec, early} 배열. early=true면 이번 학기 들어 이미 체스→에이스로 넘어간 얼리버드. */
+function aceMoveCandidates(branchId, semId){
+  const recs = activeRecordsOf(branchId, semId).filter(r=>isGradeE5(r.grade));
+  const prevId = prevSemId(semId);
+  const prevMap = new Map();
+  if(prevId){
+    db.semesterRecords.filter(r=>r.branchId===branchId && r.semesterId===prevId && (r.kind||'regular')!=='exam')
+      .forEach(r=>prevMap.set(r.studentId, r));
+  }
+  return recs.filter(r=>{
+    if(isChess(r.className)) return true;
+    const prev = prevMap.get(r.studentId);
+    return !!(prev && isChess(prev.className));
+  }).map(r=>{
+    const prev = prevMap.get(r.studentId);
+    const early = !isChess(r.className) && !!(prev && isChess(prev.className));
+    return {rec:r, early, prevClassName: prev?prev.className:null, prevClassLabel: prev?prev.classLabel:null};
+  });
+}
+function aceMoveStats(branchId, semId){
+  const list = aceMoveCandidates(branchId, semId);
+  const early = list.filter(x=>x.early).length;
+  const total = list.length;
+  return {total, early, rate: total? Math.round(early/total*1000)/10 : 0};
+}
+
 /* 담임별 집계 */
 function teachersOf(branchId, semId){
   const recs = activeRecordsOf(branchId, semId);
@@ -1637,6 +1690,7 @@ function buildShell(){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
       <div class="sb-item" data-nav="myclasses">${I.dash}<span>내 반 현황</span></div>
+      ${aceMoveSeasonOn(state.semId)?`<div class="sb-item" data-nav="acemove">${I.roster}<span>ACE 이관생</span></div>`:''}
       <div class="sb-item" data-nav="segments">${I.seg}<span>세그먼트</span></div>
       ${canRetest()?`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`:''}
       <div class="sb-item" onclick="openMyGrading()">${I.closing}<span>시험채점</span></div>
@@ -1656,6 +1710,7 @@ function buildShell(){
       <div class="sb-sect">현황</div>`;
       if(P.roster)  nv+=`<div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>`;
       if(P.closing) nv+=`<div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
+      if(P.closing && aceMoveSeasonOn(state.semId)) nv+=`<div class="sb-item" data-nav="acemove">${I.roster}<span>ACE 이관생</span></div>`;
     }
     if(P.students) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
     if(canRetest() && (P.retest||P.retestUp)){
@@ -1713,6 +1768,7 @@ if(session.role==='teacher'){
       || (root==='myaccount')
       || (root==='passrate')
       || (root==='retest')
+      || (root==='acemove')
       || (root==='branch' && (parts[1]==='teacher' || parts[1]==='class'));
     if(!allowed){ go('myclasses'); return; }
   }
@@ -1735,6 +1791,7 @@ if(session.role==='teacher'){
     else if(parts[1]==='class' && parts[2] && parts[3]){ setActiveNav('branch'); renderClassDetail(decodeURIComponent(parts[2]), decodeURIComponent(parts[3])); }
     else { setActiveNav('branch'); renderBranchDashboard(); }
   } else if(root==='ban'){ setActiveNav('ban'); renderBanTable(); }
+  else if(root==='acemove'){ setActiveNav('acemove'); renderAceMove(); }
   else if(root==='data'){ setActiveNav('data'); renderDataManagement(); }
   else if(root==='students'){ setActiveNav('students'); renderStudentManagement(); }
   else if(root==='roster'){
@@ -1780,6 +1837,8 @@ function kpiCard(label, value, opts={}){
       <span class="ca-chess">CHESS ${opts.ca.chess}</span>
       <span class="ca-ace">ACE ${opts.ca.ace}</span>
     </div>`;
+  } else if(opts.badgesHtml){
+    badges = `<div class="kpi-ca">${opts.badgesHtml}</div>`;
   }
   return `<div class="kpi${cls}"><div class="kl">${esc(label)}</div><div class="kv">${v}</div>${badges}</div>`;
 }
@@ -2454,13 +2513,16 @@ function renderBranchDashboard(){
       <h2>${esc(b.name)} Dashboard</h2>
       <div class="sub">${esc(db.semesters.find(s=>s.id===semId).name)} 운영 현황</div>
     </div>
-<div class="kpi-row c6">
+<div class="kpi-row ${aceMoveSeasonOn(semId)?'c7':'c6'}">
       ${kpiCard('학기초 인원', hc.start, {unit:'명', ca:hc.ca.start})}
       ${kpiCard('신규생', hc.newCnt, {unit:'명', ca:hc.ca.newCnt})}
       ${kpiCard('전입', hc.transferIn, {unit:'명', ca:hc.ca.transferIn})}
       ${kpiCard('퇴원생', hc.withdraw, {unit:'명', ca:hc.ca.withdraw})}
       ${kpiCard('전출', hc.transfer, {unit:'명', ca:hc.ca.transfer})}
       ${kpiCard('현 재원생', hc.active, {unit:'명', accent:true, ca:hc.ca.active})}
+      ${aceMoveSeasonOn(semId) ? (()=>{ const mv=aceMoveStats(branchId, semId);
+        return kpiCard('이관 (체스→에이스)', mv.total, {unit:'명',
+          badgesHtml:`<span class="ca-early">얼리버드 ${mv.early}</span><span class="ca-wait">대상 ${mv.total-mv.early}</span>`}); })() : ''}
     </div>
     ${stuSearchPanelHTML()}
     <div class="sect-head"><h3>전체 상담률</h3>
@@ -2477,6 +2539,89 @@ function renderBranchDashboard(){
   el('content').innerHTML = html;
   state.stuSearchBranch = branchId;
   renderStuSearch();
+}
+
+/* ============================================================================
+   11-1. ACE 이관생 — 체스→에이스 이관 대상자 (분원 전체 / 담임은 자기 반만)
+   ----------------------------------------------------------------------------
+   점수(E6·단어·해석)·자동 레벨 칸은 아직 안 넣었다 — 이관테스트 시험지 형식이
+   아직 정해지지 않아서(부장님 확인 예정), 형식 나오면 그때 채점 버튼과 같이 붙인다.
+   ============================================================================ */
+function renderAceMove(){
+  const isTeacherView = session.role==='teacher';
+  const branchId = isTeacherView ? session.branchId : activeBranchId();
+  const b = getBranch(branchId);
+  const semId = state.semId;
+  crumbs(isTeacherView ? [{label:'ACE 이관생'}] : [{label:`${b.name} Dashboard`, go:'branch'},{label:'ACE 이관생'}]);
+
+  if(!aceMoveSeasonOn(semId)){
+    el('content').innerHTML = `<div class="page-head"><h2>ACE 이관생</h2><div class="sub">${esc(aceSemName(semId))}</div></div>`
+      + emptyState('가을·겨울학기에만 보여요', '이관은 가을학기 이관테스트를 거쳐 겨울학기부터 반영되는 절차라, 그 외 학기엔 대상자가 없습니다.');
+    return;
+  }
+
+  let list = aceMoveCandidates(branchId, semId);
+  if(isTeacherView) list = list.filter(x=>x.rec.teacher===session.teacherName);
+  const early = list.filter(x=>x.early).length;
+  const total = list.length;
+  const rate = total? Math.round(early/total*1000)/10 : 0;
+
+  let html = `
+    <div class="page-head">
+      <h2>ACE 이관생</h2>
+      <div class="sub">${isTeacherView?'내 반 · ':esc(b.name)+' · '}초5 · 체스 → 에이스 이관 대상자 · ${esc(aceSemName(semId))}</div>
+    </div>
+    <div class="kpi-row c2">
+      ${kpiCard('이관 대상자', total, {unit:'명'})}
+      ${kpiCard('전체 이관율', rate, {unit:'%'})}
+    </div>`;
+
+  if(list.length===0){
+    html += emptyState('대상자가 없습니다', isTeacherView?'내 반에는 초5 체스 이관 대상 학생이 없습니다.':'이 분원에는 초5 체스 이관 대상 학생이 없습니다.');
+    el('content').innerHTML = html;
+    return;
+  }
+
+  const rows = list.map(x=>{
+    const r = x.rec, st = getStudent(r.studentId);
+    return `<tr>
+      <td>${esc(st?st.name:'')}</td>
+      ${isTeacherView?'':`<td>${esc(r.teacher)}</td>`}
+      <td><span class="${isChess(r.className)?'ca-chess':'ca-ace'}" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(r.classLabel||r.className)}</span></td>
+      <td>${esc(r.grade || (st?st.grade:''))}</td>
+      <td>${x.early?'<span class="ca-early" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">얼리버드</span>':'<span class="ca-wait" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">대상</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  html += `
+    <div class="sect-head"><h3>이관 대상자 명단</h3><span class="cnt">${list.length}명</span></div>
+    <div class="table-wrap"><table class="grid">
+      <thead><tr><th>이름</th>${isTeacherView?'':'<th>담임</th>'}<th>현재 반</th><th>학년</th><th>상태</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div style="font-size:12px;color:var(--ink-3);margin-top:8px">점수(E6·단어·해석)와 자동 레벨 칸은 이관테스트 시험지 형식이 정해지면 채점 버튼과 함께 추가됩니다.</div>`;
+
+  const earlyList = list.filter(x=>x.early);
+  if(earlyList.length){
+    const hrows = earlyList.map(x=>{
+      const r=x.rec, st=getStudent(r.studentId);
+      return `<tr>
+        <td>${esc(st?st.name:'')}</td>
+        <td><span class="ca-chess" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(x.prevClassLabel||x.prevClassName||'')}</span></td>
+        <td><span class="ca-ace" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(r.classLabel||r.className)}</span></td>
+        ${isTeacherView?'':`<td>${esc(r.teacher)}</td>`}
+      </tr>`;
+    }).join('');
+    html += `
+      <div class="sect-head" style="margin-top:22px"><h3>이관 이력</h3><span class="cnt">직전 학기 대비 반이 체스→에이스로 바뀐 학생 · ${earlyList.length}명</span></div>
+      <div class="table-wrap"><table class="grid">
+        <thead><tr><th>이름</th><th>이전 반</th><th>현재 반</th>${isTeacherView?'':'<th>담임</th>'}</tr></thead>
+        <tbody>${hrows}</tbody>
+      </table></div>`;
+    el('content').innerHTML = html;
+  } else {
+    el('content').innerHTML = html;
+  }
 }
 
 /* ============================================================================
