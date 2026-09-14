@@ -2557,6 +2557,15 @@ function renderBranchDashboard(){
    점수(E6·단어·해석)·자동 레벨 칸은 아직 안 넣었다 — 이관테스트 시험지 형식이
    아직 정해지지 않아서(부장님 확인 예정), 형식 나오면 그때 채점 버튼과 같이 붙인다.
    ============================================================================ */
+function aceMoveSetPage(n){ state.aceMovePage=n; render(); }
+const ACE_MOVE_PER=15;
+function aceMovePager(pg, pgN, total){
+  if(total<=ACE_MOVE_PER) return `<div style="padding:10px 4px;font-size:12px;color:var(--ink-3)">전체 ${total}명</div>`;
+  const btn=(n,lab,dis)=>`<button ${dis?'disabled':''} onclick="aceMoveSetPage(${n})" style="border:1px solid var(--line);background:${n===pg?'var(--brand)':'var(--surface)'};color:${n===pg?'#fff':'var(--ink-2)'};font:inherit;font-weight:700;font-size:12.5px;padding:5px 11px;border-radius:8px;cursor:${dis?'default':'pointer'};opacity:${dis?.4:1}">${lab}</button>`;
+  let mid='';
+  for(let i=1;i<=pgN;i++){ if(i===1||i===pgN||Math.abs(i-pg)<=2) mid+=btn(i,i,false); else if(mid.slice(-3)!=='...') mid+='<span style="color:var(--ink-3);padding:0 2px">...</span>'; }
+  return `<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:14px 4px;flex-wrap:wrap">${btn(pg-1,'← 이전',pg<=1)}${mid}${btn(pg+1,'다음 →',pg>=pgN)}</div>`;
+}
 function renderAceMove(){
   const isTeacherView = session.role==='teacher';
   const branchId = isTeacherView ? session.branchId : activeBranchId();
@@ -2592,7 +2601,12 @@ function renderAceMove(){
     return;
   }
 
-  const rows = list.map(x=>{
+  const pgN=Math.max(1, Math.ceil(list.length/ACE_MOVE_PER));
+  const pg=Math.min(Math.max(1, state.aceMovePage||1), pgN);
+  state.aceMovePage=pg;
+  const pageList=list.slice((pg-1)*ACE_MOVE_PER, pg*ACE_MOVE_PER);
+
+  const rows = pageList.map(x=>{
     const r = x.rec, st = getStudent(r.studentId);
     return `<tr>
       <td>${esc(st?st.name:'')}</td>
@@ -2606,9 +2620,9 @@ function renderAceMove(){
   html += `
     <div class="sect-head"><h3>이관 대상자 명단</h3><span class="cnt">${list.length}명</span></div>
     <div class="table-wrap"><table class="grid">
-      <thead><tr><th>이름</th>${isTeacherView?'':'<th>담임</th>'}<th>현재 반</th><th>학년</th><th>상태</th></tr></thead>
+      <thead><tr><th style="width:90px">이름</th>${isTeacherView?'':'<th style="width:130px">담임</th>'}<th>현재 반</th><th style="width:80px">학년</th><th style="width:90px">상태</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table></div>
+    </table>${aceMovePager(pg, pgN, list.length)}</div>
     <div style="font-size:12px;color:var(--ink-3);margin-top:8px">점수(E6·단어·해석)와 자동 레벨 칸은 이관테스트 시험지 형식이 정해지면 채점 버튼과 함께 추가됩니다.</div>`;
 
   const earlyList = list.filter(x=>x.early);

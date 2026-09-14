@@ -826,7 +826,16 @@ function banSetBranch(v){ state.banBranch=v; render(); }
    ACE 이관 (체스→에이스) — 본사 대시보드 탭. 점수·자동레벨 칸은 아직 없음
    (이관테스트 시험지 형식이 아직 안 정해짐 — 정해지면 그때 추가).
    ============================================================================ */
-function aceMoveSetBranch(v){ state.aceMoveBranch=v; render(); }
+function aceMoveSetBranch(v){ state.aceMoveBranch=v; state.aceMovePage=1; render(); }
+function aceMoveSetPage(n){ state.aceMovePage=n; render(); }
+const ACE_MOVE_PER=15;
+function aceMovePager(pg, pgN, total){
+  if(total<=ACE_MOVE_PER) return `<div style="padding:12px 18px;font-size:12px;color:#9a93b0">전체 ${total}명</div>`;
+  const btn=(n,lab,dis)=>`<button ${dis?'disabled':''} onclick="aceMoveSetPage(${n})" style="border:1px solid #e2dcf2;background:${n===pg?'#8b6ee8':'#fff'};color:${n===pg?'#fff':'#6b6385'};font:inherit;font-weight:700;font-size:12.5px;padding:5px 11px;border-radius:8px;cursor:${dis?'default':'pointer'};opacity:${dis?.4:1}">${lab}</button>`;
+  let mid='';
+  for(let i=1;i<=pgN;i++){ if(i===1||i===pgN||Math.abs(i-pg)<=2) mid+=btn(i,i,false); else if(mid.slice(-3)!=='...') mid+='<span style="color:#c4bdd9;padding:0 2px">...</span>'; }
+  return `<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:14px 18px;flex-wrap:wrap">${btn(pg-1,'← 이전',pg<=1)}${mid}${btn(pg+1,'다음 →',pg>=pgN)}</div>`;
+}
 function renderAceMoveDash(c){
   const semId=state.semId;
   const brs=branchList();
@@ -867,9 +876,14 @@ function renderAceMoveDash(c){
   const flatList=[];
   perBranch.forEach(x=>{ if(!showBranch || showBranch===x.b.id) aceMoveCandidates(x.b.id, semId).forEach(item=>flatList.push({b:x.b, item})); });
 
+  const pgN=Math.max(1, Math.ceil(flatList.length/ACE_MOVE_PER));
+  const pg=Math.min(Math.max(1, state.aceMovePage||1), pgN);
+  state.aceMovePage=pg;
+  const pageList=flatList.slice((pg-1)*ACE_MOVE_PER, pg*ACE_MOVE_PER);
+
   h+=`<div class="twrap"><div class="tw-h"><div class="t">이관 대상자 명단</div><div class="leg"><span style="font-size:12px;color:#6b6385;font-weight:700">${flatList.length}명</span></div></div>
-    <table class="grid"><thead><tr><th>분원</th><th>이름</th><th>담임</th><th>현재 반</th><th>학년</th><th>상태</th></tr></thead><tbody>`;
-  flatList.forEach(({b,item})=>{
+    <table class="grid"><thead><tr><th style="width:100px">분원</th><th style="width:90px">이름</th><th style="width:130px">담임</th><th>현재 반</th><th style="width:80px">학년</th><th style="width:90px">상태</th></tr></thead><tbody>`;
+  pageList.forEach(({b,item})=>{
     const r=item.rec, st=getStudent(r.studentId);
     h+=`<tr><td>${esc(b.name)}</td><td>${esc(st?st.name:'')}</td><td>${esc(r.teacher)}</td>
       <td><span class="${isChess(r.className)?'ca-chess':'ca-ace'}" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(r.classLabel||r.className)}</span></td>
@@ -877,7 +891,7 @@ function renderAceMoveDash(c){
       <td>${item.early?'<span style="background:#fdf0d9;color:#b8790a;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">얼리버드</span>':'<span style="background:#f1eef8;color:#8b859c;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">대상</span>'}</td>
     </tr>`;
   });
-  h+=`</tbody></table></div>
+  h+=`</tbody></table>${aceMovePager(pg, pgN, flatList.length)}</div>
   <div style="font-size:12px;color:#9a93b0;margin-top:8px">점수(E6·단어·해석)와 자동 레벨 칸은 이관테스트 시험지 형식이 정해지면 추가됩니다. 최종 레벨은 분원이 정하고, 본사는 조회만 합니다.</div>`;
 
   c.innerHTML=h;
