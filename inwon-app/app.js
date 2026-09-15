@@ -4891,7 +4891,7 @@ function semDefaultDate(semId){
   return `${y}-${String(mo).padStart(2,'0')}-01`;
 }
 // AD열 퇴원일 파싱 — Date객체/문자열/엑셀날짜 처리
-function parseWithdrawDate(v){
+function parseWithdrawDate(v, yearHint){
   if(!v) return '';
   if(v instanceof Date && !isNaN(v)) return `${v.getUTCFullYear()}-${String(v.getUTCMonth()+1).padStart(2,'0')}-${String(v.getUTCDate()).padStart(2,'0')}`;
   const s=String(v).trim().replace(/\s+/g,'');
@@ -4899,6 +4899,11 @@ function parseWithdrawDate(v){
   if(dm) return `${dm[1]}-${dm[2].padStart(2,'0')}-${dm[3].padStart(2,'0')}`;
   dm=s.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})$/);        // M/D/YY(YY)
   if(dm){ let y=dm[3]; if(y.length===2) y='20'+y; return `${y}-${dm[1].padStart(2,'0')}-${dm[2].padStart(2,'0')}`; }
+  /* 연도 없이 "7/31"처럼만 적는 분원이 많다. 예전엔 이걸 못 읽으면 오늘 날짜로
+     조용히 채웠는데, 그래서 2026 여름학기에 업로드한 날(8/3)이 7월말 퇴원생
+     퇴원일로 우르르 찍히는 일이 있었다. 지금 처리 중인 학기 연도를 붙여서 읽는다. */
+  dm=s.match(/^(\d{1,2})[.\-/](\d{1,2})$/);                       // M/D (연도 없음)
+  if(dm && yearHint) return `${yearHint}-${dm[1].padStart(2,'0')}-${dm[2].padStart(2,'0')}`;
   return '';
 }
 // "5월말일퇴원"→2026-05-31, "3월중도퇴원"→2026-03-15. 월 못 찾으면 학기기준일.
@@ -5214,8 +5219,9 @@ function importWithdrawals(file, branchId, semId){
     if(!idx){ toast('이름 또는 회원코드 열을 찾지 못했습니다','err'); return; }
 
     const recs = recordsOf(branchId, semId);
+    const yearHint = (String(semId||'').match(/sem_(\d+)_/)||[])[1] || null;
     let done=0, updated=0, notfound=0, ambiguous=0;
-    const notFoundList=[], ambiguousList=[], reasonOddList=[];
+    const notFoundList=[], ambiguousList=[], reasonOddList=[], dateOddList=[];
 
     rows.slice(1).forEach(r=>{
       const name = idx.name>=0 ? String(r[idx.name]||'').trim() : '';
@@ -5247,11 +5253,16 @@ function importWithdrawals(file, branchId, semId){
       const transRaw = idx.transfer>=0 ? String(r[idx.transfer]||'').trim() : '';
       const toBranch = transRaw ? branchIdFromNote(transRaw) : null;
       const isTransfer = !!toBranch;
-      const wdDate = parseWithdrawDate(idx.date>=0 ? r[idx.date] : '') || today();
+      const wdDate = parseWithdrawDate(idx.date>=0 ? r[idx.date] : '', yearHint);
+      /* 날짜를 못 읽었다고 오늘 날짜(업로드한 날)로 채우면 안 된다 — 2026 여름학기에
+         "7/31"처럼 연도 없이 적은 걸 못 읽어서 업로드한 날(8/3)이 퇴원일로 우르르
+         찍힌 적이 있다. 못 읽으면 비워 두고 결과창에 이름을 보여준다(사유 못 알아본
+         경우와 같은 방식). 퇴원 처리 자체는 그대로 되고, 날짜만 나중에 사람이 채운다. */
+      if(!wdDate) dateOddList.push((name||code) + (idx.date>=0 && r[idx.date] ? ` → "${String(r[idx.date])}"` : ' (퇴원일 열 없음/빈칸)'));
       const memo = idx.memo>=0 ? String(r[idx.memo]||'').trim() : '';
 
       rec.status='withdraw';
-      rec.withdrawDate=wdDate;
+      if(wdDate) rec.withdrawDate=wdDate;
       rec.transfer=isTransfer;
       rec.transferTo=toBranch||null;
       rec.withdrawReason = isTransfer ? null : reasonCode;
@@ -5261,8 +5272,8 @@ function importWithdrawals(file, branchId, semId){
       const mvMemo = (isTransfer?`[전출→${toName}] `:`[${rLabel}] `)+(memo||'퇴원 처리');
       // 이미 있던 퇴원 이력이면 새로 쌓지 말고 날짜·메모만 갱신(정정), 없으면 새로 추가
       const mvOld = db.studentMovements.find(m=> m.studentId===rec.studentId && m.branchId===rec.branchId && m.semesterId===rec.semesterId && m.type==='withdraw');
-      if(mvOld){ mvOld.date=wdDate; mvOld.memo=mvMemo; }
-      else db.studentMovements.push({id:uid('mv'),studentId:rec.studentId,branchId:rec.branchId,semesterId:rec.semesterId,type:'withdraw',date:wdDate,memo:mvMemo});
+      if(mvOld){ if(wdDate) mvOld.date=wdDate; mvOld.memo=mvMemo; }
+      else if(wdDate) db.studentMovements.push({id:uid('mv'),studentId:rec.studentId,branchId:rec.branchId,semesterId:rec.semesterId,type:'withdraw',date:wdDate,memo:mvMemo});
       if(wasWithdraw) updated++; else done++;
     });
 
@@ -5277,7 +5288,7 @@ function importWithdrawals(file, branchId, semId){
       toast(msg,'ok');
       /* 문제가 있으면 화면에 띄운다. 예전엔 콘솔에만 찍어서 운영자는 볼 수 없었고,
          '올렸는데 갱신이 안 된 것 같다'는 말이 여기서 나왔다. */
-      showWithdrawReport({done, updated, notFoundList, ambiguousList, reasonOddList,
+      showWithdrawReport({done, updated, notFoundList, ambiguousList, reasonOddList, dateOddList,
                           hasReasonCol: idx.reason>=0, file:file.name});
     } else {
       toast('❌ 저장 실패 — 다시 시도해 주세요','err');
@@ -5297,7 +5308,7 @@ function showWithdrawReport(r){
         ${list.map(x=>esc(x)).join('<br>')}
       </div>
     </div>` : '';
-  const problems = r.notFoundList.length + r.ambiguousList.length + r.reasonOddList.length;
+  const problems = r.notFoundList.length + r.ambiguousList.length + r.reasonOddList.length + r.dateOddList.length;
   const noReasonCol = !r.hasReasonCol;
   if(!problems && !noReasonCol) return;          // 다 잘 됐으면 조용히 넘어간다
 
@@ -5319,6 +5330,8 @@ function showWithdrawReport(r){
             '엑셀에 <b>회원코드</b>를 넣어 다시 올려주세요.')}
       ${box('사유를 못 알아봐서 비워 둠','var(--warn)', r.reasonOddList,
             '아래 말들이 사유 목록에 없습니다. '+WITHDRAW_REASONS.map(w=>w.label).join(' · ')+' 중에서 골라 적어주세요. (사유는 이 10개로 고정입니다)')}
+      ${box('퇴원일을 못 읽어서 비워 둠','var(--warn)', r.dateOddList,
+            '퇴원 처리는 됐지만 <b>퇴원일이 비어있습니다.</b> "7/31"처럼 연도 없이 적으면 보통은 읽히는데, 그래도 안 읽히면 명단에서 직접 날짜를 입력해주세요.')}
     </div>
     <div class="modal-foot"><button class="btn primary" onclick="closeModal()">확인</button></div>`);
 }
