@@ -616,6 +616,21 @@ tbody tr:hover{background:rgba(139,110,232,.05)!important;}
       <div class="fg" style="justify-content:flex-end;align-self:flex-end"><button class="btn btn-p" onclick="loadUnpaid()">조회</button></div>
     </div>
   </div>
+  <div class="card" style="margin-top:12px">
+    <div class="retro-strip"></div>
+    <div class="card-title">일괄 날짜 채우기 <span style="font-size:11px;color:var(--muted);font-weight:400">— 이름 여러 명을 콤마(,)나 띄어쓰기로 구분해서 붙여넣으면, 아래 목록에서 그 학생들 날짜 칸에 한 번에 채워집니다</span></div>
+    <div class="fgrid">
+      <div class="fg" style="grid-column:span 2"><label class="fl">학생 이름 (콤마 또는 띄어쓰기로 구분)</label>
+        <textarea id="bulk-date-names" placeholder="예: 김민준, 이서연, 박도훈" style="width:100%;min-height:56px;font-size:12px;padding:6px 8px;border:1px solid var(--border-soft);border-radius:6px;resize:vertical"></textarea>
+      </div>
+      <div class="fg"><label class="fl">납부일자</label>
+        <input type="text" id="bulk-date-value" placeholder="예: 9/16" style="width:100%">
+      </div>
+      <div class="fg" style="justify-content:flex-end;align-self:flex-end">
+        <button class="btn btn-p" onclick="applyBulkDate()">이 학생들 날짜 채우기</button>
+      </div>
+    </div>
+  </div>
   <div class="shead">
     <span class="stitle" id="unpaid-title">납입 내역</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -3156,6 +3171,45 @@ function jumpToStudent(keyword){
   // 3초 후 하이라이트 제거
   setTimeout(function(){if(found) found.style.outline='';},3000);
 }
+
+/* 여러 학생 이름을 콤마/띄어쓰기로 붙여넣으면, 그 학생들의 납부일자 칸에 한 번에 같은 날짜를 채운다.
+   입금액은 학생마다 다를 수 있어서 자동으로 안 채우고, 날짜만 채워서 대기열 등록(엔터)은 직접 하게 둔다.
+   동명이인이면 어느 쪽인지 알 수 없어서 자동으로 안 채우고 노란 테두리로 표시만 해서 직접 확인하게 한다. */
+function applyBulkDate(){
+  var namesRaw=(document.getElementById('bulk-date-names').value||'').trim();
+  var dateVal=(document.getElementById('bulk-date-value').value||'').trim();
+  if(!namesRaw){toast('이름을 입력해주세요',false);return;}
+  if(!dateVal){toast('날짜를 입력해주세요',false);return;}
+  var names=namesRaw.split(/[,\s]+/).map(function(s){return s.trim();}).filter(Boolean);
+  var rows=document.querySelectorAll('#unpaid-list tbody tr');
+  var filled=[],notFound=[],ambiguous=[];
+  document.querySelectorAll('#unpaid-list tbody tr').forEach(function(tr){tr.style.outline='';});
+  names.forEach(function(nm){
+    var kw=nm.toLowerCase();
+    var matches=[];
+    rows.forEach(function(tr){
+      var nameEl=tr.querySelector('td:first-child b');
+      if(nameEl&&nameEl.textContent.toLowerCase().includes(kw)) matches.push(tr);
+    });
+    if(!matches.length){notFound.push(nm);return;}
+    if(matches.length>1){
+      ambiguous.push(nm);
+      matches.forEach(function(tr){tr.style.outline='3px solid var(--warn)';});
+      return;
+    }
+    var tr=matches[0];
+    var dateEl=tr.querySelector('input[id^="paid-date-"]');
+    if(dateEl) dateEl.value=dateVal;
+    tr.style.outline='3px solid var(--accent)';
+    filled.push(nm);
+  });
+  var msg=filled.length+'명 날짜 채움';
+  if(ambiguous.length) msg+=' · 동명이인 '+ambiguous.length+'명(노란 테두리, 직접 확인 필요)';
+  if(notFound.length) msg+=' · 못 찾음 '+notFound.length+'명('+notFound.join(', ')+')';
+  toast(msg, !notFound.length&&!ambiguous.length);
+  setTimeout(function(){document.querySelectorAll('#unpaid-list tbody tr').forEach(function(tr){tr.style.outline='';});},6000);
+}
+
 async function loadUnpaid(){
   var el=document.getElementById('unpaid-list');
   var sem=document.getElementById('unpaid-semester').value;
