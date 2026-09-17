@@ -8939,6 +8939,10 @@ async function awardLoadExamScores(semId){
   }catch(e){ console.error('시험 점수 조회 실패', e); AWARD_SCORE_CACHE[semId]=[]; }
   return AWARD_SCORE_CACHE[semId];
 }
+/* DT·AT 1등은 그 레벨 안에서 무조건 제일 높은 사람이 받는 게 아니라, 95점을 넘긴
+   사람 중에서만 1등을 가린다. 아무도 95점을 못 넘겼으면 그 레벨엔 1등 자체가 없다
+   (예: 80·90·75 뿐이면 90이 제일 높아도 90은 상을 못 받고, 그 레벨은 수상자 없음). */
+const AWARD_MIN_SCORE = 95;
 function computeAwardTopScorers(rows, branchName){
   const scoped = (rows||[]).filter(r=>r.branch===branchName);
   const results = [];   // {testType, level, className, studentCode, studentName, score}
@@ -8975,8 +8979,8 @@ function computeAwardTopScorers(rows, branchName){
       studentCode:code, studentName:d.student_name, score:Math.round((d.score+g.score)*10)/10});
   });
 
-  const byLevel = {};   // testType|레벨 → 그 안의 최고점
-  results.forEach(r=>{
+  const byLevel = {};   // testType|레벨 → 그 안의 최고점 (95점 넘긴 사람 중에서만)
+  results.filter(r=>r.score>=AWARD_MIN_SCORE).forEach(r=>{
     const k = r.testType+'|'+r.level;
     if(!byLevel[k] || r.score > byLevel[k].score) byLevel[k]=r;
   });
