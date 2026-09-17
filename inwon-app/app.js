@@ -6638,16 +6638,18 @@ function renderTeacherAward(){
   const myCodes = new Set(trecs.map(r=>{ const s=getStudent(r.studentId); return s?s.code:null; }));
   const myEntries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId && myCodes.has(e.studentCode));
   const dtatByCode = {}; myScorers.forEach(s=>{ dtatByCode[s.studentCode]=s; });
-  const catOf = code => {
-    if(dtatByCode[code]) return 'dtat';
-    const e = myEntries.find(x=>x.studentCode===code);
-    return e ? e.category : null;
+  /* 한 학생이 여러 개 받을 수 있다 — DT·AT 자동 + MIP처럼. 대표색(배경)은 우선순위 1순위로
+     정하고, 나머지 받은 것들은 이름 옆에 작은 점으로 따로 표시한다(옵션1로 확정). */
+  const CAT_ORDER = ['dtat','mip','best_book','best_speech'];
+  const CAT_TEXT = { mip:'MIP', best_book:'BEST BOOK', best_speech:'BEST SPEECH' };
+  const catsOf = code => {
+    const out = [];
+    if(dtatByCode[code]) out.push('dtat');
+    myEntries.filter(x=>x.studentCode===code).forEach(e=>out.push(e.category));
+    return out;
   };
   const labelOf = code => {
-    if(dtatByCode[code]) return dtatByCode[code].testType+' 1등';
-    const e = myEntries.find(x=>x.studentCode===code);
-    if(!e) return '';
-    return e.category==='mip' ? 'MIP' : e.category==='best_book' ? 'BEST BOOK' : 'BEST SPEECH';
+    return catsOf(code).map(c=>c==='dtat' ? dtatByCode[code].testType+' 1등' : CAT_TEXT[c]).join(', ');
   };
   const tipRows = (list, extra) => list.length
     ? list.map(x=>`<div style="padding:6px 0;border-top:1px solid var(--line-2);font-size:11.5px"><b>${esc(x.studentName||x.name)}</b><div style="color:var(--ink-3);margin-top:1px">${esc(x.level||x.className||'')}${extra?(' · '+extra(x)):''}</div></div>`).join('')
@@ -6688,11 +6690,13 @@ function renderTeacherAward(){
         <tr><th style="text-align:center;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 6px 8px">이름</th><th style="text-align:center;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 6px 8px">학교</th><th style="text-align:center;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 6px 8px">학년</th></tr>
         ${recs.map(r=>{
           const stu = getStudent(r.studentId); if(!stu) return '';
-          const cat = catOf(stu.code);
-          const col = cat ? AWARD_COLOR[cat] : {bg:'transparent', fg:'var(--ink)'};
+          const cats = catsOf(stu.code);
+          const primary = cats[0];
+          const col = primary ? AWARD_COLOR[primary] : {bg:'transparent', fg:'var(--ink)'};
+          const dots = cats.slice(1).map(c=>`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${AWARD_COLOR[c].fg}"></span>`).join('');
           const enc = s=>encodeURIComponent(s||'');
           return `<tr>
-            <td style="text-align:center;padding:7px 6px;border-top:1px solid var(--line-2)"><button title="${esc(labelOf(stu.code))}" style="border:none;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;padding:5px 10px;border-radius:8px;background:${col.bg};color:${col.fg}" onclick="awardOpenPicker('${esc(stu.code)}','${enc(stu.name)}','${enc(className)}')">${esc(stu.name)}</button></td>
+            <td style="text-align:center;padding:7px 6px;border-top:1px solid var(--line-2)"><button title="${esc(labelOf(stu.code))}" style="border:none;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;padding:5px 10px;border-radius:8px;background:${col.bg};color:${col.fg};display:inline-flex;align-items:center;gap:5px" onclick="awardOpenPicker('${esc(stu.code)}','${enc(stu.name)}','${enc(className)}')"><span>${esc(stu.name)}</span>${dots}</button></td>
             <td style="text-align:center;padding:7px 6px;border-top:1px solid var(--line-2);color:var(--ink-2)">${esc(stu.school||'')}</td>
             <td style="text-align:center;padding:7px 6px;border-top:1px solid var(--line-2);color:var(--ink-2)">${esc(r.grade||stu.grade||'')}</td>
           </tr>`;
