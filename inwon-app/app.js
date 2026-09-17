@@ -1720,7 +1720,7 @@ function buildShell(){
       <div class="sb-item" data-nav="ban">${I.roster}<span>반배정표</span></div>
       <div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>
       <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>
-      <div class="sb-item" data-nav="award">${I.roster}<span>시상관리</span></div>`;
+      <div class="sb-item" data-nav="award">${I.teach}<span>시상관리</span></div>`;
 } else if(isTeacher){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
@@ -1729,7 +1729,7 @@ function buildShell(){
       <div class="sb-item" data-nav="segments">${I.seg}<span>세그먼트</span></div>
       ${canRetest()?`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`:''}
       <div class="sb-item" onclick="openMyGrading()">${I.closing}<span>시험채점</span></div>
-      <div class="sb-item" data-nav="award">${I.roster}<span>시상관리</span></div>
+      <div class="sb-item" data-nav="award">${I.teach}<span>시상관리</span></div>
       <div class="sb-item" data-nav="myaccount">${I.acct}<span>계정 관리</span></div>`;
   } else if(session.role==='assistant'){
     nav.innerHTML = `
@@ -1747,7 +1747,7 @@ function buildShell(){
       if(P.roster)  nv+=`<div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>`;
       if(P.closing) nv+=`<div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
       if(P.closing && aceMoveSeasonOn(state.semId)) nv+=`<div class="sb-item" data-nav="acemove">${I.roster}<span>ACE 이관생</span></div>`;
-      nv+=`<div class="sb-item" data-nav="award">${I.roster}<span>시상관리</span></div>`;
+      nv+=`<div class="sb-item" data-nav="award">${I.teach}<span>시상관리</span></div>`;
     }
     if(P.students) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
     if(canRetest() && (P.retest||P.retestUp)){
