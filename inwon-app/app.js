@@ -6856,9 +6856,26 @@ function renderAdminAward(){
   let entries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
   const mipRows = entries.filter(e=>e.category==='mip' && (teacherFilter==='all' || e.teacher===teacherFilter));
 
+  const navItem = (href, label) => `<a href="${href}" style="display:block;padding:10px 12px;border-radius:11px;font-size:13px;font-weight:700;color:var(--ink-2);text-decoration:none;margin-bottom:2px" onmouseover="this.style.background='var(--line-2)'" onmouseout="this.style.background='none'">${esc(label)}</a>`;
+
   let html = `
+  <div style="display:flex;gap:20px;align-items:flex-start">
+    <aside class="card" style="width:210px;flex-shrink:0;padding:0;overflow:hidden;position:sticky;top:24px">
+      <div style="padding:16px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-2)">
+        <div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--brand),#a385f0);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0">JLS</div>
+        <div><div style="font-weight:800;font-size:14px">시상관리</div><div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-top:1px">${esc(branchName)}</div></div>
+      </div>
+      <nav style="padding:10px">
+        ${navItem('#award-dtat','DT·AT 최고득점자')}
+        ${navItem('#award-mip','MIP 제출 현황')}
+        ${navItem('#award-speech','BEST SPEECH')}
+        ${navItem('#award-book','BEST BOOK')}
+      </nav>
+    </aside>
+
+    <div style="flex:1;min-width:0">
     <div class="page-head"><h2>시상관리</h2>
-      <div class="sub">${esc(branchName)} · ${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 담임들이 등록한 것 확인하고, 후보 중 실제 당선자를 투표로 정해요</div></div>
+      <div class="sub">${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 담임들이 등록한 것 확인하고, 후보 중 실제 당선자를 투표로 정해요</div></div>
     ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b> · <b>sql/award_votes.sql</b>을 실행해 주세요.</div>`:''}
 
     <div style="margin-bottom:16px;display:flex;align-items:center;gap:9px">
@@ -6869,7 +6886,7 @@ function renderAdminAward(){
       </select>
     </div>
 
-    <div class="card" style="padding:18px 20px;margin-bottom:16px">
+    <div class="card" id="award-dtat" style="padding:18px 20px;margin-bottom:16px">
       <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">DT·AT 최고득점자 (반별 · 95점 이상 · 재시험 응시자 제외)</h3>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <tr><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">시험</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">반</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">담임</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학생</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">점수</th></tr>
@@ -6878,7 +6895,7 @@ function renderAdminAward(){
       </table>
     </div>
 
-    <div class="card" style="padding:18px 20px;margin-bottom:16px">
+    <div class="card" id="award-mip" style="padding:18px 20px;margin-bottom:16px">
       <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">MIP 제출 현황 <span style="color:var(--ink-3);font-weight:700">(읽기전용)</span></h3>
       ${mipRows.length ? mipRows.map(e=>`<div style="padding:8px 0;border-top:1px solid var(--line-2)">
           <b style="font-size:13px">${esc(e.studentName)}</b> <span style="font-size:11px;color:var(--ink-3);font-weight:700">· ${esc(e.className||'')} · 담임 ${esc(e.teacher||'')}</span>
@@ -6886,8 +6903,10 @@ function renderAdminAward(){
         </div>`).join('') : `<div style="padding:6px 0;color:var(--ink-3);font-size:12px">아직 없음</div>`}
     </div>
 
-    ${awardVoteCard(branchId, semId, 'best_speech', 'BEST SPEECH', '#3e7fc9', entries, teacherFilter)}
-    ${awardVoteCard(branchId, semId, 'best_book', 'BEST BOOK', '#e2557a', entries, teacherFilter)}
+    <div id="award-speech">${awardVoteCard(branchId, semId, 'best_speech', 'BEST SPEECH', '#3e7fc9', entries, teacherFilter)}</div>
+    <div id="award-book">${awardVoteCard(branchId, semId, 'best_book', 'BEST BOOK', '#e2557a', entries, teacherFilter)}</div>
+    </div>
+  </div>
   `;
   el('content').innerHTML = html;
 }
