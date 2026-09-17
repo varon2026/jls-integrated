@@ -233,6 +233,29 @@ function renderInwon(b){
   inwonHookSso();
 
 }
+/* 시상관리 — 인원현황과 똑같이 inwon-app을 iframe으로 띄우되, #/award 로 바로 들어간다.
+   담임은 이 화면(원무 허브)을 안 거치고 로그인하자마자 inwon-app 사이드바로 가서
+   여기 안 온다 — 이건 분원 관리자·본사 관리자용. */
+function renderAward(b){
+  try{
+    if(session) sessionStorage.setItem('jls_session_v1', JSON.stringify({
+      userId:session.userId, username:session.username, role:session.role,
+      branchId:session.branchId, teacherName:session.teacherName||null,
+      canEdit:(typeof curCanEdit==='function'?curCanEdit():true),
+      inwon: inwonSubPerms()
+    }));
+  }catch(e){}
+  const src = inwonSrc()+'#/award';
+  b.innerHTML = `<div class="iw-fs">
+      <div class="iw-fs-bar">
+        <button class="iw-fs-back" onclick="wonmuGo('hub')">‹ 통합 홈</button>
+        <span class="iw-fs-title">시상관리 · 학사관리</span>
+        <a class="iw-fs-open" href="${src.replace('embed=1&','')}" target="_blank" rel="noopener">새 탭으로 열기 ↗</a>
+      </div>
+      <iframe class="iw-fs-frame" id="inwonFrame" src="${src}" title="시상관리 · 학사관리" allow="clipboard-write"></iframe>
+    </div>`;
+  inwonHookSso();
+}
 /* 백업 경로 — iframe이 'ready' 보내면 세션을 postMessage로도 넘겨줌(세션 심기 실패 대비) */
 function inwonHookSso(){
   if(window.__inwonSsoHooked) return;

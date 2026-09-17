@@ -280,6 +280,11 @@ const TABLES = [
     fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,studentCode:r.student_code,itemKey:r.item_key,kind:r.kind,actedOn:r.acted_on,memo:r.memo,teacher:r.teacher,actor:r.actor}) },
     { key:'teacherOverrides', table:'teacher_overrides', toRow:o=>({id:o.id,branch_id:o.branchId,semester_id:o.semesterId,class_label:o.classLabel,gubun:o.gubun,teacher:o.teacher}),
     fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,classLabel:r.class_label,gubun:r.gubun,teacher:r.teacher}) },
+    /* 시상관리 — MIP·BEST BOOK·BEST SPEECH 등록. sql/award_entries.sql 을 아직 안 돌렸어도 앱이 죽지 않게 optional.
+       DT·AT 1등은 이 표에 안 남는다 — exam_scores에서 그때그때 계산해서 보여주는 값이라서다. */
+    { key:'awardEntries', table:'award_entries', optional:true,
+    toRow:e=>({id:e.id,branch_id:e.branchId,semester_id:e.semesterId,student_code:e.studentCode,student_name:e.studentName,class_name:e.className,teacher:e.teacher,category:e.category,reason:e.reason||null,created_by:e.createdBy||null}),
+    fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,studentCode:r.student_code,studentName:r.student_name,className:r.class_name,teacher:r.teacher,category:r.category,reason:r.reason,createdBy:r.created_by}) },
 ];
 
 const MISSING_TABLES = new Set();   // 아직 Supabase에 안 만든 optional 표
@@ -287,7 +292,7 @@ function blankDB(){
   return { users:[], branches:[], semesters:[], students:[],
            semesterRecords:[], counselingHistories:[], studentMovements:[],
            uploadBatches:[], teacherChanges:[], segments:[], mcExemptions:[],
-           counselRejects:[], examClassStages:[] };
+           counselRejects:[], examClassStages:[], awardEntries:[] };
 }
 let db = null;
 
@@ -1714,7 +1719,8 @@ function buildShell(){
       <div class="sb-item" data-nav="admin">${I.dash}<span>통합 대시보드</span></div>
       <div class="sb-item" data-nav="ban">${I.roster}<span>반배정표</span></div>
       <div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>
-      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
+      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>
+      <div class="sb-item" data-nav="award">${I.roster}<span>시상관리</span></div>`;
 } else if(isTeacher){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
@@ -1723,6 +1729,7 @@ function buildShell(){
       <div class="sb-item" data-nav="segments">${I.seg}<span>세그먼트</span></div>
       ${canRetest()?`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`:''}
       <div class="sb-item" onclick="openMyGrading()">${I.closing}<span>시험채점</span></div>
+      <div class="sb-item" data-nav="award">${I.roster}<span>시상관리</span></div>
       <div class="sb-item" data-nav="myaccount">${I.acct}<span>계정 관리</span></div>`;
   } else if(session.role==='assistant'){
     nav.innerHTML = `
@@ -1740,6 +1747,7 @@ function buildShell(){
       if(P.roster)  nv+=`<div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>`;
       if(P.closing) nv+=`<div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
       if(P.closing && aceMoveSeasonOn(state.semId)) nv+=`<div class="sb-item" data-nav="acemove">${I.roster}<span>ACE 이관생</span></div>`;
+      nv+=`<div class="sb-item" data-nav="award">${I.roster}<span>시상관리</span></div>`;
     }
     if(P.students) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
     if(canRetest() && (P.retest||P.retestUp)){
@@ -1798,6 +1806,7 @@ if(session.role==='teacher'){
       || (root==='passrate')
       || (root==='retest')
       || (root==='acemove')
+      || (root==='award')
       || (root==='branch' && (parts[1]==='teacher' || parts[1]==='class'));
     if(!allowed){ go('myclasses'); return; }
   }
@@ -1847,6 +1856,7 @@ else if(root==='segments-edit'){ setActiveNav('segments-edit'); renderSegmentEdi
   else if(root==='retest-up'){ setActiveNav('retest-up'); renderRetestUpload(); }
   else if(root==='myaccount'){ setActiveNav('myaccount'); renderMyAccount(); }
   else if(root==='myclasses'){ setActiveNav('myclasses'); renderTeacherHome(); }
+  else if(root==='award'){ setActiveNav('award'); if(session.role==='teacher') renderTeacherAward(); else renderAdminAward(); }
   else if(root==='myaccount'){ setActiveNav('myaccount'); renderMyAccount(); }
   else if(root==='segments'){ setActiveNav('segments'); renderSegmentView(); }
   else { go(session.role==='admin'?'admin':(session.role==='teacher'?'myclasses':(session.role==='assistant'?'start':'branch'))); return; }
@@ -6583,6 +6593,232 @@ const rates = calcRates(rateRecordsOfTeacher(branchId, semId, teacher), branchId
   html += incompletePanel(rateRecordsOfTeacher(branchId, semId, teacher), branchId, semId, teacher);
   el('content').innerHTML = html;
 }
+
+/* ============================================================================
+   17-3-1. 시상관리 — 담임 (반배정표에서 이름 눌러 MIP·BEST BOOK·BEST SPEECH 등록)
+   DT·AT 최고득점자는 분원+레벨 기준으로 자동 계산해서 보여준다(재시험 응시자 제외).
+   ============================================================================ */
+const AWARD_COLOR = {
+  dtat:  {bg:'var(--brand-soft)', fg:'var(--brand)'},
+  mip:   {bg:'var(--pos-soft)',   fg:'var(--pos)'},
+  best_book:   {bg:'var(--neg-soft)', fg:'var(--neg)'},
+  best_speech: {bg:'#eaf2fc',        fg:'#3e7fc9'},
+};
+function awardStripe(cat){ return cat ? AWARD_COLOR[cat].fg : 'transparent'; }
+function renderTeacherAward(){
+  const branchId = session.branchId;
+  const teacher = session.teacherName;
+  const b = getBranch(branchId);
+  const semId = state.semId;
+  crumbs([{label:'시상관리'}]);
+
+  if(!teacher){
+    el('content').innerHTML = emptyState('담당 담임이 연결되지 않았습니다','분원 관리자에게 계정 설정을 요청하세요.');
+    return;
+  }
+  const trecs = activeRecordsOf(branchId, semId).filter(r=>r.teacher===teacher);
+  if(trecs.length===0){
+    el('content').innerHTML = `
+      <div class="page-head"><h2>시상관리</h2><div class="sub">${esc(b?b.name:'')} · ${esc(teacher)} 선생님</div></div>
+      ${emptyState('이번 학기 담당 반이 없습니다','전체명단이 업로드되면 담당 반이 표시됩니다.')}`;
+    return;
+  }
+  if(!AWARD_SCORE_CACHE[semId]){
+    el('content').innerHTML = `<div class="page-head"><h2>시상관리</h2></div><div style="padding:40px;text-align:center;color:var(--ink-3)">불러오는 중…</div>`;
+    awardLoadExamScores(semId).then(()=>{ if(state.semId===semId) render(); });
+    return;
+  }
+
+  const branchName = b?b.name:'';
+  const scorers = computeAwardTopScorers(AWARD_SCORE_CACHE[semId], branchName);
+  const myLevels = new Set(trecs.map(r=>banLevel(r.className)));
+  const myScorers = scorers.filter(s=>myLevels.has(s.level));
+  const myCodes = new Set(trecs.map(r=>{ const s=getStudent(r.studentId); return s?s.code:null; }));
+  const myEntries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId && myCodes.has(e.studentCode));
+  const dtatByCode = {}; myScorers.forEach(s=>{ dtatByCode[s.studentCode]=s; });
+  const catOf = code => {
+    if(dtatByCode[code]) return 'dtat';
+    const e = myEntries.find(x=>x.studentCode===code);
+    return e ? e.category : null;
+  };
+  const labelOf = code => {
+    if(dtatByCode[code]) return dtatByCode[code].testType+' 1등';
+    const e = myEntries.find(x=>x.studentCode===code);
+    if(!e) return '';
+    return e.category==='mip' ? 'MIP' : e.category==='best_book' ? 'BEST BOOK' : 'BEST SPEECH';
+  };
+  const tipRows = (list, extra) => list.length
+    ? list.map(x=>`<div style="padding:6px 0;border-top:1px solid var(--line-2);font-size:11.5px"><b>${esc(x.studentName||x.name)}</b><div style="color:var(--ink-3);margin-top:1px">${esc(x.level||x.className||'')}${extra?(' · '+extra(x)):''}</div></div>`).join('')
+    : `<div style="padding:6px 0;color:var(--ink-3);font-size:11.5px">아직 없음</div>`;
+
+  let html = `
+    <div class="page-head"><h2>시상관리</h2>
+      <div class="sub">${esc(b?b.name:'')} · ${esc(teacher)} 선생님 · ${esc(db.semesters.find(s=>s.id===semId)?.name||'')}</div></div>
+
+    <div class="card" style="padding:18px 20px;overflow:visible;margin-bottom:16px">
+      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:12px">이번 학기 시상 한눈에 보기</h3>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12.5px;font-weight:700;color:var(--ink-2)">
+        <span class="award-tipwrap" style="position:relative"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${AWARD_COLOR.dtat.fg};margin-right:6px"></span>DT·AT 자동 ${myScorers.length}명
+          <div class="award-tip">${tipRows(myScorers, x=>x.score+'점')}</div></span>
+        <span class="award-tipwrap" style="position:relative"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${AWARD_COLOR.mip.fg};margin-right:6px"></span>MIP ${myEntries.filter(e=>e.category==='mip').length}명
+          <div class="award-tip">${tipRows(myEntries.filter(e=>e.category==='mip').map(e=>({studentName:e.studentName,className:e.className})))}</div></span>
+        <span class="award-tipwrap" style="position:relative"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${AWARD_COLOR.best_book.fg};margin-right:6px"></span>BEST BOOK ${myEntries.filter(e=>e.category==='best_book').length}명
+          <div class="award-tip">${tipRows(myEntries.filter(e=>e.category==='best_book').map(e=>({studentName:e.studentName,className:e.className})))}</div></span>
+        <span class="award-tipwrap" style="position:relative"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${AWARD_COLOR.best_speech.fg};margin-right:6px"></span>BEST SPEECH ${myEntries.filter(e=>e.category==='best_speech').length}명
+          <div class="award-tip">${tipRows(myEntries.filter(e=>e.category==='best_speech').map(e=>({studentName:e.studentName,className:e.className})))}</div></span>
+      </div>
+    </div>
+    ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b>을 실행한 뒤 새로고침해 주세요. 그 전까지는 MIP·BEST BOOK·BEST SPEECH 등록이 저장되지 않습니다.</div>`:''}
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">`;
+
+  const byClass = {};
+  trecs.forEach(r=>{ (byClass[r.className]=byClass[r.className]||(byClass[r.className]=[])).push(r); });
+  Object.keys(byClass).forEach(className=>{
+    const recs = byClass[className];
+    const label = recs[0].classLabel || className;
+    html += `<div class="card" style="width:360px;flex:none;padding:0;overflow:hidden">
+      <div style="padding:14px 16px 6px"><h3 style="font-size:14.5px;font-weight:800">${esc(label)}</h3></div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr><th style="text-align:center;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 6px 8px">이름</th><th style="text-align:center;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 6px 8px">학교</th><th style="text-align:center;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 6px 8px">학년</th></tr>
+        ${recs.map(r=>{
+          const stu = getStudent(r.studentId); if(!stu) return '';
+          const cat = catOf(stu.code);
+          const col = cat ? AWARD_COLOR[cat] : {bg:'transparent', fg:'var(--ink)'};
+          const enc = s=>encodeURIComponent(s||'');
+          return `<tr>
+            <td style="text-align:center;padding:7px 6px;border-top:1px solid var(--line-2)"><button title="${esc(labelOf(stu.code))}" style="border:none;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;padding:5px 10px;border-radius:8px;background:${col.bg};color:${col.fg}" onclick="awardOpenPicker('${esc(stu.code)}','${enc(stu.name)}','${enc(className)}')">${esc(stu.name)}</button></td>
+            <td style="text-align:center;padding:7px 6px;border-top:1px solid var(--line-2);color:var(--ink-2)">${esc(stu.school||'')}</td>
+            <td style="text-align:center;padding:7px 6px;border-top:1px solid var(--line-2);color:var(--ink-2)">${esc(r.grade||stu.grade||'')}</td>
+          </tr>`;
+        }).join('')}
+      </table>
+      <div style="padding:9px 16px;border-top:1px solid var(--line-2);text-align:center;color:var(--ink-3);font-size:12px;font-weight:700">${recs.length}명</div>
+    </div>`;
+  });
+
+  html += `</div>
+    <p style="margin-top:14px;font-size:11.5px;color:var(--ink-3)">이름을 누르면 MIP · BEST BOOK · BEST SPEECH 후보로 등록할 수 있어요 — 등록되면 이름에 박스색이 자동으로 입혀져요</p>`;
+  el('content').innerHTML = html;
+}
+
+/* 이름 눌렀을 때 뜨는 선택 팝업 — MIP·BEST BOOK·BEST SPEECH 중 등록/해제 */
+function awardOpenPicker(code, encName, encClass){
+  const name = decodeURIComponent(encName);
+  const semId = state.semId, branchId = session.branchId;
+  const cur = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId && e.studentCode===code);
+  const has = cat => cur.some(e=>e.category===cat);
+  const btn = (cat, label)=>{
+    const on = has(cat);
+    return `<button class="btn${on?' primary':''}" style="width:100%;text-align:left" onclick="${cat==='mip'?`awardGoMip('${code}','${encName}','${encClass}')`:`awardToggle('${code}','${encName}','${encClass}','${cat}')`}">${label}${on?' ✓':''}</button>`;
+  };
+  openModal(`
+    <div class="modal-head"><div><h3>${esc(name)}</h3>
+      <div class="mh-sub">${esc(decodeURIComponent(encClass))} · 시상 후보로 등록/해제</div></div>
+      <button class="modal-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:9px">
+      ${btn('mip','MIP로 등록')}
+      ${btn('best_book','BEST BOOK 후보로 등록')}
+      ${btn('best_speech','BEST SPEECH 후보로 등록')}
+    </div>`);
+}
+async function awardToggle(code, encName, encClass, category){
+  const name = decodeURIComponent(encName), className = decodeURIComponent(encClass);
+  const semId = state.semId, branchId = session.branchId, teacher = session.teacherName;
+  const cur = (db.awardEntries||[]).find(e=>e.branchId===branchId && e.semesterId===semId && e.studentCode===code && e.category===category);
+  let ok;
+  if(cur) ok = await awardRemoveEntry(branchId, semId, code, category);
+  else ok = await awardSaveEntry({ id:uid('awd'), branchId, semesterId:semId, studentCode:code, studentName:name, className, teacher, category, reason:null, createdBy:(session&&session.username)||null });
+  toast(ok?(cur?'해제했습니다':'등록했습니다'):'저장 실패 — 다시 눌러 주세요', ok?'ok':'err');
+  awardOpenPicker(code, encName, encClass);
+  render();
+}
+function awardGoMip(code, encName, encClass){
+  const name = decodeURIComponent(encName), className = decodeURIComponent(encClass);
+  const semId = state.semId, branchId = session.branchId;
+  const cur = (db.awardEntries||[]).find(e=>e.branchId===branchId && e.semesterId===semId && e.studentCode===code && e.category==='mip');
+  openModal(`
+    <div class="modal-head"><div style="display:flex;align-items:center;gap:8px">
+      <button onclick="awardOpenPicker('${code}','${encName}','${encClass}')" style="border:none;background:var(--line-2);color:var(--ink-2);width:26px;height:26px;border-radius:50%;font-weight:800;cursor:pointer">‹</button>
+      <h3>MIP — ${esc(name)}</h3></div>
+      <button class="modal-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--ink-3);margin-bottom:8px">한 학기동안 가장 발전한 점을 적어주세요</p>
+      <textarea id="awardMipInput" rows="4" placeholder="예: 처음엔 숙제를 잘 안 해왔는데 이번 학기부터 매번 다 해오고 발표도 적극적으로 참여했어요" style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:12.5px;resize:none">${esc(cur?cur.reason||'':'')}</textarea>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn primary" style="flex:1" onclick="awardSaveMip('${code}','${encName}','${encClass}')">저장</button>
+        ${cur?`<button class="btn" onclick="awardUnregisterMip('${code}','${encName}','${encClass}')">해제</button>`:''}
+      </div>
+    </div>`);
+}
+async function awardSaveMip(code, encName, encClass){
+  const name = decodeURIComponent(encName), className = decodeURIComponent(encClass);
+  const semId = state.semId, branchId = session.branchId, teacher = session.teacherName;
+  const val = (el('awardMipInput')||{}).value || '';
+  const cur = (db.awardEntries||[]).find(e=>e.branchId===branchId && e.semesterId===semId && e.studentCode===code && e.category==='mip');
+  const ok = await awardSaveEntry({ id:(cur&&cur.id)||uid('awd'), branchId, semesterId:semId, studentCode:code, studentName:name, className, teacher, category:'mip', reason:val, createdBy:(session&&session.username)||(cur&&cur.createdBy)||null });
+  toast(ok?'MIP 등록했습니다':'저장 실패 — 다시 눌러 주세요', ok?'ok':'err');
+  closeModal();
+  render();
+}
+async function awardUnregisterMip(code, encName, encClass){
+  const semId = state.semId, branchId = session.branchId;
+  const ok = await awardRemoveEntry(branchId, semId, code, 'mip');
+  toast(ok?'해제했습니다':'저장 실패 — 다시 눌러 주세요', ok?'ok':'err');
+  closeModal();
+  render();
+}
+
+/* ============================================================================
+   17-3-2. 시상관리 — 분원/본사 관리자 (읽기 전용 현황판)
+   담임들이 등록한 것 + DT·AT 자동 결과를 한눈에 보여준다.
+   분원 관리자 투표·확정, 본사 순위 매기기는 다음 단계에서 추가한다. */
+function renderAdminAward(){
+  const isAdmin = session.role==='admin';
+  const branchId = isAdmin ? (state.viewBranchId || (db.branches[0]&&db.branches[0].id)) : session.branchId;
+  const b = getBranch(branchId);
+  const semId = state.semId;
+  crumbs([{label:'시상관리'}]);
+
+  if(!AWARD_SCORE_CACHE[semId]){
+    el('content').innerHTML = `<div class="page-head"><h2>시상관리</h2></div><div style="padding:40px;text-align:center;color:var(--ink-3)">불러오는 중…</div>`;
+    awardLoadExamScores(semId).then(()=>{ if(state.semId===semId) render(); });
+    return;
+  }
+
+  const branchName = b?b.name:'';
+  const scorers = computeAwardTopScorers(AWARD_SCORE_CACHE[semId], branchName).sort((a,b)=>a.testType===b.testType?a.level.localeCompare(b.level):a.testType.localeCompare(b.testType));
+  const entries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
+  const catRows = cat => entries.filter(e=>e.category===cat);
+
+  let html = `
+    <div class="page-head"><h2>시상관리</h2>
+      <div class="sub">${esc(branchName)} · ${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 담임들이 등록한 것 + DT·AT 자동 결과예요. 투표·최종 확정 기능은 다음 단계에서 추가돼요.</div></div>
+    ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b>을 실행해 주세요.</div>`:''}
+    <div class="card" style="padding:18px 20px;margin-bottom:16px">
+      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">DT·AT 최고득점자 (레벨별 · 재시험 응시자 제외)</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">시험</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">레벨</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학생</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">점수</th></tr>
+        ${scorers.length ? scorers.map(s=>`<tr><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.testType)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.level)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2);font-weight:700">${esc(s.studentName)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${s.score}점</td></tr>`).join('')
+          : `<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--ink-3)">아직 채점된 DT·AT 성적이 없어요</td></tr>`}
+      </table>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      ${['mip','best_book','best_speech'].map(cat=>{
+        const title = cat==='mip'?'MIP':cat==='best_book'?'BEST BOOK':'BEST SPEECH';
+        const rows = catRows(cat);
+        return `<div class="card" style="padding:16px 18px">
+          <h3 style="font-size:14px;font-weight:800;margin-bottom:10px">${title} <span style="color:var(--ink-3);font-weight:700">${rows.length}명</span></h3>
+          ${rows.length ? rows.map(e=>`<div style="padding:8px 0;border-top:1px solid var(--line-2)">
+              <div style="font-weight:800;font-size:13px">${esc(e.studentName)} <span style="color:var(--ink-3);font-weight:700;font-size:11.5px">· ${esc(e.className||'')}</span></div>
+              <div style="font-size:11px;color:var(--ink-3);margin-top:2px">담임 ${esc(e.teacher||'')}</div>
+              ${cat==='mip'&&e.reason?`<div style="font-size:11.5px;color:var(--ink-2);margin-top:4px;line-height:1.5">${esc(e.reason)}</div>`:''}
+            </div>`).join('') : `<div style="padding:8px 0;color:var(--ink-3);font-size:12px">아직 없음</div>`}
+        </div>`;
+      }).join('')}
+    </div>`;
+  el('content').innerHTML = html;
+}
+
 /* ============================================================================
    17-4. 분원 — 세그먼트 공지 입력 (회차별 4섹션)
    ============================================================================ */
@@ -8639,6 +8875,89 @@ async function retestSaveAction(row, remove){
     return true;
   }catch(e){ console.error('조치 저장 실패', e); return false; }
 }
+
+/* ------------------------------------------------------------------------
+   시상관리 — 담임이 반배정표에서 이름 눌러 MIP·BEST BOOK·BEST SPEECH 등록/해제
+   담임 계정은 읽기 전용(saveDB 막힘)이라 이 표도 retest_actions처럼 saveDB를
+   거치지 않고 바로 쓴다. 쓴 뒤엔 db·dbSnapshot을 같이 맞춰야 나중에 다른
+   화면에서 saveDB가 돌 때 되돌리지 않는다. */
+function awardTableMissing(){ return MISSING_TABLES.has('awardEntries'); }
+async function awardSaveEntry(row){
+  if(awardTableMissing()) return false;
+  if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
+  const T = TABLES.find(t=>t.key==='awardEntries');
+  try{
+    const { error } = await sb.from('award_entries').upsert(T.toRow(row), { onConflict:'branch_id,semester_id,student_code,category' });
+    if(error) throw error;
+    const arr = db.awardEntries || (db.awardEntries=[]);
+    const i = arr.findIndex(e=>e.branchId===row.branchId && e.semesterId===row.semesterId && e.studentCode===row.studentCode && e.category===row.category);
+    if(i>=0) arr[i]=row; else arr.push(row);
+    if(dbSnapshot){
+      const s = dbSnapshot.awardEntries || (dbSnapshot.awardEntries=[]);
+      const si = s.findIndex(e=>e.branchId===row.branchId && e.semesterId===row.semesterId && e.studentCode===row.studentCode && e.category===row.category);
+      const copy = JSON.parse(JSON.stringify(row));
+      if(si>=0) s[si]=copy; else s.push(copy);
+    }
+    return true;
+  }catch(e){ console.error('시상 등록 저장 실패', e); return false; }
+}
+async function awardRemoveEntry(branchId, semId, studentCode, category){
+  if(awardTableMissing()) return false;
+  if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
+  try{
+    const { error } = await sb.from('award_entries').delete()
+      .eq('branch_id', branchId).eq('semester_id', semId).eq('student_code', studentCode).eq('category', category);
+    if(error) throw error;
+    db.awardEntries = (db.awardEntries||[]).filter(e=>!(e.branchId===branchId && e.semesterId===semId && e.studentCode===studentCode && e.category===category));
+    if(dbSnapshot){
+      dbSnapshot.awardEntries = (dbSnapshot.awardEntries||[]).filter(e=>!(e.branchId===branchId && e.semesterId===semId && e.studentCode===studentCode && e.category===category));
+    }
+    return true;
+  }catch(e){ console.error('시상 등록 해제 실패', e); return false; }
+}
+
+/* ------------------------------------------------------------------------
+   시상관리 — DT·AT 최고득점자 (분원+레벨별, 재시험 응시자 제외)
+   exam_scores에 grader.html이 채점하면서 계산해 둔 최종 점수(score)가
+   그대로 저장돼 있어서 여기서 다시 채점할 필요는 없다. 재시험 여부만
+   round·prev_scores로 판단한다(2회 이상 봤으면 "재시험 본 사람"이라 후보에서 뺀다).
+   exam_scores.branch 는 분원 아이디가 아니라 분원 이름 문자열로 저장돼 있다
+   (grader.html이 올릴 때부터 그렇게 저장했다 — 여기서도 이름으로 맞춘다). */
+let AWARD_SCORE_CACHE = {};   // semId → exam_scores 행 배열(DT·AT만)
+async function awardLoadExamScores(semId){
+  const semName = (db.semesters.find(s=>s.id===semId)||{}).name || '';
+  if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); AWARD_SCORE_CACHE[semId]=[]; return []; } }
+  try{
+    const { data, error } = await sb.from('exam_scores').select('*')
+      .eq('semester', semName).in('test_type', ['DT','AT']);
+    if(error) throw error;
+    AWARD_SCORE_CACHE[semId] = data||[];
+  }catch(e){ console.error('시험 점수 조회 실패', e); AWARD_SCORE_CACHE[semId]=[]; }
+  return AWARD_SCORE_CACHE[semId];
+}
+function computeAwardTopScorers(rows, branchName){
+  const latest = {};   // student_code|test_type → 그 학생의 최신 회차 행
+  (rows||[]).filter(r=>r.branch===branchName).forEach(r=>{
+    const k = r.student_code+'|'+r.test_type;
+    const prev = latest[k];
+    if(!prev || (+(r.round||1)) > (+(prev.round||1))) latest[k]=r;
+  });
+  const noRetest = Object.values(latest).filter(r=>{
+    const hasRetest = (+(r.round||1))>1 || (Array.isArray(r.prev_scores)&&r.prev_scores.length>0);
+    return !hasRetest && r.score!=null;
+  });
+  const byLevel = {};   // testType|레벨 → 그 안의 최고점 행
+  noRetest.forEach(r=>{
+    const level = banLevel(r.class_name);
+    const k = r.test_type+'|'+level;
+    if(!byLevel[k] || r.score > byLevel[k].score) byLevel[k]=r;
+  });
+  return Object.values(byLevel).map(r=>({
+    testType:r.test_type, level:banLevel(r.class_name), className:r.class_name,
+    studentCode:r.student_code, studentName:r.student_name, score:r.score
+  }));
+}
+
 async function retestAct(code, itemKey, kind){
   const branchId = retestBranchId(), semId = state.semId;
   const act = RETEST_ACTS.find(a=>a.k===kind);

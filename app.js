@@ -260,8 +260,8 @@ function savePerms(p){ localStorage.setItem(PKEY,JSON.stringify(p)); }
 // 특정 역할의 모듈 레벨 (개별 저장 없으면 프리셋)
 function permOf(role){ const saved=loadPerms(); return saved[role] || ROLE_PRESET[role] || ROLE_PRESET.teacher; }
 /* ===== 계정별 메뉴 권한 (users.is_manager / users.menus) ===== */
-const ALL_MENUS=['dashboard','leveltest','inwon','grading','chongmu','insa','unyoung'];
-const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황','inwon.roster':'신규·퇴원명단','inwon.closing':'인원마감표','inwon.students':'학생관리','inwon.segments':'세그먼트공지','inwon.accounts':'계정관리','inwon.data':'데이터관리','inwon.retest':'미통과 관리','inwon.retestup':'성적 올리기',grading:'시험채점',chongmu:'교재관리',insa:'인사',unyoung:'운영비'};
+const ALL_MENUS=['dashboard','leveltest','inwon','grading','award','chongmu','insa','unyoung'];
+const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황','inwon.roster':'신규·퇴원명단','inwon.closing':'인원마감표','inwon.students':'학생관리','inwon.segments':'세그먼트공지','inwon.accounts':'계정관리','inwon.data':'데이터관리','inwon.retest':'미통과 관리','inwon.retestup':'성적 올리기',grading:'시험채점',award:'시상관리',chongmu:'교재관리',insa:'인사',unyoung:'운영비'};
 /* ===== 직급(title) & 권한 프리셋 (계정 시스템 v2) ===== */
 // 메뉴 트리(계층): 대시보드 / 원무[레벨테스트·인원현황(6세부)·시험채점] / 총무[교재관리·운영비] / 인사
 // 원무·총무는 k 없는 '묶음'(권한 아님, 접기/펴기만). 실제 권한은 그 밑 항목들.
@@ -281,6 +281,7 @@ const MENU_TREE=[
       {k:'inwon.retestup',label:'성적 올리기'},
     ]},
     {k:'grading',label:'시험채점'},
+    {k:'award',label:'시상관리'},
   ]},
   {label:'총무',sub:[
     {k:'chongmu',label:'교재관리'},
@@ -289,7 +290,7 @@ const MENU_TREE=[
   {k:'insa',label:'인사'},
 ];
 const INWON_SUBS=['inwon.roster','inwon.closing','inwon.students','inwon.segments','inwon.data','inwon.retest','inwon.retestup'];
-const VIEW_ALL=['dashboard','leveltest','inwon',...INWON_SUBS,'grading','chongmu','insa','unyoung'];
+const VIEW_ALL=['dashboard','leveltest','inwon',...INWON_SUBS,'grading','award','chongmu','insa','unyoung'];
 // 직급 목록 (tier: hq본사/branch분원/teacher담임)
 const TITLES=[
   {k:'branch_acct', label:'분원관리자',      tier:'branch',  edit:true,  manage:true},
@@ -312,7 +313,7 @@ const BR_TITLES=['teacher','assistant','daeri','team','junior','gwajang','bm','c
 const TITLE_MAP={}; TITLES.forEach(t=>TITLE_MAP[t.k]=t);
 // 직급 → 기본 메뉴 프리셋 (담임=자기반 인원+시험채점 / 그 외=전체 뷰, 행정직원이 세부 조정)
 function titlePresetMenus(tk){
-  if(tk==='teacher')   return ['inwon','grading'];
+  if(tk==='teacher')   return ['inwon','grading','award'];
   /* 조교는 미통과 관리와 성적 올리기만 — 나머지 명단은 볼 일이 없다 */
   if(tk==='assistant') return ['inwon','inwon.retest','inwon.retestup'];
   return VIEW_ALL.slice();
@@ -331,7 +332,7 @@ function userMenus(){
   // 명시 menus 없으면 기존 역할 프리셋에서 유도(하위호환)
   const p=ROLE_PRESET[session.role]||ROLE_PRESET.teacher; const out=[];
   if((p.dashboard||0)>0) out.push('dashboard');
-  if((p.wonmu||0)>0) out.push('leveltest','inwon','grading');
+  if((p.wonmu||0)>0) out.push('leveltest','inwon','grading','award');
   if((p.chongmu||0)>0) out.push('chongmu');
   if((p.insa||0)>0) out.push('insa');
   if((p.unyoung||0)>0) out.push('unyoung');
@@ -2440,6 +2441,7 @@ function renderWonmuBody(){
   const home='<span class="cl" onclick="wonmuGo(\'hub\')">원무</span>';
   if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
   else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
+  else if(v==='award'){ if(cr) cr.innerHTML=`${home} › <b>시상관리</b>`; renderAward(body); }
   else if(v==='booking'){ if(cr) cr.innerHTML=`${home} › <span class="cl" onclick="wonmuGo('leveltest')">레벨테스트</span> › <b>예약 입력</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'leveltest\')">‹ 레벨테스트로</div><div id="bkInner"></div>'; renderBooking($('bkInner')); }
   else if(v==='exam'){ if(cr) cr.innerHTML='<b>원무</b>'; wonmuState.view='hub'; renderWonmuHub(body); openExam(); }
   else { if(cr) cr.innerHTML='<b>원무</b>'; renderWonmuHub(body); }
@@ -2749,6 +2751,14 @@ function renderWonmuHub(b){
   h+=`<div class="hub-card" onclick="openExam()">
     <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>시험채점 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT · AT · 내신모의고사</span></h3><p>정답키로 반별 즉시 채점 · 분원별 진행률 · 엑셀 다운(큐앱)</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="hc-foot"><span class="l">답안 입력하면 즉시 O/X·점수</span><span class="r"><span class="b">분원별 진행률</span></span></div></div>`;
+  }
+
+  // 시상관리 카드 — DT·AT 자동 1등 · MIP · 베스트북 · 베스트스피치. 담임은 이 카드를 안 보고
+  // inwon-app 사이드바에서 바로 들어간다(로그인하면 원무 허브 자체를 안 거친다).
+  if(hasMenu('award')){
+  h+=`<div class="hub-card" onclick="wonmuGo('award')">
+    <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>시상관리 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT·AT·MIP·BEST BOOK·BEST SPEECH</span></h3><p>레벨별 DT·AT 자동 1등 · 담임이 반배정표에서 바로 후보 선택</p></div><div class="hc-go">들어가기 ›</div></div>
+    <div class="hc-foot"><span class="l">담임이 반배정표에서 바로 선택</span><span class="r"><span class="b">분원 관리자가 확인</span></span></div></div>`;
   }
 
   h+=`</div>`;

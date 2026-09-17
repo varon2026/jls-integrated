@@ -431,6 +431,12 @@ table.rank-table tbody tr:last-child td{border-bottom:none}
 .modal-body{padding:18px 22px}
 .modal-foot{padding:14px 22px 20px;display:flex;gap:10px;justify-content:flex-end}
 
+/* 시상관리 — "한눈에 보기" 항목에 마우스 올리면 뜨는 학생 목록 팝오버 */
+.award-tip{position:absolute;left:0;top:135%;background:#fff;border-radius:14px;padding:12px 14px;
+  min-width:190px;max-width:240px;box-shadow:0 14px 34px rgba(80,60,120,.18);
+  opacity:0;visibility:hidden;transition:.12s;z-index:30;text-align:left}
+.award-tipwrap:hover .award-tip{opacity:1;visibility:visible}
+
 /* 상담 내용 팝업 */
 .cs-record{padding:14px;background:var(--surface-2);border:1px solid var(--line-2);
   border-radius:var(--radius-sm);margin-bottom:10px}
