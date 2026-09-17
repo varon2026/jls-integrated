@@ -1627,10 +1627,10 @@ function enterApp(){
     // 로그인 계정이 갈 수 없는 경로면 홈으로 강제
     const root = location.hash.replace(/^#\//,'').split('/')[0];
     const allowedRoots = {
-      admin:['admin','roster','closing','passrate-hub','accounts'],
-      teacher:['myclasses','segments','myaccount','branch','passrate','retest'],
+      admin:['admin','roster','closing','passrate-hub','accounts','award'],
+      teacher:['myclasses','segments','myaccount','branch','passrate','retest','award'],
       assistant:['start','retest','retest-up'],
-      branch:['branch','roster','closing','data','students','start','passrate','segments-edit','teachers','retest','retest-up']
+      branch:['branch','roster','closing','data','students','start','passrate','segments-edit','teachers','retest','retest-up','award']
     }[session.role]||[];
    if(!allowedRoots.includes(root)) location.hash = home;
     else render();
