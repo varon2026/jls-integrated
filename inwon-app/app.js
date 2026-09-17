@@ -285,6 +285,11 @@ const TABLES = [
     { key:'awardEntries', table:'award_entries', optional:true,
     toRow:e=>({id:e.id,branch_id:e.branchId,semester_id:e.semesterId,student_code:e.studentCode,student_name:e.studentName,class_name:e.className,teacher:e.teacher,category:e.category,reason:e.reason||null,created_by:e.createdBy||null}),
     fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,studentCode:r.student_code,studentName:r.student_name,className:r.class_name,teacher:r.teacher,category:r.category,reason:r.reason,createdBy:r.created_by}) },
+    /* 베스트 스피치·베스트북 투표. sql/award_votes.sql 을 아직 안 돌렸어도 앱이 죽지 않게 optional.
+       (투표자, 후보) 한 짝이 한 줄 — 득표수는 후보별로 줄 수를 세면 된다. */
+    { key:'awardVotes', table:'award_votes', optional:true,
+    toRow:v=>({id:v.id,branch_id:v.branchId,semester_id:v.semesterId,category:v.category,candidate_code:v.candidateCode,voter_username:v.voterUsername}),
+    fromRow:r=>({id:r.id,branchId:r.branch_id,semesterId:r.semester_id,category:r.category,candidateCode:r.candidate_code,voterUsername:r.voter_username}) },
 ];
 
 const MISSING_TABLES = new Set();   // 아직 Supabase에 안 만든 optional 표
@@ -292,7 +297,7 @@ function blankDB(){
   return { users:[], branches:[], semesters:[], students:[],
            semesterRecords:[], counselingHistories:[], studentMovements:[],
            uploadBatches:[], teacherChanges:[], segments:[], mcExemptions:[],
-           counselRejects:[], examClassStages:[], awardEntries:[] };
+           counselRejects:[], examClassStages:[], awardEntries:[], awardVotes:[] };
 }
 let db = null;
 
@@ -6708,6 +6713,12 @@ function renderTeacherAward(){
 
   html += `</div>
     <p style="margin-top:14px;font-size:11.5px;color:var(--ink-3)">이름을 누르면 MIP · BEST BOOK · BEST SPEECH 후보로 등록할 수 있어요 — 등록되면 이름에 박스색이 자동으로 입혀져요</p>`;
+
+  /* 베스트북은 담임도 투표권자다(분원관리자 전용인 베스트 스피치와 다름) — 우리 반뿐 아니라
+     분원 전체 후보를 놓고 투표한다. */
+  const branchEntries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
+  html += `<div style="margin-top:16px">${awardVoteCard(branchId, semId, 'best_book', 'BEST BOOK', '#e2557a', branchEntries, 'all')}</div>`;
+
   el('content').innerHTML = html;
 }
 
@@ -6782,6 +6793,41 @@ async function awardUnregisterMip(code, encName, encClass){
    17-3-2. 시상관리 — 분원/본사 관리자 (읽기 전용 현황판)
    담임들이 등록한 것 + DT·AT 자동 결과를 한눈에 보여준다.
    분원 관리자 투표·확정, 본사 순위 매기기는 다음 단계에서 추가한다. */
+function awardSetTeacherFilter(v){ state.awardTeacherFilter = v; render(); }
+async function awardVoteClick(branchId, semId, category, code, alreadyVoted){
+  const ok = alreadyVoted ? await awardRemoveVote(branchId, semId, category, code) : await awardCastVote(branchId, semId, category, code);
+  if(ok) render();
+}
+function awardVoteCard(branchId, semId, category, title, color, entries, teacherFilter){
+  const candidates = entries.filter(e=>e.category===category && (teacherFilter==='all' || e.teacher===teacherFilter));
+  const tally = awardVoteTally(branchId, semId, category);
+  const myUsername = session && session.username;
+  const isBook = category==='best_book';
+  const finalLabel = isBook ? '본사 제출 예정' : '당선';
+  const voterLabel = isBook ? '분원관리자 + 담임 전체' : '분원관리자만';
+  return `<div class="card" style="padding:18px 20px;margin-bottom:16px">
+    <h3 style="font-size:14.5px;font-weight:800;margin-bottom:2px">${esc(title)} 후보 &amp; 투표</h3>
+    <p style="margin:0 0 4px;font-size:11.5px;color:var(--ink-3)">${esc(voterLabel)} 투표 · 1인 최대 2표 · 전원 투표하면 최다득표자(동률 전부)가 자동으로 ${esc(finalLabel)}</p>
+    <p style="margin:0 0 10px;font-size:11px;line-height:1.7">
+      <span style="color:var(--pos);font-weight:700">완료 — ${tally.voted.length?esc(tally.voted.map(v=>v.name).join(', ')):'없음'}</span>
+      <span style="color:var(--ink-3);font-weight:700"> · 미투표 — ${tally.notVoted.length?esc(tally.notVoted.map(v=>v.name).join(', ')):'없음'}</span>
+    </p>
+    ${candidates.length ? candidates.map(e=>{
+      const count = tally.byCandidate[e.studentCode]||0;
+      const isLeader = tally.leaders.includes(e.studentCode);
+      const iVoted = (db.awardVotes||[]).some(v=>v.branchId===branchId && v.semesterId===semId && v.category===category && v.candidateCode===e.studentCode && v.voterUsername===myUsername);
+      const status = isLeader && count>0 ? (tally.allVoted ? finalLabel : '현재 1위') : '';
+      return `<div style="display:flex;align-items:center;gap:12px;padding:9px 4px;border-top:1px solid var(--line-2);${isLeader&&count>0?`background:${color}0d;border-radius:12px;padding:9px 10px`:''}">
+        <div style="flex:1">
+          <b style="font-size:13px">${esc(e.studentName)}</b> <span style="font-size:11px;color:var(--ink-3);font-weight:700">· ${esc(e.className||'')} · 담임 ${esc(e.teacher||'')}</span>
+          ${status?`<div style="font-size:11px;font-weight:800;color:${color}">${esc(status)}</div>`:''}
+        </div>
+        <span style="font-size:11px;font-weight:800;color:${color}">${count}표</span>
+        <button style="border:none;border-radius:9px;padding:6px 13px;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;background:${iVoted?color:'var(--line-2)'};color:${iVoted?'#fff':'var(--ink-2)'}" onclick="awardVoteClick('${branchId}','${semId}','${category}','${esc(e.studentCode)}',${iVoted})">${iVoted?'투표함 ✓':'투표하기'}</button>
+      </div>`;
+    }).join('') : `<div style="padding:8px 4px;color:var(--ink-3);font-size:12px">아직 후보가 없어요</div>`}
+  </div>`;
+}
 function renderAdminAward(){
   const isAdmin = session.role==='admin';
   const branchId = isAdmin ? (state.viewBranchId || (db.branches[0]&&db.branches[0].id)) : session.branchId;
@@ -6796,39 +6842,53 @@ function renderAdminAward(){
   }
 
   const branchName = b?b.name:'';
-  const classLabelOf = cn => (db.semesterRecords.find(r=>r.branchId===branchId && r.semesterId===semId && r.className===cn)||{}).classLabel || cn;
-  const scorers = computeAwardTopScorers(AWARD_SCORE_CACHE[semId], branchName)
-    .map(s=>Object.assign({}, s, {classLabel:classLabelOf(s.className)}))
+  const recOf = cn => db.semesterRecords.find(r=>r.branchId===branchId && r.semesterId===semId && r.className===cn) || {};
+  const classLabelOf = cn => recOf(cn).classLabel || cn;
+  const teacherOf = cn => recOf(cn).teacher || '';
+  const teacherFilter = state.awardTeacherFilter || 'all';
+  const teacherList = Array.from(new Set(activeRecordsOf(branchId, semId).map(r=>r.teacher).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'ko'));
+
+  let scorers = computeAwardTopScorers(AWARD_SCORE_CACHE[semId], branchName)
+    .map(s=>Object.assign({}, s, {classLabel:classLabelOf(s.className), teacher:teacherOf(s.className)}))
     .sort((a,b)=>a.testType===b.testType?a.classLabel.localeCompare(b.classLabel):a.testType.localeCompare(b.testType));
-  const entries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
-  const catRows = cat => entries.filter(e=>e.category===cat);
+  if(teacherFilter!=='all') scorers = scorers.filter(s=>s.teacher===teacherFilter);
+
+  let entries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
+  const mipRows = entries.filter(e=>e.category==='mip' && (teacherFilter==='all' || e.teacher===teacherFilter));
 
   let html = `
     <div class="page-head"><h2>시상관리</h2>
-      <div class="sub">${esc(branchName)} · ${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 담임들이 등록한 것 + DT·AT 자동 결과예요. 투표·최종 확정 기능은 다음 단계에서 추가돼요.</div></div>
-    ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b>을 실행해 주세요.</div>`:''}
+      <div class="sub">${esc(branchName)} · ${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 담임들이 등록한 것 확인하고, 후보 중 실제 당선자를 투표로 정해요</div></div>
+    ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b> · <b>sql/award_votes.sql</b>을 실행해 주세요.</div>`:''}
+
+    <div style="margin-bottom:16px;display:flex;align-items:center;gap:9px">
+      <span style="font-size:12px;font-weight:800;color:var(--ink-3)">담임별로 보기</span>
+      <select onchange="awardSetTeacherFilter(this.value)" style="border:1px solid var(--line);background:#fff;color:var(--ink);font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:11px;font-family:inherit;cursor:pointer">
+        <option value="all"${teacherFilter==='all'?' selected':''}>전체 담임</option>
+        ${teacherList.map(t=>`<option value="${esc(t)}"${teacherFilter===t?' selected':''}>${esc(t)}</option>`).join('')}
+      </select>
+    </div>
+
     <div class="card" style="padding:18px 20px;margin-bottom:16px">
       <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">DT·AT 최고득점자 (반별 · 95점 이상 · 재시험 응시자 제외)</h3>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">시험</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">반</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학생</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">점수</th></tr>
-        ${scorers.length ? scorers.map(s=>`<tr><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.testType)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.classLabel)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2);font-weight:700">${esc(s.studentName)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${s.score}점</td></tr>`).join('')
-          : `<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--ink-3)">아직 채점된 DT·AT 성적이 없어요</td></tr>`}
+        <tr><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">시험</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">반</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">담임</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학생</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">점수</th></tr>
+        ${scorers.length ? scorers.map(s=>`<tr><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.testType)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.classLabel)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.teacher)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2);font-weight:700">${esc(s.studentName)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${s.score}점</td></tr>`).join('')
+          : `<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--ink-3)">아직 채점된 DT·AT 성적이 없어요</td></tr>`}
       </table>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
-      ${['mip','best_book','best_speech'].map(cat=>{
-        const title = cat==='mip'?'MIP':cat==='best_book'?'BEST BOOK':'BEST SPEECH';
-        const rows = catRows(cat);
-        return `<div class="card" style="padding:16px 18px">
-          <h3 style="font-size:14px;font-weight:800;margin-bottom:10px">${title} <span style="color:var(--ink-3);font-weight:700">${rows.length}명</span></h3>
-          ${rows.length ? rows.map(e=>`<div style="padding:8px 0;border-top:1px solid var(--line-2)">
-              <div style="font-weight:800;font-size:13px">${esc(e.studentName)} <span style="color:var(--ink-3);font-weight:700;font-size:11.5px">· ${esc(e.className||'')}</span></div>
-              <div style="font-size:11px;color:var(--ink-3);margin-top:2px">담임 ${esc(e.teacher||'')}</div>
-              ${cat==='mip'&&e.reason?`<div style="font-size:11.5px;color:var(--ink-2);margin-top:4px;line-height:1.5">${esc(e.reason)}</div>`:''}
-            </div>`).join('') : `<div style="padding:8px 0;color:var(--ink-3);font-size:12px">아직 없음</div>`}
-        </div>`;
-      }).join('')}
-    </div>`;
+
+    <div class="card" style="padding:18px 20px;margin-bottom:16px">
+      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">MIP 제출 현황 <span style="color:var(--ink-3);font-weight:700">(읽기전용)</span></h3>
+      ${mipRows.length ? mipRows.map(e=>`<div style="padding:8px 0;border-top:1px solid var(--line-2)">
+          <b style="font-size:13px">${esc(e.studentName)}</b> <span style="font-size:11px;color:var(--ink-3);font-weight:700">· ${esc(e.className||'')} · 담임 ${esc(e.teacher||'')}</span>
+          ${e.reason?`<div style="font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.5">${esc(e.reason)}</div>`:''}
+        </div>`).join('') : `<div style="padding:6px 0;color:var(--ink-3);font-size:12px">아직 없음</div>`}
+    </div>
+
+    ${awardVoteCard(branchId, semId, 'best_speech', 'BEST SPEECH', '#3e7fc9', entries, teacherFilter)}
+    ${awardVoteCard(branchId, semId, 'best_book', 'BEST BOOK', '#e2557a', entries, teacherFilter)}
+  `;
   el('content').innerHTML = html;
 }
 
@@ -8901,6 +8961,7 @@ async function retestSaveAction(row, remove){
    화면에서 saveDB가 돌 때 되돌리지 않는다. */
 function awardTableMissing(){ return MISSING_TABLES.has('awardEntries'); }
 async function awardSaveEntry(row){
+  if(isPastSemester(row.semesterId)){ lockedPastToast(); return false; }
   if(awardTableMissing()) return false;
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
   const T = TABLES.find(t=>t.key==='awardEntries');
@@ -8920,6 +8981,7 @@ async function awardSaveEntry(row){
   }catch(e){ console.error('시상 등록 저장 실패', e); return false; }
 }
 async function awardRemoveEntry(branchId, semId, studentCode, category){
+  if(isPastSemester(semId)){ lockedPastToast(); return false; }
   if(awardTableMissing()) return false;
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
   try{
@@ -8932,6 +8994,63 @@ async function awardRemoveEntry(branchId, semId, studentCode, category){
     }
     return true;
   }catch(e){ console.error('시상 등록 해제 실패', e); return false; }
+}
+
+/* ------------------------------------------------------------------------
+   시상관리 — BEST SPEECH·BEST BOOK 투표
+   베스트 스피치는 분원관리자(role='branch')만, 베스트북은 분원관리자+담임(role='teacher')
+   전부가 투표한다. 1인 최대 2표. 동점이면 전부 인정(최고 득표수와 같은 사람 전부가 1등). */
+function awardDisplayName(u){ return (u&&(u.teacherName||u.username))||''; }
+function awardEligibleVoters(branchId, category){
+  const roles = category==='best_book' ? ['branch','teacher'] : ['branch'];
+  return (db.users||[]).filter(u=>u.branchId===branchId && roles.includes(u.role))
+    .map(u=>({username:u.username, name:awardDisplayName(u)}));
+}
+/* 후보별 득표수 + 누가 투표했는지 + 그 사람이 몇 표 남았는지(최대 2표) */
+function awardVoteTally(branchId, semId, category){
+  const rows = (db.awardVotes||[]).filter(v=>v.branchId===branchId && v.semesterId===semId && v.category===category);
+  const byCandidate = {};
+  rows.forEach(v=>{ byCandidate[v.candidateCode] = (byCandidate[v.candidateCode]||0)+1; });
+  const votedUsernames = new Set(rows.map(v=>v.voterUsername));
+  const eligible = awardEligibleVoters(branchId, category);
+  const voted = eligible.filter(v=>votedUsernames.has(v.username));
+  const notVoted = eligible.filter(v=>!votedUsernames.has(v.username));
+  const maxVotes = Object.values(byCandidate).length ? Math.max(...Object.values(byCandidate)) : 0;
+  const leaders = maxVotes>0 ? Object.keys(byCandidate).filter(code=>byCandidate[code]===maxVotes) : [];
+  return { byCandidate, voted, notVoted, leaders, allVoted: eligible.length>0 && notVoted.length===0 };
+}
+function awardMyVoteCount(branchId, semId, category, username){
+  return (db.awardVotes||[]).filter(v=>v.branchId===branchId && v.semesterId===semId && v.category===category && v.voterUsername===username).length;
+}
+async function awardCastVote(branchId, semId, category, candidateCode){
+  if(isPastSemester(semId)){ lockedPastToast(); return false; }
+  if(awardTableMissing()) return false;
+  const username = session && session.username; if(!username) return false;
+  if(awardMyVoteCount(branchId, semId, category, username)>=2){ toast('이미 2표를 다 쓰셨어요','err'); return false; }
+  if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
+  const row = { id:uid('avt'), branchId, semesterId:semId, category, candidateCode, voterUsername:username };
+  try{
+    const { error } = await sb.from('award_votes').insert({branch_id:row.branchId, semester_id:row.semesterId, category:row.category, candidate_code:row.candidateCode, voter_username:row.voterUsername, id:row.id});
+    if(error) throw error;
+    (db.awardVotes||(db.awardVotes=[])).push(row);
+    if(dbSnapshot) (dbSnapshot.awardVotes||(dbSnapshot.awardVotes=[])).push(JSON.parse(JSON.stringify(row)));
+    return true;
+  }catch(e){ console.error('투표 저장 실패', e); return false; }
+}
+async function awardRemoveVote(branchId, semId, category, candidateCode){
+  if(isPastSemester(semId)){ lockedPastToast(); return false; }
+  if(awardTableMissing()) return false;
+  const username = session && session.username; if(!username) return false;
+  if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
+  try{
+    const { error } = await sb.from('award_votes').delete()
+      .eq('branch_id', branchId).eq('semester_id', semId).eq('category', category)
+      .eq('candidate_code', candidateCode).eq('voter_username', username);
+    if(error) throw error;
+    db.awardVotes = (db.awardVotes||[]).filter(v=>!(v.branchId===branchId && v.semesterId===semId && v.category===category && v.candidateCode===candidateCode && v.voterUsername===username));
+    if(dbSnapshot) dbSnapshot.awardVotes = (dbSnapshot.awardVotes||[]).filter(v=>!(v.branchId===branchId && v.semesterId===semId && v.category===category && v.candidateCode===candidateCode && v.voterUsername===username));
+    return true;
+  }catch(e){ console.error('투표 취소 실패', e); return false; }
 }
 
 /* ------------------------------------------------------------------------
