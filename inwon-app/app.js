@@ -1279,6 +1279,12 @@ function prevSemId(semId){
   if(idx<0) return null;
   return idx===0 ? `sem_${y-1}_winter` : `sem_${y}_${order[idx-1]}`;
 }
+function nextSemId(semId){
+  const order=['spring','summer','fall','winter'];
+  const y=semYearOf(semId), idx=order.indexOf(semSeasonOf(semId));
+  if(idx<0) return null;
+  return idx===3 ? `sem_${y+1}_spring` : `sem_${y}_${order[idx+1]}`;
+}
 function isGradeE5(grade){ return /5/.test(String(grade||'')); }
 function aceSemName(semId){ const s=(db.semesters||[]).find(x=>x.id===semId); return s?s.name:semId; }
 /* 운정1은 에이스(중등)반이 없어서, 초5 체스→에이스로 넘어가는 학생은 반이 아니라
@@ -6856,20 +6862,15 @@ function renderAdminAward(){
   let entries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
   const mipRows = entries.filter(e=>e.category==='mip' && (teacherFilter==='all' || e.teacher===teacherFilter));
 
-  const navItem = (href, label) => `<a href="${href}" style="display:block;padding:10px 12px;border-radius:11px;font-size:13px;font-weight:700;color:var(--ink-2);text-decoration:none;margin-bottom:2px" onmouseover="this.style.background='var(--line-2)'" onmouseout="this.style.background='none'">${esc(label)}</a>`;
-
   let html = `
   <div style="display:flex;gap:20px;align-items:flex-start">
-    <aside class="card" style="width:210px;flex-shrink:0;padding:0;overflow:hidden;position:sticky;top:24px">
-      <div style="padding:16px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-2)">
-        <div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--brand),#a385f0);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0">JLS</div>
-        <div><div style="font-weight:800;font-size:14px">시상관리</div><div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-top:1px">${esc(branchName)}</div></div>
+    <aside class="card" style="width:228px;flex-shrink:0;padding:0;overflow:hidden;position:sticky;top:24px">
+      <div class="sb-brand">
+        <div class="sb-mark">JLS</div>
+        <div><div class="t">시상관리</div><div class="s">${esc(branchName)}</div></div>
       </div>
-      <nav style="padding:10px">
-        ${navItem('#award-dtat','DT·AT 최고득점자')}
-        ${navItem('#award-mip','MIP 제출 현황')}
-        ${navItem('#award-speech','BEST SPEECH')}
-        ${navItem('#award-book','BEST BOOK')}
+      <nav class="sb-nav">
+        <div class="sb-item active">시상관리</div>
       </nav>
     </aside>
 
@@ -9135,12 +9136,16 @@ function computeAwardTopScorers(rows, branchName){
      레벨 전체를 합쳐서 비교하면 안 된다(월수금반 98점이 화목반 100점한테 밀려서
      "PA2 레벨 전체"로는 안 뽑혔는데, 담임 입장에선 자기 반(월수금) 1등이 안 뜨는 것처럼
      보였던 문제 — 실제로는 반이 다른데 같은 레벨이라 하나로 묶여서 생긴 오해였다). */
-  const byClass = {};   // testType|className → 그 반 안의 최고점 (95점 넘긴 사람 중에서만)
+  /* 반 안에서 동점 1등이 여러 명이면 전부 넣는다 — "100점이 세 명이면 셋 다 1등"이라는
+     확정된 규칙. 최고점 하나만 남기고 덮어쓰면 동점자가 사라지는 버그가 있었다. */
+  const byClass = {};   // testType|className → [그 반 최고점자들] (95점 넘긴 사람 중에서만)
   results.filter(r=>r.score>=AWARD_MIN_SCORE).forEach(r=>{
     const k = r.testType+'|'+r.className;
-    if(!byClass[k] || r.score > byClass[k].score) byClass[k]=r;
+    const cur = byClass[k];
+    if(!cur || r.score > cur[0].score) byClass[k]=[r];
+    else if(r.score === cur[0].score) cur.push(r);
   });
-  return Object.values(byClass);
+  return Object.values(byClass).flat();
 }
 
 async function retestAct(code, itemKey, kind){
