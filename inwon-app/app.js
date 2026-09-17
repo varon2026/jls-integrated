@@ -1271,6 +1271,11 @@ function prevSemId(semId){
 }
 function isGradeE5(grade){ return /5/.test(String(grade||'')); }
 function aceSemName(semId){ const s=(db.semesters||[]).find(x=>x.id===semId); return s?s.name:semId; }
+/* 운정1은 에이스(중등)반이 없어서, 초5 체스→에이스로 넘어가는 학생은 반이 아니라
+   분원 자체를 운정2로 옮긴다 — 시스템엔 그냥 '전출'로만 남아서, 같은 분원 안에서
+   전/후학기를 비교하는 아래 로직으로는 이 학생들이 안 잡힌다(운정1 이관 실적 누락).
+   그래서 이 전출-전입 짝만 따로 찾아서 운정1 이관 실적에 얹어준다. */
+const ACE_LINKED_TRANSFER = {br_unjeong1:'br_unjeong2'};
 /* 이관 대상자 목록 — {rec, early} 배열. early=true면 이번 학기 들어 이미 체스→에이스로 넘어간 얼리버드. */
 function aceMoveCandidates(branchId, semId){
   const recs = activeRecordsOf(branchId, semId).filter(r=>isGradeE5(r.grade));
@@ -1280,7 +1285,7 @@ function aceMoveCandidates(branchId, semId){
     db.semesterRecords.filter(r=>r.branchId===branchId && r.semesterId===prevId && (r.kind||'regular')!=='exam')
       .forEach(r=>prevMap.set(r.studentId, r));
   }
-  return recs.filter(r=>{
+  const list = recs.filter(r=>{
     if(isChess(r.className)) return true;
     const prev = prevMap.get(r.studentId);
     return !!(prev && isChess(prev.className));
@@ -1289,6 +1294,20 @@ function aceMoveCandidates(branchId, semId){
     const early = !isChess(r.className) && !!(prev && isChess(prev.className));
     return {rec:r, early, prevClassName: prev?prev.className:null, prevClassLabel: prev?prev.classLabel:null};
   });
+
+  const linkedTo = ACE_LINKED_TRANSFER[branchId];
+  if(linkedTo && prevId){
+    db.semesterRecords.filter(r=>r.branchId===branchId && r.semesterId===prevId && (r.kind||'regular')!=='exam'
+      && r.status==='withdraw' && r.transfer && r.transferTo===linkedTo && isGradeE5(r.grade) && isChess(r.className)
+    ).forEach(prev=>{
+      const cur = db.semesterRecords.find(r=>r.studentId===prev.studentId && r.semesterId===semId
+        && r.branchId===linkedTo && r.status!=='withdraw' && (r.kind||'regular')!=='exam');
+      if(cur && !isChess(cur.className)){
+        list.push({rec:cur, early:true, prevClassName:prev.className, prevClassLabel:prev.classLabel, movedBranch:true});
+      }
+    });
+  }
+  return list;
 }
 function aceMoveStats(branchId, semId){
   const list = aceMoveCandidates(branchId, semId);
