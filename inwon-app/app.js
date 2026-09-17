@@ -8940,26 +8940,47 @@ async function awardLoadExamScores(semId){
   return AWARD_SCORE_CACHE[semId];
 }
 function computeAwardTopScorers(rows, branchName){
-  const latest = {};   // student_code|test_type → 그 학생의 최신 회차 행
-  (rows||[]).filter(r=>r.branch===branchName).forEach(r=>{
-    const k = r.student_code+'|'+r.test_type;
-    const prev = latest[k];
-    if(!prev || (+(r.round||1)) > (+(prev.round||1))) latest[k]=r;
+  const scoped = (rows||[]).filter(r=>r.branch===branchName);
+  const results = [];   // {testType, level, className, studentCode, studentName, score}
+
+  /* DT는 한 행이 곧 총점 — grader.html의 computeRetestDT와 같은 방식 */
+  const dtLatest = {};
+  scoped.filter(r=>r.test_type==='DT').forEach(r=>{
+    const prev = dtLatest[r.student_code];
+    if(!prev || (+(r.round||1)) > (+(prev.round||1))) dtLatest[r.student_code]=r;
   });
-  const noRetest = Object.values(latest).filter(r=>{
+  Object.values(dtLatest).forEach(r=>{
     const hasRetest = (+(r.round||1))>1 || (Array.isArray(r.prev_scores)&&r.prev_scores.length>0);
-    return !hasRetest && r.score!=null;
+    if(hasRetest || r.score==null) return;
+    results.push({testType:'DT', level:banLevel(r.class_name), className:r.class_name,
+      studentCode:r.student_code, studentName:r.student_name, score:r.score});
   });
-  const byLevel = {};   // testType|레벨 → 그 안의 최고점 행
-  noRetest.forEach(r=>{
-    const level = banLevel(r.class_name);
-    const k = r.test_type+'|'+level;
+
+  /* AT는 독해·문법이 별도 행이라 총점 = 두 점수의 합 — grader.html의 computeRetestAT와 같은 방식.
+     한쪽 행의 점수만 보고 비교하면 안 된다(실제로 독해만 채점된 50점이 AT 1등으로 잘못 뽑힌 적이 있었다). */
+  const dBy={}, gBy={};
+  scoped.filter(r=>r.test_type==='AT').forEach(r=>{
+    const map = r.section==='독해' ? dBy : (r.section==='문법' ? gBy : null);
+    if(!map) return;
+    const prev = map[r.student_code];
+    if(!prev || (+(r.round||1)) > (+(prev.round||1))) map[r.student_code]=r;
+  });
+  new Set([...Object.keys(dBy), ...Object.keys(gBy)]).forEach(code=>{
+    const d = dBy[code], g = gBy[code];
+    if(!d || !g) return;   // 독해·문법 둘 다 채점돼야 총점을 낼 수 있다
+    const hasRetest = (+(d.round||1))>1 || (+(g.round||1))>1
+      || (Array.isArray(d.prev_scores)&&d.prev_scores.length>0) || (Array.isArray(g.prev_scores)&&g.prev_scores.length>0);
+    if(hasRetest || d.score==null || g.score==null) return;
+    results.push({testType:'AT', level:banLevel(d.class_name), className:d.class_name,
+      studentCode:code, studentName:d.student_name, score:Math.round((d.score+g.score)*10)/10});
+  });
+
+  const byLevel = {};   // testType|레벨 → 그 안의 최고점
+  results.forEach(r=>{
+    const k = r.testType+'|'+r.level;
     if(!byLevel[k] || r.score > byLevel[k].score) byLevel[k]=r;
   });
-  return Object.values(byLevel).map(r=>({
-    testType:r.test_type, level:banLevel(r.class_name), className:r.class_name,
-    studentCode:r.student_code, studentName:r.student_name, score:r.score
-  }));
+  return Object.values(byLevel);
 }
 
 async function retestAct(code, itemKey, kind){
