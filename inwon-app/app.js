@@ -6800,6 +6800,7 @@ async function awardUnregisterMip(code, encName, encClass){
    담임들이 등록한 것 + DT·AT 자동 결과를 한눈에 보여준다.
    분원 관리자 투표·확정, 본사 순위 매기기는 다음 단계에서 추가한다. */
 function awardSetTeacherFilter(v){ state.awardTeacherFilter = v; render(); }
+function awardSetTestFilter(v){ state.awardTestFilter = v; render(); }
 async function awardVoteClick(branchId, semId, category, code, alreadyVoted){
   const ok = alreadyVoted ? await awardRemoveVote(branchId, semId, category, code) : await awardCastVote(branchId, semId, category, code);
   if(ok) render();
@@ -6818,17 +6819,19 @@ function awardVoteCard(branchId, semId, category, title, color, entries, teacher
       <span style="color:var(--pos);font-weight:700">완료 — ${tally.voted.length?esc(tally.voted.map(v=>v.name).join(', ')):'없음'}</span>
       <span style="color:var(--ink-3);font-weight:700"> · 미투표 — ${tally.notVoted.length?esc(tally.notVoted.map(v=>v.name).join(', ')):'없음'}</span>
     </p>
-    ${candidates.length ? candidates.map(e=>{
+    ${candidates.length ? candidates.map((e,i)=>{
       const count = tally.byCandidate[e.studentCode]||0;
       const isLeader = tally.leaders.includes(e.studentCode);
       const iVoted = (db.awardVotes||[]).some(v=>v.branchId===branchId && v.semesterId===semId && v.category===category && v.candidateCode===e.studentCode && v.voterUsername===myUsername);
       const status = isLeader && count>0 ? (tally.allVoted ? finalLabel : '현재 1위') : '';
-      return `<div style="display:flex;align-items:center;gap:12px;padding:9px 4px;border-top:1px solid var(--line-2);${isLeader&&count>0?`background:${color}0d;border-radius:12px;padding:9px 10px`:''}">
+      return `<div style="display:flex;align-items:flex-start;gap:12px;padding:9px 4px;border-top:1px solid var(--line-2);${isLeader&&count>0?`background:${color}0d;border-radius:12px;padding:9px 10px`:''}">
+        <span style="font-size:11px;color:var(--ink-3);font-weight:700;width:16px;flex-shrink:0;padding-top:2px">${i+1}</span>
         <div style="flex:1">
           <b style="font-size:13px">${esc(e.studentName)}</b> <span style="font-size:11px;color:var(--ink-3);font-weight:700">· ${esc(e.className||'')} · 담임 ${esc(e.teacher||'')}</span>
           ${status?`<div style="font-size:11px;font-weight:800;color:${color}">${esc(status)}</div>`:''}
+          <div>${awardSemChips(branchId, e.studentCode, semId, e.className, e.teacher)}</div>
         </div>
-        <span style="font-size:11px;font-weight:800;color:${color}">${count}표</span>
+        <span style="font-size:11px;font-weight:800;color:${color};flex-shrink:0">${count}표</span>
         <button style="border:none;border-radius:9px;padding:6px 13px;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;background:${iVoted?color:'var(--line-2)'};color:${iVoted?'#fff':'var(--ink-2)'}" onclick="awardVoteClick('${branchId}','${semId}','${category}','${esc(e.studentCode)}',${iVoted})">${iVoted?'투표함 ✓':'투표하기'}</button>
       </div>`;
     }).join('') : `<div style="padding:8px 4px;color:var(--ink-3);font-size:12px">아직 후보가 없어요</div>`}
@@ -6852,12 +6855,14 @@ function renderAdminAward(){
   const classLabelOf = cn => recOf(cn).classLabel || cn;
   const teacherOf = cn => recOf(cn).teacher || '';
   const teacherFilter = state.awardTeacherFilter || 'all';
+  const testFilter = state.awardTestFilter || 'all';
   const teacherList = Array.from(new Set(activeRecordsOf(branchId, semId).map(r=>r.teacher).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'ko'));
 
   let scorers = computeAwardTopScorers(AWARD_SCORE_CACHE[semId], branchName)
     .map(s=>Object.assign({}, s, {classLabel:classLabelOf(s.className), teacher:teacherOf(s.className)}))
     .sort((a,b)=>a.testType===b.testType?a.classLabel.localeCompare(b.classLabel):a.testType.localeCompare(b.testType));
   if(teacherFilter!=='all') scorers = scorers.filter(s=>s.teacher===teacherFilter);
+  if(testFilter!=='all') scorers = scorers.filter(s=>s.testType===testFilter);
 
   let entries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
   const mipRows = entries.filter(e=>e.category==='mip' && (teacherFilter==='all' || e.teacher===teacherFilter));
@@ -6879,28 +6884,39 @@ function renderAdminAward(){
       <div class="sub">${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 담임들이 등록한 것 확인하고, 후보 중 실제 당선자를 투표로 정해요</div></div>
     ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b> · <b>sql/award_votes.sql</b>을 실행해 주세요.</div>`:''}
 
-    <div style="margin-bottom:16px;display:flex;align-items:center;gap:9px">
+    <div style="margin-bottom:16px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
       <span style="font-size:12px;font-weight:800;color:var(--ink-3)">담임별로 보기</span>
       <select onchange="awardSetTeacherFilter(this.value)" style="border:1px solid var(--line);background:#fff;color:var(--ink);font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:11px;font-family:inherit;cursor:pointer">
         <option value="all"${teacherFilter==='all'?' selected':''}>전체 담임</option>
         ${teacherList.map(t=>`<option value="${esc(t)}"${teacherFilter===t?' selected':''}>${esc(t)}</option>`).join('')}
       </select>
+      <span style="width:1px;height:20px;background:var(--line);margin:0 4px"></span>
+      ${['all','DT','AT'].map(v=>`<button onclick="awardSetTestFilter('${v}')" style="border:1.5px solid ${testFilter===v?'var(--brand)':'var(--line)'};background:${testFilter===v?'var(--brand)':'#fff'};color:${testFilter===v?'#fff':'var(--ink-2)'};font-size:12.5px;font-weight:800;padding:6px 14px;border-radius:11px;font-family:inherit;cursor:pointer">${v==='all'?'전체':v}</button>`).join('')}
     </div>
 
     <div class="card" id="award-dtat" style="padding:18px 20px;margin-bottom:16px">
-      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">DT·AT 최고득점자 (반별 · 95점 이상 · 재시험 응시자 제외)</h3>
+      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">DT·AT 최고득점자 (반별 · 95점 이상 · 재시험 응시자 제외 · 동점 전부 포함)</h3>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">시험</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">반</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">담임</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학생</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">점수</th></tr>
-        ${scorers.length ? scorers.map(s=>`<tr><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.testType)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.classLabel)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.teacher)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2);font-weight:700">${esc(s.studentName)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${s.score}점</td></tr>`).join('')
-          : `<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--ink-3)">아직 채점된 DT·AT 성적이 없어요</td></tr>`}
+        <tr><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">번호</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">시험</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">반</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">담임</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학생</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">점수</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학기 정보</th></tr>
+        ${scorers.length ? scorers.map((s,i)=>{
+          const badge = s.testType==='DT'
+            ? `<span style="background:var(--brand-soft);color:var(--brand);font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">DT</span>`
+            : `<span style="background:var(--pos-soft);color:var(--pos);font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">AT</span>`;
+          return `<tr><td style="padding:8px 10px;border-top:1px solid var(--line-2);color:var(--ink-3)">${i+1}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${badge}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.classLabel)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.teacher)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2);font-weight:700">${esc(s.studentName)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${s.score}점</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${awardSemChips(branchId, s.studentCode, semId, s.className, s.teacher)}</td></tr>`;
+        }).join('')
+          : `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--ink-3)">아직 채점된 DT·AT 성적이 없어요</td></tr>`}
       </table>
     </div>
 
     <div class="card" id="award-mip" style="padding:18px 20px;margin-bottom:16px">
       <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">MIP 제출 현황 <span style="color:var(--ink-3);font-weight:700">(읽기전용)</span></h3>
-      ${mipRows.length ? mipRows.map(e=>`<div style="padding:8px 0;border-top:1px solid var(--line-2)">
-          <b style="font-size:13px">${esc(e.studentName)}</b> <span style="font-size:11px;color:var(--ink-3);font-weight:700">· ${esc(e.className||'')} · 담임 ${esc(e.teacher||'')}</span>
-          ${e.reason?`<div style="font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.5">${esc(e.reason)}</div>`:''}
+      ${mipRows.length ? mipRows.map((e,i)=>`<div style="padding:8px 0;border-top:1px solid var(--line-2);display:flex;gap:10px;align-items:flex-start">
+          <span style="font-size:11px;color:var(--ink-3);font-weight:700;padding-top:2px">${i+1}</span>
+          <div style="flex:1">
+            <b style="font-size:13px">${esc(e.studentName)}</b> <span style="font-size:11px;color:var(--ink-3);font-weight:700">· ${esc(e.className||'')} · 담임 ${esc(e.teacher||'')}</span>
+            ${e.reason?`<div style="font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.5">${esc(e.reason)}</div>`:''}
+            <div>${awardSemChips(branchId, e.studentCode, semId, e.className, e.teacher)}</div>
+          </div>
         </div>`).join('') : `<div style="padding:6px 0;color:var(--ink-3);font-size:12px">아직 없음</div>`}
     </div>
 
@@ -9014,6 +9030,31 @@ async function awardRemoveEntry(branchId, semId, studentCode, category){
     }
     return true;
   }catch(e){ console.error('시상 등록 해제 실패', e); return false; }
+}
+
+/* ------------------------------------------------------------------------
+   시상관리 — 다음학기 반/담임/강의실
+   상은 가을학기 기준으로 정해도 실제로 전달은 겨울학기(다음 학기) 시작하고 하니까,
+   명단에 이번학기 소속과 다음학기 소속을 같이 보여줘야 누가 어디로 갖다줄지 안다.
+   다음학기 명단이 아직 안 올라왔으면(반배정표 업로드 전) null — 화면에서 "아직 없음"으로 표시. */
+function nextSemInfoFor(branchId, code, curSemId){
+  const nid = nextSemId(curSemId);
+  if(!nid) return null;
+  const stu = db.students.find(s=>s.code===code);
+  if(!stu) return null;
+  const rec = db.semesterRecords.find(r=>r.branchId===branchId && r.semesterId===nid && r.studentId===stu.id
+    && r.status!=='withdraw' && (r.kind||'regular')!=='exam');
+  if(!rec) return null;
+  return { className:rec.className, classLabel:rec.classLabel||rec.className, teacher:rec.teacher||'', room:banRoom(rec.className) };
+}
+/* 이번학기·다음학기를 색으로 구분한 칩 두 개 — 4개 명단(DT·AT/MIP/BEST SPEECH/BEST BOOK) 전부에서 같이 쓴다. */
+function awardSemChips(branchId, code, semId, curClassLabel, curTeacher){
+  const next = nextSemInfoFor(branchId, code, semId);
+  const curChip = `<span style="display:inline-block;background:#f0ebfe;color:#6b52c9;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:20px;margin:2px 4px 0 0">이번학기 · ${esc(curClassLabel||'')} · ${esc(curTeacher||'')}</span>`;
+  const nextChip = next
+    ? `<span style="display:inline-block;background:#e5f4fb;color:#2f7ca6;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 · ${esc(next.classLabel)} · ${esc(next.teacher)}${next.room?(' · '+esc(next.room)+'실'):''}</span>`
+    : `<span style="display:inline-block;background:#f5f1fb;color:#9a93b0;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 명단 아직 없음</span>`;
+  return curChip+nextChip;
 }
 
 /* ------------------------------------------------------------------------
