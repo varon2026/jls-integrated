@@ -6596,7 +6596,8 @@ const rates = calcRates(rateRecordsOfTeacher(branchId, semId, teacher), branchId
 
 /* ============================================================================
    17-3-1. 시상관리 — 담임 (반배정표에서 이름 눌러 MIP·BEST BOOK·BEST SPEECH 등록)
-   DT·AT 최고득점자는 분원+레벨 기준으로 자동 계산해서 보여준다(재시험 응시자 제외).
+   DT·AT 최고득점자는 반별로 자동 계산해서 보여준다(95점 이상 · 재시험 응시자 제외).
+   같은 레벨(예: PA2)이라도 요일·시간대가 다르면 다른 반이라 따로 1등을 가린다.
    ============================================================================ */
 const AWARD_COLOR = {
   dtat:  {bg:'var(--brand-soft)', fg:'var(--brand)'},
@@ -6631,8 +6632,9 @@ function renderTeacherAward(){
 
   const branchName = b?b.name:'';
   const scorers = computeAwardTopScorers(AWARD_SCORE_CACHE[semId], branchName);
-  const myLevels = new Set(trecs.map(r=>banLevel(r.className)));
-  const myScorers = scorers.filter(s=>myLevels.has(s.level));
+  const myClassNames = new Set(trecs.map(r=>r.className));
+  const classLabelOf = {}; trecs.forEach(r=>{ classLabelOf[r.className]=r.classLabel||r.className; });
+  const myScorers = scorers.filter(s=>myClassNames.has(s.className)).map(s=>Object.assign({}, s, {level:classLabelOf[s.className]||s.level}));
   const myCodes = new Set(trecs.map(r=>{ const s=getStudent(r.studentId); return s?s.code:null; }));
   const myEntries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId && myCodes.has(e.studentCode));
   const dtatByCode = {}; myScorers.forEach(s=>{ dtatByCode[s.studentCode]=s; });
@@ -6790,7 +6792,10 @@ function renderAdminAward(){
   }
 
   const branchName = b?b.name:'';
-  const scorers = computeAwardTopScorers(AWARD_SCORE_CACHE[semId], branchName).sort((a,b)=>a.testType===b.testType?a.level.localeCompare(b.level):a.testType.localeCompare(b.testType));
+  const classLabelOf = cn => (db.semesterRecords.find(r=>r.branchId===branchId && r.semesterId===semId && r.className===cn)||{}).classLabel || cn;
+  const scorers = computeAwardTopScorers(AWARD_SCORE_CACHE[semId], branchName)
+    .map(s=>Object.assign({}, s, {classLabel:classLabelOf(s.className)}))
+    .sort((a,b)=>a.testType===b.testType?a.classLabel.localeCompare(b.classLabel):a.testType.localeCompare(b.testType));
   const entries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
   const catRows = cat => entries.filter(e=>e.category===cat);
 
@@ -6799,10 +6804,10 @@ function renderAdminAward(){
       <div class="sub">${esc(branchName)} · ${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 담임들이 등록한 것 + DT·AT 자동 결과예요. 투표·최종 확정 기능은 다음 단계에서 추가돼요.</div></div>
     ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b>을 실행해 주세요.</div>`:''}
     <div class="card" style="padding:18px 20px;margin-bottom:16px">
-      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">DT·AT 최고득점자 (레벨별 · 재시험 응시자 제외)</h3>
+      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">DT·AT 최고득점자 (반별 · 95점 이상 · 재시험 응시자 제외)</h3>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">시험</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">레벨</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학생</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">점수</th></tr>
-        ${scorers.length ? scorers.map(s=>`<tr><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.testType)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.level)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2);font-weight:700">${esc(s.studentName)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${s.score}점</td></tr>`).join('')
+        <tr><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">시험</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">반</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학생</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">점수</th></tr>
+        ${scorers.length ? scorers.map(s=>`<tr><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.testType)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.classLabel)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2);font-weight:700">${esc(s.studentName)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${s.score}점</td></tr>`).join('')
           : `<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--ink-3)">아직 채점된 DT·AT 성적이 없어요</td></tr>`}
       </table>
     </div>
@@ -8921,7 +8926,7 @@ async function awardRemoveEntry(branchId, semId, studentCode, category){
 }
 
 /* ------------------------------------------------------------------------
-   시상관리 — DT·AT 최고득점자 (분원+레벨별, 재시험 응시자 제외)
+   시상관리 — DT·AT 최고득점자 (반별, 95점 이상, 재시험 응시자 제외)
    exam_scores에 grader.html이 채점하면서 계산해 둔 최종 점수(score)가
    그대로 저장돼 있어서 여기서 다시 채점할 필요는 없다. 재시험 여부만
    round·prev_scores로 판단한다(2회 이상 봤으면 "재시험 본 사람"이라 후보에서 뺀다).
@@ -8979,12 +8984,16 @@ function computeAwardTopScorers(rows, branchName){
       studentCode:code, studentName:d.student_name, score:Math.round((d.score+g.score)*10)/10});
   });
 
-  const byLevel = {};   // testType|레벨 → 그 안의 최고점 (95점 넘긴 사람 중에서만)
+  /* 레벨이 같아도(예: PA2) 요일·시간대가 다르면 다른 반이다 — 반별로 각각 1등을 가린다.
+     레벨 전체를 합쳐서 비교하면 안 된다(월수금반 98점이 화목반 100점한테 밀려서
+     "PA2 레벨 전체"로는 안 뽑혔는데, 담임 입장에선 자기 반(월수금) 1등이 안 뜨는 것처럼
+     보였던 문제 — 실제로는 반이 다른데 같은 레벨이라 하나로 묶여서 생긴 오해였다). */
+  const byClass = {};   // testType|className → 그 반 안의 최고점 (95점 넘긴 사람 중에서만)
   results.filter(r=>r.score>=AWARD_MIN_SCORE).forEach(r=>{
-    const k = r.testType+'|'+r.level;
-    if(!byLevel[k] || r.score > byLevel[k].score) byLevel[k]=r;
+    const k = r.testType+'|'+r.className;
+    if(!byClass[k] || r.score > byClass[k].score) byClass[k]=r;
   });
-  return Object.values(byLevel);
+  return Object.values(byClass);
 }
 
 async function retestAct(code, itemKey, kind){
