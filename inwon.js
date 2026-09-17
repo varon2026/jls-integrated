@@ -245,12 +245,15 @@ function renderAward(b){
       inwon: inwonSubPerms()
     }));
   }catch(e){}
-  const src = inwonSrc()+'#/award';
+  /* &bare=1 — 담임 로그인 때 뜨는 학사관리 사이드바를 여기선 숨긴다. 분원/본사 관리자는
+     원무 탭에서 화면 하나(시상관리)만 빌려 쓰는 것뿐이라, 레벨테스트·시험채점처럼
+     보여야지 학사관리 전체 메뉴가 딸려 나오면 안 된다. */
+  const src = inwonSrc()+'&bare=1#/award';
   b.innerHTML = `<div class="iw-fs">
       <div class="iw-fs-bar">
         <button class="iw-fs-back" onclick="wonmuGo('hub')">‹ 통합 홈</button>
         <span class="iw-fs-title">시상관리 · 학사관리</span>
-        <a class="iw-fs-open" href="${src.replace('embed=1&','')}" target="_blank" rel="noopener">새 탭으로 열기 ↗</a>
+        <a class="iw-fs-open" href="${src.replace('embed=1&','').replace('&bare=1','')}" target="_blank" rel="noopener">새 탭으로 열기 ↗</a>
       </div>
       <iframe class="iw-fs-frame" id="inwonFrame" src="${src}" title="시상관리 · 학사관리" allow="clipboard-write"></iframe>
     </div>`;

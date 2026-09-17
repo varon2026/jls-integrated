@@ -103,6 +103,12 @@ a{color:inherit;text-decoration:none}
 .sb-logout:hover{background:var(--surface-2);color:var(--neg);border-color:var(--neg-soft)}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
+
+/* 통합관리 원무 탭에서 화면 하나만 빌려 쓰는 경우(시상관리 등) — 학사관리 자기 사이드바는 숨긴다.
+   .shell이 flex라서 .sidebar만 없애면 .main이 알아서 전체 폭을 채운다. */
+body.bare-embed .sidebar,
+body.bare-embed .sb-toggle,
+body.bare-embed .sb-backdrop{display:none!important}
 .topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--line);
   display:flex;align-items:center;gap:14px;padding:0 24px;position:sticky;top:0;z-index:20}
 .crumbs{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-3)}

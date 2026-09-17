@@ -7036,6 +7036,11 @@ function confirmReset(){
   el('logoutBtn').onclick = logout;
   ['loginId','loginPw'].forEach(id=> el(id).addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); }));
 
+  /* 원무 탭 카드(레벨테스트·시험채점처럼)에서 들어오는 시상관리는 학사관리 사이드바를
+     보여주면 안 된다 — 담임이 로그인해서 자기 반 보는 화면이 아니라, 통합관리 안에서
+     화면 하나만 빌려 쓰는 것뿐이라서다. inwon.js가 iframe src에 &bare=1을 붙여서 넘긴다. */
+  if(new URLSearchParams(location.search).has('bare')){ document.body.classList.add('bare-embed'); }
+
   // 임베드 모드(통합앱 iframe): 로그인창 대신 로딩 표시 + 부모에서 세션 받아 자동 로그인
   const EMBED = new URLSearchParams(location.search).has('embed') && window.parent !== window;
   if(EMBED){
