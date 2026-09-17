@@ -6676,8 +6676,9 @@ function renderTeacherAward(){
   Object.keys(byClass).forEach(className=>{
     const recs = byClass[className];
     const label = recs[0].classLabel || className;
-    html += `<div class="card" style="width:360px;flex:none;padding:0;overflow:hidden">
-      <div style="padding:14px 16px 6px"><h3 style="font-size:14.5px;font-weight:800">${esc(label)}</h3></div>
+    html += `<div class="card" style="width:360px;flex:none;height:520px;padding:0;overflow:hidden;display:flex;flex-direction:column">
+      <div style="padding:14px 16px 6px;flex-shrink:0"><h3 style="font-size:14.5px;font-weight:800">${esc(label)}</h3></div>
+      <div style="flex:1;overflow-y:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <tr><th style="text-align:center;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 6px 8px">이름</th><th style="text-align:center;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 6px 8px">학교</th><th style="text-align:center;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 6px 8px">학년</th></tr>
         ${recs.map(r=>{
@@ -6692,7 +6693,8 @@ function renderTeacherAward(){
           </tr>`;
         }).join('')}
       </table>
-      <div style="padding:9px 16px;border-top:1px solid var(--line-2);text-align:center;color:var(--ink-3);font-size:12px;font-weight:700">${recs.length}명</div>
+      </div>
+      <div style="padding:9px 16px;border-top:1px solid var(--line-2);text-align:center;color:var(--ink-3);font-size:12px;font-weight:700;flex-shrink:0">${recs.length}명</div>
     </div>`;
   });
 
