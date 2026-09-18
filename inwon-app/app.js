@@ -1865,7 +1865,10 @@ else if(root==='segments-edit'){ setActiveNav('segments-edit'); renderSegmentEdi
   else if(root==='retest-up'){ setActiveNav('retest-up'); renderRetestUpload(); }
   else if(root==='myaccount'){ setActiveNav('myaccount'); renderMyAccount(); }
   else if(root==='myclasses'){ setActiveNav('myclasses'); renderTeacherHome(); }
-  else if(root==='award'){ setActiveNav('award'); if(session.role==='teacher') renderTeacherAward(); else renderAdminAward(); }
+  else if(root==='award'){ setActiveNav('award');
+    if(session.role==='teacher' || (awardIsDualRole() && state.awardViewAs==='teacher')) renderTeacherAward();
+    else renderAdminAward();
+  }
   else if(root==='myaccount'){ setActiveNav('myaccount'); renderMyAccount(); }
   else if(root==='segments'){ setActiveNav('segments'); renderSegmentView(); }
   else { go(session.role==='admin'?'admin':(session.role==='teacher'?'myclasses':(session.role==='assistant'?'start':'branch'))); return; }
@@ -6630,6 +6633,7 @@ function renderTeacherAward(){
   if(trecs.length===0){
     el('content').innerHTML = `
       <div class="page-head"><h2>시상관리</h2><div class="sub">${esc(b?b.name:'')} · ${esc(teacher)} 선생님</div></div>
+      ${awardViewToggle('teacher')}
       ${emptyState('이번 학기 담당 반이 없습니다','전체명단이 업로드되면 담당 반이 표시됩니다.')}`;
     return;
   }
@@ -6667,6 +6671,7 @@ function renderTeacherAward(){
   let html = `
     <div class="page-head"><h2>시상관리</h2>
       <div class="sub">${esc(b?b.name:'')} · ${esc(teacher)} 선생님 · ${esc(db.semesters.find(s=>s.id===semId)?.name||'')}</div></div>
+    ${awardViewToggle('teacher')}
 
     <div class="card" style="padding:18px 20px;overflow:visible;margin-bottom:16px">
       <h3 style="font-size:14.5px;font-weight:800;margin-bottom:12px">이번 학기 시상 한눈에 보기</h3>
@@ -6793,6 +6798,18 @@ async function awardUnregisterMip(code, encName, encClass){
   render();
 }
 
+/* 마크·레이첼처럼 분원관리자(role='branch')이면서 본인이 직접 반도 맡는 경우가 있다 —
+   그 계정은 관리자 현황판도 봐야 하고, 자기 반 학생 MIP·BEST BOOK 등록도 해야 한다.
+   담임 계정(role='teacher')은 원래부터 담임 화면만 보므로 이 토글은 필요 없다. */
+function awardIsDualRole(){ return session.role==='branch' && !!session.teacherName; }
+function awardSetViewAs(mode){ state.awardViewAs = mode; render(); }
+function awardViewToggle(active){
+  if(!awardIsDualRole()) return '';
+  const btn = (mode,label) => `<button onclick="awardSetViewAs('${mode}')" style="border:none;background:${active===mode?'var(--brand)':'transparent'};color:${active===mode?'#fff':'var(--ink-2)'};font-size:12px;font-weight:800;padding:6px 14px;border-radius:8px;font-family:inherit;cursor:pointer">${label}</button>`;
+  return `<div style="display:inline-flex;gap:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:16px">
+    ${btn('admin','분원 관리자 보기')}${btn('teacher','내 반 보기 (담임)')}
+  </div>`;
+}
 /* ============================================================================
    17-3-2. 시상관리 — 분원/본사 관리자 (읽기 전용 현황판)
    담임들이 등록한 것 + DT·AT 자동 결과를 한눈에 보여준다.
@@ -6880,6 +6897,7 @@ function renderAdminAward(){
     <div style="flex:1;min-width:0;padding:24px 24px 24px 20px">
     <div class="page-head"><h2>시상관리</h2>
       <div class="sub">${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 담임들이 등록한 것 확인하고, 후보 중 실제 당선자를 투표로 정해요</div></div>
+    ${awardViewToggle('admin')}
     ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b> · <b>sql/award_votes.sql</b>을 실행해 주세요.</div>`:''}
 
     <div style="margin-bottom:16px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
