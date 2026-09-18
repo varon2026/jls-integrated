@@ -6868,8 +6868,8 @@ function renderAdminAward(){
   const mipRows = entries.filter(e=>e.category==='mip' && (teacherFilter==='all' || e.teacher===teacherFilter));
 
   let html = `
-  <div style="display:flex;gap:20px;align-items:flex-start">
-    <aside class="card" style="width:228px;flex-shrink:0;padding:0;overflow:hidden;position:sticky;top:24px">
+  <div style="display:flex;align-items:flex-start;margin:-24px 0 -24px -24px">
+    <aside class="sidebar" style="position:sticky;top:0">
       <div class="sb-brand">
         <div class="sb-mark">JLS</div>
         <div><div class="t">시상관리</div><div class="s">${esc(branchName)}</div></div>
@@ -6879,7 +6879,7 @@ function renderAdminAward(){
       </nav>
     </aside>
 
-    <div style="flex:1;min-width:0">
+    <div style="flex:1;min-width:0;padding:24px 24px 24px 20px">
     <div class="page-head"><h2>시상관리</h2>
       <div class="sub">${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 담임들이 등록한 것 확인하고, 후보 중 실제 당선자를 투표로 정해요</div></div>
     ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b> · <b>sql/award_votes.sql</b>을 실행해 주세요.</div>`:''}
@@ -6894,19 +6894,36 @@ function renderAdminAward(){
       ${['all','DT','AT'].map(v=>`<button onclick="awardSetTestFilter('${v}')" style="border:1.5px solid ${testFilter===v?'var(--brand)':'var(--line)'};background:${testFilter===v?'var(--brand)':'#fff'};color:${testFilter===v?'#fff':'var(--ink-2)'};font-size:12.5px;font-weight:800;padding:6px 14px;border-radius:11px;font-family:inherit;cursor:pointer">${v==='all'?'전체':v}</button>`).join('')}
     </div>
 
-    <div class="card" id="award-dtat" style="padding:18px 20px;margin-bottom:16px">
-      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">DT·AT 최고득점자 (반별 · 95점 이상 · 재시험 응시자 제외 · 동점 전부 포함)</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">번호</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">시험</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">반</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">담임</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학생</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">점수</th><th style="text-align:left;font-size:11px;color:var(--ink-3);font-weight:700;padding:0 10px 8px">학기 정보</th></tr>
+    <div class="sect-head" id="award-dtat"><h3>DT·AT 최고득점자</h3><span class="cnt">반별 · 95점 이상 · 재시험 제외 · 동점 전부 포함 · ${scorers.length}명</span></div>
+    <div class="table-wrap" style="margin-bottom:20px"><table class="grid">
+      <thead><tr>
+        <th class="cc">번호</th><th class="cc">시험</th><th>학생명</th>
+        <th>이번학기 반</th><th>이번학기 담임</th>
+        <th>다음학기 반</th><th>다음학기 담임</th><th>다음학기 강의실</th>
+        <th class="cc">점수</th>
+      </tr></thead>
+      <tbody>
         ${scorers.length ? scorers.map((s,i)=>{
           const badge = s.testType==='DT'
-            ? `<span style="background:var(--brand-soft);color:var(--brand);font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">DT</span>`
-            : `<span style="background:var(--pos-soft);color:var(--pos);font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">AT</span>`;
-          return `<tr><td style="padding:8px 10px;border-top:1px solid var(--line-2);color:var(--ink-3)">${i+1}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${badge}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.classLabel)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${esc(s.teacher)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2);font-weight:700">${esc(s.studentName)}</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${s.score}점</td><td style="padding:8px 10px;border-top:1px solid var(--line-2)">${awardSemChips(branchId, s.studentCode, semId, s.className, s.teacher)}</td></tr>`;
+            ? `<span class="ca-chess" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">DT</span>`
+            : `<span class="ca-ace" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">AT</span>`;
+          const next = nextSemInfoFor(branchId, s.studentCode, semId);
+          const [nCls, nTeacher, nRoom] = awardNextCells(next);
+          return `<tr>
+            <td class="cc">${i+1}</td>
+            <td class="cc">${badge}</td>
+            <td style="font-weight:700">${esc(s.studentName)}</td>
+            <td>${esc(s.classLabel)}</td>
+            <td>${esc(s.teacher)}</td>
+            <td>${nCls}</td>
+            <td>${nTeacher}</td>
+            <td>${nRoom}</td>
+            <td class="cc" style="font-weight:700">${s.score}점</td>
+          </tr>`;
         }).join('')
-          : `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--ink-3)">아직 채점된 DT·AT 성적이 없어요</td></tr>`}
-      </table>
-    </div>
+          : `<tr><td colspan="9" style="padding:16px;text-align:center;color:var(--ink-3)">아직 채점된 DT·AT 성적이 없어요</td></tr>`}
+      </tbody>
+    </table></div>
 
     <div class="card" id="award-mip" style="padding:18px 20px;margin-bottom:16px">
       <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">MIP 제출 현황 <span style="color:var(--ink-3);font-weight:700">(읽기전용)</span></h3>
@@ -9036,24 +9053,38 @@ async function awardRemoveEntry(branchId, semId, studentCode, category){
    시상관리 — 다음학기 반/담임/강의실
    상은 가을학기 기준으로 정해도 실제로 전달은 겨울학기(다음 학기) 시작하고 하니까,
    명단에 이번학기 소속과 다음학기 소속을 같이 보여줘야 누가 어디로 갖다줄지 안다.
-   다음학기 명단이 아직 안 올라왔으면(반배정표 업로드 전) null — 화면에서 "아직 없음"으로 표시. */
+   다음학기 명단 자체가 아직 안 올라왔으면(반배정표 업로드 전) "아직 없음" — 명단은
+   올라왔는데 이 학생만 없으면 그 사이에 퇴원한 것이므로 "퇴원"으로 구분해서 보여준다. */
 function nextSemInfoFor(branchId, code, curSemId){
   const nid = nextSemId(curSemId);
-  if(!nid) return null;
+  if(!nid) return {status:'none'};
+  const uploaded = db.semesterRecords.some(r=>r.branchId===branchId && r.semesterId===nid && (r.kind||'regular')!=='exam');
+  if(!uploaded) return {status:'none'};
   const stu = db.students.find(s=>s.code===code);
-  if(!stu) return null;
-  const rec = db.semesterRecords.find(r=>r.branchId===branchId && r.semesterId===nid && r.studentId===stu.id
-    && r.status!=='withdraw' && (r.kind||'regular')!=='exam');
-  if(!rec) return null;
-  return { className:rec.className, classLabel:rec.classLabel||rec.className, teacher:rec.teacher||'', room:banRoom(rec.className) };
+  const rec = stu ? db.semesterRecords.find(r=>r.branchId===branchId && r.semesterId===nid && r.studentId===stu.id && (r.kind||'regular')!=='exam') : null;
+  if(!rec || rec.status==='withdraw') return {status:'withdrawn'};
+  return {status:'ok', className:rec.className, classLabel:rec.classLabel||rec.className, teacher:rec.teacher||'', room:banRoom(rec.className)};
+}
+/* 다음학기 반·담임·강의실 3칸을 표 형태로 쓸 때 — withdrawn(퇴원)은 빨간 뱃지로 따로 표시한다.
+   명단 자체가 안 올라온 것(none)과 퇴원(withdrawn)을 헷갈리면 안 된다 — 다음학기 명단이
+   이미 올라왔는데 이 학생만 없으면 그 사이에 퇴원한 것이다. */
+function awardNextCells(next){
+  if(next.status==='ok') return [esc(next.classLabel), esc(next.teacher), next.room?esc(next.room)+'실':'<span style="color:var(--ink-3)">-</span>'];
+  if(next.status==='withdrawn'){
+    const badge = `<span style="background:var(--neg-soft);color:var(--neg);font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px">퇴원</span>`;
+    return [badge, '<span style="color:var(--ink-3)">-</span>', '<span style="color:var(--ink-3)">-</span>'];
+  }
+  const none = '<span style="color:var(--ink-3)">아직 없음</span>';
+  return [none, '<span style="color:var(--ink-3)">-</span>', '<span style="color:var(--ink-3)">-</span>'];
 }
 /* 이번학기·다음학기를 색으로 구분한 칩 두 개 — 4개 명단(DT·AT/MIP/BEST SPEECH/BEST BOOK) 전부에서 같이 쓴다. */
 function awardSemChips(branchId, code, semId, curClassLabel, curTeacher){
   const next = nextSemInfoFor(branchId, code, semId);
   const curChip = `<span style="display:inline-block;background:#f0ebfe;color:#6b52c9;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:20px;margin:2px 4px 0 0">이번학기 · ${esc(curClassLabel||'')} · ${esc(curTeacher||'')}</span>`;
-  const nextChip = next
-    ? `<span style="display:inline-block;background:#e5f4fb;color:#2f7ca6;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 · ${esc(next.classLabel)} · ${esc(next.teacher)}${next.room?(' · '+esc(next.room)+'실'):''}</span>`
-    : `<span style="display:inline-block;background:#f5f1fb;color:#9a93b0;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 명단 아직 없음</span>`;
+  let nextChip;
+  if(next.status==='ok') nextChip = `<span style="display:inline-block;background:#e5f4fb;color:#2f7ca6;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 · ${esc(next.classLabel)} · ${esc(next.teacher)}${next.room?(' · '+esc(next.room)+'실'):''}</span>`;
+  else if(next.status==='withdrawn') nextChip = `<span style="display:inline-block;background:var(--neg-soft);color:var(--neg);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 · 퇴원</span>`;
+  else nextChip = `<span style="display:inline-block;background:#f5f1fb;color:#9a93b0;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 명단 아직 없음</span>`;
   return curChip+nextChip;
 }
 
