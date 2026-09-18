@@ -657,6 +657,9 @@ table.rank-table tbody tr:last-child td{border-bottom:none}
 .kpi-ca span{font-size:11.5px;font-weight:600;border-radius:6px;padding:2px 8px;line-height:1.4}
 .ca-chess{background:#E6F1FB;color:#0C447C}
 .ca-ace{background:#E1F5EE;color:#085041}
+/* 시상관리 — 다음학기 반/담임/강의실 3칸을 개별 뱃지 대신 구간 전체를 통으로 칠해서
+   이번학기 정보와 한눈에 구분되게 한다. 담임 화면과 표 형태 화면 양쪽에서 재사용. */
+.award-next-col{background:var(--brand-soft)}
 .ca-early{background:var(--warn-soft);color:#a05f18}
 .ca-wait{background:var(--surface-1);color:var(--ink-3)}
 .closing-ca .clos-ca td{background:var(--surface-1);font-size:12px}

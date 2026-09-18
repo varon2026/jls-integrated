@@ -6899,7 +6899,7 @@ function renderAdminAward(){
       <thead><tr>
         <th class="cc">번호</th><th class="cc">시험</th><th>학생명</th>
         <th>이번학기 반</th><th>이번학기 담임</th>
-        <th>다음학기 반</th><th>다음학기 담임</th><th>다음학기 강의실</th>
+        <th class="award-next-col">다음학기 반</th><th class="award-next-col">다음학기 담임</th><th class="award-next-col">다음학기 강의실</th>
         <th class="cc">점수</th>
       </tr></thead>
       <tbody>
@@ -6915,9 +6915,9 @@ function renderAdminAward(){
             <td style="font-weight:700">${esc(s.studentName)}</td>
             <td>${esc(s.classLabel)}</td>
             <td>${esc(s.teacher)}</td>
-            <td>${nCls}</td>
-            <td>${nTeacher}</td>
-            <td>${nRoom}</td>
+            <td class="award-next-col">${nCls}</td>
+            <td class="award-next-col">${nTeacher}</td>
+            <td class="award-next-col">${nRoom}</td>
             <td class="cc" style="font-weight:700">${s.score}점</td>
           </tr>`;
         }).join('')
