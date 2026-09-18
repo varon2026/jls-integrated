@@ -106,7 +106,10 @@ a{color:inherit;text-decoration:none}
 
 /* 통합관리 원무 탭에서 화면 하나만 빌려 쓰는 경우(시상관리 등) — 학사관리 자기 사이드바는 숨긴다.
    .shell이 flex라서 .sidebar만 없애면 .main이 알아서 전체 폭을 채운다. */
-body.bare-embed .sidebar,
+/* .shell 바로 밑의 진짜 앱 사이드바만 숨긴다. 시상관리 화면 안의 미니 사이드바도
+   똑같은 .sidebar 클래스를 쓰는데, 그건 #content 안쪽에 중첩돼 있어서 .shell의
+   직계 자식이 아니다 — 그냥 .sidebar로 다 숨기면 미니 사이드바까지 같이 사라진다. */
+body.bare-embed .shell > .sidebar,
 body.bare-embed .sb-toggle,
 body.bare-embed .sb-backdrop{display:none!important}
 .topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--line);
