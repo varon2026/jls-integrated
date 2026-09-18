@@ -6827,29 +6827,44 @@ function awardVoteCard(branchId, semId, category, title, color, entries, teacher
   const isBook = category==='best_book';
   const finalLabel = isBook ? '본사 제출 예정' : '당선';
   const voterLabel = isBook ? '분원관리자 + 담임 전체' : '분원관리자만';
-  return `<div class="card" style="padding:18px 20px;margin-bottom:16px">
-    <h3 style="font-size:14.5px;font-weight:800;margin-bottom:2px">${esc(title)} 후보 &amp; 투표</h3>
+  const nextCls = isBook ? 'award-next-book' : 'award-next-speech';
+  return `<div class="sect-head"><h3>${esc(title)} 후보 &amp; 투표</h3><span class="cnt">${candidates.length}명</span></div>
+  <div class="card" style="padding:14px 20px 4px;margin-bottom:20px">
     <p style="margin:0 0 4px;font-size:11.5px;color:var(--ink-3)">${esc(voterLabel)} 투표 · 1인 최대 2표 · 전원 투표하면 최다득표자(동률 전부)가 자동으로 ${esc(finalLabel)}</p>
-    <p style="margin:0 0 10px;font-size:11px;line-height:1.7">
+    <p style="margin:0 0 12px;font-size:11px;line-height:1.7">
       <span style="color:var(--pos);font-weight:700">완료 — ${tally.voted.length?esc(tally.voted.map(v=>v.name).join(', ')):'없음'}</span>
       <span style="color:var(--ink-3);font-weight:700"> · 미투표 — ${tally.notVoted.length?esc(tally.notVoted.map(v=>v.name).join(', ')):'없음'}</span>
     </p>
-    ${candidates.length ? candidates.map((e,i)=>{
-      const count = tally.byCandidate[e.studentCode]||0;
-      const isLeader = tally.leaders.includes(e.studentCode);
-      const iVoted = (db.awardVotes||[]).some(v=>v.branchId===branchId && v.semesterId===semId && v.category===category && v.candidateCode===e.studentCode && v.voterUsername===myUsername);
-      const status = isLeader && count>0 ? (tally.allVoted ? finalLabel : '현재 1위') : '';
-      return `<div style="display:flex;align-items:flex-start;gap:12px;padding:9px 4px;border-top:1px solid var(--line-2);${isLeader&&count>0?`background:${color}0d;border-radius:12px;padding:9px 10px`:''}">
-        <span style="font-size:11px;color:var(--ink-3);font-weight:700;width:16px;flex-shrink:0;padding-top:2px">${i+1}</span>
-        <div style="flex:1">
-          <b style="font-size:13px">${esc(e.studentName)}</b> <span style="font-size:11px;color:var(--ink-3);font-weight:700">· ${esc(e.className||'')} · 담임 ${esc(e.teacher||'')}</span>
-          ${status?`<div style="font-size:11px;font-weight:800;color:${color}">${esc(status)}</div>`:''}
-          <div>${awardSemChips(branchId, e.studentCode, semId, e.className, e.teacher)}</div>
-        </div>
-        <span style="font-size:11px;font-weight:800;color:${color};flex-shrink:0">${count}표</span>
-        <button style="border:none;border-radius:9px;padding:6px 13px;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;background:${iVoted?color:'var(--line-2)'};color:${iVoted?'#fff':'var(--ink-2)'}" onclick="awardVoteClick('${branchId}','${semId}','${category}','${esc(e.studentCode)}',${iVoted})">${iVoted?'투표함 ✓':'투표하기'}</button>
-      </div>`;
-    }).join('') : `<div style="padding:8px 4px;color:var(--ink-3);font-size:12px">아직 후보가 없어요</div>`}
+    <div class="table-wrap" style="margin:0 -1px 14px"><table class="grid">
+      <thead><tr>
+        <th class="cc">번호</th><th>학생명</th>
+        <th>이번학기 반</th><th>이번학기 담임</th>
+        <th class="${nextCls}">다음학기 반</th><th class="${nextCls}">다음학기 담임</th><th class="${nextCls}">다음학기 강의실</th>
+        <th class="cc">득표</th><th class="cc">투표</th>
+      </tr></thead>
+      <tbody>
+        ${candidates.length ? candidates.map((e,i)=>{
+          const count = tally.byCandidate[e.studentCode]||0;
+          const isLeader = tally.leaders.includes(e.studentCode);
+          const iVoted = (db.awardVotes||[]).some(v=>v.branchId===branchId && v.semesterId===semId && v.category===category && v.candidateCode===e.studentCode && v.voterUsername===myUsername);
+          const status = isLeader && count>0 ? (tally.allVoted ? finalLabel : '현재 1위') : '';
+          const next = nextSemInfoFor(branchId, e.studentCode, semId);
+          const [nCls, nTeacher, nRoom] = awardNextCells(next);
+          return `<tr${isLeader&&count>0?` style="background:${color}0d"`:''}>
+            <td class="cc">${i+1}</td>
+            <td style="font-weight:700">${esc(e.studentName)}${status?`<div style="font-size:10.5px;font-weight:800;color:${color};margin-top:1px">${esc(status)}</div>`:''}</td>
+            <td>${esc(awardClassLabelFor(branchId, semId, e.className))}</td>
+            <td>${esc(e.teacher||'')}</td>
+            <td class="${nextCls}">${nCls}</td>
+            <td class="${nextCls}">${nTeacher}</td>
+            <td class="${nextCls}">${nRoom}</td>
+            <td class="cc" style="font-weight:800;color:${count>0?color:'var(--ink-3)'}">${count}표</td>
+            <td class="cc"><button style="border:none;border-radius:9px;padding:6px 13px;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;background:${iVoted?color:'var(--line-2)'};color:${iVoted?'#fff':'var(--ink-2)'}" onclick="awardVoteClick('${branchId}','${semId}','${category}','${esc(e.studentCode)}',${iVoted})">${iVoted?'투표함 ✓':'투표하기'}</button></td>
+          </tr>`;
+        }).join('')
+          : `<tr><td colspan="9" style="padding:16px;text-align:center;color:var(--ink-3)">아직 후보가 없어요</td></tr>`}
+      </tbody>
+    </table></div>
   </div>`;
 }
 function renderAdminAward(){
@@ -6941,17 +6956,32 @@ function renderAdminAward(){
       </tbody>
     </table></div>
 
-    <div class="card" id="award-mip" style="padding:18px 20px;margin-bottom:16px">
-      <h3 style="font-size:14.5px;font-weight:800;margin-bottom:10px">MIP 제출 현황 <span style="color:var(--ink-3);font-weight:700">(읽기전용)</span></h3>
-      ${mipRows.length ? mipRows.map((e,i)=>`<div style="padding:8px 0;border-top:1px solid var(--line-2);display:flex;gap:10px;align-items:flex-start">
-          <span style="font-size:11px;color:var(--ink-3);font-weight:700;padding-top:2px">${i+1}</span>
-          <div style="flex:1">
-            <b style="font-size:13px">${esc(e.studentName)}</b> <span style="font-size:11px;color:var(--ink-3);font-weight:700">· ${esc(e.className||'')} · 담임 ${esc(e.teacher||'')}</span>
-            ${e.reason?`<div style="font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.5">${esc(e.reason)}</div>`:''}
-            <div>${awardSemChips(branchId, e.studentCode, semId, e.className, e.teacher)}</div>
-          </div>
-        </div>`).join('') : `<div style="padding:6px 0;color:var(--ink-3);font-size:12px">아직 없음</div>`}
-    </div>
+    <div class="sect-head" id="award-mip"><h3>MIP 제출 현황 (읽기전용)</h3><span class="cnt">${mipRows.length}명</span></div>
+    <div class="table-wrap" style="margin-bottom:20px"><table class="grid">
+      <thead><tr>
+        <th class="cc">번호</th><th>학생명</th>
+        <th>이번학기 반</th><th>이번학기 담임</th>
+        <th class="award-next-mip">다음학기 반</th><th class="award-next-mip">다음학기 담임</th><th class="award-next-mip">다음학기 강의실</th>
+        <th>사유</th>
+      </tr></thead>
+      <tbody>
+        ${mipRows.length ? mipRows.map((e,i)=>{
+          const next = nextSemInfoFor(branchId, e.studentCode, semId);
+          const [nCls, nTeacher, nRoom] = awardNextCells(next);
+          return `<tr>
+            <td class="cc">${i+1}</td>
+            <td style="font-weight:700">${esc(e.studentName)}</td>
+            <td>${esc(awardClassLabelFor(branchId, semId, e.className))}</td>
+            <td>${esc(e.teacher||'')}</td>
+            <td class="award-next-mip">${nCls}</td>
+            <td class="award-next-mip">${nTeacher}</td>
+            <td class="award-next-mip">${nRoom}</td>
+            <td style="color:var(--ink-2);line-height:1.5">${e.reason?esc(e.reason):'<span style="color:var(--ink-3)">-</span>'}</td>
+          </tr>`;
+        }).join('')
+          : `<tr><td colspan="8" style="padding:16px;text-align:center;color:var(--ink-3)">아직 없음</td></tr>`}
+      </tbody>
+    </table></div>
 
     <div id="award-speech">${awardVoteCard(branchId, semId, 'best_speech', 'BEST SPEECH', '#3e7fc9', entries, teacherFilter)}</div>
     <div id="award-book">${awardVoteCard(branchId, semId, 'best_book', 'BEST BOOK', '#e2557a', entries, teacherFilter)}</div>
@@ -9097,15 +9127,11 @@ function awardNextCells(next){
   const none = '<span style="color:var(--ink-3)">아직 없음</span>';
   return [none, '<span style="color:var(--ink-3)">-</span>', '<span style="color:var(--ink-3)">-</span>'];
 }
-/* 이번학기·다음학기를 색으로 구분한 칩 두 개 — 4개 명단(DT·AT/MIP/BEST SPEECH/BEST BOOK) 전부에서 같이 쓴다. */
-function awardSemChips(branchId, code, semId, curClassLabel, curTeacher){
-  const next = nextSemInfoFor(branchId, code, semId);
-  const curChip = `<span style="display:inline-block;background:#f0ebfe;color:#6b52c9;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:20px;margin:2px 4px 0 0">이번학기 · ${esc(curClassLabel||'')} · ${esc(curTeacher||'')}</span>`;
-  let nextChip;
-  if(next.status==='ok') nextChip = `<span style="display:inline-block;background:#e5f4fb;color:#2f7ca6;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 · ${esc(next.classLabel)} · ${esc(next.teacher)}${next.room?(' · '+esc(next.room)+'실'):''}</span>`;
-  else if(next.status==='withdrawn') nextChip = `<span style="display:inline-block;background:var(--neg-soft);color:var(--neg);font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 · 퇴원</span>`;
-  else nextChip = `<span style="display:inline-block;background:#f5f1fb;color:#9a93b0;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:2px">다음학기 명단 아직 없음</span>`;
-  return curChip+nextChip;
+/* MIP·BEST SPEECH·BEST BOOK은 등록 당시 원본 반이름(예: [LSB2]SU3/MWF/LSB2/C)을 그대로 저장해서,
+   DT·AT 표처럼 예쁜 반 이름표(월수금 3부 · LSB2)로 보여주려면 반배정표에서 다시 찾아야 한다. */
+function awardClassLabelFor(branchId, semId, cn){
+  const rec = db.semesterRecords.find(r=>r.branchId===branchId && r.semesterId===semId && r.className===cn);
+  return (rec && rec.classLabel) || cn;
 }
 
 /* ------------------------------------------------------------------------
