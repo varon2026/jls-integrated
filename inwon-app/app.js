@@ -9011,8 +9011,12 @@ async function retestSaveAction(row, remove){
    거치지 않고 바로 쓴다. 쓴 뒤엔 db·dbSnapshot을 같이 맞춰야 나중에 다른
    화면에서 saveDB가 돌 때 되돌리지 않는다. */
 function awardTableMissing(){ return MISSING_TABLES.has('awardEntries'); }
+/* 시상관리 테스트 기간 임시 조치 (엄윤경 요청, 2026-09-18) — 여름학기처럼 이미 끝난
+   학기에도 담임들이 MIP·투표를 테스트해볼 수 있게 시상관리만 지난 학기 잠금을 잠깐 풀어둠.
+   테스트 끝나면 false로 되돌릴 것. 다른 화면(명단·상담 등)의 지난 학기 잠금은 안 건드림. */
+const AWARD_PAST_UNLOCKED = true;
 async function awardSaveEntry(row){
-  if(isPastSemester(row.semesterId)){ lockedPastToast(); return false; }
+  if(!AWARD_PAST_UNLOCKED && isPastSemester(row.semesterId)){ lockedPastToast(); return false; }
   if(awardTableMissing()) return false;
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
   const T = TABLES.find(t=>t.key==='awardEntries');
@@ -9032,7 +9036,7 @@ async function awardSaveEntry(row){
   }catch(e){ console.error('시상 등록 저장 실패', e); return false; }
 }
 async function awardRemoveEntry(branchId, semId, studentCode, category){
-  if(isPastSemester(semId)){ lockedPastToast(); return false; }
+  if(!AWARD_PAST_UNLOCKED && isPastSemester(semId)){ lockedPastToast(); return false; }
   if(awardTableMissing()) return false;
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
   try{
@@ -9113,7 +9117,7 @@ function awardMyVoteCount(branchId, semId, category, username){
   return (db.awardVotes||[]).filter(v=>v.branchId===branchId && v.semesterId===semId && v.category===category && v.voterUsername===username).length;
 }
 async function awardCastVote(branchId, semId, category, candidateCode){
-  if(isPastSemester(semId)){ lockedPastToast(); return false; }
+  if(!AWARD_PAST_UNLOCKED && isPastSemester(semId)){ lockedPastToast(); return false; }
   if(awardTableMissing()) return false;
   const username = session && session.username; if(!username) return false;
   if(awardMyVoteCount(branchId, semId, category, username)>=2){ toast('이미 2표를 다 쓰셨어요','err'); return false; }
@@ -9128,7 +9132,7 @@ async function awardCastVote(branchId, semId, category, candidateCode){
   }catch(e){ console.error('투표 저장 실패', e); return false; }
 }
 async function awardRemoveVote(branchId, semId, category, candidateCode){
-  if(isPastSemester(semId)){ lockedPastToast(); return false; }
+  if(!AWARD_PAST_UNLOCKED && isPastSemester(semId)){ lockedPastToast(); return false; }
   if(awardTableMissing()) return false;
   const username = session && session.username; if(!username) return false;
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
