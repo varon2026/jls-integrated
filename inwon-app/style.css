@@ -667,6 +667,15 @@ table.rank-table tbody tr:last-child td{border-bottom:none}
 .award-next-mip{background:#fbe4ef}
 .award-next-speech{background:#fdf3d0}
 .award-next-book{background:#dcf0fb}
+/* 본사 BEST BOOK 투표 표 — 본사 득표·순위·투표 칸을 분원마다 다른 파스텔로 칠한다(분원 순서대로 8색 반복) */
+.award-hq-c0{background:#f0ebfe}
+.award-hq-c1{background:#fbe4ef}
+.award-hq-c2{background:#fdf3d0}
+.award-hq-c3{background:#dcf0fb}
+.award-hq-c4{background:#dcf5e8}
+.award-hq-c5{background:#fde8dc}
+.award-hq-c6{background:#e6e9fb}
+.award-hq-c7{background:#eef5d6}
 /* 시상관리 표만 헤더·내용 전부 가운데 정렬 — 다른 화면의 table.grid는 그대로 왼쪽 정렬 유지 */
 table.grid.award-tbl th,
 table.grid.award-tbl td{text-align:center}

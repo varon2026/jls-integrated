@@ -1867,6 +1867,7 @@ else if(root==='segments-edit'){ setActiveNav('segments-edit'); renderSegmentEdi
   else if(root==='myclasses'){ setActiveNav('myclasses'); renderTeacherHome(); }
   else if(root==='award'){ setActiveNav('award');
     if(session.role==='teacher' || (awardIsDualRole() && state.awardViewAs==='teacher')) renderTeacherAward();
+    else if(session.role==='admin') renderHqAward();
     else renderAdminAward();
   }
   else if(root==='myaccount'){ setActiveNav('myaccount'); renderMyAccount(); }
@@ -6868,8 +6869,7 @@ function awardVoteCard(branchId, semId, category, title, color, entries, teacher
   </div>`;
 }
 function renderAdminAward(){
-  const isAdmin = session.role==='admin';
-  const branchId = isAdmin ? (state.viewBranchId || (db.branches[0]&&db.branches[0].id)) : session.branchId;
+  const branchId = session.branchId;
   const b = getBranch(branchId);
   const semId = state.semId;
   crumbs([{label:'시상관리'}]);
@@ -6995,6 +6995,150 @@ function renderAdminAward(){
   </div>
   `;
   el('content').innerHTML = html;
+}
+
+/* ============================================================================
+   17-3-3. 시상관리 — 본사
+   분원 화면처럼 DT·AT/MIP/BEST SPEECH를 자세히 보여주지 않고 분원별 인원 숫자만 보여준다.
+   BEST BOOK은 각 분원 투표에서 1~3등(동점이면 전부)으로 뽑힌 후보만 본사에 올라오고,
+   본사 계정이 그 후보들에 투표한다(표 수 제한 없음, 누가 투표했는지는 따로 안 보여줌).
+   본사 투표는 award_votes에 category='best_book_hq'로 저장한다(분원 투표와 섞이지 않음). */
+function awardHqSetBranch(v){ state.awardHqBranch = v; render(); }
+function renderHqAward(){
+  const semId = state.semId;
+  crumbs([{label:'시상관리'}]);
+  if(!AWARD_SCORE_CACHE[semId]){
+    el('content').innerHTML = `<div class="page-head"><h2>시상관리</h2></div><div style="padding:40px;text-align:center;color:var(--ink-3)">불러오는 중…</div>`;
+    awardLoadExamScores(semId).then(()=>{ if(state.semId===semId) render(); });
+    return;
+  }
+  const branches = db.branches;
+  const sel = state.awardHqBranch || 'all';
+  const colorIdx = {}; branches.forEach((b,i)=>{ colorIdx[b.id] = i % 8; });
+  const myUsername = session && session.username;
+
+  const stats = branches.map(b=>{
+    const entries = (db.awardEntries||[]).filter(e=>e.branchId===b.id && e.semesterId===semId);
+    const spCands = entries.filter(e=>e.category==='best_speech');
+    const spTally = awardVoteTally(b.id, semId, 'best_speech');
+    return {
+      b,
+      dtat: computeAwardTopScorers(AWARD_SCORE_CACHE[semId], b.name).length,
+      mip: entries.filter(e=>e.category==='mip').length,
+      spTotal: spCands.length,
+      spDone: spTally.allVoted,
+      spWinners: spTally.allVoted ? spTally.leaders.filter(c=>spCands.some(e=>e.studentCode===c)).length : 0,
+    };
+  });
+
+  /* 분원 BEST BOOK 투표에서 1~3등(동점 전부)만 본사로 올라온다. 등수 = 나보다 표 많은 사람 수 + 1.
+     표를 한 표도 못 받은 후보는 올리지 않는다(투표 전 분원의 후보가 전부 1등으로 올라오면 안 됨). */
+  const hqRows = (db.awardVotes||[]).filter(v=>v.semesterId===semId && v.category==='best_book_hq');
+  const book = [];
+  branches.forEach(b=>{
+    const tally = awardVoteTally(b.id, semId, 'best_book');
+    const voted = (db.awardEntries||[])
+      .filter(e=>e.branchId===b.id && e.semesterId===semId && e.category==='best_book')
+      .map(e=>({e, v:tally.byCandidate[e.studentCode]||0})).filter(x=>x.v>0);
+    voted.forEach(x=>{
+      if(1 + voted.filter(y=>y.v>x.v).length > 3) return;
+      const rows = hqRows.filter(v=>v.branchId===b.id && v.candidateCode===x.e.studentCode);
+      book.push({ b, e:x.e, hq:rows.length, mine:rows.some(v=>v.voterUsername===myUsername) });
+    });
+  });
+  /* 본사 순위는 전 분원 후보를 한꺼번에 놓고 본사 득표순으로 매긴다(동점이면 공동) */
+  book.forEach(x=>{
+    x.hqRank = x.hq>0 ? 1 + book.filter(y=>y.hq>x.hq).length : 0;
+    x.hqTie = book.filter(y=>y.hq===x.hq).length>1;
+  });
+
+  const shownStats = stats.filter(s=>sel==='all' || s.b.id===sel);
+  const shownBook = book.filter(x=>sel==='all' || x.b.id===sel);
+  const tot = { dtat:0, mip:0, sp:0, book:0, spWait:false };
+  shownStats.forEach(s=>{
+    tot.dtat += s.dtat; tot.mip += s.mip; tot.sp += s.spWinners;
+    if(s.spTotal>0 && !s.spDone) tot.spWait = true;
+    tot.book += book.filter(x=>x.b.id===s.b.id).length;
+  });
+
+  const dash = '<span style="color:var(--ink-3)">-</span>';
+  const num = (n, unit) => n>0 ? `<b style="font-size:13.5px">${n}</b>${unit}` : dash;
+  const summaryRows = shownStats.map(s=>{
+    const bk = book.filter(x=>x.b.id===s.b.id).length;
+    const sp = s.spTotal===0 ? dash
+      : (s.spDone ? num(s.spWinners,'명') : `<span style="display:inline-block;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;background:var(--line-2);color:var(--ink-3)">투표중</span>`);
+    return `<tr>
+      <td style="font-weight:800;white-space:nowrap">${esc(s.b.name)}</td>
+      <td class="award-next-col">${num(s.dtat,'명')}</td>
+      <td class="award-next-mip">${num(s.mip,'명')}</td>
+      <td class="award-next-speech">${sp}</td>
+      <td class="award-next-book">${num(bk,'명')}</td>
+    </tr>`;
+  }).join('');
+
+  const bookRows = shownBook.map((x,i)=>{
+    const cc = 'award-hq-c'+colorIdx[x.b.id];
+    const first = i===0 || shownBook[i-1].b.id!==x.b.id;
+    const rank = x.hqRank>0 && x.hqRank<=3
+      ? `<span style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;background:var(--brand-soft);color:var(--brand);white-space:nowrap">${x.hqTie?'공동 ':''}본사 ${x.hqRank}위</span>`
+      : '<span style="color:var(--ink-3)">-</span>';
+    return `<tr${first&&i>0?' style="border-top:2px solid var(--line)"':''}>
+      <td style="font-weight:800;white-space:nowrap">${esc(x.b.name)}</td>
+      <td style="font-weight:700">${esc(x.e.studentName)}</td>
+      <td>${esc(awardClassLabelFor(x.b.id, semId, x.e.className))}</td>
+      <td>${esc(x.e.teacher||'')}</td>
+      <td class="${cc}">${x.hq>0?`<b style="font-size:13.5px">${x.hq}</b>표`:'<span style="color:var(--ink-3)">0표</span>'}</td>
+      <td class="${cc}">${rank}</td>
+      <td class="${cc}"><button style="border:none;border-radius:9px;padding:6px 13px;font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;background:${x.mine?'var(--brand)':'var(--line-2)'};color:${x.mine?'#fff':'var(--ink-2)'}" onclick="awardVoteClick('${x.b.id}','${semId}','best_book_hq','${esc(x.e.studentCode)}',${x.mine})">${x.mine?'투표함 ✓':'투표하기'}</button></td>
+    </tr>`;
+  }).join('');
+
+  el('content').innerHTML = `
+  <div style="display:flex;align-items:flex-start;margin:-24px 0 -24px -24px">
+    <aside class="sidebar" style="position:sticky;top:0">
+      <div class="sb-brand">
+        <div class="sb-mark">JLS</div>
+        <div><div class="t">시상관리</div><div class="s">본사</div></div>
+      </div>
+      <nav class="sb-nav">
+        <div class="sb-item active">시상관리</div>
+      </nav>
+    </aside>
+
+    <div style="flex:1;min-width:0;padding:24px 24px 24px 20px">
+    <div class="page-head"><h2>시상관리</h2>
+      <div class="sub">${esc(db.semesters.find(s=>s.id===semId)?.name||'')} · 분원별 수상 인원만 간단히 보고, BEST BOOK은 분원 1~3등 후보에 본사가 투표해요</div></div>
+    ${awardTableMissing()?`<div style="border:1px solid #f3c9c9;background:#fdecec;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#b8474b">아직 준비가 안 끝났습니다 — Supabase에서 <b>sql/award_entries.sql</b> · <b>sql/award_votes.sql</b>을 실행해 주세요.</div>`:''}
+
+    <div style="margin-bottom:16px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:800;color:var(--ink-3)">분원 선택</span>
+      <select onchange="awardHqSetBranch(this.value)" style="border:1px solid var(--line);background:#fff;color:var(--ink);font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:11px;font-family:inherit;cursor:pointer">
+        <option value="all"${sel==='all'?' selected':''}>전체 분원</option>
+        ${branches.map(b=>`<option value="${esc(b.id)}"${sel===b.id?' selected':''}>${esc(b.name)}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="sect-head"><h3>분원별 수상 현황</h3><span class="cnt">${shownStats.length}개 분원</span></div>
+    <div class="table-wrap" style="margin-bottom:20px"><table class="grid award-tbl">
+      <thead><tr>
+        <th>분원</th><th class="award-next-col">DT·AT</th><th class="award-next-mip">MIP</th><th class="award-next-speech">BEST SPEECH</th><th class="award-next-book">BEST BOOK (본사 제출)</th>
+      </tr></thead>
+      <tbody>${summaryRows || `<tr><td colspan="5" style="padding:16px;color:var(--ink-3)">분원이 없어요</td></tr>`}</tbody>
+      <tfoot><tr style="background:var(--surface-2);font-weight:800">
+        <td>${sel==='all'?'전체 합계':'합계'}</td><td>${tot.dtat}명</td><td>${tot.mip}명</td><td>${tot.sp}명${tot.spWait?' <span style="font-weight:600;color:var(--ink-3)">(확정분)</span>':''}</td><td>${tot.book}명</td>
+      </tr></tfoot>
+    </table></div>
+
+    <div class="sect-head"><h3>BEST BOOK 본사 투표</h3><span class="cnt">${shownBook.length}명</span></div>
+    <p style="margin:0 0 10px;font-size:11.5px;color:var(--ink-3)">각 분원 투표 1~3등(동점 전부)만 올라와요 · 본사 계정은 투표 수 제한이 없어요 · 본사 순위는 본사 득표순이에요</p>
+    <div class="table-wrap" style="margin-bottom:20px"><table class="grid award-tbl">
+      <thead><tr>
+        <th>분원</th><th>학생명</th><th>이번학기 반</th><th>이번학기 담임</th><th>본사 득표</th><th>본사 순위</th><th>투표</th>
+      </tr></thead>
+      <tbody>${bookRows || `<tr><td colspan="7" style="padding:16px;color:var(--ink-3)">본사에 올라온 후보가 아직 없어요</td></tr>`}</tbody>
+    </table></div>
+    </div>
+  </div>`;
 }
 
 /* ============================================================================
@@ -9151,7 +9295,10 @@ function awardEligibleVoters(branchId, category){
     .map(u=>({username:u.username, name:awardDisplayName(u)}));
 }
 /* 1인 최대 표 수 — BEST BOOK은 3표(2026-09 변경), BEST SPEECH는 2표 */
-function awardMaxVotes(category){ return category==='best_book' ? 3 : 2; }
+function awardMaxVotes(category){
+  if(category==='best_book_hq') return Infinity;   // 본사 계정은 표 수 제한 없음
+  return category==='best_book' ? 3 : 2;
+}
 /* 후보별 득표수 + 누가 투표했는지 + 그 사람이 몇 표 남았는지 */
 function awardVoteTally(branchId, semId, category){
   const rows = (db.awardVotes||[]).filter(v=>v.branchId===branchId && v.semesterId===semId && v.category===category);
@@ -9212,10 +9359,18 @@ async function awardLoadExamScores(semId){
   const semName = (db.semesters.find(s=>s.id===semId)||{}).name || '';
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); AWARD_SCORE_CACHE[semId]=[]; return []; } }
   try{
-    const { data, error } = await sb.from('exam_scores').select('*')
-      .eq('semester', semName).in('test_type', ['DT','AT']);
-    if(error) throw error;
-    AWARD_SCORE_CACHE[semId] = data||[];
+    /* Supabase는 한 번에 1000행까지만 줘서, 전 분원 DT·AT 점수를 한 번에 받으면 뒤쪽이 조용히
+       잘려 나간다(본사 화면은 전 분원을 다 보기 때문에 특히 위험). 끝까지 페이지를 넘겨 받는다. */
+    const PAGE = 1000; let from = 0, all = [];
+    while(true){
+      const { data, error } = await sb.from('exam_scores').select('*')
+        .eq('semester', semName).in('test_type', ['DT','AT']).range(from, from+PAGE-1);
+      if(error) throw error;
+      const chunk = data||[]; all = all.concat(chunk);
+      if(chunk.length < PAGE) break;
+      from += PAGE;
+    }
+    AWARD_SCORE_CACHE[semId] = all;
   }catch(e){ console.error('시험 점수 조회 실패', e); AWARD_SCORE_CACHE[semId]=[]; }
   return AWARD_SCORE_CACHE[semId];
 }
