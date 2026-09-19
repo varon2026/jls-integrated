@@ -7,7 +7,12 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>JLS 학사관리 시스템</title>
-<link rel="stylesheet" href="style.css">
+<script>
+/* 캐시 무효화: app.js는 이미 ?v=로 강제 새로고침하는데 style.css는 안 걸려있어서,
+   CSS만 바뀐 배포는 브라우저가 예전 파일을 계속 썼다(시크릿창에선 되는데 일반창에선
+   안 된다는 문의가 반복됨). app.js와 똑같은 방식으로 맞춤. */
+document.write('<link rel="stylesheet" href="style.css?v=' + Date.now() + '">');
+</script>
 </head>
 <body>
 
