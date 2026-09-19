@@ -6830,7 +6830,7 @@ function awardVoteCard(branchId, semId, category, title, color, entries, teacher
   const nextCls = isBook ? 'award-next-book' : 'award-next-speech';
   return `<div class="sect-head"><h3>${esc(title)} 후보 &amp; 투표</h3><span class="cnt">${candidates.length}명</span></div>
   <div class="card" style="padding:14px 20px 4px;margin-bottom:20px">
-    <p style="margin:0 0 4px;font-size:11.5px;color:var(--ink-3)">${esc(voterLabel)} 투표 · 1인 최대 2표 · 전원 투표하면 최다득표자(동률 전부)가 자동으로 ${esc(finalLabel)}</p>
+    <p style="margin:0 0 4px;font-size:11.5px;color:var(--ink-3)">${esc(voterLabel)} 투표 · 1인 최대 ${awardMaxVotes(category)}표 · 전원 투표하면 최다득표자(동률 전부)가 자동으로 ${esc(finalLabel)}</p>
     <p style="margin:0 0 12px;font-size:11px;line-height:1.7">
       <span style="color:var(--pos);font-weight:700">완료 — ${tally.voted.length?esc(tally.voted.map(v=>v.name).join(', ')):'없음'}</span>
       <span style="color:var(--ink-3);font-weight:700"> · 미투표 — ${tally.notVoted.length?esc(tally.notVoted.map(v=>v.name).join(', ')):'없음'}</span>
@@ -9143,14 +9143,16 @@ function awardClassLabelFor(branchId, semId, cn){
 /* ------------------------------------------------------------------------
    시상관리 — BEST SPEECH·BEST BOOK 투표
    베스트 스피치는 분원관리자(role='branch')만, 베스트북은 분원관리자+담임(role='teacher')
-   전부가 투표한다. 1인 최대 2표. 동점이면 전부 인정(최고 득표수와 같은 사람 전부가 1등). */
+   전부가 투표한다. 1인 최대 표 수는 awardMaxVotes() 참고. 동점이면 전부 인정(최고 득표수와 같은 사람 전부가 1등). */
 function awardDisplayName(u){ return (u&&(u.teacherName||u.username))||''; }
 function awardEligibleVoters(branchId, category){
   const roles = category==='best_book' ? ['branch','teacher'] : ['branch'];
   return (db.users||[]).filter(u=>u.branchId===branchId && roles.includes(u.role))
     .map(u=>({username:u.username, name:awardDisplayName(u)}));
 }
-/* 후보별 득표수 + 누가 투표했는지 + 그 사람이 몇 표 남았는지(최대 2표) */
+/* 1인 최대 표 수 — BEST BOOK은 3표(2026-09 변경), BEST SPEECH는 2표 */
+function awardMaxVotes(category){ return category==='best_book' ? 3 : 2; }
+/* 후보별 득표수 + 누가 투표했는지 + 그 사람이 몇 표 남았는지 */
 function awardVoteTally(branchId, semId, category){
   const rows = (db.awardVotes||[]).filter(v=>v.branchId===branchId && v.semesterId===semId && v.category===category);
   const byCandidate = {};
@@ -9170,7 +9172,8 @@ async function awardCastVote(branchId, semId, category, candidateCode){
   if(!AWARD_PAST_UNLOCKED && isPastSemester(semId)){ lockedPastToast(); return false; }
   if(awardTableMissing()) return false;
   const username = session && session.username; if(!username) return false;
-  if(awardMyVoteCount(branchId, semId, category, username)>=2){ toast('이미 2표를 다 쓰셨어요','err'); return false; }
+  const maxVotes = awardMaxVotes(category);
+  if(awardMyVoteCount(branchId, semId, category, username)>=maxVotes){ toast(`이미 ${maxVotes}표를 다 쓰셨어요`,'err'); return false; }
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
   const row = { id:uid('avt'), branchId, semesterId:semId, category, candidateCode, voterUsername:username };
   try{
