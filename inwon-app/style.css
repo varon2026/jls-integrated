@@ -667,8 +667,9 @@ table.rank-table tbody tr:last-child td{border-bottom:none}
 .award-next-mip{background:#fbe4ef}
 .award-next-speech{background:#fdf3d0}
 .award-next-book{background:#dcf0fb}
-/* 시상관리 표만 헤더 글자를 가운데 정렬 — 다른 화면의 table.grid는 그대로 왼쪽 정렬 유지 */
-table.grid.award-tbl th{text-align:center}
+/* 시상관리 표만 헤더·내용 전부 가운데 정렬 — 다른 화면의 table.grid는 그대로 왼쪽 정렬 유지 */
+table.grid.award-tbl th,
+table.grid.award-tbl td{text-align:center}
 .ca-early{background:var(--warn-soft);color:#a05f18}
 .ca-wait{background:var(--surface-1);color:var(--ink-3)}
 .closing-ca .clos-ca td{background:var(--surface-1);font-size:12px}

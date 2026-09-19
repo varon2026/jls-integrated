@@ -6982,7 +6982,7 @@ function renderAdminAward(){
             <td class="award-next-mip" style="white-space:nowrap">${nCls}</td>
             <td class="award-next-mip" style="white-space:nowrap">${nTeacher}</td>
             <td class="award-next-mip" style="white-space:nowrap">${nRoom}</td>
-            <td style="color:var(--ink-2);line-height:1.5">${e.reason?esc(e.reason):'<span style="color:var(--ink-3)">-</span>'}</td>
+            <td style="color:var(--ink-2);line-height:1.5;text-align:left">${e.reason?esc(e.reason):'<span style="color:var(--ink-3)">-</span>'}</td>
           </tr>`;
         }).join('')
           : `<tr><td colspan="8" style="padding:16px;text-align:center;color:var(--ink-3)">아직 없음</td></tr>`}
