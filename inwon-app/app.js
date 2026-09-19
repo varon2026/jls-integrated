@@ -6835,7 +6835,7 @@ function awardVoteCard(branchId, semId, category, title, color, entries, teacher
       <span style="color:var(--pos);font-weight:700">완료 — ${tally.voted.length?esc(tally.voted.map(v=>v.name).join(', ')):'없음'}</span>
       <span style="color:var(--ink-3);font-weight:700"> · 미투표 — ${tally.notVoted.length?esc(tally.notVoted.map(v=>v.name).join(', ')):'없음'}</span>
     </p>
-    <div class="table-wrap" style="margin:0 -1px 14px"><table class="grid">
+    <div class="table-wrap" style="margin:0 -1px 14px"><table class="grid award-tbl">
       <thead><tr>
         <th class="cc">번호</th><th>학생명</th>
         <th>이번학기 반</th><th>이번학기 담임</th>
@@ -6926,7 +6926,7 @@ function renderAdminAward(){
     </div>
 
     <div class="sect-head" id="award-dtat"><h3>DT·AT 최고득점자</h3><span class="cnt">반별 · 95점 이상 · 재시험 제외 · 동점 전부 포함 · ${scorers.length}명</span></div>
-    <div class="table-wrap" style="margin-bottom:20px"><table class="grid">
+    <div class="table-wrap" style="margin-bottom:20px"><table class="grid award-tbl">
       <thead><tr>
         <th class="cc">번호</th><th class="cc">시험</th><th>학생명</th>
         <th>이번학기 반</th><th>이번학기 담임</th>
@@ -6957,7 +6957,7 @@ function renderAdminAward(){
     </table></div>
 
     <div class="sect-head" id="award-mip"><h3>MIP 제출 현황 (읽기전용)</h3><span class="cnt">${mipRows.length}명</span></div>
-    <div class="table-wrap" style="margin-bottom:20px"><table class="grid" style="table-layout:fixed">
+    <div class="table-wrap" style="margin-bottom:20px"><table class="grid award-tbl" style="table-layout:fixed">
       <colgroup>
         <col style="width:48px"><col style="width:9%">
         <col style="width:13%"><col style="width:11%">
