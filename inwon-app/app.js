@@ -6957,7 +6957,13 @@ function renderAdminAward(){
     </table></div>
 
     <div class="sect-head" id="award-mip"><h3>MIP 제출 현황 (읽기전용)</h3><span class="cnt">${mipRows.length}명</span></div>
-    <div class="table-wrap" style="margin-bottom:20px"><table class="grid">
+    <div class="table-wrap" style="margin-bottom:20px"><table class="grid" style="table-layout:fixed">
+      <colgroup>
+        <col style="width:48px"><col style="width:9%">
+        <col style="width:13%"><col style="width:11%">
+        <col style="width:13%"><col style="width:11%"><col style="width:8%">
+        <col>
+      </colgroup>
       <thead><tr>
         <th class="cc">번호</th><th>학생명</th>
         <th>이번학기 반</th><th>이번학기 담임</th>
@@ -6970,12 +6976,12 @@ function renderAdminAward(){
           const [nCls, nTeacher, nRoom] = awardNextCells(next);
           return `<tr>
             <td class="cc">${i+1}</td>
-            <td style="font-weight:700">${esc(e.studentName)}</td>
-            <td>${esc(awardClassLabelFor(branchId, semId, e.className))}</td>
-            <td>${esc(e.teacher||'')}</td>
-            <td class="award-next-mip">${nCls}</td>
-            <td class="award-next-mip">${nTeacher}</td>
-            <td class="award-next-mip">${nRoom}</td>
+            <td style="font-weight:700;white-space:nowrap">${esc(e.studentName)}</td>
+            <td style="white-space:nowrap">${esc(awardClassLabelFor(branchId, semId, e.className))}</td>
+            <td style="white-space:nowrap">${esc(e.teacher||'')}</td>
+            <td class="award-next-mip" style="white-space:nowrap">${nCls}</td>
+            <td class="award-next-mip" style="white-space:nowrap">${nTeacher}</td>
+            <td class="award-next-mip" style="white-space:nowrap">${nRoom}</td>
             <td style="color:var(--ink-2);line-height:1.5">${e.reason?esc(e.reason):'<span style="color:var(--ink-3)">-</span>'}</td>
           </tr>`;
         }).join('')
