@@ -325,7 +325,13 @@ function curIsActive(){ const u=curUser(); return u.active!==false; }
 function uid(p){ return (p||'id')+'_'+Math.random().toString(36).slice(2,9); }
 function curUser(){ return ((db&&db.users)||[]).find(u=>u.id===session.userId) || {}; }
 function isManagerUser(){ return !!curUser().isManager; }
+/* 시상관리는 분원관리자(role='branch')에게 자동으로 열어준다 — 계정마다 메뉴를 따로 저장해 둔
+   계정은 새로 생긴 메뉴가 목록에 없어서 카드가 안 보였고, 하나하나 체크해 줘야 했다. */
 function userMenus(){
+  const m=baseUserMenus();
+  return (session && session.role==='branch' && !m.includes('award')) ? m.concat('award') : m;
+}
+function baseUserMenus(){
   const u=curUser();
   if(u.isManager) return ALL_MENUS.slice();
   if(u.menus){ try{ const a=JSON.parse(u.menus); if(Array.isArray(a)) return a; }catch(e){} }

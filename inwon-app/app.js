@@ -242,7 +242,7 @@ const TABLES = [
   { key:'branches',           table:'branches',             toRow:b=>({id:b.id,name:b.name}),
     fromRow:r=>({id:r.id,name:r.name}) },
 { key:'users', table:'users', toRow:u=>{ const r={id:u.id,username:u.username,role:u.role,branch_id:u.branchId,teacher_name:u.teacherName||null}; if(u.password!==undefined) r.password=u.password; return r; },
-    fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,menus:r.menus}) },
+    fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,menus:r.menus,active:r.active!==false}) },
   { key:'semesters',          table:'semesters',            toRow:s=>({id:s.id,name:s.name}),
     fromRow:r=>({id:r.id,name:r.name}) },
   { key:'students',           table:'students',             toRow:s=>({id:s.id,code:s.code,name:s.name,school:s.school,grade:s.grade}),
@@ -9289,9 +9289,13 @@ function awardClassLabelFor(branchId, semId, cn){
    베스트 스피치는 분원관리자(role='branch')만, 베스트북은 분원관리자+담임(role='teacher')
    전부가 투표한다. 1인 최대 표 수는 awardMaxVotes() 참고. 동점이면 전부 인정(최고 득표수와 같은 사람 전부가 1등). */
 function awardDisplayName(u){ return (u&&(u.teacherName||u.username))||''; }
-function awardEligibleVoters(branchId, category){
+/* 투표권자에서 뺄 사람: 비활성(퇴사) 계정, 그리고 그 학기에 담임 반이 하나도 없는 담임 계정.
+   안 빼면 '전원 투표하면 확정'이라는 조건이 영영 안 채워진다(퇴사한 선생님은 투표할 수가 없으니까). */
+function awardEligibleVoters(branchId, semId, category){
   const roles = category==='best_book' ? ['branch','teacher'] : ['branch'];
-  return (db.users||[]).filter(u=>u.branchId===branchId && roles.includes(u.role))
+  const semTeachers = new Set(activeRecordsOf(branchId, semId).map(r=>r.teacher).filter(Boolean));
+  return (db.users||[]).filter(u=>u.branchId===branchId && roles.includes(u.role) && u.active!==false
+      && (u.role!=='teacher' || semTeachers.has(u.teacherName)))
     .map(u=>({username:u.username, name:awardDisplayName(u)}));
 }
 /* 1인 최대 표 수 — BEST BOOK은 3표(2026-09 변경), BEST SPEECH는 2표 */
@@ -9305,7 +9309,7 @@ function awardVoteTally(branchId, semId, category){
   const byCandidate = {};
   rows.forEach(v=>{ byCandidate[v.candidateCode] = (byCandidate[v.candidateCode]||0)+1; });
   const votedUsernames = new Set(rows.map(v=>v.voterUsername));
-  const eligible = awardEligibleVoters(branchId, category);
+  const eligible = awardEligibleVoters(branchId, semId, category);
   const voted = eligible.filter(v=>votedUsernames.has(v.username));
   const notVoted = eligible.filter(v=>!votedUsernames.has(v.username));
   const maxVotes = Object.values(byCandidate).length ? Math.max(...Object.values(byCandidate)) : 0;
