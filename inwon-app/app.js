@@ -245,8 +245,12 @@ const TABLES = [
     fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,menus:r.menus,active:r.active!==false}) },
   { key:'semesters',          table:'semesters',            toRow:s=>({id:s.id,name:s.name}),
     fromRow:r=>({id:r.id,name:r.name}) },
-  { key:'students',           table:'students',             toRow:s=>({id:s.id,code:s.code,name:s.name,school:s.school,grade:s.grade}),
-    fromRow:r=>({id:r.id,code:r.code,name:r.name,school:r.school,grade:r.grade}) },
+  { key:'students',           table:'students',
+    /* english_name 칸은 sql/student_english_name.sql 을 돌려야 생긴다. 칸이 없는데 보내면 학생 저장이
+       통째로 실패하므로, 서버에서 읽어 본 결과 칸이 있을 때(STUDENT_ENG_COL)만 같이 보낸다. */
+    toRow:s=>{ const r={id:s.id,code:s.code,name:s.name,school:s.school,grade:s.grade};
+      if(STUDENT_ENG_COL && s.englishName!==undefined) r.english_name = s.englishName||null; return r; },
+    fromRow:r=>({id:r.id,code:r.code,name:r.name,school:r.school,grade:r.grade,englishName:r.english_name||''}) },
 { key:'semesterRecords',    table:'semester_records',     toRow:r=>({id:r.id,student_id:r.studentId,branch_id:r.branchId,semester_id:r.semesterId,class_name:r.className,class_label:r.classLabel,teacher:r.teacher,note:r.note,target_type:r.targetType,status:r.status,origin:r.origin,enroll_date:r.enrollDate,withdraw_date:r.withdrawDate,transfer:!!r.transfer,transfer_in:!!r.transferIn,transfer_to:r.transferTo||null,kind:r.kind||'regular',withdraw_reason:r.withdrawReason||null,withdraw_memo:r.withdrawMemo||null,grade:r.grade||null}),
     fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,classLabel:r.class_label,teacher:r.teacher,note:r.note,targetType:r.target_type,status:r.status,origin:r.origin,enrollDate:r.enroll_date,withdrawDate:r.withdraw_date,transfer:!!r.transfer,transferIn:!!r.transfer_in,transferTo:r.transfer_to,kind:r.kind||'regular',withdrawReason:r.withdraw_reason||null,withdrawMemo:r.withdraw_memo||null,grade:r.grade||''}) },
   { key:'counselingHistories',table:'counseling_histories', toRow:c=>({id:c.id,student_id:c.studentId,branch_id:c.branchId,semester_id:c.semesterId,date:c.date,type:c.type,content:c.content,counselor:c.counselor,batch_id:c.batchId,mistag:!!c.mistag}),
@@ -293,6 +297,7 @@ const TABLES = [
 ];
 
 const MISSING_TABLES = new Set();   // 아직 Supabase에 안 만든 optional 표
+let STUDENT_ENG_COL = false;        // students 표에 english_name 칸이 있는지 (loadDB에서 확인)
 function blankDB(){
   return { users:[], branches:[], semesters:[], students:[],
            semesterRecords:[], counselingHistories:[], studentMovements:[],
@@ -335,6 +340,7 @@ async function loadDB(){
       if(chunk.length < PAGE) break;   // 마지막 페이지 (1000개 미만이면 끝)
       from += PAGE;
     }
+    if(t.key==='students') STUDENT_ENG_COL = all.length>0 && Object.prototype.hasOwnProperty.call(all[0],'english_name');
     db[t.key] = gone ? [] : all.map(t.fromRow);
   }
   /* 반 라벨은 명단을 올린 시점의 규칙으로 굳어 저장된다. 그래서 반이름 읽는 규칙을
@@ -4977,6 +4983,7 @@ function teacherHasMany(t){
 const ROSTER_HDR = {
   name:['이름','학생명','성명'],
   code:['회원코드','코드','학생코드'],
+  english:['영어이름','영어 이름','영문이름','영문 이름','영문명'],
   school:['학교'],
   grade:['학년'],
   cls:['반 이름','반이름','반명','반','클래스'],
@@ -4997,7 +5004,13 @@ function importRoster(file, branchId, semId, opts){
     for(const sh of (sheets||[])){
       let hi=-1, cand=null;
       for(let i=0; i<Math.min(3, sh.length); i++){
-        const c = mapHeader(sh[i].map(h=>String(h).trim()), ROSTER_HDR);
+        const hdrs = sh[i].map(h=>String(h).trim());
+        const c = mapHeader(hdrs, ROSTER_HDR);
+        /* '영어이름'에도 '이름' 글자가 들어 있어서, 영어이름 열이 이름 열보다 앞에 오는 파일이면
+           이름 열을 영어이름 열로 잘못 잡는다. 겹치면 영어이름이 아닌 쪽에서 이름 열을 다시 찾는다. */
+        if(c.english>=0 && c.name===c.english){
+          c.name = hdrs.findIndex((h,k)=>k!==c.english && ROSTER_HDR.name.some(a=>h===a||h.includes(a)));
+        }
         if(c.name>=0 && c.code>=0){ hi=i; cand=c; break; }
       }
       if(hi<0) continue;                 // 명단 헤더 없는 시트는 건너뜀
@@ -5069,6 +5082,7 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
     if(autoSem){ semId = ensureSemester(autoSem); }
     let added=0, updated=0, excluded=0, examAdded=0;
     let adoptedTmp=0;   // 레벨테스트 임시코드 → 진짜 회원코드로 붙인 학생 수
+    let engSkipped=0;   // 영어이름이 파일에 있었는데 저장할 칸이 아직 없어서 건너뛴 수
     // ★ 업로드 되돌리기용 추적 — 이 업로드가 새로 만든/덮어쓴 것을 기록
     const addedRecIds=new Set(), addedStuIds=new Set(), addedMvIds=[], updBefore=new Map();
     rows.slice(1).forEach(r=>{
@@ -5125,6 +5139,7 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
       const teacher = String(r[idx.teacher]||'').trim() || '미배정';
       const school = idx.school>=0 ? String(r[idx.school]||'').trim() : '';
       const grade  = idx.grade>=0 ? String(r[idx.grade]||'').trim() : '';
+      const engName = idx.english>=0 ? String(r[idx.english]||'').trim() : '';
       let enrollDate = '';
       if(origin==='new' || origin==='return'){
         const rawDate = idx.startdate>=0 ? String(r[idx.startdate]||'').trim() : '';
@@ -5156,6 +5171,8 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
           if(myRank>=maxRank) stu.grade=grade;
         }
       }
+      /* 영어이름 — 칸이 있을 때만 저장(sql/student_english_name.sql). 파일에 빈칸이면 기존 값을 지우지 않는다. */
+      if(engName){ if(STUDENT_ENG_COL) stu.englishName = engName; else engSkipped++; }
       // 학기레코드 upsert — ★ kind까지 일치해야 같은 레코드 (정규/내신 별개 공존)
       let rec = db.semesterRecords.find(x=>x.studentId===stu.id && x.branchId===branchId && x.semesterId===semId && (x.kind||'regular')===kind);
       // 복귀(return)면서 퇴원기록 있고 재입학이 나중이면 = 퇴원 후 재입학. 재원 유지하되 퇴원일 보존(마감표 카운트용).
@@ -5229,7 +5246,7 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
       state.addSemesterMode = false; // 배너 해제
       /* 명단에 올라온 신규생 중 레벨테스트 '대기'로 남아 있던 예약을 등록완료로 맞춘다 */
       const ltN = await ltSyncEnrolledBulk(branchId, semId);
-      toast(`✅ ${semName}에 저장 · 정규 신규 ${added}, 갱신 ${updated}${examAdded?`, 내신반 ${examAdded}`:''}${excluded?`, 제외 ${excluded}`:''}${adoptedTmp?`, 회원코드 연결 ${adoptedTmp}`:''}${ltN?`, 레벨테스트 등록완료 ${ltN}`:''}`,'ok');
+      toast(`✅ ${semName}에 저장 · 정규 신규 ${added}, 갱신 ${updated}${examAdded?`, 내신반 ${examAdded}`:''}${excluded?`, 제외 ${excluded}`:''}${adoptedTmp?`, 회원코드 연결 ${adoptedTmp}`:''}${ltN?`, 레벨테스트 등록완료 ${ltN}`:''}${engSkipped?` · 영어이름은 저장 준비(sql/student_english_name.sql)가 안 돼 건너뜀`:''}`,'ok');
     } else {
       toast('❌ 저장 실패 — 다시 업로드해 주세요','err');
     }
@@ -6923,6 +6940,7 @@ function renderAdminAward(){
       </select>
       <span style="width:1px;height:20px;background:var(--line);margin:0 4px"></span>
       ${['all','DT','AT'].map(v=>`<button onclick="awardSetTestFilter('${v}')" style="border:1.5px solid ${testFilter===v?'var(--brand)':'var(--line)'};background:${testFilter===v?'var(--brand)':'#fff'};color:${testFilter===v?'#fff':'var(--ink-2)'};font-size:12.5px;font-weight:800;padding:6px 14px;border-radius:11px;font-family:inherit;cursor:pointer">${v==='all'?'전체':v}</button>`).join('')}
+      <button class="btn primary" onclick="awardExportExcel()" style="margin-left:auto" title="상마다 시트를 나눠서 받아요 (담임별·DT/AT 필터와 상관없이 전체)">엑셀 다운로드</button>
     </div>
 
     <div class="sect-head" id="award-dtat"><h3>DT·AT 최고득점자</h3><span class="cnt">반별 · 95점 이상 · 재시험 제외 · 동점 전부 포함 · ${scorers.length}명</span></div>
@@ -9277,6 +9295,72 @@ function awardNextCells(next){
   const none = '<span style="color:var(--ink-3)">아직 없음</span>';
   return [none, '<span style="color:var(--ink-3)">-</span>', '<span style="color:var(--ink-3)">-</span>'];
 }
+/* ------------------------------------------------------------------------
+   시상관리 — 엑셀 다운로드 (분원관리자)
+   상마다 시트를 따로 만들고, 상장·명단에 필요한 영어이름을 넣는다. 영어이름은 IMS 전체명단의
+   '영어이름' 열을 올릴 때 students에 저장된 값(sql/student_english_name.sql). 화면의 담임별·
+   DT/AT 필터와 상관없이 그 분원·학기 전체를 내려받는다. */
+function awardEnglishName(code){
+  const s = (db.students||[]).find(x=>x.code===code);
+  return (s && s.englishName) || '';
+}
+function awardNextTexts(next){
+  if(next.status==='ok') return [next.classLabel||'', next.teacher||'', next.room?next.room+'실':''];
+  if(next.status==='withdrawn') return ['퇴원','',''];
+  return ['아직 없음','',''];
+}
+function awardExportExcel(){
+  if(typeof XLSX==='undefined'){ toast('엑셀 라이브러리를 불러오지 못했어요. 새로고침 후 다시 눌러 주세요','err'); return; }
+  const branchId = session.branchId, semId = state.semId;
+  const b = getBranch(branchId), branchName = b?b.name:'';
+  const semName = (db.semesters.find(s=>s.id===semId)||{}).name || semId;
+  const cache = AWARD_SCORE_CACHE[semId];
+  if(!cache){ toast('아직 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요','err'); return; }
+  const recOfClass = cn => db.semesterRecords.find(r=>r.branchId===branchId && r.semesterId===semId && r.className===cn) || {};
+  const entries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
+  const codes = new Set();
+  const nextCols = code => awardNextTexts(nextSemInfoFor(branchId, code, semId));
+
+  const dtat = computeAwardTopScorers(cache, branchName)
+    .map(s=>Object.assign({}, s, {classLabel:recOfClass(s.className).classLabel||s.className, teacher:recOfClass(s.className).teacher||''}))
+    .sort((a,c)=>a.testType===c.testType ? a.classLabel.localeCompare(c.classLabel) : a.testType.localeCompare(c.testType));
+  const dtatRows = [['번호','시험','학생명','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','점수']]
+    .concat(dtat.map((s,i)=>{ codes.add(s.studentCode); return [i+1, s.testType, s.studentName, awardEnglishName(s.studentCode), s.classLabel, s.teacher, ...nextCols(s.studentCode), s.score]; }));
+
+  const mip = entries.filter(e=>e.category==='mip');
+  const mipRows = [['번호','학생명','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','사유']]
+    .concat(mip.map((e,i)=>{ codes.add(e.studentCode); return [i+1, e.studentName, awardEnglishName(e.studentCode), awardClassLabelFor(branchId, semId, e.className), e.teacher||'', ...nextCols(e.studentCode), e.reason||'']; }));
+
+  const voteRows = (category, finalLabel) => {
+    const tally = awardVoteTally(branchId, semId, category);
+    const list = entries.filter(e=>e.category===category);
+    return [['번호','학생명','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','득표','상태']]
+      .concat(list.map((e,i)=>{
+        codes.add(e.studentCode);
+        const n = tally.byCandidate[e.studentCode]||0;
+        const st = tally.leaders.includes(e.studentCode) && n>0 ? (tally.allVoted ? finalLabel : '현재 1위') : '';
+        return [i+1, e.studentName, awardEnglishName(e.studentCode), awardClassLabelFor(branchId, semId, e.className), e.teacher||'', ...nextCols(e.studentCode), n, st];
+      }));
+  };
+
+  const wb = XLSX.utils.book_new();
+  const add = (name, rows, widths) => {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = widths.map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  };
+  add('DT·AT', dtatRows, [6,6,10,14,22,14,22,14,14,8]);
+  add('MIP', mipRows, [6,10,14,22,14,22,14,14,60]);
+  add('BEST SPEECH', voteRows('best_speech','당선'), [6,10,14,22,14,22,14,14,6,12]);
+  add('BEST BOOK', voteRows('best_book','본사 제출 예정'), [6,10,14,22,14,22,14,14,6,14]);
+  const fname = `시상관리_${branchName}_${semName}.xlsx`.replace(/[\\/:*?"<>|]/g,'');
+  XLSX.writeFile(wb, fname);
+
+  const noEng = Array.from(codes).filter(c=>!awardEnglishName(c)).length;
+  if(!STUDENT_ENG_COL) toast('엑셀을 내려받았어요 · 영어이름 칸이 아직 준비 안 돼서 비어 있어요 (sql/student_english_name.sql 실행 필요)','ok');
+  else toast(`엑셀을 내려받았어요${noEng?` · 영어이름이 비어 있는 학생 ${noEng}명 (전체명단을 다시 올리면 채워져요)`:''}`,'ok');
+}
+
 /* MIP·BEST SPEECH·BEST BOOK은 등록 당시 원본 반이름(예: [LSB2]SU3/MWF/LSB2/C)을 그대로 저장해서,
    DT·AT 표처럼 예쁜 반 이름표(월수금 3부 · LSB2)로 보여주려면 반배정표에서 다시 찾아야 한다. */
 function awardClassLabelFor(branchId, semId, cn){
