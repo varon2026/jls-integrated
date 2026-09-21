@@ -9304,6 +9304,13 @@ function awardEnglishName(code){
   const s = (db.students||[]).find(x=>x.code===code);
   return (s && s.englishName) || '';
 }
+/* 학교·학년 — 학년은 그 학기 명단에 적힌 값을 우선한다(학생 표의 학년은 최신 학기 기준이라 예전 학기와 다를 수 있다) */
+function awardSchoolGrade(branchId, semId, code){
+  const s = (db.students||[]).find(x=>x.code===code);
+  if(!s) return ['',''];
+  const rec = db.semesterRecords.find(r=>r.studentId===s.id && r.branchId===branchId && r.semesterId===semId && (r.kind||'regular')!=='exam');
+  return [s.school||'', (rec&&rec.grade)||s.grade||''];
+}
 function awardNextTexts(next){
   if(next.status==='ok') return [next.classLabel||'', next.teacher||'', next.room?next.room+'실':''];
   if(next.status==='withdrawn') return ['퇴원','',''];
@@ -9320,27 +9327,28 @@ function awardExportExcel(){
   const entries = (db.awardEntries||[]).filter(e=>e.branchId===branchId && e.semesterId===semId);
   const codes = new Set();
   const nextCols = code => awardNextTexts(nextSemInfoFor(branchId, code, semId));
+  const sg = code => awardSchoolGrade(branchId, semId, code);
 
   const dtat = computeAwardTopScorers(cache, branchName)
     .map(s=>Object.assign({}, s, {classLabel:recOfClass(s.className).classLabel||s.className, teacher:recOfClass(s.className).teacher||''}))
     .sort((a,c)=>a.testType===c.testType ? a.classLabel.localeCompare(c.classLabel) : a.testType.localeCompare(c.testType));
   /* DT와 AT는 시험이 달라 시트를 따로 만든다(번호도 각각 1부터) */
-  const scoreRows = type => [['번호','학생명','회원코드','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','점수']]
-    .concat(dtat.filter(s=>s.testType===type).map((s,i)=>{ codes.add(s.studentCode); return [i+1, s.studentName, s.studentCode, awardEnglishName(s.studentCode), s.classLabel, s.teacher, ...nextCols(s.studentCode), s.score]; }));
+  const scoreRows = type => [['번호','학생명','회원코드','학교','학년','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','점수']]
+    .concat(dtat.filter(s=>s.testType===type).map((s,i)=>{ codes.add(s.studentCode); return [i+1, s.studentName, s.studentCode, ...sg(s.studentCode), awardEnglishName(s.studentCode), s.classLabel, s.teacher, ...nextCols(s.studentCode), s.score]; }));
 
   const mip = entries.filter(e=>e.category==='mip');
-  const mipRows = [['번호','학생명','회원코드','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','사유']]
-    .concat(mip.map((e,i)=>{ codes.add(e.studentCode); return [i+1, e.studentName, e.studentCode, awardEnglishName(e.studentCode), awardClassLabelFor(branchId, semId, e.className), e.teacher||'', ...nextCols(e.studentCode), e.reason||'']; }));
+  const mipRows = [['번호','학생명','회원코드','학교','학년','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','사유']]
+    .concat(mip.map((e,i)=>{ codes.add(e.studentCode); return [i+1, e.studentName, e.studentCode, ...sg(e.studentCode), awardEnglishName(e.studentCode), awardClassLabelFor(branchId, semId, e.className), e.teacher||'', ...nextCols(e.studentCode), e.reason||'']; }));
 
   const voteRows = (category, finalLabel) => {
     const tally = awardVoteTally(branchId, semId, category);
     const list = entries.filter(e=>e.category===category);
-    return [['번호','학생명','회원코드','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','득표','상태']]
+    return [['번호','학생명','회원코드','학교','학년','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','득표','상태']]
       .concat(list.map((e,i)=>{
         codes.add(e.studentCode);
         const n = tally.byCandidate[e.studentCode]||0;
         const st = tally.leaders.includes(e.studentCode) && n>0 ? (tally.allVoted ? finalLabel : '현재 1위') : '';
-        return [i+1, e.studentName, e.studentCode, awardEnglishName(e.studentCode), awardClassLabelFor(branchId, semId, e.className), e.teacher||'', ...nextCols(e.studentCode), n, st];
+        return [i+1, e.studentName, e.studentCode, ...sg(e.studentCode), awardEnglishName(e.studentCode), awardClassLabelFor(branchId, semId, e.className), e.teacher||'', ...nextCols(e.studentCode), n, st];
       }));
   };
 
@@ -9350,11 +9358,11 @@ function awardExportExcel(){
     ws['!cols'] = widths.map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb, ws, name);
   };
-  add('DT', scoreRows('DT'), [6,10,14,14,22,14,22,14,14,8]);
-  add('AT', scoreRows('AT'), [6,10,14,14,22,14,22,14,14,8]);
-  add('MIP', mipRows, [6,10,14,14,22,14,22,14,14,60]);
-  add('BEST SPEECH', voteRows('best_speech','당선'), [6,10,14,14,22,14,22,14,14,6,12]);
-  add('BEST BOOK', voteRows('best_book','본사 제출 예정'), [6,10,14,14,22,14,22,14,14,6,14]);
+  add('DT', scoreRows('DT'), [6,10,14,20,8,14,22,14,22,14,14,8]);
+  add('AT', scoreRows('AT'), [6,10,14,20,8,14,22,14,22,14,14,8]);
+  add('MIP', mipRows, [6,10,14,20,8,14,22,14,22,14,14,60]);
+  add('BEST SPEECH', voteRows('best_speech','당선'), [6,10,14,20,8,14,22,14,22,14,14,6,12]);
+  add('BEST BOOK', voteRows('best_book','본사 제출 예정'), [6,10,14,20,8,14,22,14,22,14,14,6,14]);
   const fname = `시상관리_${branchName}_${semName}.xlsx`.replace(/[\\/:*?"<>|]/g,'');
   XLSX.writeFile(wb, fname);
 
