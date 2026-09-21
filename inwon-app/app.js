@@ -318,10 +318,9 @@ function initSupabase(){
 
 /* 서버에서 전체 데이터 읽기 → 메모리 db.
    Supabase는 한 요청에 최대 1000행만 주므로, range()로 끝까지 페이지를 넘기며 전부 가져옴. */
-async function loadDB(){
-  initSupabase();
-  db = blankDB();
-  MISSING_TABLES.clear();
+/* 표를 전부 끝까지 받아 target 에 채운다. 처음 불러올 때(loadDB)와 자동 새로고침이 같이 쓴다.
+   target 을 따로 받는 이유: 자동 새로고침은 받는 동안 화면이 쓰는 db 를 건드리면 안 되기 때문. */
+async function fetchAllTables(target, missing){
   const PAGE = 1000;
   for(const t of TABLES){
     let all = [];
@@ -332,7 +331,7 @@ async function loadDB(){
       if(error && t.optional){
         // 아직 만들지 않은 표 — 기능만 잠깐 쉬고 나머지는 그대로 쓴다
         console.warn('optional table missing', t.table, error.message||error);
-        MISSING_TABLES.add(t.key); gone = true; break;
+        missing.add(t.key); gone = true; break;
       }
       if(error){ console.error('load fail', t.table, error); throw error; }
       const chunk = data || [];
@@ -341,12 +340,15 @@ async function loadDB(){
       from += PAGE;
     }
     if(t.key==='students') STUDENT_ENG_COL = all.length>0 && Object.prototype.hasOwnProperty.call(all[0],'english_name');
-    db[t.key] = gone ? [] : all.map(t.fromRow);
+    target[t.key] = gone ? [] : all.map(t.fromRow);
   }
+}
+/* 불러온 데이터 후처리 — 처음 불러올 때와 자동 새로고침 때 똑같이 적용해야 화면이 안 달라진다 */
+function postProcessLoadedDB(d){
   /* 반 라벨은 명단을 올린 시점의 규칙으로 굳어 저장된다. 그래서 반이름 읽는 규칙을
      고쳐도(예: TT 를 화목으로 인식) 명단을 다시 올리기 전까지는 옛 라벨이 그대로 보였다.
      → 정규반은 반이름에서 매번 다시 만든다. 내신반·미배정은 이름 그대로 쓰므로 손대지 않는다. */
-  (db.semesterRecords||[]).forEach(r=>{
+  (d.semesterRecords||[]).forEach(r=>{
     if((r.kind||'regular')==='exam' && r.className){
       /* 내신반도 이름에서 다시 만든다 — 명단을 다시 올리기 전에도 화면이 정리되게 */
       r.classLabel = examLabel(r.className) || r.classLabel;
@@ -357,20 +359,95 @@ async function loadDB(){
     }
   });
  // 기존 퇴원생 보정: studentMovements.memo → rec.withdrawMemo 로 1회 이관
-  (db.semesterRecords||[]).forEach(r=>{
+  (d.semesterRecords||[]).forEach(r=>{
     if(r.status!=='withdraw') return;
     if(r.withdrawMemo!=null) return;
-    const mv = (db.studentMovements||[]).find(m=>m.studentId===r.studentId && m.branchId===r.branchId && m.semesterId===r.semesterId && m.type==='withdraw');
+    const mv = (d.studentMovements||[]).find(m=>m.studentId===r.studentId && m.branchId===r.branchId && m.semesterId===r.semesterId && m.type==='withdraw');
     let memo = (mv && mv.memo) || '';
     memo = memo.replace(/^\[[^\]]*\]\s*/, '').trim();   // [전출→…] / [사유] 접두사 제거
     if(memo==='퇴원 처리') memo='';
     r.withdrawMemo = memo;
   });
+}
+async function loadDB(){
+  initSupabase();
+  db = blankDB();
+  MISSING_TABLES.clear();
+  await fetchAllTables(db, MISSING_TABLES);
+  postProcessLoadedDB(db);
 
   // 학기 자동 보강 (현재+직전 학기). 새로 추가된 학기는 서버에도 저장.
   ensureSemesters();
   dbSnapshot = JSON.parse(JSON.stringify(db));  // 기준 스냅샷
   await saveDB(); // ensureSemesters로 늘어난 학기 등 반영
+}
+
+/* ============================================================================
+   자동 새로고침 — 다른 사람이 저장한 내용이 새로고침 없이 반영되게 한다.
+   이 앱은 로그인할 때 데이터를 통째로 받아 이 브라우저 안에 들고 있어서, 다른 사람이 바꿔도
+   내 화면은 그대로였다. 3분마다(그리고 다른 탭에 갔다 돌아왔을 때) 서버에서 다시 받아 바뀐 게
+   있을 때만 화면을 다시 그린다.
+   ★ 내가 입력·저장하던 걸 덮어쓰면 안 되므로 아래 경우엔 이번 차례를 건너뛴다:
+     저장 중 / 팝업이 열려 있음 / 입력칸에 글자를 치는 중 / 내용이 바뀐(아직 안 올린) 입력칸이 있음 /
+     저장 안 된 변경이 메모리에 남아 있음. 받아 오는 사이에 내가 저장했거나 입력을 시작했으면
+     받은 것을 버린다(서버 응답이 저장 전 옛 값일 수 있어서). */
+const AUTO_REFRESH_MS = 3*60*1000;     // 몇 분마다 (3분)
+const FOCUS_REFRESH_MS = 60*1000;      // 탭에 돌아왔을 때는 마지막 갱신이 이보다 오래됐으면 바로
+let _refreshBusy = false, _lastRefreshAt = Date.now(), _autoRefreshOn = false;
+function dbSig(d){ return TABLES.map(t=>JSON.stringify((d&&d[t.key])||[])).join('|'); }
+function refreshBlockedReason(){
+  if(!session || !db || !dbSnapshot) return 'nodata';
+  if(document.hidden) return 'hidden';
+  if(SAVE_DEPTH>0) return 'saving';
+  const ov = el('savingOverlay'); if(ov && ov.classList.contains('on')) return 'saving';
+  const md = el('modalOverlay'); if(md && md.classList.contains('open')) return 'modal';
+  const ae = document.activeElement;
+  if(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.type!=='button' && ae.type!=='submit') return 'typing';
+  for(const f of document.querySelectorAll('#content input, #content textarea, #content select')){
+    if(f.type==='file'){ if(f.files && f.files.length) return 'dirty'; continue; }
+    if(f.type==='checkbox' || f.type==='radio'){ if(f.checked!==f.defaultChecked) return 'dirty'; continue; }
+    if(f.tagName==='SELECT'){ if(Array.from(f.options).some(o=>o.selected!==o.defaultSelected)) return 'dirty'; continue; }
+    if(f.value!==f.defaultValue) return 'dirty';
+  }
+  if(dbSig(db)!==dbSig(dbSnapshot)) return 'unsaved';
+  return '';
+}
+async function refreshFromServer(){
+  if(_refreshBusy || refreshBlockedReason()) return;
+  _refreshBusy = true;
+  try{
+    const before = dbSig(dbSnapshot);
+    const next = blankDB(), missing = new Set();
+    await fetchAllTables(next, missing);
+    postProcessLoadedDB(next);
+    if(refreshBlockedReason()) return;              // 받는 사이에 입력·저장이 시작됨 → 버림
+    if(dbSig(dbSnapshot)!==before) return;          // 받는 사이 내가 저장함 → 서버 응답이 옛 값일 수 있어 버림
+    let changed = dbSig(next)!==before;
+    /* 시험 점수(DT·AT)는 db 밖에 따로 들고 있어서, 시상관리를 보고 있으면 같이 다시 받는다 */
+    const root = (parseRoute().parts[0]||'');
+    if(root==='award' && AWARD_SCORE_CACHE[state.semId]){
+      const old = JSON.stringify(AWARD_SCORE_CACHE[state.semId]);
+      await awardLoadExamScores(state.semId);
+      if(JSON.stringify(AWARD_SCORE_CACHE[state.semId])!==old) changed = true;
+      if(refreshBlockedReason()) return;
+    }
+    if(!changed) return;                             // 바뀐 게 없으면 화면도 그대로 둔다(깜빡임·스크롤 튐 방지)
+    TABLES.forEach(t=>{ db[t.key] = next[t.key]; });
+    MISSING_TABLES.clear(); missing.forEach(k=>MISSING_TABLES.add(k));
+    dbSnapshot = JSON.parse(JSON.stringify(db));
+    const wy = window.scrollY, box = el('content'), cy = box ? box.scrollTop : 0;
+    render();
+    window.scrollTo(0, wy); if(box) box.scrollTop = cy;
+    toast('다른 분이 수정한 내용을 반영했어요','ok');
+  }catch(e){ console.warn('자동 새로고침 실패(다음 차례에 다시 시도)', e); }
+  finally{ _refreshBusy = false; _lastRefreshAt = Date.now(); }
+}
+function startAutoRefresh(){
+  if(_autoRefreshOn) return; _autoRefreshOn = true; _lastRefreshAt = Date.now();
+  setInterval(()=>{ if(Date.now()-_lastRefreshAt >= AUTO_REFRESH_MS) refreshFromServer(); }, 30*1000);
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden && Date.now()-_lastRefreshAt >= FOCUS_REFRESH_MS) refreshFromServer();
+  });
 }
 
 /* ============================================================================
@@ -478,7 +555,13 @@ async function mirrorToBooks(records){
 
 /* 메모리 db를 서버에 동기화 — 직전 스냅샷과 비교해 바뀐 행만 upsert + 삭제된 행 delete.
    대량 데이터는 Supabase 요청 한도를 넘지 않게 잘게 나눠서 보냄(배치). */
+/* 저장이 진행 중인지 — 자동 새로고침이 저장 도중에 데이터를 바꿔치기하지 않게 막는 용도 */
+let SAVE_DEPTH = 0;
 async function saveDB(){
+  SAVE_DEPTH++;
+  try{ return await _saveDBInner(); } finally{ SAVE_DEPTH--; }
+}
+async function _saveDBInner(){
   if(session && session.canEdit===false){ toast('뷰어 계정은 수정 권한이 없습니다',false); return false; }  // 읽기전용 게이트
   if(!sb){ try{ initSupabase(); }catch(e){ console.error(e); return false; } }
   const CHUNK = 200;  // 한 번에 보낼 최대 행 수
@@ -1621,6 +1704,7 @@ function enterApp(){
   el('loginView').style.display='none';
   el('appView').style.display='block';
   applyReadOnlyBanner();
+  startAutoRefresh();
   const cur = currentSemester();
   // 통합앱 iframe으로 열렸으면 거기서 고른 학기를 그대로 이어받는다 (?sem=...)
   const _qs = new URLSearchParams(location.search).get('sem');
@@ -9469,7 +9553,7 @@ async function awardLoadExamScores(semId){
       from += PAGE;
     }
     AWARD_SCORE_CACHE[semId] = all;
-  }catch(e){ console.error('시험 점수 조회 실패', e); AWARD_SCORE_CACHE[semId]=[]; }
+  }catch(e){ console.error('시험 점수 조회 실패', e); AWARD_SCORE_CACHE[semId]=AWARD_SCORE_CACHE[semId]||[]; }
   return AWARD_SCORE_CACHE[semId];
 }
 /* DT·AT 1등은 그 레벨 안에서 무조건 제일 높은 사람이 받는 게 아니라, 95점을 넘긴
