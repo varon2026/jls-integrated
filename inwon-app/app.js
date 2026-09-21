@@ -9324,8 +9324,9 @@ function awardExportExcel(){
   const dtat = computeAwardTopScorers(cache, branchName)
     .map(s=>Object.assign({}, s, {classLabel:recOfClass(s.className).classLabel||s.className, teacher:recOfClass(s.className).teacher||''}))
     .sort((a,c)=>a.testType===c.testType ? a.classLabel.localeCompare(c.classLabel) : a.testType.localeCompare(c.testType));
-  const dtatRows = [['번호','시험','학생명','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','점수','회원코드']]
-    .concat(dtat.map((s,i)=>{ codes.add(s.studentCode); return [i+1, s.testType, s.studentName, awardEnglishName(s.studentCode), s.classLabel, s.teacher, ...nextCols(s.studentCode), s.score, s.studentCode]; }));
+  /* DT와 AT는 시험이 달라 시트를 따로 만든다(번호도 각각 1부터) */
+  const scoreRows = type => [['번호','학생명','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','점수','회원코드']]
+    .concat(dtat.filter(s=>s.testType===type).map((s,i)=>{ codes.add(s.studentCode); return [i+1, s.studentName, awardEnglishName(s.studentCode), s.classLabel, s.teacher, ...nextCols(s.studentCode), s.score, s.studentCode]; }));
 
   const mip = entries.filter(e=>e.category==='mip');
   const mipRows = [['번호','학생명','영어이름','이번학기 반','이번학기 담임','다음학기 반','다음학기 담임','다음학기 강의실','사유','회원코드']]
@@ -9349,7 +9350,8 @@ function awardExportExcel(){
     ws['!cols'] = widths.map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb, ws, name);
   };
-  add('DT·AT', dtatRows, [6,6,10,14,22,14,22,14,14,8,14]);
+  add('DT', scoreRows('DT'), [6,10,14,22,14,22,14,14,8,14]);
+  add('AT', scoreRows('AT'), [6,10,14,22,14,22,14,14,8,14]);
   add('MIP', mipRows, [6,10,14,22,14,22,14,14,60,14]);
   add('BEST SPEECH', voteRows('best_speech','당선'), [6,10,14,22,14,22,14,14,6,12,14]);
   add('BEST BOOK', voteRows('best_book','본사 제출 예정'), [6,10,14,22,14,22,14,14,6,14,14]);
