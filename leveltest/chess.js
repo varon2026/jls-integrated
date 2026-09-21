@@ -62,7 +62,7 @@ const CHESS_LEVEL_RULES = {
 };
 
 const CHESS_ANSWER_KEY = {
-  D1: ["black","frog","o","u","3","2","3","1","3","2","1","3","1","1","oy","ow","2","2","4","3","2","3","3","5","2","2","1","2","3","2","3","4","6"],
+  D1: ["bl","fr","o","u","3","2","3","1","3","2","1","3","1","1","oy","ow","2","2","4","3","2","3","3","5","2","2","1","2","3","2","3","4","6"],
   D2: ["i,e","3","3","oi","ea","1","3","2","1","3","2","1","1","1","2","2","2","3","2","1","2","1","1","3","1","1","1","2","1","1","3","2","1"],
   D3: ["1","2","3","3","2","4","2","1","1","4","1","3","3","1","4","3","1","3","2","3","4","2","1","4","2","2","1","3","3","2","4","a little","many"],
   D4: ["3","3","3","4","2","4","4","2","1","2","2","4","4","4","3","3","3","2","4","4","3","3","1","3","2","1","2","2","4","4","3","4","4"],
@@ -72,6 +72,22 @@ const CHESS_ANSWER_KEY = {
   L3: ["3","4","3","1","2","2","4","2","1","2","1","3","4","2","3","2","3","4","1","4","1","3","4","3","2","1","3","2","2","2","1","4","2"],
   L4: ["2","4","3","4","2","2","2","1","2","4","3","2","1","3","3","3","4","1","1","3","3","2","3","2","3","1","4","4","2","4","3","1","2"]
 };
+
+/* 정답으로 같이 인정하는 다른 표기. D1 1·2번은 시험지가 "__ __ ack / __ __ og"에서 빈칸(bl, fr)만
+   채우라는 문제인데 정답표에 단어 전체(black, frog)가 적혀 있어서, 시험지대로 bl·fr을 입력하면
+   틀렸다고 나왔다. 정답은 bl·fr로 바로잡고, 단어 전체를 입력해 온 것도 예전처럼 맞게 인정한다.
+   { 시험: { 문항인덱스(0부터): [인정할 다른 답] } } */
+const CHESS_ANSWER_ALT = {
+  D1: { 0: ["black"], 1: ["frog"] }
+};
+function chessAltFor(examName, idx) {
+  const m = CHESS_ANSWER_ALT[String(examName || "").toUpperCase()];
+  return (m && m[idx]) || [];
+}
+function chessAnswerMatches(user, correct, alts) {
+  const u = normalizeChessAnswer(user);
+  return u === normalizeChessAnswer(correct) || (alts || []).some(a => u === normalizeChessAnswer(a));
+}
 
 const CHESS_GRAMMAR_KEY = {
   D: [
@@ -153,14 +169,15 @@ function normalizeChessAnswer(value) {
 }
 /* CHESS 답안 입력 즉시 정오답 색칠 (정답 비교는 normalizeChessAnswer 기준)
    paintCell(common.js)은 !important로 색을 강제 지정 */
-function markChessAns(input, correctVal) {
+function markChessAns(input, correctVal, altVal) {
   const v = (input.value || "").trim();
   if (v === "" || correctVal == null || correctVal === "") return paintCell(input, "");
-  paintCell(input, normalizeChessAnswer(v) === normalizeChessAnswer(correctVal) ? "ok" : "no");
+  const alts = altVal ? String(altVal).split("|") : [];
+  paintCell(input, chessAnswerMatches(v, correctVal, alts) ? "ok" : "no");
 }
 /* 저장된(미리 채워진) CHESS 답안도 열 때 색칠 */
 function markAllChess() {
-  document.querySelectorAll('input[id^="chess-q-"]').forEach(el => markChessAns(el, el.dataset ? el.dataset.ans : null));
+  document.querySelectorAll('input[id^="chess-q-"]').forEach(el => markChessAns(el, el.dataset ? el.dataset.ans : null, el.dataset ? el.dataset.alt : ""));
   if (typeof markAns === "function") document.querySelectorAll('input[id^="chess-g-"]').forEach(el => markAns(el, "1"));
 }
 
@@ -196,7 +213,8 @@ function buildChessAnswerInputs(examName) {
             class="answer-input"
             autocomplete="off"
             data-ans="${esc(key[i] == null ? "" : key[i])}"
-            oninput="markChessAns(this, this.dataset.ans)"
+            data-alt="${esc(chessAltFor(examName, i).join("|"))}"
+            oninput="markChessAns(this, this.dataset.ans, this.dataset.alt)"
             onkeydown="moveLinear(event,'chess-q',${i + 1},${count},'${hasGrammar ? "chess-g-1" : ""}')"
           >
           <div class="answer-meta">답안</div>
@@ -653,7 +671,7 @@ function evaluateChessObjective(examName, userAnswers) {
   const key = CHESS_ANSWER_KEY[String(examName || "").toUpperCase()] || [];
   const results = key.map((correctAnswer, idx) => {
     const user = userAnswers[idx] || "";
-    const correct = normalizeChessAnswer(user) === normalizeChessAnswer(correctAnswer);
+    const correct = chessAnswerMatches(user, correctAnswer, chessAltFor(examName, idx));
     return {
       no: idx + 1,
       user,
