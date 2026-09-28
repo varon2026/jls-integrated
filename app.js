@@ -2881,7 +2881,10 @@ function toggleDelLog(){ wonmuState.delLogOpen=!wonmuState.delLogOpen; renderWon
 function ltSetSearch(v){ wonmuState.ltSearch=v; wonmuState.ltPage=1; renderApptbl(); }
 function ltSetGrade(v){ wonmuState.ltGrade=v; wonmuState.ltPage=1; renderApptbl(); }
 function pageList(cur,total){ const out=[]; if(total<=7){ for(let p=1;p<=total;p++)out.push(p); return out; } out.push(1); let s=Math.max(2,cur-1), e=Math.min(total-1,cur+1); if(s>2)out.push('…'); for(let p=s;p<=e;p++)out.push(p); if(e<total-1)out.push('…'); out.push(total); return out; }
-function openBranchCalendar(id){ bookState.branchId=id; bookState.sel=null; bookState.adding=false; bookState.editId=null; wonmuGo('booking'); }
+/* '＋ 예약 입력' 버튼은 누구에게나 'all'을 넘긴다. 분원 계정은 '전체'가 없으니 자기 분원으로 바꿔준다.
+   예전엔 그대로 'all'이 들어가, 서수원 계정인데도 캘린더 옆 패널이 "분원을 하나 고른 뒤에 할 수 있어요"로 막혀
+   설명회 표시를 켤 수 없었다. */
+function openBranchCalendar(id){ bookState.branchId=(id==='all' && session.role!=='admin') ? session.branchId : id; bookState.sel=null; bookState.adding=false; bookState.editId=null; wonmuGo('booking'); }
 /* 상세에서 학생 클릭 → 그 학생 예약이 있는 캘린더 날짜로 이동 + 편집칸 열기 */
 function openResInCalendar(id){
   const r=reservations.find(x=>x.id===id); if(!r){ toast('예약을 찾을 수 없어요','err'); return; }
