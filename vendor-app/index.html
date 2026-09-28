@@ -198,7 +198,7 @@ function renderStats(){
   const thisMonth = h.filter(x=>x.date.slice(0,7)===ym);
   const done = thisMonth.filter(x=>x.status==='완료').length;
   const upcoming = thisMonth.filter(x=>x.status==='예정').length;
-  const docCount = vendors.reduce((s,v)=>s+(v.biz_doc_url?1:0)+(v.bank_doc_url?1:0),0);
+  const docCount = vendors.reduce((s,v)=>s+(v.biz_doc_url?1:0)+(v.bank_doc_url?1:0)+(v.contract_doc_url?1:0),0);
   const cats = new Set(vendors.map(v=>v.category)).size;
 
   document.getElementById('stat-grid').innerHTML = `
@@ -242,7 +242,7 @@ function renderDash(){
   renderStats();
   document.getElementById('nav-count-vendors').textContent = vendors.length;
   document.getElementById('nav-count-history').textContent = allHistory().length;
-  document.getElementById('nav-count-docs').textContent = vendors.reduce((s,v)=>s+(v.biz_doc_url?1:0)+(v.bank_doc_url?1:0),0);
+  document.getElementById('nav-count-docs').textContent = vendors.reduce((s,v)=>s+(v.biz_doc_url?1:0)+(v.bank_doc_url?1:0)+(v.contract_doc_url?1:0),0);
 }
 
 function renderVendorTable(){
@@ -276,8 +276,9 @@ function renderDocsTable(){
       <td>${esc(v.name)}</td>
       <td>${v.biz_doc_url?`<a class="doc-chip" href="${v.biz_doc_url}" target="_blank" rel="noopener">📄 사업자등록증 보기</a>`:'<span class="pill bad">없음</span>'}</td>
       <td>${v.bank_doc_url?`<a class="doc-chip" href="${v.bank_doc_url}" target="_blank" rel="noopener">📄 통장사본 보기</a>`:'<span class="pill bad">없음</span>'}</td>
+      <td>${v.contract_doc_url?`<a class="doc-chip" href="${v.contract_doc_url}" target="_blank" rel="noopener">📄 계약서 보기</a>`:'<span class="pill bad">없음</span>'}</td>
     </tr>
-  `).join('') : `<tr><td colspan="3" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 등록된 거래처가 없어요.</td></tr>`;
+  `).join('') : `<tr><td colspan="4" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 등록된 거래처가 없어요.</td></tr>`;
 }
 
 function renderAll(){ renderDash(); renderVendorTable(); renderHistoryTable(); renderDocsTable(); }
@@ -335,6 +336,12 @@ function openVendor(id){
           <div style="margin-bottom:8px;font-size:12px;font-weight:600;color:var(--ink-2)">보관 서류</div>
           ${v.biz_doc_url?`<a class="doc-chip" href="${v.biz_doc_url}" target="_blank" rel="noopener">📄 사업자등록증 보기</a>`:'<span class="pill bad">사업자등록증 없음</span>'}
           ${v.bank_doc_url?`<a class="doc-chip" href="${v.bank_doc_url}" target="_blank" rel="noopener">📄 통장사본 보기</a>`:'<span class="pill bad">통장사본 없음</span>'}
+          ${v.contract_doc_url?`<a class="doc-chip" href="${v.contract_doc_url}" target="_blank" rel="noopener">📄 계약서 보기</a>`:'<span class="pill">계약서 없음</span>'}
+          <div style="margin-top:8px">
+            <label class="file-btn" for="dr-contract" style="display:inline-block">${v.contract_doc_url?'계약서 교체':'계약서 올리기'}</label>
+            <input type="file" id="dr-contract" class="file-input-hidden" onchange="uploadContractFor(${v.id},this)">
+            <span id="dr-contract-msg" style="font-size:12px;color:var(--ink-3);margin-left:6px"></span>
+          </div>
         </div>
 
         <div>
@@ -383,7 +390,7 @@ function openAddVendor(){
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
-        <div class="field"><label>업체명</label><input id="nf-name" placeholder="예: 한빛냉난방" oninput="document.getElementById('nf-err').textContent=''"></div>
+        <div class="field"><label>업체명</label><input id="nf-name" oninput="document.getElementById('nf-err').textContent=''"></div>
         <div class="field-row">
           <div class="field"><label>카테고리</label>
             <select id="nf-cat">${CAT_OPTIONS.map(c=>`<option>${c}</option>`).join('')}</select>
@@ -413,6 +420,13 @@ function openAddVendor(){
             </div>
           </div>
         </div>
+        <div class="field"><label>계약서 (선택)</label>
+          <div class="file-field">
+            <label class="file-btn" for="nf-doc-contract">파일 선택</label>
+            <input type="file" id="nf-doc-contract" class="file-input-hidden" onchange="onFilePicked(this,'nf-doc-contract-name')">
+            <span class="file-name" id="nf-doc-contract-name">선택된 파일 없음</span>
+          </div>
+        </div>
         <div id="nf-err" style="color:var(--bad);font-size:12px;min-height:14px"></div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
           <button class="btn" onclick="closeModal()">취소</button>
@@ -438,6 +452,29 @@ async function uploadVendorDoc(vendorId, file, kind){
   return data.publicUrl;
 }
 
+/* contract_doc_url 칸이 없으면(sql/vendor_contract.sql 미실행) 원인을 알아볼 수 있게 안내한다 */
+function contractSqlHint(e){
+  return /contract_doc_url/.test((e&&e.message)||'')
+    ? '계약서 칸이 아직 없어요. sql/vendor_contract.sql을 Supabase에서 먼저 실행해주세요.' : '';
+}
+
+async function uploadContractFor(id, input){
+  const file = input.files[0];
+  if(!file) return;
+  const msg = document.getElementById('dr-contract-msg');
+  msg.style.color = 'var(--ink-3)'; msg.textContent = '올리는 중…';
+  try{
+    const url = await uploadVendorDoc(id, file, 'contract');
+    const {error} = await sb.from('vd_vendors').update({contract_doc_url:url}).eq('id', id);
+    if(error) throw error;
+    await refreshAll();
+    openVendor(id);
+  }catch(e){
+    msg.style.color = 'var(--bad)';
+    msg.textContent = contractSqlHint(e) || ('올리지 못했어요: '+(e.message||'알 수 없는 오류'));
+  }
+}
+
 async function submitVendor(){
   const name = document.getElementById('nf-name').value.trim();
   const phone = document.getElementById('nf-phone').value.trim();
@@ -447,6 +484,7 @@ async function submitVendor(){
 
   const bizFile = document.getElementById('nf-doc-biz').files[0]||null;
   const bankFile = document.getElementById('nf-doc-bank').files[0]||null;
+  const contractFile = document.getElementById('nf-doc-contract').files[0]||null;
   const btn = document.getElementById('nf-submit-btn');
   btn.disabled = true; btn.textContent='추가 중…';
 
@@ -467,6 +505,7 @@ async function submitVendor(){
     const updates = {};
     if(bizFile) updates.biz_doc_url = await uploadVendorDoc(inserted.id, bizFile, 'biz');
     if(bankFile) updates.bank_doc_url = await uploadVendorDoc(inserted.id, bankFile, 'bank');
+    if(contractFile) updates.contract_doc_url = await uploadVendorDoc(inserted.id, contractFile, 'contract');
     if(Object.keys(updates).length){
       const {error:updErr} = await sb.from('vd_vendors').update(updates).eq('id', inserted.id);
       if(updErr) throw updErr;
@@ -475,7 +514,7 @@ async function submitVendor(){
     closeModal();
     await refreshAll();
   }catch(e){
-    err.textContent = '저장하지 못했어요: '+(e.message||'알 수 없는 오류');
+    err.textContent = contractSqlHint(e) || ('저장하지 못했어요: '+(e.message||'알 수 없는 오류'));
     btn.disabled = false; btn.textContent='추가';
   }
 }
@@ -600,11 +639,11 @@ function mountApp(){
     </section>
 
     <section id="view-docs" class="hidden">
-      <div class="pagehd"><div><h1>문서함</h1><p>업체별 사업자등록증·통장사본 보관 현황입니다.</p></div></div>
+      <div class="pagehd"><div><h1>문서함</h1><p>업체별 사업자등록증·통장사본·계약서 보관 현황입니다.</p></div></div>
       <div class="panel">
         <div style="overflow-x:auto">
         <table class="tbl">
-          <thead><tr><th>업체명</th><th>사업자등록증</th><th>통장사본</th></tr></thead>
+          <thead><tr><th>업체명</th><th>사업자등록증</th><th>통장사본</th><th>계약서</th></tr></thead>
           <tbody id="docs-table-body"></tbody>
         </table>
         </div>
