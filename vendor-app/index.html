@@ -112,6 +112,12 @@ table.tbl{width:100%;border-collapse:collapse}
 .tbl td{padding:9px 14px;border-bottom:1px solid var(--border);font-size:12.5px}
 .tbl tr:last-child td{border-bottom:none}
 .doc-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11.5px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:5px 9px;margin:2px 4px 2px 0;text-decoration:none;color:var(--ink-2)}
+.tbl td.chk-cell,.tbl th.chk-cell{width:34px;padding-right:0}
+.selbar{display:none;align-items:center;gap:10px;background:var(--accent-soft);border:1px solid var(--accent-soft-strong);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:var(--accent-ink);font-weight:600}
+.selbar.show{display:flex}
+.selbar .cnt{margin-right:auto}
+.btn-danger{border-color:var(--bad);color:var(--bad)}
+.btn-danger:hover{background:var(--bad-soft);border-color:var(--bad)}
 .doc-chip:hover{border-color:var(--accent);color:var(--accent-ink)}
 
 .hidden{display:none !important}
@@ -271,14 +277,54 @@ function renderHistoryTable(){
 }
 
 function renderDocsTable(){
+  docsSelected = new Set([...docsSelected].filter(id=>vendors.some(v=>v.id===id)));
   document.getElementById('docs-table-body').innerHTML = vendors.length ? vendors.map(v=>`
     <tr>
+      <td class="chk-cell"><input type="checkbox" class="docs-check" value="${v.id}" ${docsSelected.has(v.id)?'checked':''} onchange="onDocsCheckChange(this)"></td>
       <td>${esc(v.name)}</td>
       <td>${v.biz_doc_url?`<a class="doc-chip" href="${v.biz_doc_url}" target="_blank" rel="noopener">📄 사업자등록증 보기</a>`:'<span class="pill bad">없음</span>'}</td>
       <td>${v.bank_doc_url?`<a class="doc-chip" href="${v.bank_doc_url}" target="_blank" rel="noopener">📄 통장사본 보기</a>`:'<span class="pill bad">없음</span>'}</td>
       <td>${v.contract_doc_url?`<a class="doc-chip" href="${v.contract_doc_url}" target="_blank" rel="noopener">📄 계약서 보기</a>`:'<span class="pill bad">없음</span>'}</td>
     </tr>
-  `).join('') : `<tr><td colspan="4" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 등록된 거래처가 없어요.</td></tr>`;
+  `).join('') : `<tr><td colspan="5" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 등록된 거래처가 없어요.</td></tr>`;
+  renderDocsSelbar();
+}
+
+/* ---- 문서함 다중 선택 ---- */
+let docsSelected = new Set();
+function onDocsCheckChange(cb){
+  const id = Number(cb.value);
+  if(cb.checked) docsSelected.add(id); else docsSelected.delete(id);
+  renderDocsSelbar();
+}
+function toggleAllDocsCheck(headerCb){
+  docsSelected = headerCb.checked ? new Set(vendors.map(v=>v.id)) : new Set();
+  document.querySelectorAll('.docs-check').forEach(cb=>{ cb.checked = headerCb.checked; });
+  renderDocsSelbar();
+}
+function renderDocsSelbar(){
+  const bar = document.getElementById('docs-selbar');
+  if(!bar) return;
+  const n = docsSelected.size;
+  bar.classList.toggle('show', n>0);
+  document.getElementById('docs-sel-count').textContent = `${n}개 선택됨`;
+  document.getElementById('docs-edit-btn').disabled = n!==1;
+  const allCb = document.getElementById('docs-check-all');
+  if(allCb) allCb.checked = vendors.length>0 && n===vendors.length;
+}
+function editSelectedVendor(){
+  if(docsSelected.size!==1) return;
+  openAddVendor([...docsSelected][0]);
+}
+async function deleteSelectedVendors(){
+  const ids = [...docsSelected];
+  if(!ids.length) return;
+  const names = vendors.filter(v=>ids.includes(v.id)).map(v=>v.name).join(', ');
+  if(!confirm(`${names}\n\n이 ${ids.length}곳을 삭제할까요? 수리·점검 이력도 함께 지워지고 되돌릴 수 없어요.`)) return;
+  const {error} = await sb.from('vd_vendors').delete().in('id', ids);
+  if(error){ alert('삭제하지 못했어요: '+error.message); return; }
+  docsSelected = new Set();
+  await refreshAll();
 }
 
 function renderAll(){ renderDash(); renderVendorTable(); renderHistoryTable(); renderDocsTable(); }
@@ -379,44 +425,45 @@ async function addHistory(id){
 }
 
 /* ---- add vendor modal ---- */
-function openAddVendor(){
+function openAddVendor(editId){
+  const v = editId!=null ? vendors.find(x=>x.id===editId) : null;
   const root = document.getElementById('modal-root');
   root.innerHTML = `
     <div class="overlay center" onclick="if(event.target===this) closeModal()">
       <div class="drawer">
         <div class="drawer-hd">
-          <h3>업체 추가</h3>
+          <h3>${v?'업체 수정':'업체 추가'}</h3>
           <button class="iconbtn" onclick="closeModal()" aria-label="닫기">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
-        <div class="field"><label>업체명</label><input id="nf-name" oninput="document.getElementById('nf-err').textContent=''"></div>
+        <div class="field"><label>업체명</label><input id="nf-name" value="${v?esc(v.name):''}" oninput="document.getElementById('nf-err').textContent=''"></div>
         <div class="field-row">
           <div class="field"><label>카테고리</label>
-            <select id="nf-cat">${CAT_OPTIONS.map(c=>`<option>${c}</option>`).join('')}</select>
+            <select id="nf-cat">${CAT_OPTIONS.map(c=>`<option ${v&&v.category===c?'selected':''}>${c}</option>`).join('')}</select>
           </div>
           <div class="field"><label>담당 지점</label>
-            <select id="nf-branch">${BRANCH_OPTIONS.map(b=>`<option>${b}</option>`).join('')}</select>
+            <select id="nf-branch">${BRANCH_OPTIONS.map(b=>`<option ${v&&v.branch===b?'selected':''}>${b}</option>`).join('')}</select>
           </div>
         </div>
         <div class="field-row">
-          <div class="field"><label>담당자</label><input id="nf-manager" placeholder="이름 + 직함"></div>
-          <div class="field"><label>연락처</label><input id="nf-phone" placeholder="010-0000-0000" oninput="document.getElementById('nf-err').textContent=''"></div>
+          <div class="field"><label>담당자</label><input id="nf-manager" placeholder="이름 + 직함" value="${v&&v.manager?esc(v.manager):''}"></div>
+          <div class="field"><label>연락처</label><input id="nf-phone" placeholder="010-0000-0000" value="${v?esc(v.phone):''}" oninput="document.getElementById('nf-err').textContent=''"></div>
         </div>
-        <div class="field"><label>사업자등록번호 (선택)</label><input id="nf-biz" placeholder="000-00-00000"></div>
+        <div class="field"><label>사업자등록번호 (선택)</label><input id="nf-biz" placeholder="000-00-00000" value="${v&&v.biz_no?esc(v.biz_no):''}"></div>
         <div class="field-row">
           <div class="field"><label>사업자등록증</label>
             <div class="file-field">
               <label class="file-btn" for="nf-doc-biz">파일 선택</label>
               <input type="file" id="nf-doc-biz" class="file-input-hidden" onchange="onFilePicked(this,'nf-doc-biz-name')">
-              <span class="file-name" id="nf-doc-biz-name">선택된 파일 없음</span>
+              <span class="file-name" id="nf-doc-biz-name">${v&&v.biz_doc_url?'이미 있음 — 선택하면 교체':'선택된 파일 없음'}</span>
             </div>
           </div>
           <div class="field"><label>통장사본</label>
             <div class="file-field">
               <label class="file-btn" for="nf-doc-bank">파일 선택</label>
               <input type="file" id="nf-doc-bank" class="file-input-hidden" onchange="onFilePicked(this,'nf-doc-bank-name')">
-              <span class="file-name" id="nf-doc-bank-name">선택된 파일 없음</span>
+              <span class="file-name" id="nf-doc-bank-name">${v&&v.bank_doc_url?'이미 있음 — 선택하면 교체':'선택된 파일 없음'}</span>
             </div>
           </div>
         </div>
@@ -424,13 +471,13 @@ function openAddVendor(){
           <div class="file-field">
             <label class="file-btn" for="nf-doc-contract">파일 선택</label>
             <input type="file" id="nf-doc-contract" class="file-input-hidden" onchange="onFilePicked(this,'nf-doc-contract-name')">
-            <span class="file-name" id="nf-doc-contract-name">선택된 파일 없음</span>
+            <span class="file-name" id="nf-doc-contract-name">${v&&v.contract_doc_url?'이미 있음 — 선택하면 교체':'선택된 파일 없음'}</span>
           </div>
         </div>
         <div id="nf-err" style="color:var(--bad);font-size:12px;min-height:14px"></div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
           <button class="btn" onclick="closeModal()">취소</button>
-          <button class="btn btn-primary" id="nf-submit-btn" onclick="submitVendor()">추가</button>
+          <button class="btn btn-primary" id="nf-submit-btn" onclick="submitVendor(${v?v.id:'null'})">${v?'저장':'추가'}</button>
         </div>
       </div>
     </div>
@@ -475,7 +522,7 @@ async function uploadContractFor(id, input){
   }
 }
 
-async function submitVendor(){
+async function submitVendor(editId){
   const name = document.getElementById('nf-name').value.trim();
   const phone = document.getElementById('nf-phone').value.trim();
   const err = document.getElementById('nf-err');
@@ -486,36 +533,44 @@ async function submitVendor(){
   const bankFile = document.getElementById('nf-doc-bank').files[0]||null;
   const contractFile = document.getElementById('nf-doc-contract').files[0]||null;
   const btn = document.getElementById('nf-submit-btn');
-  btn.disabled = true; btn.textContent='추가 중…';
+  btn.disabled = true; btn.textContent = editId!=null ? '저장 중…' : '추가 중…';
 
   try{
-    const payload = {
+    const basePayload = {
       name,
       category: document.getElementById('nf-cat').value,
       manager: document.getElementById('nf-manager').value.trim() || null,
       phone,
       biz_no: document.getElementById('nf-biz').value.trim() || null,
-      branch: document.getElementById('nf-branch').value,
-      biz_doc_url: null,
-      bank_doc_url: null
+      branch: document.getElementById('nf-branch').value
     };
-    const {data:inserted, error:insErr} = await sb.from('vd_vendors').insert(payload).select().single();
-    if(insErr) throw insErr;
+
+    let vendorId = editId;
+    if(editId!=null){
+      const {error:updErr0} = await sb.from('vd_vendors').update(basePayload).eq('id', editId);
+      if(updErr0) throw updErr0;
+    }else{
+      const payload = {...basePayload, biz_doc_url:null, bank_doc_url:null};
+      const {data:inserted, error:insErr} = await sb.from('vd_vendors').insert(payload).select().single();
+      if(insErr) throw insErr;
+      vendorId = inserted.id;
+    }
 
     const updates = {};
-    if(bizFile) updates.biz_doc_url = await uploadVendorDoc(inserted.id, bizFile, 'biz');
-    if(bankFile) updates.bank_doc_url = await uploadVendorDoc(inserted.id, bankFile, 'bank');
-    if(contractFile) updates.contract_doc_url = await uploadVendorDoc(inserted.id, contractFile, 'contract');
+    if(bizFile) updates.biz_doc_url = await uploadVendorDoc(vendorId, bizFile, 'biz');
+    if(bankFile) updates.bank_doc_url = await uploadVendorDoc(vendorId, bankFile, 'bank');
+    if(contractFile) updates.contract_doc_url = await uploadVendorDoc(vendorId, contractFile, 'contract');
     if(Object.keys(updates).length){
-      const {error:updErr} = await sb.from('vd_vendors').update(updates).eq('id', inserted.id);
+      const {error:updErr} = await sb.from('vd_vendors').update(updates).eq('id', vendorId);
       if(updErr) throw updErr;
     }
 
     closeModal();
+    docsSelected = new Set();
     await refreshAll();
   }catch(e){
     err.textContent = contractSqlHint(e) || ('저장하지 못했어요: '+(e.message||'알 수 없는 오류'));
-    btn.disabled = false; btn.textContent='추가';
+    btn.disabled = false; btn.textContent = editId!=null ? '저장' : '추가';
   }
 }
 
@@ -639,11 +694,12 @@ function mountApp(){
     </section>
 
     <section id="view-docs" class="hidden">
-      <div class="pagehd"><div><h1>문서함</h1><p>업체별 사업자등록증·통장사본·계약서 보관 현황입니다.</p></div></div>
+      <div class="pagehd"><div><h1>문서함</h1><p>업체별 사업자등록증·통장사본·계약서 보관 현황입니다. 행을 눌러도 서류를 올리거나 바꿀 수 있어요.</p></div></div>
+      <div class="selbar" id="docs-selbar"><span class="cnt" id="docs-sel-count">0개 선택됨</span><button class="btn btn-sm" id="docs-edit-btn" onclick="editSelectedVendor()">수정</button><button class="btn btn-sm btn-danger" onclick="deleteSelectedVendors()">삭제</button></div>
       <div class="panel">
         <div style="overflow-x:auto">
         <table class="tbl">
-          <thead><tr><th>업체명</th><th>사업자등록증</th><th>통장사본</th><th>계약서</th></tr></thead>
+          <thead><tr><th class="chk-cell"><input type="checkbox" id="docs-check-all" onchange="toggleAllDocsCheck(this)" aria-label="전체 선택"></th><th>업체명</th><th>사업자등록증</th><th>통장사본</th><th>계약서</th></tr></thead>
           <tbody id="docs-table-body"></tbody>
         </table>
         </div>
