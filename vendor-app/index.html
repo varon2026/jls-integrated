@@ -251,29 +251,97 @@ function renderDash(){
   document.getElementById('nav-count-docs').textContent = vendors.reduce((s,v)=>s+(v.biz_doc_url?1:0)+(v.bank_doc_url?1:0)+(v.contract_doc_url?1:0),0);
 }
 
+let vendorsSelected = new Set();
 function renderVendorTable(){
+  vendorsSelected = new Set([...vendorsSelected].filter(id=>vendors.some(v=>v.id===id)));
   document.getElementById('vendor-table-body').innerHTML = vendors.length ? vendors.map(v=>`
     <tr style="cursor:pointer" onclick="openVendor(${v.id})">
+      <td class="chk-cell" onclick="event.stopPropagation()"><input type="checkbox" class="vendors-check" value="${v.id}" ${vendorsSelected.has(v.id)?'checked':''} onchange="onVendorsCheckChange(this)"></td>
       <td><div class="vname">${esc(v.name)}</div><div class="vmeta">${esc(v.branch)}</div></td>
       <td><span class="badge-cat">${esc(v.category)}</span></td>
       <td>${esc(v.manager||'—')}</td>
       <td class="tabnum">${esc(v.phone)}</td>
       <td>${docStatus(v)?'<span class="pill good">완비</span>':'<span class="pill bad">미비</span>'}</td>
     </tr>
-  `).join('') : `<tr><td colspan="5" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 등록된 거래처가 없어요.</td></tr>`;
+  `).join('') : `<tr><td colspan="6" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 등록된 거래처가 없어요.</td></tr>`;
+  renderVendorsSelbar();
+}
+function onVendorsCheckChange(cb){
+  const id = Number(cb.value);
+  if(cb.checked) vendorsSelected.add(id); else vendorsSelected.delete(id);
+  renderVendorsSelbar();
+}
+function toggleAllVendorsCheck(headerCb){
+  vendorsSelected = headerCb.checked ? new Set(vendors.map(v=>v.id)) : new Set();
+  document.querySelectorAll('.vendors-check').forEach(cb=>{ cb.checked = headerCb.checked; });
+  renderVendorsSelbar();
+}
+function renderVendorsSelbar(){
+  const bar = document.getElementById('vendors-selbar');
+  if(!bar) return;
+  const n = vendorsSelected.size;
+  bar.classList.toggle('show', n>0);
+  document.getElementById('vendors-sel-count').textContent = `${n}개 선택됨`;
+  document.getElementById('vendors-edit-btn').disabled = n!==1;
+  const allCb = document.getElementById('vendors-check-all');
+  if(allCb) allCb.checked = vendors.length>0 && n===vendors.length;
+}
+function editSelectedFromVendors(){
+  if(vendorsSelected.size!==1) return;
+  openAddVendor([...vendorsSelected][0]);
+}
+async function deleteSelectedFromVendors(){
+  if(await deleteVendorsByIds([...vendorsSelected])){
+    docsSelected = new Set(); vendorsSelected = new Set();
+    await refreshAll();
+  }
 }
 
+let historySelected = new Set();
 function renderHistoryTable(){
   const rows = allHistory();
+  historySelected = new Set([...historySelected].filter(id=>rows.some(h=>h.id===id)));
   document.getElementById('history-table-body').innerHTML = rows.length ? rows.map(h=>`
     <tr>
+      <td class="chk-cell"><input type="checkbox" class="history-check" value="${h.id}" ${historySelected.has(h.id)?'checked':''} onchange="onHistoryCheckChange(this)"></td>
       <td class="tabnum">${h.date}</td>
       <td>${esc(h.vendor)}</td>
       <td>${esc(h.memo)}</td>
       <td>${statusPill(h.status)}</td>
       <td class="tabnum">${won(h.cost)}</td>
     </tr>
-  `).join('') : `<tr><td colspan="5" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 수리·점검 이력이 없어요.</td></tr>`;
+  `).join('') : `<tr><td colspan="6" style="color:var(--ink-3);text-align:center;padding:28px 18px">아직 수리·점검 이력이 없어요.</td></tr>`;
+  renderHistorySelbar();
+}
+function onHistoryCheckChange(cb){
+  const id = Number(cb.value);
+  if(cb.checked) historySelected.add(id); else historySelected.delete(id);
+  renderHistorySelbar();
+}
+function toggleAllHistoryCheck(headerCb){
+  const rows = allHistory();
+  historySelected = headerCb.checked ? new Set(rows.map(h=>h.id)) : new Set();
+  document.querySelectorAll('.history-check').forEach(cb=>{ cb.checked = headerCb.checked; });
+  renderHistorySelbar();
+}
+function renderHistorySelbar(){
+  const bar = document.getElementById('history-selbar');
+  if(!bar) return;
+  const rows = allHistory();
+  const n = historySelected.size;
+  bar.classList.toggle('show', n>0);
+  document.getElementById('history-sel-count').textContent = `${n}개 선택됨`;
+  const allCb = document.getElementById('history-check-all');
+  if(allCb) allCb.checked = rows.length>0 && n===rows.length;
+}
+async function deleteSelectedHistory(){
+  const ids = [...historySelected];
+  if(!ids.length) return;
+  if(!confirm(`선택한 수리·점검 이력 ${ids.length}건을 삭제할까요? 되돌릴 수 없어요.`)) return;
+  const {error} = await sb.from('vd_history').delete().in('id', ids);
+  if(error){ alert('삭제하지 못했어요: '+error.message); return; }
+  historySelected = new Set();
+  await refreshAll();
 }
 
 function renderDocsTable(){
@@ -316,15 +384,19 @@ function editSelectedVendor(){
   if(docsSelected.size!==1) return;
   openAddVendor([...docsSelected][0]);
 }
-async function deleteSelectedVendors(){
-  const ids = [...docsSelected];
-  if(!ids.length) return;
+async function deleteVendorsByIds(ids){
+  if(!ids.length) return false;
   const names = vendors.filter(v=>ids.includes(v.id)).map(v=>v.name).join(', ');
-  if(!confirm(`${names}\n\n이 ${ids.length}곳을 삭제할까요? 수리·점검 이력도 함께 지워지고 되돌릴 수 없어요.`)) return;
+  if(!confirm(`${names}\n\n이 ${ids.length}곳을 삭제할까요? 수리·점검 이력도 함께 지워지고 되돌릴 수 없어요.`)) return false;
   const {error} = await sb.from('vd_vendors').delete().in('id', ids);
-  if(error){ alert('삭제하지 못했어요: '+error.message); return; }
-  docsSelected = new Set();
-  await refreshAll();
+  if(error){ alert('삭제하지 못했어요: '+error.message); return false; }
+  return true;
+}
+async function deleteSelectedVendors(){
+  if(await deleteVendorsByIds([...docsSelected])){
+    docsSelected = new Set(); vendorsSelected = new Set();
+    await refreshAll();
+  }
 }
 
 function renderAll(){ renderDash(); renderVendorTable(); renderHistoryTable(); renderDocsTable(); }
@@ -665,16 +737,20 @@ function mountApp(){
 
     <section id="view-vendors" class="hidden">
       <div class="pagehd">
-        <div><h1>거래처 연락처</h1><p>등록된 모든 거래업체입니다.</p></div>
+        <div><h1>거래처 연락처</h1><p>등록된 모든 거래업체입니다. 행을 누르면 상세정보가 열려요.</p></div>
         <button class="btn btn-primary" onclick="openAddVendor()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           업체 추가
         </button>
       </div>
+      <div class="selbar" id="vendors-selbar"><span class="cnt" id="vendors-sel-count">0개 선택됨</span>
+        <button class="btn btn-sm" id="vendors-edit-btn" onclick="editSelectedFromVendors()">수정</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteSelectedFromVendors()">삭제</button>
+      </div>
       <div class="panel">
         <div style="overflow-x:auto">
         <table class="tbl">
-          <thead><tr><th>업체명</th><th>카테고리</th><th>담당자</th><th>연락처</th><th>서류</th></tr></thead>
+          <thead><tr><th class="chk-cell"><input type="checkbox" id="vendors-check-all" onchange="toggleAllVendorsCheck(this)" aria-label="전체 선택"></th><th>업체명</th><th>카테고리</th><th>담당자</th><th>연락처</th><th>서류</th></tr></thead>
           <tbody id="vendor-table-body"></tbody>
         </table>
         </div>
@@ -683,10 +759,13 @@ function mountApp(){
 
     <section id="view-history" class="hidden">
       <div class="pagehd"><div><h1>수리·점검 이력</h1><p>모든 업체의 수리·점검 기록입니다.</p></div></div>
+      <div class="selbar" id="history-selbar"><span class="cnt" id="history-sel-count">0개 선택됨</span>
+        <button class="btn btn-sm btn-danger" onclick="deleteSelectedHistory()">삭제</button>
+      </div>
       <div class="panel">
         <div style="overflow-x:auto">
         <table class="tbl">
-          <thead><tr><th>날짜</th><th>업체</th><th>내용</th><th>상태</th><th>비용</th></tr></thead>
+          <thead><tr><th class="chk-cell"><input type="checkbox" id="history-check-all" onchange="toggleAllHistoryCheck(this)" aria-label="전체 선택"></th><th>날짜</th><th>업체</th><th>내용</th><th>상태</th><th>비용</th></tr></thead>
           <tbody id="history-table-body"></tbody>
         </table>
         </div>
