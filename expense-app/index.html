@@ -4232,22 +4232,14 @@ const ACCT_GUIDE = {
 function showAcctGuide(code) {
   const box = document.getElementById('acct-guide-box');
   if (!box) return;
-  if (code === 'all') {
-    // NEW 행 활성 시 전체 가이드 표시
-    document.getElementById('acct-guide-title').style.display='none';
-    const items=Object.values(ACCT_GUIDE);
-    document.getElementById('acct-guide-desc').innerHTML =
-      `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px 16px">`+
-      items.map(g=>`<div><b style="color:#795548">${g.title}</b> &nbsp;${g.desc}</div>`).join('')+
-      `</div>`;
-    box.style.display = 'block';
-    return;
-  }
-  const guide = ACCT_GUIDE[code];
-  if (!guide) { box.style.display='none'; return; }
-  document.getElementById('acct-guide-title').style.display='';
-  document.getElementById('acct-guide-title').textContent = guide.title;
-  document.getElementById('acct-guide-desc').textContent = guide.desc;
+  // 계정과목을 고르면 전체 가이드가 한 줄로 줄어들어 나머지가 안 보이던 문제 —
+  // 이제 목록은 항상 그대로 두고, 고른 항목만 노란 배경으로 표시한다.
+  document.getElementById('acct-guide-title').style.display='none';
+  const items=Object.entries(ACCT_GUIDE);
+  document.getElementById('acct-guide-desc').innerHTML =
+    `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px 16px">`+
+    items.map(([c,g])=>`<div${c===code?' style="background:#FFF3C4;border-radius:4px;padding:1px 4px;margin:-1px -4px"':''}><b style="color:#795548">${g.title}</b> &nbsp;${g.desc}</div>`).join('')+
+    `</div>`;
   box.style.display = 'block';
 }
 

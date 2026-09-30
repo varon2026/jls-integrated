@@ -71,17 +71,37 @@ async function chat(body: any, apiKey: string) {
       parts: [{ text: m.content }],
     }));
 
-  const gRes = await fetch(GEMINI_URL(apiKey), {
+  const reqBody = JSON.stringify({
+    system_instruction: { parts: [{ text: CHAT_SYSTEM }] },
+    contents,
+    generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+  });
+
+  // Gemini가 "high demand"(과부하)로 일시 거절하는 경우가 잦아서,
+  // 사용자에게 바로 영어 원문 에러를 보여주지 않고 한 번 짧게 쉬었다가 재시도한다.
+  let gRes = await fetch(GEMINI_URL(apiKey), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: CHAT_SYSTEM }] },
-      contents,
-      generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
-    }),
+    body: reqBody,
   });
-  const data = await gRes.json();
-  if (!gRes.ok) return json({ error: data?.error?.message || `Gemini 오류 (${gRes.status})` }, 502);
+  let data = await gRes.json();
+
+  if (!gRes.ok && isOverloaded(gRes.status, data)) {
+    await new Promise((r) => setTimeout(r, 1200));
+    gRes = await fetch(GEMINI_URL(apiKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: reqBody,
+    });
+    data = await gRes.json();
+  }
+
+  if (!gRes.ok) {
+    const msg = isOverloaded(gRes.status, data)
+      ? "지금 답변 요청이 많아서 잠깐 응답이 안 돼요. 몇 초 후 다시 시도해 주세요."
+      : data?.error?.message || `Gemini 오류 (${gRes.status})`;
+    return json({ error: msg }, 502);
+  }
 
   const text =
     data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ||
@@ -131,6 +151,12 @@ async function analyze(body: any, apiKey: string) {
     try { parsed = JSON.parse(cleaned); } catch { return json({ error: "영수증을 읽지 못했습니다." }, 502); }
   }
   return json(parsed); // 앱이 date/amount/vendor/memo 또는 items 를 그대로 읽음
+}
+
+function isOverloaded(status: number, data: any): boolean {
+  if (status === 503) return true;
+  const msg = String(data?.error?.message || data?.error?.status || "").toLowerCase();
+  return msg.includes("overloaded") || msg.includes("unavailable") || msg.includes("high demand");
 }
 
 function json(obj: unknown, status = 200) {
