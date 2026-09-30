@@ -17,7 +17,8 @@ const BOOKS_BRANCHES = [
   {code:'suwon_jls',    name:'수원'},
   {code:'unjeongjls',   name:'운정1'},
   {code:'unjeongjls2',  name:'운정2'},
-  {code:'namdongtanjls',name:'남동탄'}
+  {code:'namdongtanjls',name:'남동탄'},
+  {code:'asantangjeongjls',name:'아산탕정'}
 ];
 const BOOKS_NAME = (code)=>{ const b=BOOKS_BRANCHES.find(x=>x.code===code); return b?b.name:code; };
 
@@ -25,7 +26,7 @@ const BOOKS_NAME = (code)=>{ const b=BOOKS_BRANCHES.find(x=>x.code===code); retu
 function booksBranchCode(){
   if(session.role==='admin') return 'varon';            // 관리자 = 전체
   const nm = String((typeof bName==='function'?bName(session.branchId):'')||'').replace(/\s/g,'').replace(/분원$/,'');
-  const map = {'서수원':'seosuwonjls','장안':'suwonjls2009','수원':'suwon_jls','운정1':'unjeongjls','운정2':'unjeongjls2','남동탄':'namdongtanjls','바론':'baronbooks'};
+  const map = {'서수원':'seosuwonjls','장안':'suwonjls2009','수원':'suwon_jls','운정1':'unjeongjls','운정2':'unjeongjls2','남동탄':'namdongtanjls','바론':'baronbooks','아산탕정':'asantangjeongjls'};
   return map[nm] || '';
 }
 /* 이 계정이 입금현황에서 볼 분원 코드들 (admin=6개 / 분원=자기 1개) */

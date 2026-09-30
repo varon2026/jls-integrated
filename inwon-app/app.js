@@ -455,11 +455,13 @@ function startAutoRefresh(){
    - 원무에서 신규 등록(재원) → bk_students upsert(재원)
    - 원무에서 퇴원 처리      → bk_students status='퇴원' (기록·미납은 그대로 유지, 절대 삭제 안 함)
    - 연결 키: bk_students.student_id = 회원코드(students.code)
-   - 분원: 교재관리는 자체 코드 사용(아래 매핑). 아산탕정 등 교재관리에 없는 분원은 건너뜀.
+   - 분원: 교재관리는 자체 코드 사용(아래 매핑). 새 분원을 열면 여기·books.js·books-app/index.html
+     BRANCHES 세 곳에 다 추가해야 한다 — 하나라도 빠지면 그 분원만 교재관리에서 조용히 빠진다.
    ============================================================================ */
 const BK_BRANCH_BY_NAME = {
   '남동탄':'namdongtanjls', '수원':'suwon_jls', '장안':'suwonjls2009',
-  '서수원':'seosuwonjls', '운정1':'unjeongjls', '운정2':'unjeongjls2'
+  '서수원':'seosuwonjls', '운정1':'unjeongjls', '운정2':'unjeongjls2',
+  '아산탕정':'asantangjeongjls'
 };
 function bkBranchCode(branchId){
   const b=getBranch(branchId); if(!b) return null;
