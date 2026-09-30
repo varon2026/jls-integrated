@@ -1600,7 +1600,7 @@ async function call(action,payload){
       else pmtParams+='&branch=not.in.(testjls,varon)';
       // 학기 필터 있어도 semester=null(전체조회에서 입금처리된 건)도 함께 가져옴
       if(hasSem) pmtParams+='&or=(semester.eq.'+encodeURIComponent(payload.semester)+',semester.is.null)';
-      var pmts=await sbGet('payments',pmtParams);
+      var pmts=await sbGetAll('payments',pmtParams);
       var pmtMap={};    // 학생(+학기)별 입금 합계
       var pmtHistory={}; // 학생(+학기)별 입금 내역
       pmts.forEach(function(p){
@@ -5627,9 +5627,9 @@ async function loadFinanceSummary(){
   // 학기 필터 초기화
   var semSel=document.getElementById('finance-semester');
   if(semSel&&semSel.options.length<=1){
-    var semList1=await sbGet('students','select=semester&order=semester.desc');
-    var semList2=await sbGet('semesters','select=name&order=created_at.desc');
-    var semList3=await sbGet('sales_history','select=semester&order=semester.desc&type=eq.입고');
+    var semList1=await sbGetAll('students','select=semester&order=semester.desc');
+    var semList2=await sbGetAll('semesters','select=name&order=created_at.desc');
+    var semList3=await sbGetAll('sales_history','select=semester&order=semester.desc&type=eq.입고');
     var sems=[...new Set([
       ...semList1.map(function(r){return r.semester;}),
       ...semList2.map(function(r){return r.name;}),
@@ -5653,7 +5653,7 @@ async function loadFinanceSummary(){
     if(_dateFilter.to) salesParams+='&sale_date=lte.'+_dateFilter.to;
     if(!isAdmin()) salesParams+='&branch=eq.'+encodeURIComponent(currentBranch);
     if(selectedSem) salesParams+='&semester=eq.'+encodeURIComponent(selectedSem);
-    var sales=await sbGet('sales_history',salesParams);
+    var sales=await sbGetAll('sales_history',salesParams);
     // books vendor 맵
     var booksData=await sbGetAll('books','select=barcode,name,vendor&order=barcode');
     var vendorMap={};var bookNameMap={};
@@ -5663,7 +5663,7 @@ async function loadFinanceSummary(){
     var pmtParams='select=paid_amount,branch,semester,student_id,student_name';
     if(!isAdmin()) pmtParams+='&branch=eq.'+encodeURIComponent(currentBranch);
     if(selectedSem) pmtParams+='&semester=eq.'+encodeURIComponent(selectedSem);
-    var pmts=await sbGet('payments',pmtParams);
+    var pmts=await sbGetAll('payments',pmtParams);
 
     // 분원별 집계
     var byBranch={};
