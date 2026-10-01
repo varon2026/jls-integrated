@@ -58,16 +58,38 @@ body.g-has-toolbar .g-tabs{top:48px}
 
 .g-img{max-width:100%;border-radius:14px;display:block;margin:10px 0}
 
+.g-box{display:block;margin:14px 0;padding:14px 18px;background:#F1F4FC;border-radius:14px;min-height:1.6em;position:relative}
+.g-box-round{border-radius:30px}
+.g-box-circle{border-radius:50%;width:150px;height:150px;display:flex;align-items:center;justify-content:center;text-align:center;overflow:auto;margin-left:auto;margin-right:auto}
+/* 스케치북(스프링노트) 느낌 — 특정 그림을 베낀 게 아니라 점선 구멍 + 스프링을 표현하는
+   일반적인 CSS 기법(radial-gradient 반복)을 우리 색으로 새로 그린 것 */
+.g-box-sketch{background:#fff;border:1px solid #D6DEF2;margin-top:24px}
+.g-box-sketch::before{content:"";position:absolute;left:18px;right:18px;top:-8px;height:14px;
+  background:radial-gradient(circle at 6px 7px,#EAF1FF 0 3px,transparent 3.5px) 0 0/18px 14px repeat-x;}
+.g-box-sketch::after{content:"";position:absolute;left:18px;right:18px;top:-12px;height:12px;
+  background:linear-gradient(90deg,#B9C6EA 0 2.5px,transparent 2.5px) 4px 0/18px 12px repeat-x;opacity:.6}
+.g-panel[contenteditable="true"] .g-box:hover{outline:1.5px dashed #2E4FA6;outline-offset:2px}
+.g-link{color:#2E4FA6;text-decoration:underline}
+
 .g-empty{text-align:center;color:#6B7BA0;padding:60px 20px}
 
 .g-footer{text-align:center;color:#8A9BC9;font-size:13px;margin-top:30px;font-family:"Jua",sans-serif}
 
 /* ===== 편집기 전용 ===== */
-.g-toolbar{position:sticky;top:0;z-index:20;height:48px;box-sizing:border-box;background:#fff;border-bottom:1px solid #D6DEF2;display:flex;align-items:center;gap:8px;padding:0 14px}
+.g-toolbar{position:sticky;top:0;z-index:20;box-sizing:border-box;background:#fff;border-bottom:1px solid #D6DEF2;display:flex;flex-direction:column}
+.g-toolbar-row{display:flex;align-items:center;gap:8px;padding:7px 14px;flex-wrap:wrap}
+.g-toolbar-row+.g-toolbar-row{border-top:1px solid #EEF2FB}
 .g-toolbar .g-saved{font-size:12px;color:#6B7BA0;margin-right:auto}
-.g-toolbar button{font:inherit;font-size:13px;font-weight:700;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:#EEF2FB;color:#2E4FA6}
+.g-toolbar button{font:inherit;font-size:13px;font-weight:700;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:#EEF2FB;color:#2E4FA6;white-space:nowrap}
 .g-toolbar button.primary{background:#2E4FA6;color:#fff}
 .g-toolbar button.save{background:#1F9D55;color:#fff}
+.g-toolbar select{font:inherit;font-size:12.5px;font-weight:700;color:#2E4FA6;background:#EEF2FB;border:0;border-radius:8px;padding:7px 8px;cursor:pointer}
+.g-toolbar label.g-colorlbl{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:#2E4FA6;background:#EEF2FB;border-radius:8px;padding:5px 10px;cursor:pointer}
+.g-toolbar input[type=color]{width:22px;height:22px;border:0;padding:0;background:none;cursor:pointer}
+.g-shapewrap{position:relative;display:inline-block}
+.g-shapemenu{position:absolute;left:0;top:calc(100% + 6px);background:#fff;border:1px solid #D6DEF2;border-radius:10px;box-shadow:0 8px 20px rgba(28,42,74,.15);display:flex;flex-direction:column;padding:6px;gap:2px;z-index:30;min-width:130px}
+.g-shapemenu button{text-align:left;background:none;color:#1C2A4A;font-weight:600}
+.g-shapemenu button:hover{background:#EEF2FB}
 .g-panel[contenteditable="true"]{outline:none}
 .g-panel[contenteditable="true"] .g-sec,.g-panel[contenteditable="true"] .g-flow{box-shadow:0 0 0 1.5px dashed transparent}
 .g-panel[contenteditable="true"] .g-sec:focus-within,.g-panel[contenteditable="true"] .g-flow:focus-within{box-shadow:0 0 0 2px #2E4FA6 inset;border-radius:20px}

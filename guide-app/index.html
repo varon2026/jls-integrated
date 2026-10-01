@@ -65,6 +65,7 @@ function openEditor(branch){
       curHeroImage = (res.data && res.data.hero_image_url) || null;
       buildGuideShell(rootEl, name, curHeroImage);
       splitIntoTabs(rootEl, html);
+      syncTabsOffset();
     });
 }
 
@@ -72,17 +73,51 @@ function renderToolbar(){
   var bar = document.getElementById('g-toolbar');
   if(!editMode){
     bar.innerHTML =
+      '<div class="g-toolbar-row">'+
       '<span class="g-saved" id="g-saved"></span>'+
       '<button onclick="copyLink()">링크 복사</button>'+
-      '<button class="primary" onclick="enterEdit()">✎ 수정</button>';
+      '<button class="primary" onclick="enterEdit()">✎ 수정</button>'+
+      '</div>';
   } else {
     bar.innerHTML =
+      '<div class="g-toolbar-row">'+
       '<span class="g-saved" id="g-saved"></span>'+
       '<button onclick="copyLink()">링크 복사</button>'+
       '<button onclick="insertImage()">🖼 사진 추가</button>'+
       '<button class="save" onclick="saveGuide()">저장</button>'+
-      '<button onclick="exitEdit()">완료</button>';
+      '<button onclick="exitEdit()">완료</button>'+
+      '</div>'+
+      '<div class="g-toolbar-row">'+
+      '<div class="g-shapewrap">'+
+        '<button onclick="toggleShapeMenu()">⬜ 네모 추가</button>'+
+        '<div class="g-shapemenu" id="g-shapemenu" hidden>'+
+          '<button onclick="insertBox(\'square\')">□ 네모</button>'+
+          '<button onclick="insertBox(\'round\')">▢ 둥근 네모</button>'+
+          '<button onclick="insertBox(\'circle\')">○ 동그라미</button>'+
+          '<button onclick="insertBox(\'sketch\')">📓 스케치북</button>'+
+        '</div>'+
+      '</div>'+
+      '<label class="g-colorlbl">배경색 <input type="color" onchange="applyBoxBg(this.value)" value="#F1F4FC"></label>'+
+      '<label class="g-colorlbl">글자색 <input type="color" onchange="applyTextColor(this.value)" value="#1C2A4A"></label>'+
+      '<select onchange="applyFontSize(this.value);this.selectedIndex=0">'+
+        '<option value="">글씨크기</option><option value="13">작게</option><option value="16">보통</option><option value="20">크게</option><option value="28">아주크게</option>'+
+      '</select>'+
+      '<select onchange="applyFontFamily(this.value);this.selectedIndex=0">'+
+        '<option value="">글씨체</option>'+
+        '<option value="\'Apple SD Gothic Neo\',sans-serif">기본체</option>'+
+        '<option value="\'Jua\',sans-serif">둥근체</option>'+
+        '<option value="\'Gaegu\',cursive">손글씨체</option>'+
+      '</select>'+
+      '<button onclick="applyLink()">🔗 링크</button>'+
+      '</div>';
   }
+  syncTabsOffset();
+}
+
+function syncTabsOffset(){
+  var bar = document.getElementById('g-toolbar');
+  var tabs = document.querySelector('.g-tabs');
+  if(bar && tabs) tabs.style.top = bar.offsetHeight + 'px';
 }
 
 function enterEdit(){
@@ -118,6 +153,91 @@ document.addEventListener('selectionchange', function(){
   var panel = el && el.closest && el.closest('.g-panel');
   if(panel){ savedRange = sel.getRangeAt(0).cloneRange(); savedPanel = panel; }
 });
+
+/* 네모칸을 클릭해두면, 색 피커를 눌러 포커스가 넘어가도(선택이 풀려도) 어느 네모칸인지 기억한다 */
+var savedBox = null;
+document.addEventListener('click', function(e){
+  if(!editMode || !rootEl) return;
+  if(!rootEl.contains(e.target)) return;
+  var box = e.target.closest && e.target.closest('.g-box');
+  savedBox = box || null;
+});
+
+function restoreSelection(){
+  if(!savedPanel || !savedRange) return false;
+  savedPanel.focus();
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(savedRange);
+  return !sel.isCollapsed;
+}
+
+function toggleShapeMenu(){
+  var m = document.getElementById('g-shapemenu');
+  if(m) m.hidden = !m.hidden;
+}
+window.toggleShapeMenu = toggleShapeMenu;
+
+function insertBox(shape){
+  document.getElementById('g-shapemenu').hidden = true;
+  var target = savedPanel || rootEl.querySelector('.g-panel.on');
+  if(!target) return;
+  target.focus();
+  if(savedRange){ var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(savedRange); }
+  var html = '<div class="g-box g-box-'+shape+'">텍스트를 입력하세요</div>';
+  document.execCommand('insertHTML', false, html);
+}
+window.insertBox = insertBox;
+
+function applyBoxBg(color){
+  if(savedBox) savedBox.style.background = color;
+}
+window.applyBoxBg = applyBoxBg;
+
+function applyTextColor(color){
+  if(!restoreSelection()) return;
+  try{ document.execCommand('styleWithCSS', false, true); }catch(e){}
+  document.execCommand('foreColor', false, color);
+}
+window.applyTextColor = applyTextColor;
+
+function wrapSelectionStyle(styleStr){
+  if(!restoreSelection()) return;
+  var sel = window.getSelection();
+  var range = sel.getRangeAt(0);
+  var span = document.createElement('span');
+  span.setAttribute('style', styleStr);
+  try{
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+  }catch(e){
+    document.execCommand('insertHTML', false, '<span style="'+styleStr+'">'+escG(sel.toString())+'</span>');
+  }
+}
+
+function applyFontSize(px){
+  if(!px) return;
+  wrapSelectionStyle('font-size:'+px+'px');
+}
+window.applyFontSize = applyFontSize;
+
+function applyFontFamily(fam){
+  if(!fam) return;
+  wrapSelectionStyle('font-family:'+fam);
+}
+window.applyFontFamily = applyFontFamily;
+
+function applyLink(){
+  if(!restoreSelection()){ alert('링크를 걸 글자를 먼저 선택해 주세요.'); return; }
+  var url = prompt('연결할 주소를 입력하세요 (https://로 시작)', 'https://');
+  if(!url) return;
+  document.execCommand('createLink', false, url);
+  var sel = window.getSelection();
+  var node = sel.anchorNode;
+  var a = node && node.parentElement && node.parentElement.closest('a');
+  if(a){ a.target='_blank'; a.rel='noopener'; a.classList.add('g-link'); }
+}
+window.applyLink = applyLink;
 
 function insertImage(){ document.getElementById('g-file').click(); }
 window.insertImage = insertImage;
@@ -219,6 +339,11 @@ window.saveGuide = saveGuide;
 
 document.getElementById('g-file').addEventListener('change', onFilePicked);
 document.getElementById('g-hero-file').addEventListener('change', onHeroFilePicked);
+window.addEventListener('resize', syncTabsOffset);
+document.addEventListener('click', function(e){
+  var m = document.getElementById('g-shapemenu');
+  if(m && !m.hidden && !e.target.closest('.g-shapewrap')) m.hidden = true;
+});
 
 (function init(){
   if(EMBED){
