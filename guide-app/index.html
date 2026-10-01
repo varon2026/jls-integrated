@@ -184,15 +184,25 @@ function onHeroFilePicked(e){
     curHeroImage = url;
     setHeroArt(url);
     showHeroEditBtn();
-    return sb.from('branch_guides').upsert({ branch_id: curBranch, hero_image_url: url, updated_at: new Date().toISOString() });
-  }).then(function(){ saved.textContent='배너 저장됨'; setTimeout(function(){saved.textContent='';},1800); });
+    return sb.from('branch_guides').upsert({ branch_id: curBranch, hero_image_url: url, updated_at: new Date().toISOString() }, { onConflict: 'branch_id' });
+  }).then(function(res){
+    if(!res) return; // 업로드 자체가 실패해서 위에서 이미 멈춘 경우
+    saved.textContent = res.error ? ('저장 실패: '+res.error.message) : '배너 저장됨';
+    setTimeout(function(){saved.textContent='';},2500);
+  });
 }
 
 function clearHeroImage(){
   curHeroImage = null;
   setHeroArt(null);
   showHeroEditBtn();
-  sb.from('branch_guides').upsert({ branch_id: curBranch, hero_image_url: null, updated_at: new Date().toISOString() });
+  var saved = document.getElementById('g-saved');
+  saved.textContent = '지우는 중…';
+  sb.from('branch_guides').upsert({ branch_id: curBranch, hero_image_url: null, updated_at: new Date().toISOString() }, { onConflict: 'branch_id' })
+    .then(function(res){
+      saved.textContent = res.error ? ('지우기 실패: '+res.error.message) : '배너 지워짐';
+      setTimeout(function(){saved.textContent='';},2500);
+    });
 }
 window.clearHeroImage = clearHeroImage;
 
