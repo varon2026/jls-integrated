@@ -185,25 +185,34 @@ function insertBox(shape){
   if(!panel) return;
   gBoxSeq++;
   var top = 20 + (gBoxSeq % 6) * 60;
-  var left = 6 + (gBoxSeq % 4) * 10;
-  var widthStyle = shape === 'circle' ? '' : 'width:65%;';   // 동그라미는 CSS 고정 크기 그대로 둔다
+  var isCircle = shape === 'circle';
+  var wrapStyle = isCircle
+    ? ('left:'+(6 + (gBoxSeq % 4) * 15)+'%;top:'+top+'px')
+    : ('left:0;width:100%;top:'+top+'px');   // 다른 글 카드랑 같은 너비
   var gid = 'gbox-'+Date.now()+'-'+gBoxSeq;
-  var html = '<div class="g-box g-box-'+shape+'" style="left:'+left+'%;top:'+top+'px;'+widthStyle+'" data-gid="'+gid+'">'+
+  // 손잡이·삭제 버튼은 글이 들어가는 g-box 밖(바깥 틀 g-box-wrap)에 둔다.
+  // 글자 바로 옆에 편집 안 되는 요소가 붙어있으면 한글 입력(IME) 중에 글자가
+  // 깨지는 문제가 있어서, 아예 다른 자리로 분리했다.
+  var html = '<div class="g-box-wrap" style="'+wrapStyle+'" data-gid="'+gid+'">'+
     '<span class="g-box-handle" contenteditable="false">⠿</span>'+
     '<span class="g-box-del" contenteditable="false" onmousedown="deleteBoxEvt(event,this)">✕</span>'+
-    '텍스트를 입력하세요</div>';
+    '<div class="g-box g-box-'+shape+'">텍스트를 입력하세요</div>'+
+    '</div>';
   panel.insertAdjacentHTML('beforeend', html);
-  var inserted = panel.querySelector('[data-gid="'+gid+'"]');
-  if(!inserted) return;
-  inserted.removeAttribute('data-gid');
-  savedBox = inserted;
+  var wrap = panel.querySelector('[data-gid="'+gid+'"]');
+  if(!wrap) return;
+  wrap.removeAttribute('data-gid');
+  var inner = wrap.querySelector('.g-box');
+  savedBox = inner;
 
-  // 바로 타이핑할 수 있도록 안내 글자를 선택된 상태로 둔다 (클릭 안 해도 바로 써짐)
+  // 커서만 글자 끝에 두고(선택은 안 함) 바로 이어서 쓸 수 있게 한다.
+  // 안내 글자를 선택해둔 채로 두면 한글 입력 중에 깨지는 경우가 있어 뺐다.
   panel.focus();
-  var textNode = Array.prototype.filter.call(inserted.childNodes, function(n){ return n.nodeType===3; })[0];
+  var textNode = Array.prototype.filter.call(inner.childNodes, function(n){ return n.nodeType===3; })[0];
   if(textNode){
     var range = document.createRange();
-    range.selectNodeContents(textNode);
+    range.setStart(textNode, textNode.length);
+    range.collapse(true);
     var sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
@@ -218,8 +227,8 @@ function deleteBoxEvt(e, btn){
   // 먹히고 삭제가 안 되는 경우가 있어, mousedown에서 바로 처리한다.
   e.preventDefault();
   e.stopPropagation();
-  var box = btn.closest('.g-box');
-  if(box) box.remove();
+  var wrap = btn.closest('.g-box-wrap');
+  if(wrap) wrap.remove();
 }
 window.deleteBoxEvt = deleteBoxEvt;
 
@@ -234,14 +243,16 @@ function startBoxDrag(e){
   var handle = e.target.closest && e.target.closest('.g-box-handle');
   if(!handle) return;
   e.preventDefault();
-  var box = handle.closest('.g-box');
-  var panel = box.closest('.g-panel');
-  if(!box || !panel) return;
-  savedBox = box;
-  box.classList.add('g-dragging');
+  var wrap = handle.closest('.g-box-wrap');
+  var panel = wrap && wrap.closest('.g-panel');
+  if(!wrap || !panel) return;
+  var inner = wrap.querySelector('.g-box');
+  if(inner) savedBox = inner;
+  wrap.classList.add('g-dragging');
+  var fullWidth = !wrap.querySelector('.g-box-circle');   // 동그라미가 아니면 카드 너비 그대로, 세로만 이동
   var pt = e.touches ? e.touches[0] : e;
-  var boxRect = box.getBoundingClientRect();
-  dragState = { box: box, panel: panel, offsetX: pt.clientX - boxRect.left, offsetY: pt.clientY - boxRect.top };
+  var wrapRect = wrap.getBoundingClientRect();
+  dragState = { wrap: wrap, panel: panel, fullWidth: fullWidth, offsetX: pt.clientX - wrapRect.left, offsetY: pt.clientY - wrapRect.top };
   document.addEventListener('mousemove', onBoxDrag);
   document.addEventListener('mouseup', endBoxDrag);
   document.addEventListener('touchmove', onBoxDrag, { passive:false });
@@ -254,14 +265,16 @@ function onBoxDrag(e){
   var pt = e.touches ? e.touches[0] : e;
   var panelRect = dragState.panel.getBoundingClientRect();
   var y = pt.clientY - panelRect.top - dragState.offsetY;
-  var x = pt.clientX - panelRect.left - dragState.offsetX;
-  var pct = Math.max(0, Math.min(90, (x / panelRect.width) * 100));
-  dragState.box.style.top = Math.max(0, y) + 'px';
-  dragState.box.style.left = pct + '%';
+  dragState.wrap.style.top = Math.max(0, y) + 'px';
+  if(!dragState.fullWidth){
+    var x = pt.clientX - panelRect.left - dragState.offsetX;
+    var pct = Math.max(0, Math.min(80, (x / panelRect.width) * 100));
+    dragState.wrap.style.left = pct + '%';
+  }
 }
 
 function endBoxDrag(){
-  if(dragState) dragState.box.classList.remove('g-dragging');
+  if(dragState) dragState.wrap.classList.remove('g-dragging');
   dragState = null;
   document.removeEventListener('mousemove', onBoxDrag);
   document.removeEventListener('mouseup', endBoxDrag);
