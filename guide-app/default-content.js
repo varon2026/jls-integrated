@@ -18,7 +18,7 @@ function guideDefaultHtml(branchName){
   var name = branchName || '우리';
   return ''
   + '<div class="g-flow"><h2>학부모님 한눈에 보기</h2>'
-  + '<ul class="chips"><li>회원가입·자녀 등록</li><li>수강료 결제</li><li>반교재 구매</li><li>학습관리 앱 설치</li></ul></div>'
+  + '<ul class="chips"><li><b>회원가입·자녀 등록</b></li><li><b>수강료 결제</b></li><li><b>반교재 구매</b></li><li><b>학습관리 앱 설치</b></li></ul></div>'
 
   + '<div class="g-sec"><h2><span class="n">01</span>회원가입 · 자녀 등록</h2>'
   + '<p>학원 홈페이지에서 학부모 회원가입 후 자녀 등록을 진행해 주세요.</p>'
@@ -58,7 +58,7 @@ function guideDefaultHtml(branchName){
 
   // ===== 학생 =====
   + '<div class="g-flow" data-tab="student"><h2>학생 한눈에 보기</h2>'
-  + '<ul class="chips"><li>온라인 과제</li><li>단어 암기</li><li>Self-test</li><li>수업</li><li>시험</li></ul></div>'
+  + '<ul class="chips"><li><b>온라인 과제</b></li><li><b>단어 암기</b></li><li><b>Self-test</b></li><li><b>수업</b></li><li><b>시험</b></li></ul></div>'
 
   + '<div class="g-sec" data-tab="student"><h2><span class="n">01</span>온라인 과제는 다음 수업 예습이에요</h2>'
   + '<p>온라인 과제는 수업이 끝난 뒤 바로, 다음 수업을 준비하는 과정이에요. 수업 직전에 몰아서 하지 말고 미리 해두세요.</p></div>'
@@ -81,7 +81,7 @@ function guideDefaultHtml(branchName){
 
   // ===== 시험 =====
   + '<div class="g-flow" data-tab="exam"><h2>시험 한눈에 보기</h2>'
-  + '<ul class="chips"><li>시험</li><li>통과 못 하면 보강</li><li>재시험 준비</li><li>재시험</li><li>시험지 정리</li></ul></div>'
+  + '<ul class="chips"><li><b>시험</b></li><li><b>통과 못 하면 보강</b></li><li><b>재시험 준비</b></li><li><b>재시험</b></li><li><b>시험지 정리</b></li></ul></div>'
 
   + '<div class="g-sec" data-tab="exam"><h2><span class="n">01</span>통과하지 못했다면</h2>'
   + '<p>바로 재시험을 보지 않고, 먼저 보강을 받아요. 재시험은 틀린 부분만 외워 오는 게 아니라 <b>범위 전체를 다시 확인하는 과정</b>이에요.</p></div>'
@@ -109,7 +109,7 @@ function guideDefaultHtml(branchName){
 
   // ===== 학원 생활 =====
   + '<div class="g-flow" data-tab="life"><h2>학원 생활</h2>'
-  + '<ul class="chips"><li>공지사항</li><li>방학 특강</li><li>학기말 시상</li></ul></div>'
+  + '<ul class="chips"><li><b>공지사항</b></li><li><b>방학 특강</b></li><li><b>학기말 시상</b></li></ul></div>'
 
   + '<div class="g-sec" data-tab="life"><h2><span class="n">01</span>공지와 학사일정</h2>'
   + '<p>학원 소식과 일정은 아래에서 확인하실 수 있어요.</p>'

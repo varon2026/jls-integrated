@@ -1,52 +1,62 @@
 /* 신입생 안내 페이지 — 공개 뷰어(guide.html)·편집기(guide-app) 공용 스타일 */
+@import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&display=swap');
 *{box-sizing:border-box}
-body{margin:0;background:#EEF2FB;color:#1C2A4A;font-family:"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:16px;line-height:1.7;word-break:keep-all}
+body{margin:0;background:#EAF1FF;color:#1C2A4A;font-family:"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:16px;line-height:1.7;word-break:keep-all}
 .g-wrap{max-width:720px;margin:0 auto;padding:0 16px 60px}
+.g-disp{font-family:"Jua","Apple SD Gothic Neo",sans-serif;font-weight:400}
 
-.g-hero{background:#2E4FA6;color:#fff;padding:30px 16px 26px;text-align:center}
-.g-hero .brand{display:inline-block;font-size:13px;font-weight:700;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 14px;margin-bottom:10px}
-.g-hero h1{margin:0;font-size:30px;font-weight:900}
-.g-hero p{margin:10px auto 0;max-width:32em;font-size:14px;opacity:.92}
+.g-hero{background:linear-gradient(165deg,#5A86E8 0%,#3E66D6 100%);color:#fff;padding:36px 16px 28px;text-align:center;position:relative;overflow:hidden}
+.g-hero .deco{position:absolute;opacity:.85;pointer-events:none}
+.g-hero .brand{display:inline-block;font-size:13px;font-weight:700;background:rgba(255,255,255,.2);border-radius:999px;padding:5px 14px;position:relative;z-index:1}
+.g-hero .welcome{font-family:"Gaegu","Jua",cursive;font-size:20px;margin-top:12px;position:relative;z-index:1}
+.g-hero h1{margin:4px 0 0;font-size:clamp(30px,8vw,40px);position:relative;z-index:1}
+.g-hero h1.g-disp{letter-spacing:-.01em}
+.g-hero p{margin:12px auto 0;max-width:30em;font-size:14px;opacity:.95;position:relative;z-index:1}
 
-.g-tabs{position:sticky;top:0;z-index:5;background:#EEF2FB;border-bottom:1px solid #D6DEF2;padding:10px 16px}
+.g-tabs{position:sticky;top:0;z-index:5;background:#EAF1FF;border-bottom:1px solid #CFDCF7;padding:10px 16px}
 .g-tabs-inner{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.g-tabs button{font:inherit;font-size:14px;font-weight:700;color:#5A6B95;background:#fff;border:1px solid #D6DEF2;border-radius:12px;padding:9px 4px;cursor:pointer}
+.g-tabs button{font:inherit;font-family:"Jua",sans-serif;font-size:15px;color:#5A6B95;background:#fff;border:1px solid #CFDCF7;border-radius:14px;padding:8px 4px 7px;cursor:pointer;line-height:1.2}
+.g-tabs button span{display:block;font-family:"Apple SD Gothic Neo",sans-serif;font-size:10.5px;font-weight:500;opacity:.8;margin-top:2px}
 .g-tabs button.on{background:#2E4FA6;border-color:#2E4FA6;color:#fff}
 
 .g-panel{display:none;flex-direction:column;gap:18px;padding-top:22px}
 .g-panel.on{display:flex}
 
-.g-flow{background:#1C2A4A;color:#fff;border-radius:18px;padding:18px}
-.g-flow h2{margin:0;font-size:19px}
-.g-flow .chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0;padding:0;list-style:none}
-.g-flow .chips li{background:#fff;color:#1C2A4A;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700}
+.g-flow{background:#1C2A4A;color:#fff;border-radius:20px;padding:20px;position:relative;overflow:hidden}
+.g-flow h2{margin:0;font-size:21px}
+.g-flow .chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:14px 0 0;padding:0;list-style:none}
+.g-flow .chips li{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
+.g-flow .chips li b{background:#fff;color:#1C2A4A;border-radius:999px;padding:5px 13px;font-weight:700}
+.g-flow .chips li:not(:last-child)::after{content:"→";opacity:.6;margin-left:2px;font-weight:400}
 
-.g-group{font-size:13px;font-weight:800;color:#2E4FA6;background:#E2EAFB;display:inline-block;border-radius:999px;padding:4px 14px;margin-bottom:-6px}
+.g-group{font-family:"Jua",sans-serif;font-size:14px;color:#fff;background:#6E8EE8;display:inline-block;border-radius:999px;padding:5px 16px;margin-bottom:-6px}
 
-.g-sec{background:#fff;border-radius:18px;padding:22px 18px;box-shadow:0 1px 0 #D6DEF2}
-.g-sec h2{font-size:21px;margin:0 0 6px;display:flex;align-items:center;gap:9px}
-.g-sec h2 .n{flex:none;width:28px;height:28px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;font-size:12px;font-weight:800;display:grid;place-items:center}
-.g-sec h3{font-size:16px;color:#2E4FA6;margin:16px 0 6px}
+.g-sec{background:#fff;border-radius:20px;padding:24px 20px;box-shadow:0 2px 0 #CFDCF7}
+.g-sec h2{font-family:"Jua",sans-serif;font-size:22px;margin:0 0 8px;display:flex;align-items:center;gap:10px}
+.g-sec h2 .n{flex:none;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;font-family:"Apple SD Gothic Neo",sans-serif;font-size:12px;font-weight:800;display:grid;place-items:center}
+.g-sec h3{font-family:"Jua",sans-serif;font-size:17px;color:#3E66D6;margin:18px 0 6px}
 .g-sec p{margin:6px 0 0;color:#4B5B82}
 .g-sec ul,.g-sec ol{margin:10px 0 0;padding-left:20px}
 .g-sec li{margin:4px 0}
 
-.g-note{margin-top:12px;border-radius:12px;padding:12px 14px;font-size:14px;background:#FFF3C8;color:#6A4800}
+.g-note{margin-top:12px;border-radius:14px;padding:13px 16px;font-size:14px;background:#FFF3C8;color:#6A4800}
 .g-note b{display:block;margin-bottom:2px}
 .g-note.alert{background:#FDE4EA;color:#9A2E3E}
 
 .g-grid2{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
-.g-grid2 li{background:#F1F4FC;border-radius:10px;padding:8px 12px;font-size:14px}
+.g-grid2 li{background:#F1F4FC;border-radius:12px;padding:8px 12px;font-size:14px}
 
-.g-steps{list-style:none;margin:12px 0 0;padding:0;counter-reset:s}
-.g-steps li{counter-increment:s;position:relative;padding:2px 0 14px 40px}
-.g-steps li::before{content:"0" counter(s);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;display:grid;place-items:center;font-size:12px;font-weight:800}
+.g-steps{list-style:none;margin:14px 0 0;padding:0;counter-reset:s}
+.g-steps li{counter-increment:s;position:relative;padding:2px 0 16px 42px}
+.g-steps li::before{content:"0" counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;display:grid;place-items:center;font-size:12px;font-weight:800}
 .g-steps li strong{display:block}
 .g-steps li small{display:block;color:#6B7BA0;font-size:13.5px}
 
-.g-img{max-width:100%;border-radius:12px;display:block;margin:10px 0}
+.g-img{max-width:100%;border-radius:14px;display:block;margin:10px 0}
 
 .g-empty{text-align:center;color:#6B7BA0;padding:60px 20px}
+
+.g-footer{text-align:center;color:#8A9BC9;font-size:13px;margin-top:30px;font-family:"Jua",sans-serif}
 
 /* ===== 편집기 전용 ===== */
 .g-edit-bar{position:sticky;top:0;z-index:9;background:#1C2A4A;color:#fff;display:flex;align-items:center;gap:8px;padding:10px 14px;flex-wrap:wrap}
