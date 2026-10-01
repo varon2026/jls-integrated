@@ -47,6 +47,61 @@ function buildGuideShell(rootEl, name, heroImageUrl){
   wireTabs(rootEl);
 }
 
+/* 사진 클릭하면 크게 보기 (라이트박스). 공개 페이지·편집 화면 둘 다에서 쓴다. */
+function wireLightbox(rootEl){
+  rootEl.addEventListener('click', function(e){
+    var img = e.target.closest && e.target.closest('.g-img, .g-carousel img');
+    if(!img) return;
+    openLightbox(img.src);
+  });
+}
+function openLightbox(src){
+  var box = document.getElementById('g-lightbox');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'g-lightbox';
+    box.className = 'g-lightbox';
+    box.innerHTML = '<button class="g-lightbox-close" onclick="closeLightbox()">✕</button><img id="g-lightbox-img" src="">';
+    box.addEventListener('click', function(e){ if(e.target===box) closeLightbox(); });
+    document.body.appendChild(box);
+  }
+  document.getElementById('g-lightbox-img').src = src;
+  box.classList.add('show');
+}
+function closeLightbox(){
+  var box = document.getElementById('g-lightbox');
+  if(box) box.classList.remove('show');
+}
+window.closeLightbox = closeLightbox;
+
+/* 옆으로 넘기면서 보는 사진첩(점 표시). 사진 여러 장을 하나의 g-carousel로 묶어 쓴다.
+   HTML 구조: <div class="g-carousel"><div class="g-carousel-track">
+   <img class="g-img">...여러 장...</div><div class="g-carousel-dots"></div></div> */
+function wireCarousels(rootEl){
+  rootEl.querySelectorAll('.g-carousel').forEach(function(car){
+    if(car.dataset.wired) return;
+    car.dataset.wired = '1';
+    var track = car.querySelector('.g-carousel-track');
+    var dotsWrap = car.querySelector('.g-carousel-dots');
+    if(!track || !dotsWrap) return;
+    var imgs = track.querySelectorAll('img');
+    if(dotsWrap.children.length !== imgs.length){
+      dotsWrap.innerHTML = '';
+      imgs.forEach(function(_, i){
+        var d = document.createElement('button');
+        d.type = 'button';
+        if(i===0) d.className = 'on';
+        d.onclick = function(){ imgs[i].scrollIntoView({behavior:'smooth', inline:'center'}); };
+        dotsWrap.appendChild(d);
+      });
+    }
+    track.addEventListener('scroll', function(){
+      var idx = Math.round(track.scrollLeft / track.clientWidth);
+      Array.prototype.forEach.call(dotsWrap.children, function(d,i){ d.classList.toggle('on', i===idx); });
+    });
+  });
+}
+
 function wireTabs(rootEl){
   var btns = rootEl.querySelectorAll('.g-tabs button');
   btns.forEach(function(b){
@@ -75,6 +130,8 @@ function splitIntoTabs(rootEl, html){
     var el = rootEl.querySelector('#g-panel-'+k);
     if(el) el.innerHTML = targets[k].join('');
   });
+  wireLightbox(rootEl);
+  wireCarousels(rootEl);
 }
 
 /* 편집기 전용: 4개 패널에 나뉜 내용을 다시 하나의 HTML로 합친다 (저장용) */
