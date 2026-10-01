@@ -51,7 +51,8 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-grid2{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
 .g-grid2 li{background:#F1F4FC;border-radius:12px;padding:8px 12px;font-size:14px}
 
-.g-steps{list-style:none;margin:14px 0 0;padding:0;counter-reset:s}
+.g-steps{list-style:none;margin:14px 0 0;padding:0;counter-reset:s;position:relative}
+.g-steps::before{content:"";position:absolute;left:14px;top:15px;bottom:15px;border-left:2px dashed #F3C6CE}
 .g-steps li{counter-increment:s;position:relative;padding:2px 0 16px 42px}
 .g-steps li::before{content:"0" counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;display:grid;place-items:center;font-size:12px;font-weight:800}
 .g-steps li strong{display:block}
