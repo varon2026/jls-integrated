@@ -36,7 +36,12 @@ body.g-has-toolbar .g-tabs{top:48px}
 
 .g-group{font-family:"Jua",sans-serif;font-size:14px;color:#fff;background:#6E8EE8;display:inline-block;border-radius:999px;padding:5px 16px;margin-bottom:-6px}
 
-.g-sec{background:#fff;border-radius:20px;padding:24px 20px;box-shadow:0 2px 0 #CFDCF7}
+.g-sec{background:#fff;border-radius:20px;padding:24px 20px;box-shadow:0 2px 0 #CFDCF7;position:relative}
+/* 카드마다 다 스프링노트 점선 구멍을 넣는다 (뱃지가 있든 없든 모든 박스에 동일하게) */
+.g-sec::before{content:"";position:absolute;left:22px;right:22px;top:-9px;height:16px;
+  background:radial-gradient(circle at 7px 8px,#EAF1FF 0 3.5px,transparent 4px) 0 0/20px 16px repeat-x;}
+.g-sec::after{content:"";position:absolute;left:22px;right:22px;top:-13px;height:13px;
+  background:linear-gradient(90deg,#B9C6EA 0 3px,transparent 3px) 4px 0/20px 13px repeat-x;opacity:.6}
 .g-sec h2{font-family:"Jua",sans-serif;font-size:22px;margin:0 0 8px;display:flex;align-items:center;gap:10px}
 .g-sec h2 .n{flex:none;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;font-family:"Apple SD Gothic Neo",sans-serif;font-size:12px;font-weight:800;display:grid;place-items:center}
 .g-sec h3{font-family:"Jua",sans-serif;font-size:17px;color:#3E66D6;margin:18px 0 6px}
@@ -89,11 +94,6 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-sketchwrap .g-grouphead{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 -14px 10px}
 .g-sketchwrap .g-grouphead .g-group{margin:0}
 .g-grouphead a{font-size:12.5px;font-weight:700;color:#2E4FA6;text-decoration:underline}
-.g-sketchwrap .g-sec{position:relative}
-.g-sketchwrap .g-sec::before{content:"";position:absolute;left:22px;right:22px;top:-9px;height:16px;
-  background:radial-gradient(circle at 7px 8px,#EAF1FF 0 3.5px,transparent 4px) 0 0/20px 16px repeat-x;}
-.g-sketchwrap .g-sec::after{content:"";position:absolute;left:22px;right:22px;top:-13px;height:13px;
-  background:linear-gradient(90deg,#B9C6EA 0 3px,transparent 3px) 4px 0/20px 13px repeat-x;opacity:.6}
 
 /* 안내전화처럼 "묶음"으로 소개할 때 쓰는 하위 그룹 — 옅은 색 패널 안에 흰 알약 목록 */
 .g-subgroup{background:#E7ECFB;border-radius:16px;padding:16px;margin-top:14px}
