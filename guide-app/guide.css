@@ -91,7 +91,7 @@ body.g-has-toolbar .g-tabs{top:48px}
    카드 쪽 점선 구멍(.g-sec::before/::after)이 카드 위로 최대 13px까지 올라오므로,
    꼬리표 아래 여백을 18px로 둬서 점선·흰 카드 어느 쪽과도 안 겹치게 한다. */
 .g-sketchwrap{position:relative}
-.g-sketchwrap .g-group{display:block;margin:0 0 18px 10px}
+.g-sketchwrap .g-group{display:inline-block;margin:0 0 18px 10px}
 .g-sketchwrap .g-grouphead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 18px 10px}
 .g-sketchwrap .g-grouphead .g-group{margin:0}
 .g-grouphead a{font-size:12.5px;font-weight:700;color:#2E4FA6;text-decoration:underline}
