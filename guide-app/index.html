@@ -90,15 +90,15 @@ function renderToolbar(){
       '<div class="g-toolbar-row">'+
       '<div class="g-shapewrap">'+
         '<button onclick="toggleShapeMenu()">⬜ 네모 추가</button>'+
-        '<div class="g-shapemenu" id="g-shapemenu" hidden>'+
+        '<div class="g-shapemenu" id="g-shapemenu">'+
           '<button onclick="insertBox(\'square\')">□ 네모</button>'+
           '<button onclick="insertBox(\'round\')">▢ 둥근 네모</button>'+
           '<button onclick="insertBox(\'circle\')">○ 동그라미</button>'+
           '<button onclick="insertBox(\'sketch\')">📓 스케치북</button>'+
         '</div>'+
       '</div>'+
-      '<label class="g-colorlbl">배경색 <input type="color" onchange="applyBoxBg(this.value)" value="#F1F4FC"></label>'+
-      '<label class="g-colorlbl">글자색 <input type="color" onchange="applyTextColor(this.value)" value="#1C2A4A"></label>'+
+      '<label class="g-colorlbl">배경색 <input type="color" oninput="applyBoxBg(this.value)" value="#ffffff"></label>'+
+      '<label class="g-colorlbl">글자색 <input type="color" oninput="applyTextColor(this.value)" value="#1C2A4A"></label>'+
       '<select onchange="applyFontSize(this.value);this.selectedIndex=0">'+
         '<option value="">글씨크기</option><option value="13">작게</option><option value="16">보통</option><option value="20">크게</option><option value="28">아주크게</option>'+
       '</select>'+
@@ -174,29 +174,51 @@ function restoreSelection(){
 
 function toggleShapeMenu(){
   var m = document.getElementById('g-shapemenu');
-  if(m) m.hidden = !m.hidden;
+  if(m) m.classList.toggle('show');
 }
 window.toggleShapeMenu = toggleShapeMenu;
 
 var gBoxSeq = 0;
 function insertBox(shape){
-  document.getElementById('g-shapemenu').hidden = true;
+  document.getElementById('g-shapemenu').classList.remove('show');
   var panel = rootEl.querySelector('.g-panel.on');
   if(!panel) return;
   gBoxSeq++;
-  var left = 8 + (gBoxSeq % 4) * 12;   // 매번 살짝 다른 자리에 떨어지게 (완전히 겹치지 않도록)
-  var top = 20 + (gBoxSeq % 5) * 50;
+  var top = 20 + (gBoxSeq % 6) * 60;
+  var posStyle = shape === 'circle'
+    ? ('left:'+(10 + (gBoxSeq % 4) * 15)+'%;top:'+top+'px')   // 동그라미만 가로세로 자유 배치
+    : ('left:0;top:'+top+'px');                                // 네모류는 글 카드랑 같은 너비로, 세로만 옮김
   var gid = 'gbox-'+Date.now()+'-'+gBoxSeq;
-  var html = '<div class="g-box g-box-'+shape+'" style="left:'+left+'%;top:'+top+'px" data-gid="'+gid+'">'+
-    '<span class="g-box-handle" contenteditable="false">⠿</span>텍스트를 입력하세요</div>';
+  var html = '<div class="g-box g-box-'+shape+'" style="'+posStyle+'" data-gid="'+gid+'">'+
+    '<span class="g-box-handle" contenteditable="false">⠿</span>'+
+    '<span class="g-box-del" contenteditable="false" onclick="deleteBox(this)">✕</span>'+
+    '텍스트를 입력하세요</div>';
   panel.insertAdjacentHTML('beforeend', html);
   var inserted = panel.querySelector('[data-gid="'+gid+'"]');
-  if(inserted){
-    inserted.removeAttribute('data-gid');
-    savedBox = inserted;
+  if(!inserted) return;
+  inserted.removeAttribute('data-gid');
+  savedBox = inserted;
+
+  // 바로 타이핑할 수 있도록 안내 글자를 선택된 상태로 둔다 (클릭 안 해도 바로 써짐)
+  panel.focus();
+  var textNode = Array.prototype.filter.call(inserted.childNodes, function(n){ return n.nodeType===3; })[0];
+  if(textNode){
+    var range = document.createRange();
+    range.selectNodeContents(textNode);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    savedRange = range.cloneRange();
+    savedPanel = panel;
   }
 }
 window.insertBox = insertBox;
+
+function deleteBox(btn){
+  var box = btn.closest('.g-box');
+  if(box) box.remove();
+}
+window.deleteBox = deleteBox;
 
 /* 네모칸을 손잡이(⠿)로 끌어서 자유롭게 옮긴다. 가로는 %, 세로는 px로 저장해서
    화면 폭이 달라져도(특히 휴대폰) 너무 어긋나지 않게 한다. */
@@ -228,11 +250,14 @@ function onBoxDrag(e){
   e.preventDefault();
   var pt = e.touches ? e.touches[0] : e;
   var panelRect = dragState.panel.getBoundingClientRect();
-  var x = pt.clientX - panelRect.left - dragState.offsetX;
   var y = pt.clientY - panelRect.top - dragState.offsetY;
-  var pct = Math.max(0, Math.min(92, (x / panelRect.width) * 100));
-  dragState.box.style.left = pct + '%';
   dragState.box.style.top = Math.max(0, y) + 'px';
+  // 동그라미만 카드 너비에 안 묶여 있어서 가로로도 옮길 수 있다
+  if(dragState.box.classList.contains('g-box-circle')){
+    var x = pt.clientX - panelRect.left - dragState.offsetX;
+    var pct = Math.max(0, Math.min(80, (x / panelRect.width) * 100));
+    dragState.box.style.left = pct + '%';
+  }
 }
 
 function endBoxDrag(){
@@ -397,7 +422,7 @@ document.getElementById('g-hero-file').addEventListener('change', onHeroFilePick
 window.addEventListener('resize', syncTabsOffset);
 document.addEventListener('click', function(e){
   var m = document.getElementById('g-shapemenu');
-  if(m && !m.hidden && !e.target.closest('.g-shapewrap')) m.hidden = true;
+  if(m && m.classList.contains('show') && !e.target.closest('.g-shapewrap')) m.classList.remove('show');
 });
 
 (function init(){

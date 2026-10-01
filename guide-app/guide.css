@@ -58,11 +58,13 @@ body.g-has-toolbar .g-tabs{top:48px}
 
 .g-img{max-width:100%;border-radius:14px;display:block;margin:10px 0}
 
-.g-box{position:absolute;padding:14px 18px;background:#F1F4FC;border-radius:14px;min-height:1.6em;max-width:80%;z-index:2}
+.g-box{position:absolute;box-sizing:border-box;width:100%;padding:14px 18px;background:#fff;border:1px solid #E3E9F7;box-shadow:0 1px 0 #D6DEF2;border-radius:14px;min-height:1.6em;z-index:2}
 .g-box-round{border-radius:30px}
-.g-box-circle{border-radius:50%;width:150px;height:150px;display:flex;align-items:center;justify-content:center;text-align:center;overflow:auto}
+.g-box-circle{width:150px;border-radius:50%;height:150px;display:flex;align-items:center;justify-content:center;text-align:center;overflow:auto}
 .g-box-handle{display:none;position:absolute;left:-11px;top:-11px;width:26px;height:26px;background:#2E4FA6;color:#fff;border-radius:50%;align-items:center;justify-content:center;font-size:13px;cursor:move;z-index:6;user-select:none;box-shadow:0 2px 6px rgba(28,42,74,.35)}
+.g-box-del{display:none;position:absolute;right:-11px;top:-11px;width:24px;height:24px;background:#E0304F;color:#fff;border-radius:50%;align-items:center;justify-content:center;font-size:12px;cursor:pointer;z-index:6;user-select:none;box-shadow:0 2px 6px rgba(28,42,74,.35)}
 .g-panel[contenteditable="true"] .g-box-handle{display:flex}
+.g-panel[contenteditable="true"] .g-box:hover .g-box-del{display:flex}
 .g-box.g-dragging{opacity:.85;box-shadow:0 10px 24px rgba(28,42,74,.3)}
 /* 스케치북(스프링노트) 느낌 — 특정 그림을 베낀 게 아니라 점선 구멍 + 스프링을 표현하는
    일반적인 CSS 기법(radial-gradient 반복)을 우리 색으로 새로 그린 것 */
@@ -90,7 +92,8 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-toolbar label.g-colorlbl{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:#2E4FA6;background:#EEF2FB;border-radius:8px;padding:5px 10px;cursor:pointer}
 .g-toolbar input[type=color]{width:22px;height:22px;border:0;padding:0;background:none;cursor:pointer}
 .g-shapewrap{position:relative;display:inline-block}
-.g-shapemenu{position:absolute;left:0;top:calc(100% + 6px);background:#fff;border:1px solid #D6DEF2;border-radius:10px;box-shadow:0 8px 20px rgba(28,42,74,.15);display:flex;flex-direction:column;padding:6px;gap:2px;z-index:30;min-width:130px}
+.g-shapemenu{display:none;position:absolute;left:0;top:calc(100% + 6px);background:#fff;border:1px solid #D6DEF2;border-radius:10px;box-shadow:0 8px 20px rgba(28,42,74,.15);flex-direction:column;padding:6px;gap:2px;z-index:30;min-width:130px}
+.g-shapemenu.show{display:flex}
 .g-shapemenu button{text-align:left;background:none;color:#1C2A4A;font-weight:600}
 .g-shapemenu button:hover{background:#EEF2FB}
 .g-panel[contenteditable="true"]{outline:none}
