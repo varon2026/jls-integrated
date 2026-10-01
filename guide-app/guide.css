@@ -42,8 +42,8 @@ body.g-has-toolbar .g-tabs{top:48px}
    층을 하나로 합쳐 뒀기 때문에 두 켜가 따로 놀며 어긋나는 일이 없다. */
 .g-sec::before{content:"";position:absolute;left:20px;right:20px;top:-7px;height:14px;
   background:
-    radial-gradient(circle at 7px 7px,#C7D4EF 0 3.4px,transparent 3.4px) 0 0/18px 14px repeat-x,
-    radial-gradient(circle at 7px 7px,#F4F7FD 0 2.1px,transparent 2.1px) 0 0/18px 14px repeat-x;}
+    radial-gradient(circle at 7px 7px,#F4F7FD 0 2.1px,transparent 2.1px) 0 0/18px 14px repeat-x,
+    radial-gradient(circle at 7px 7px,#C7D4EF 0 3.4px,transparent 3.4px) 0 0/18px 14px repeat-x;}
 .g-sec h2{font-family:"Jua",sans-serif;font-size:22px;margin:0 0 8px;display:flex;align-items:center;gap:10px}
 .g-sec h2 .n{flex:none;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;font-family:"Apple SD Gothic Neo",sans-serif;font-size:12px;font-weight:800;display:grid;place-items:center}
 .g-sec h3{font-family:"Jua",sans-serif;font-size:17px;color:#3E66D6;margin:18px 0 6px}
