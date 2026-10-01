@@ -38,12 +38,13 @@ body.g-has-toolbar .g-tabs{top:48px}
 
 .g-sec{background:#fff;border-radius:20px;padding:24px 20px;box-shadow:0 2px 0 #CFDCF7;position:relative}
 /* 카드마다 다 스프링노트 점선 구멍을 넣는다 (뱃지가 있든 없든 모든 박스에 동일하게).
-   구멍 하나를 "테두리(진한 색) + 안쪽(연한 색)" 두 겹을 같은 자리에 겹쳐서 파인 느낌을 내고,
-   층을 하나로 합쳐 뒀기 때문에 두 켜가 따로 놀며 어긋나는 일이 없다. */
-.g-sec::before{content:"";position:absolute;left:20px;right:20px;top:-7px;height:14px;
+   진짜 구멍처럼 보이려면 "안쪽은 뒤에 있는 배경색이 비쳐야" 한다 — 흰색 계열로 채우면
+   그냥 테두리만 있는 동그라미로 보인다. 안쪽은 페이지 배경색(#EAF1FF)으로 뚫어서
+   보이게 하고, 그 둘레에 그림자 역할의 진한 테두리색을 한 겹 더 깔아 파인 티를 낸다. */
+.g-sec::before{content:"";position:absolute;left:20px;right:20px;top:-9px;height:16px;
   background:
-    radial-gradient(circle at 7px 7px,#F4F7FD 0 2.1px,transparent 2.1px) 0 0/18px 14px repeat-x,
-    radial-gradient(circle at 7px 7px,#C7D4EF 0 3.4px,transparent 3.4px) 0 0/18px 14px repeat-x;}
+    radial-gradient(circle at 7px 8px,#EAF1FF 0 3px,transparent 3.3px) 0 0/18px 16px repeat-x,
+    radial-gradient(circle at 7px 8px,#AEC0E8 0 3.6px,transparent 4px) 0 0/18px 16px repeat-x;}
 .g-sec h2{font-family:"Jua",sans-serif;font-size:22px;margin:0 0 8px;display:flex;align-items:center;gap:10px}
 .g-sec h2 .n{flex:none;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;font-family:"Apple SD Gothic Neo",sans-serif;font-size:12px;font-weight:800;display:grid;place-items:center}
 .g-sec h3{font-family:"Jua",sans-serif;font-size:17px;color:#3E66D6;margin:18px 0 6px}
