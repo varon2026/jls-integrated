@@ -51,10 +51,12 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-grid2{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
 .g-grid2 li{background:#F1F4FC;border-radius:12px;padding:8px 12px;font-size:14px}
 
-.g-steps{list-style:none;margin:14px 0 0;padding:0;counter-reset:s;position:relative}
-.g-steps::before{content:"";position:absolute;left:14px;top:15px;bottom:15px;border-left:2px dashed #F3C6CE}
+.g-steps{list-style:none;margin:14px 0 0;padding:0;counter-reset:s}
 .g-steps li{counter-increment:s;position:relative;padding:2px 0 16px 42px}
-.g-steps li::before{content:"0" counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;display:grid;place-items:center;font-size:12px;font-weight:800}
+/* 번호 동그라미를 잇는 점선 — ul 전체 높이가 아니라 "이 단계 칸 전체"를 기준으로 그려서,
+   사진·표가 붙어 단계 하나가 길어져도 다음 동그라미까지만 정확히 이어진다 (마지막 단계는 제외) */
+.g-steps li:not(:last-child)::after{content:"";position:absolute;left:14px;top:30px;bottom:0;border-left:2px dashed #F3C6CE}
+.g-steps li::before{content:"0" counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;display:grid;place-items:center;font-size:12px;font-weight:800;z-index:1}
 .g-steps li strong{display:block}
 .g-steps li small{display:block;color:#6B7BA0;font-size:13.5px}
 
@@ -86,7 +88,7 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-sketchwrap .g-group{position:relative;z-index:2;margin:0 0 -14px 10px}
 .g-sketchwrap .g-grouphead{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 -14px 10px}
 .g-sketchwrap .g-grouphead .g-group{margin:0}
-.g-grouphead a{font-size:12.5px;font-weight:700;color:#2E4FA6;text-decoration:none}
+.g-grouphead a{font-size:12.5px;font-weight:700;color:#2E4FA6;text-decoration:underline}
 .g-sketchwrap .g-sec{position:relative}
 .g-sketchwrap .g-sec::before{content:"";position:absolute;left:22px;right:22px;top:-9px;height:16px;
   background:radial-gradient(circle at 7px 8px,#EAF1FF 0 3.5px,transparent 4px) 0 0/20px 16px repeat-x;}
