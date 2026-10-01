@@ -185,13 +185,11 @@ function insertBox(shape){
   if(!panel) return;
   gBoxSeq++;
   var top = 20 + (gBoxSeq % 6) * 60;
-  var posStyle = shape === 'circle'
-    ? ('left:'+(10 + (gBoxSeq % 4) * 15)+'%;top:'+top+'px')   // 동그라미만 가로세로 자유 배치
-    : ('left:0;top:'+top+'px');                                // 네모류는 글 카드랑 같은 너비로, 세로만 옮김
+  var left = 6 + (gBoxSeq % 4) * 15;
   var gid = 'gbox-'+Date.now()+'-'+gBoxSeq;
-  var html = '<div class="g-box g-box-'+shape+'" style="'+posStyle+'" data-gid="'+gid+'">'+
+  var html = '<div class="g-box g-box-'+shape+'" style="left:'+left+'%;top:'+top+'px" data-gid="'+gid+'">'+
     '<span class="g-box-handle" contenteditable="false">⠿</span>'+
-    '<span class="g-box-del" contenteditable="false" onclick="deleteBox(this)">✕</span>'+
+    '<span class="g-box-del" contenteditable="false" onmousedown="deleteBoxEvt(event,this)">✕</span>'+
     '텍스트를 입력하세요</div>';
   panel.insertAdjacentHTML('beforeend', html);
   var inserted = panel.querySelector('[data-gid="'+gid+'"]');
@@ -214,11 +212,15 @@ function insertBox(shape){
 }
 window.insertBox = insertBox;
 
-function deleteBox(btn){
+function deleteBoxEvt(e, btn){
+  // contenteditable 영역 안의 버튼이라 그냥 click만 쓰면 첫 클릭이 "선택"으로만
+  // 먹히고 삭제가 안 되는 경우가 있어, mousedown에서 바로 처리한다.
+  e.preventDefault();
+  e.stopPropagation();
   var box = btn.closest('.g-box');
   if(box) box.remove();
 }
-window.deleteBox = deleteBox;
+window.deleteBoxEvt = deleteBoxEvt;
 
 /* 네모칸을 손잡이(⠿)로 끌어서 자유롭게 옮긴다. 가로는 %, 세로는 px로 저장해서
    화면 폭이 달라져도(특히 휴대폰) 너무 어긋나지 않게 한다. */
@@ -251,13 +253,10 @@ function onBoxDrag(e){
   var pt = e.touches ? e.touches[0] : e;
   var panelRect = dragState.panel.getBoundingClientRect();
   var y = pt.clientY - panelRect.top - dragState.offsetY;
+  var x = pt.clientX - panelRect.left - dragState.offsetX;
+  var pct = Math.max(0, Math.min(90, (x / panelRect.width) * 100));
   dragState.box.style.top = Math.max(0, y) + 'px';
-  // 동그라미만 카드 너비에 안 묶여 있어서 가로로도 옮길 수 있다
-  if(dragState.box.classList.contains('g-box-circle')){
-    var x = pt.clientX - panelRect.left - dragState.offsetX;
-    var pct = Math.max(0, Math.min(80, (x / panelRect.width) * 100));
-    dragState.box.style.left = pct + '%';
-  }
+  dragState.box.style.left = pct + '%';
 }
 
 function endBoxDrag(){
