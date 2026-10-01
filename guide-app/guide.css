@@ -37,12 +37,12 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-group{font-family:"Jua",sans-serif;font-size:14px;color:#fff;background:#6E8EE8;display:inline-block;border-radius:999px;padding:5px 16px;margin-bottom:-6px}
 
 .g-sec{background:#fff;border-radius:20px;padding:24px 20px;box-shadow:0 2px 0 #CFDCF7;position:relative}
-/* 카드마다 다 스프링노트 점선 구멍을 넣는다 (뱃지가 있든 없든 모든 박스에 동일하게).
-   전에 썼던 파스텔 톤(#AEC0E8)은 주변 배경(#EAF1FF)이랑 색이 너무 비슷해서
-   실제 화면에서는 거의 안 보였다 — DOM에는 제대로 그려지는데 눈에만 안 띄는
-   상태였다. 배경과 뚜렷하게 구분되는 진한 회색-남색으로 바꿔서 실제로 보이게 했다. */
-.g-sec::before{content:"";position:absolute;left:20px;right:20px;top:-10px;height:14px;
-  background:radial-gradient(circle at 7px 6px,#8C9BC4 0 3.4px,transparent 3.4px) 0 0/18px 14px repeat-x;}
+/* 카드마다 다 스프링노트 점선을 넣는다 (뱃지가 있든 없든 모든 박스에 동일하게).
+   동그라미 구멍이 아니라 세로 막대 점선 + 그림자였다 — 짧은 세로 막대를 나란히 찍고
+   drop-shadow로 살짝 입체감을 준다. */
+.g-sec::before{content:"";position:absolute;left:20px;right:20px;top:-9px;height:13px;
+  background:repeating-linear-gradient(90deg,#AEBFDD 0 2px,transparent 2px 20px);
+  filter:drop-shadow(0 2px 0.5px rgba(28,42,74,.2));}
 .g-sec h2{font-family:"Jua",sans-serif;font-size:22px;margin:0 0 8px;display:flex;align-items:center;gap:10px}
 .g-sec h2 .n{flex:none;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;font-family:"Apple SD Gothic Neo",sans-serif;font-size:12px;font-weight:800;display:grid;place-items:center}
 .g-sec h3{font-family:"Jua",sans-serif;font-size:17px;color:#3E66D6;margin:18px 0 6px}
