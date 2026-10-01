@@ -98,6 +98,7 @@ function renderToolbar(){
         '</div>'+
       '</div>'+
       '<button onclick="insertTable()">▦ 표 추가</button>'+
+      '<button onclick="insertBadge()">🏷 배지</button>'+
       '<label class="g-colorlbl">배경색 <input type="color" oninput="applyBoxBg(this.value)" value="#ffffff"></label>'+
       '<label class="g-colorlbl">글자색 <input type="color" oninput="applyTextColor(this.value)" value="#1C2A4A"></label>'+
       '<select onchange="applyFontSize(this.value);this.selectedIndex=0">'+
@@ -227,12 +228,9 @@ function insertBox(shape){
   var panel = rootEl.querySelector('.g-panel.on');
   if(!panel) return;
 
-  // 커서가 이미 다른 네모 "안"에 있으면 — 거기에 작은 배지로 끼워 넣는다(중첩)
-  if(savedRange && getAncestorBox(savedRange.startContainer)){
-    insertMiniShape(shape);
-    return;
-  }
-
+  // (예전엔 커서가 네모 안이면 자동으로 작은 배지로 바꿔 넣었는데, 어디로 들어갈지
+  //  헷갈리고 글 쓰다가 배지 안으로 커서가 자꾸 들어가버려서 없앴다.
+  //  "네모 추가"는 항상 새로운 독립된 네모를 만든다. 배지는 아래 insertBadge().)
   gBoxSeq++;
   var top = currentViewTopIn(panel) + (gBoxSeq % 5) * 36;
   var isCircle = shape === 'circle';
@@ -272,14 +270,16 @@ function insertBox(shape){
 }
 window.insertBox = insertBox;
 
-/* 네모 "안"에 넣는 작은 배지 — 끌어서 옮기는 건 안 되고, 글자처럼 그 줄에 같이 흐른다.
-   손잡이·삭제 버튼이 없으니, 지우려면 글자처럼 드래그해서 선택한 뒤 지우면 된다. */
-function insertMiniShape(shape){
-  document.getElementById('g-shapemenu').classList.remove('show');
-  if(!restoreCursor()) return;
-  var html = '<span class="g-mini g-mini-'+shape+'">텍스트</span>&nbsp;';
+/* 커서가 있는 자리에 작은 배지(알약 모양)를 끼워 넣는다 — "만점" 같은 표시용.
+   끌어서 옮기는 네모가 아니라 글자처럼 그 줄에 같이 흐른다.
+   네모 안이든, 표 칸 안이든, 그냥 본문이든 — 지금 커서가 있는 곳 그대로 들어간다.
+   지우려면 글자처럼 드래그해서 선택한 뒤 지우면 된다. */
+function insertBadge(){
+  if(!restoreCursor()){ alert('배지를 넣을 자리를 먼저 클릭해 주세요.'); return; }
+  var html = '<span class="g-mini g-mini-round">텍스트</span> ';
   document.execCommand('insertHTML', false, html);
 }
+window.insertBadge = insertBadge;
 
 function insertTable(){
   document.getElementById('g-shapemenu').classList.remove('show');
