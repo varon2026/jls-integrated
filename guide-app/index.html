@@ -42,6 +42,7 @@ function paintLogin(err){
 function manualLogin(){
   var code = document.getElementById('g-code').value.trim();
   if(!code) return;
+  try{ localStorage.setItem('jls_guide_last_branch', code); }catch(e){}
   openEditor(code);
 }
 window.manualLogin = manualLogin;
@@ -177,10 +178,16 @@ window.saveGuide = saveGuide;
     try{ window.parent.postMessage({type:'jls-books-ready'},'*'); }catch(e){}
     var saved=null; try{ saved=sessionStorage.getItem('jls_branch'); }catch(e){}
     if(saved) openEditor(saved); else paintLogin('');
-  } else {
-    var saved=null; try{ saved=sessionStorage.getItem('jls_branch'); }catch(e){}
-    if(saved) openEditor(saved); else paintLogin('');
+    return;
   }
+  // 직접 열었을 때: 링크에 ?branch=xxx 가 있으면 그걸로, 없으면 전에 썼던 분원코드로 바로 들어간다.
+  var fromUrl = null; try{ fromUrl = new URLSearchParams(location.search).get('branch'); }catch(e){}
+  if(fromUrl){ try{ localStorage.setItem('jls_guide_last_branch', fromUrl); }catch(e){} openEditor(fromUrl); return; }
+  var fromSession=null; try{ fromSession=sessionStorage.getItem('jls_branch'); }catch(e){}
+  if(fromSession){ openEditor(fromSession); return; }
+  var fromLocal=null; try{ fromLocal=localStorage.getItem('jls_guide_last_branch'); }catch(e){}
+  if(fromLocal){ openEditor(fromLocal); return; }
+  paintLogin('');
 })();
 </script>
 </body>
