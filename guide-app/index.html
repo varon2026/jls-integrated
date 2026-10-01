@@ -185,9 +185,10 @@ function insertBox(shape){
   if(!panel) return;
   gBoxSeq++;
   var top = 20 + (gBoxSeq % 6) * 60;
-  var left = 6 + (gBoxSeq % 4) * 15;
+  var left = 6 + (gBoxSeq % 4) * 10;
+  var widthStyle = shape === 'circle' ? '' : 'width:65%;';   // 동그라미는 CSS 고정 크기 그대로 둔다
   var gid = 'gbox-'+Date.now()+'-'+gBoxSeq;
-  var html = '<div class="g-box g-box-'+shape+'" style="left:'+left+'%;top:'+top+'px" data-gid="'+gid+'">'+
+  var html = '<div class="g-box g-box-'+shape+'" style="left:'+left+'%;top:'+top+'px;'+widthStyle+'" data-gid="'+gid+'">'+
     '<span class="g-box-handle" contenteditable="false">⠿</span>'+
     '<span class="g-box-del" contenteditable="false" onmousedown="deleteBoxEvt(event,this)">✕</span>'+
     '텍스트를 입력하세요</div>';
