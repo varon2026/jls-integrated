@@ -62,20 +62,30 @@ body.g-has-toolbar .g-tabs{top:48px}
    손잡이·삭제 버튼을 글자 바로 옆(같은 편집 영역 안)에 두면 한글 입력(IME) 중에
    글자가 깨지는 문제가 있어서, 바깥 틀로 완전히 분리했다. */
 .g-box-wrap{position:absolute;z-index:2}
-.g-box{box-sizing:border-box;width:100%;padding:14px 18px;background:#fff;border:1px solid #E3E9F7;box-shadow:0 1px 0 #D6DEF2;border-radius:14px;min-height:1.6em}
+.g-box{box-sizing:border-box;width:100%;padding:14px 18px;background:#fff;border:1px solid #E3E9F7;box-shadow:0 1px 0 #D6DEF2;border-radius:14px;min-height:56px;position:relative}
 .g-box-round{border-radius:30px}
-.g-box-circle{width:150px;height:150px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;overflow:auto}
+.g-box-circle{width:150px;height:150px;min-height:0;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;overflow:auto}
 .g-box-handle{display:none;position:absolute;left:-11px;top:-11px;width:26px;height:26px;background:#2E4FA6;color:#fff;border-radius:50%;align-items:center;justify-content:center;font-size:13px;cursor:move;z-index:6;user-select:none;box-shadow:0 2px 6px rgba(28,42,74,.35)}
 .g-box-del{display:none;position:absolute;right:-11px;top:-11px;width:24px;height:24px;background:#E0304F;color:#fff;border-radius:50%;align-items:center;justify-content:center;font-size:12px;cursor:pointer;z-index:6;user-select:none;box-shadow:0 2px 6px rgba(28,42,74,.35)}
+.g-box-add{display:none;position:absolute;right:-11px;bottom:-11px;width:26px;height:26px;background:#1F9D55;color:#fff;border-radius:50%;align-items:center;justify-content:center;font-size:16px;line-height:1;cursor:pointer;z-index:6;user-select:none;box-shadow:0 2px 6px rgba(28,42,74,.35)}
 .g-panel[contenteditable="true"] .g-box-wrap .g-box-handle,
-.g-panel[contenteditable="true"] .g-box-wrap .g-box-del{display:flex}
+.g-panel[contenteditable="true"] .g-box-wrap .g-box-del,
+.g-panel[contenteditable="true"] .g-box-wrap .g-box-add{display:flex}
 .g-box-wrap.g-dragging .g-box{opacity:.85;box-shadow:0 10px 24px rgba(28,42,74,.3)}
+/* 노션처럼: 마우스를 올리면 지금 뭘 클릭/수정할 수 있는지 점선으로 바로 보여준다 */
+.g-panel[contenteditable="true"] .g-box-wrap:hover > .g-box{outline:1.5px dashed #2E4FA6;outline-offset:2px}
+.g-panel[contenteditable="true"] .g-mini:hover,
+.g-panel[contenteditable="true"] td:hover{outline:1.5px dashed #2E4FA6;outline-offset:1px;cursor:pointer}
 
-/* 네모 "안"에 넣는 작은 배지 — 끌어서 옮기는 게 아니라 글자처럼 줄 안에 흐른다 */
-.g-mini{display:inline-block;padding:2px 11px;margin:0 2px;background:#F1F4FC;border-radius:8px;vertical-align:middle}
+/* 네모 "안"에 넣는 작은 배지 — 끌어서 옮기는 게 아니라 글자처럼 줄 안에 흐른다.
+   클릭하면 바로 고치는 창이 뜬다(contenteditable이 아님) — 안 그러면 글자 바로 옆에
+   커서가 자꾸 끼어들어가는 문제가 있었다. */
+.g-mini{display:inline-block;padding:2px 11px;margin:0 2px;background:#F1F4FC;border-radius:8px;vertical-align:middle;cursor:pointer}
 .g-mini-round{border-radius:999px}
 .g-mini-circle{border-radius:50%;min-width:1.9em;height:1.9em;padding:2px;display:inline-flex;align-items:center;justify-content:center;text-align:center}
 .g-mini-sketch{background:#fff;border:1.5px dashed #B9C6EA}
+
+.g-shapemenu-float{position:absolute;z-index:30}
 
 .g-mini-table{border-collapse:collapse;margin:10px 0;width:100%}
 .g-mini-table td{border:1px solid #D6DEF2;padding:8px 10px;min-width:50px}

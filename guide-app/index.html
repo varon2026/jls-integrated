@@ -161,9 +161,10 @@ var savedBox = null;
 document.addEventListener('click', function(e){
   if(!editMode || !rootEl) return;
   if(!rootEl.contains(e.target)) return;
+  var mini = e.target.closest && e.target.closest('.g-mini');
   var cell = e.target.closest && e.target.closest('td');
   var box = e.target.closest && e.target.closest('.g-box');
-  savedBox = cell || box || null;
+  savedBox = mini || cell || box || null;
 });
 
 function restoreSelection(){
@@ -205,6 +206,28 @@ document.addEventListener('keydown', function(e){
   }
 });
 
+/* 네모 맨 앞에서 백스페이스를 계속 누르면 브라우저가 그 네모 자체를 지워버리거나
+   앞 블록과 합쳐버리는 문제가 있었다. 네모는 ✕ 버튼으로만 지워지게, 맨 앞에서는
+   백스페이스가 아무 일도 안 하게 막는다. */
+document.addEventListener('keydown', function(e){
+  if(!editMode || e.key !== 'Backspace') return;
+  var sel = window.getSelection();
+  if(!sel.rangeCount || !sel.isCollapsed) return;
+  var node = sel.anchorNode;
+  var el = node && (node.nodeType===3 ? node.parentElement : node);
+  var box = el && el.closest && el.closest('.g-box');
+  if(!box) return;
+  var range = sel.getRangeAt(0);
+  var atStart = range.startOffset === 0 && (!range.startContainer.previousSibling);
+  // 커서가 네모의 '첫 글자 바로 앞'인지 확인 (그 전에 다른 글자가 없으면)
+  if(atStart){
+    var preRange = document.createRange();
+    preRange.selectNodeContents(box);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    if(preRange.toString().length === 0) e.preventDefault();
+  }
+});
+
 /* 지금 화면에 보이는 위치(고정 상단바 바로 밑)를 패널 기준 좌표로 계산.
    이걸 안 하면 스크롤을 내려서 작업 중일 때 새 네모가 맨 위에 생겨서
    "안 만들어졌나?" 하고 다시 누르게 된다. */
@@ -223,52 +246,96 @@ function toggleShapeMenu(){
 window.toggleShapeMenu = toggleShapeMenu;
 
 var gBoxSeq = 0;
-function insertBox(shape){
-  document.getElementById('g-shapemenu').classList.remove('show');
-  var panel = rootEl.querySelector('.g-panel.on');
-  if(!panel) return;
 
-  // (예전엔 커서가 네모 안이면 자동으로 작은 배지로 바꿔 넣었는데, 어디로 들어갈지
-  //  헷갈리고 글 쓰다가 배지 안으로 커서가 자꾸 들어가버려서 없앴다.
-  //  "네모 추가"는 항상 새로운 독립된 네모를 만든다. 배지는 아래 insertBadge().)
+/* 네모·표 공통: 위치만 잡는 바깥 틀(wrap)을 만들어서 주어진 container(패널 또는
+   다른 네모) 맨 끝에 붙인다. 네모 "안"에 넣을 때도 똑같은 구조를 재사용한다 —
+   그래서 네모 안에 네모, 네모 안에 표까지 다 자연스럽게 된다. */
+function createObjectWrap(innerHtml, container, small){
   gBoxSeq++;
-  var top = currentViewTopIn(panel) + (gBoxSeq % 5) * 36;
-  var isCircle = shape === 'circle';
-  var wrapStyle = isCircle
+  var isPanel = container.classList && container.classList.contains('g-panel');
+  var top = isPanel ? (currentViewTopIn(container) + (gBoxSeq % 5) * 36) : (12 + (gBoxSeq % 4) * 50);
+  var style = small
     ? ('left:'+(6 + (gBoxSeq % 4) * 15)+'%;top:'+top+'px')
-    : ('left:0;width:100%;top:'+top+'px');   // 다른 글 카드랑 같은 너비
-  var gid = 'gbox-'+Date.now()+'-'+gBoxSeq;
-  // 손잡이·삭제 버튼은 글이 들어가는 g-box 밖(바깥 틀 g-box-wrap)에 둔다.
-  // 글자 바로 옆에 편집 안 되는 요소가 붙어있으면 한글 입력(IME) 중에 글자가
-  // 깨지는 문제가 있어서, 아예 다른 자리로 분리했다.
-  var html = '<div class="g-box-wrap" style="'+wrapStyle+'" data-gid="'+gid+'">'+
+    : ('left:0;width:100%;top:'+top+'px');
+  var gid = 'gobj-'+Date.now()+'-'+gBoxSeq;
+  var html = '<div class="g-box-wrap" style="'+style+'" data-gid="'+gid+'">'+
     '<span class="g-box-handle" contenteditable="false">⠿</span>'+
     '<span class="g-box-del" contenteditable="false" onmousedown="deleteBoxEvt(event,this)">✕</span>'+
-    '<div class="g-box g-box-'+shape+'">텍스트를 입력하세요</div>'+
+    '<span class="g-box-add" contenteditable="false" onmousedown="openAddMenuEvt(event,this)">+</span>'+
+    innerHtml+
     '</div>';
-  panel.insertAdjacentHTML('beforeend', html);
-  var wrap = panel.querySelector('[data-gid="'+gid+'"]');
-  if(!wrap) return;
-  wrap.removeAttribute('data-gid');
-  var inner = wrap.querySelector('.g-box');
-  savedBox = inner;
+  container.insertAdjacentHTML('beforeend', html);
+  var wrap = container.querySelector('[data-gid="'+gid+'"]');
+  if(wrap) wrap.removeAttribute('data-gid');
+  return wrap;
+}
 
-  // 커서만 글자 끝에 두고(선택은 안 함) 바로 이어서 쓸 수 있게 한다.
-  // 안내 글자를 선택해둔 채로 두면 한글 입력 중에 깨지는 경우가 있어 뺐다.
+function focusEndOfBox(box){
+  var panel = box.closest('.g-panel');
+  if(!panel) return;
   panel.focus();
-  var textNode = Array.prototype.filter.call(inner.childNodes, function(n){ return n.nodeType===3; })[0];
-  if(textNode){
-    var range = document.createRange();
-    range.setStart(textNode, textNode.length);
-    range.collapse(true);
-    var sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    savedRange = range.cloneRange();
-    savedPanel = panel;
-  }
+  var textNode = Array.prototype.filter.call(box.childNodes, function(n){ return n.nodeType===3; })[0];
+  if(!textNode) return;
+  var range = document.createRange();
+  range.setStart(textNode, textNode.length);
+  range.collapse(true);
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  savedRange = range.cloneRange();
+  savedPanel = panel;
+}
+
+function closeAllMenus(){
+  var m = document.getElementById('g-shapemenu'); if(m) m.classList.remove('show');
+  var f = document.getElementById('g-floatmenu'); if(f) f.remove();
+}
+
+function insertBox(shape, container){
+  closeAllMenus();
+  container = container || rootEl.querySelector('.g-panel.on');
+  if(!container) return;
+  var inner = '<div class="g-box g-box-'+shape+'">텍스트를 입력하세요</div>';
+  var wrap = createObjectWrap(inner, container, shape === 'circle');
+  if(!wrap) return;
+  var box = wrap.querySelector('.g-box');
+  savedBox = box;
+  // 안내 글자를 선택해둔 채로 두면 한글 입력 중에 깨지는 경우가 있어, 커서만 끝에 둔다.
+  focusEndOfBox(box);
 }
 window.insertBox = insertBox;
+
+/* 네모 오른쪽 아래 "+" — 그 네모 "안"에 네모·표를 넣는 작은 메뉴를 띄운다 */
+var addMenuTargetBox = null;
+function openAddMenuEvt(e, btn){
+  e.preventDefault();
+  e.stopPropagation();
+  var wrap = btn.closest('.g-box-wrap');
+  var box = wrap && wrap.querySelector('.g-box');
+  if(!box) return;
+  addMenuTargetBox = box;
+  var old = document.getElementById('g-floatmenu'); if(old) old.remove();
+  var menu = document.createElement('div');
+  menu.id = 'g-floatmenu';
+  menu.className = 'g-shapemenu show g-shapemenu-float';
+  menu.innerHTML =
+    '<button onmousedown="event.preventDefault()" onclick="insertBox(\'square\',addMenuTargetBox)">□ 네모</button>'+
+    '<button onmousedown="event.preventDefault()" onclick="insertBox(\'round\',addMenuTargetBox)">▢ 둥근 네모</button>'+
+    '<button onmousedown="event.preventDefault()" onclick="insertBox(\'circle\',addMenuTargetBox)">○ 동그라미</button>'+
+    '<button onmousedown="event.preventDefault()" onclick="insertBox(\'sketch\',addMenuTargetBox)">📓 스케치북</button>'+
+    '<div style="height:1px;background:#EEF2FB;margin:3px 2px"></div>'+
+    '<button onmousedown="event.preventDefault()" onclick="insertTable(addMenuTargetBox)">▦ 표</button>';
+  document.body.appendChild(menu);
+  var r = btn.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.left = Math.max(8, r.left - 110) + 'px';
+  menu.style.top = (r.bottom + 6) + 'px';
+}
+window.openAddMenuEvt = openAddMenuEvt;
+document.addEventListener('click', function(e){
+  var f = document.getElementById('g-floatmenu');
+  if(f && !e.target.closest('#g-floatmenu') && !e.target.closest('.g-box-add')) f.remove();
+});
 
 /* 커서가 있는 자리에 작은 배지(알약 모양)를 끼워 넣는다 — "만점" 같은 표시용.
    끌어서 옮기는 네모가 아니라 글자처럼 그 줄에 같이 흐른다.
@@ -276,33 +343,32 @@ window.insertBox = insertBox;
    지우려면 글자처럼 드래그해서 선택한 뒤 지우면 된다. */
 function insertBadge(){
   if(!restoreCursor()){ alert('배지를 넣을 자리를 먼저 클릭해 주세요.'); return; }
-  var html = '<span class="g-mini g-mini-round">텍스트</span> ';
+  var gid = 'gmini-'+Date.now();
+  var html = '<span class="g-mini g-mini-round" contenteditable="false" data-gid="'+gid+'" onclick="renameBadge(this)">텍스트</span>\u00A0';
   document.execCommand('insertHTML', false, html);
+  var el = document.querySelector('[data-gid="'+gid+'"]');
+  if(el) el.removeAttribute('data-gid');
 }
 window.insertBadge = insertBadge;
 
-function insertTable(){
-  document.getElementById('g-shapemenu').classList.remove('show');
-  var panel = rootEl.querySelector('.g-panel.on');
-  if(!panel) return;
+function renameBadge(span){
+  if(!editMode) return;
+  var t = prompt('배지 글자를 입력하세요', span.textContent);
+  if(t === null) return;
+  span.textContent = t.trim() || '텍스트';
+}
+window.renameBadge = renameBadge;
+
+function insertTable(container){
+  closeAllMenus();
+  container = container || rootEl.querySelector('.g-panel.on');
+  if(!container) return;
   var tableHtml = '<table class="g-mini-table">'+
     '<tr class="g-mt-head"><td>제목1</td><td>제목2</td><td>제목3</td></tr>'+
     '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>'+
     '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>'+
     '</table>';
-  if(restoreCursor()){
-    document.execCommand('insertHTML', false, tableHtml);
-    return;
-  }
-  // 커서 기억이 없으면(화면을 막 열자마자 등) 지금 보이는 자리 끝에 넣는다
-  panel.focus();
-  var r = document.createRange();
-  r.selectNodeContents(panel);
-  r.collapse(false);
-  var sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(r);
-  document.execCommand('insertHTML', false, tableHtml);
+  createObjectWrap(tableHtml, container, false);
 }
 window.insertTable = insertTable;
 
@@ -328,15 +394,16 @@ function startBoxDrag(e){
   if(!handle) return;
   e.preventDefault();
   var wrap = handle.closest('.g-box-wrap');
-  var panel = wrap && wrap.closest('.g-panel');
-  if(!wrap || !panel) return;
+  if(!wrap) return;
+  var container = wrap.offsetParent;
+  if(!container) return;
   var inner = wrap.querySelector('.g-box');
   if(inner) savedBox = inner;
   wrap.classList.add('g-dragging');
   var fullWidth = !wrap.querySelector('.g-box-circle');   // 동그라미가 아니면 카드 너비 그대로, 세로만 이동
   var pt = e.touches ? e.touches[0] : e;
   var wrapRect = wrap.getBoundingClientRect();
-  dragState = { wrap: wrap, panel: panel, fullWidth: fullWidth, offsetX: pt.clientX - wrapRect.left, offsetY: pt.clientY - wrapRect.top };
+  dragState = { wrap: wrap, container: container, fullWidth: fullWidth, offsetX: pt.clientX - wrapRect.left, offsetY: pt.clientY - wrapRect.top };
   document.addEventListener('mousemove', onBoxDrag);
   document.addEventListener('mouseup', endBoxDrag);
   document.addEventListener('touchmove', onBoxDrag, { passive:false });
@@ -347,12 +414,12 @@ function onBoxDrag(e){
   if(!dragState) return;
   e.preventDefault();
   var pt = e.touches ? e.touches[0] : e;
-  var panelRect = dragState.panel.getBoundingClientRect();
-  var y = pt.clientY - panelRect.top - dragState.offsetY;
+  var rect = dragState.container.getBoundingClientRect();
+  var y = pt.clientY - rect.top - dragState.offsetY;
   dragState.wrap.style.top = Math.max(0, y) + 'px';
   if(!dragState.fullWidth){
-    var x = pt.clientX - panelRect.left - dragState.offsetX;
-    var pct = Math.max(0, Math.min(80, (x / panelRect.width) * 100));
+    var x = pt.clientX - rect.left - dragState.offsetX;
+    var pct = Math.max(0, Math.min(80, (x / rect.width) * 100));
     dragState.wrap.style.left = pct + '%';
   }
 }
@@ -372,6 +439,10 @@ function applyBoxBg(color){
 window.applyBoxBg = applyBoxBg;
 
 function applyTextColor(color){
+  if(savedBox && savedBox.classList && savedBox.classList.contains('g-mini')){
+    savedBox.style.color = color;
+    return;
+  }
   if(!restoreSelection()) return;
   try{ document.execCommand('styleWithCSS', false, true); }catch(e){}
   document.execCommand('foreColor', false, color);
