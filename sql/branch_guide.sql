@@ -12,9 +12,12 @@ select * from information_schema.tables where table_name = 'branch_guides';
 create table if not exists branch_guides (
   branch_id    text primary key,       -- books-app BRANCHES 코드와 동일 (예: seosuwonjls)
   content_html text not null default '',
+  hero_image_url text,                 -- 맨 위 배너에 분원이 직접 올린 그림 (없으면 기본 장식만 표시)
   updated_at   timestamptz not null default now(),
   updated_by   text
 );
+-- 이미 표가 있던 경우(첫 배포 이후 재실행)에도 새 칼럼이 추가되도록
+alter table branch_guides add column if not exists hero_image_url text;
 
 alter table branch_guides enable row level security;
 

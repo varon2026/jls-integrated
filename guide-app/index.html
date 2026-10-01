@@ -26,6 +26,7 @@ var sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 var EMBED = (function(){ try{ return new URLSearchParams(location.search).has('embed') && window.parent!==window; }catch(e){ return false; } })();
 var curBranch = null;
+var curHeroImage = null;
 
 function esc(s){return (s||'').replace(/[&<>]/g,function(c){return {'&':'&lt;','>':'&gt;','&':'&amp;'}[c]||c;});}
 
@@ -60,19 +61,36 @@ function openEditor(branch){
       '<span id="g-share-link"></span> '+
       '<button class="ghost" style="margin-top:8px" onclick="copyLink()">링크 복사</button>'+
     '</div>'+
+    '<div class="g-linkbox"><b>맨 위 배너 그림</b>'+
+      '<div id="g-hero-prev" style="margin:4px 0 8px;color:#6B7BA0">아직 안 올렸어요 — 기본 눈꽃 장식만 보여요.</div>'+
+      '<button class="ghost" onclick="insertHeroImage()">배너 그림 올리기</button> '+
+      '<button class="ghost" onclick="clearHeroImage()">배너 그림 지우기</button>'+
+    '</div>'+
     '<div class="g-wrap"><div class="g-editable" id="g-editable" contenteditable="true"></div></div>'+
-    '<input type="file" id="g-file" accept="image/*" style="display:none">';
+    '<input type="file" id="g-file" accept="image/*" style="display:none">'+
+    '<input type="file" id="g-hero-file" accept="image/*" style="display:none">';
 
   var shareUrl = location.origin + location.pathname.replace(/guide-app\/index\.html$/, 'guide.html') + '?branch=' + encodeURIComponent(branch);
   document.getElementById('g-share-link').textContent = shareUrl;
 
   document.getElementById('g-file').addEventListener('change', onFilePicked);
+  document.getElementById('g-hero-file').addEventListener('change', onHeroFilePicked);
 
-  sb.from('branch_guides').select('content_html').eq('branch_id', branch).maybeSingle()
+  sb.from('branch_guides').select('content_html,hero_image_url').eq('branch_id', branch).maybeSingle()
     .then(function(res){
       var html = (res.data && res.data.content_html) || guideDefaultHtml(name);
       document.getElementById('g-editable').innerHTML = html;
+      curHeroImage = (res.data && res.data.hero_image_url) || null;
+      paintHeroPreview();
     });
+}
+
+function paintHeroPreview(){
+  var box = document.getElementById('g-hero-prev');
+  if(!box) return;
+  box.innerHTML = curHeroImage
+    ? '<img src="'+curHeroImage+'" style="max-width:220px;max-height:100px;border-radius:8px;display:block">'
+    : '아직 안 올렸어요 — 기본 눈꽃 장식만 보여요.';
 }
 
 function copyLink(){
@@ -112,6 +130,31 @@ function onFilePicked(e){
     setTimeout(function(){saved.textContent='';},1800);
   });
 }
+
+function insertHeroImage(){ document.getElementById('g-hero-file').click(); }
+window.insertHeroImage = insertHeroImage;
+
+function onHeroFilePicked(e){
+  var file = e.target.files[0];
+  e.target.value='';
+  if(!file) return;
+  var box = document.getElementById('g-hero-prev');
+  box.textContent = '업로드 중…';
+  var path = curBranch + '/hero-' + Date.now() + '-' + file.name.replace(/[^\w.\-]/g,'_');
+  sb.storage.from('guide-images').upload(path, file).then(function(res){
+    if(res.error){ box.textContent = '업로드 실패: '+res.error.message; return; }
+    var url = sb.storage.from('guide-images').getPublicUrl(path).data.publicUrl;
+    curHeroImage = url;
+    return sb.from('branch_guides').upsert({ branch_id: curBranch, hero_image_url: url, updated_at: new Date().toISOString() });
+  }).then(function(){ paintHeroPreview(); });
+}
+
+function clearHeroImage(){
+  curHeroImage = null;
+  paintHeroPreview();
+  sb.from('branch_guides').upsert({ branch_id: curBranch, hero_image_url: null, updated_at: new Date().toISOString() });
+}
+window.clearHeroImage = clearHeroImage;
 
 function saveGuide(){
   var html = document.getElementById('g-editable').innerHTML;

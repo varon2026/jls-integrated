@@ -32,13 +32,16 @@ function paintEmpty(msg){
     '<div class="g-empty">'+esc(msg)+'</div>';
 }
 
-function paintGuide(branchCode, html){
+function paintGuide(branchCode, html, heroImageUrl){
   var name = (window.GUIDE_BRANCH_NAMES && GUIDE_BRANCH_NAMES[branchCode]) || '';
   var root = document.getElementById('g-root');
+  var heroArt = heroImageUrl
+    ? '<img class="g-hero-img" src="'+esc(heroImageUrl)+'" alt="">'
+    : heroDeco('left:6%;top:18px',30)+heroDeco('right:8%;top:60px',22)+
+      heroDeco('right:16%;top:14px',16,true)+heroDeco('left:14%;top:70px',14,true);
   root.innerHTML =
     '<div class="g-hero">'+
-      heroDeco('left:6%;top:18px',30)+heroDeco('right:8%;top:60px',22)+
-      heroDeco('right:16%;top:14px',16,true)+heroDeco('left:14%;top:70px',14,true)+
+      heroArt+
       '<span class="brand">'+esc(name)+' JLS</span>'+
       '<div class="welcome">Welcome to JLS!</div>'+
       '<h1 class="g-disp">신입생 안내</h1>'+
@@ -92,11 +95,11 @@ function splitIntoTabs(html){
   if(!branch){ paintEmpty('분원 안내 링크가 아니에요. 분원에서 보내준 링크를 다시 확인해 주세요.'); return; }
   if(!sb){ paintEmpty('페이지를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
 
-  sb.from('branch_guides').select('content_html').eq('branch_id', branch).maybeSingle()
+  sb.from('branch_guides').select('content_html,hero_image_url').eq('branch_id', branch).maybeSingle()
     .then(function(res){
       var html = res.data && res.data.content_html;
       if(!html){ html = guideDefaultHtml(GUIDE_BRANCH_NAMES[branch]); }
-      paintGuide(branch, html);
+      paintGuide(branch, html, res.data && res.data.hero_image_url);
     })
     .catch(function(){ paintEmpty('페이지를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'); });
 })();
