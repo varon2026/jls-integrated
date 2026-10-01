@@ -178,16 +178,71 @@ function toggleShapeMenu(){
 }
 window.toggleShapeMenu = toggleShapeMenu;
 
+var gBoxSeq = 0;
 function insertBox(shape){
   document.getElementById('g-shapemenu').hidden = true;
-  var target = savedPanel || rootEl.querySelector('.g-panel.on');
-  if(!target) return;
-  target.focus();
-  if(savedRange){ var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(savedRange); }
-  var html = '<div class="g-box g-box-'+shape+'">텍스트를 입력하세요</div>';
-  document.execCommand('insertHTML', false, html);
+  var panel = rootEl.querySelector('.g-panel.on');
+  if(!panel) return;
+  gBoxSeq++;
+  var left = 8 + (gBoxSeq % 4) * 12;   // 매번 살짝 다른 자리에 떨어지게 (완전히 겹치지 않도록)
+  var top = 20 + (gBoxSeq % 5) * 50;
+  var gid = 'gbox-'+Date.now()+'-'+gBoxSeq;
+  var html = '<div class="g-box g-box-'+shape+'" style="left:'+left+'%;top:'+top+'px" data-gid="'+gid+'">'+
+    '<span class="g-box-handle" contenteditable="false">⠿</span>텍스트를 입력하세요</div>';
+  panel.insertAdjacentHTML('beforeend', html);
+  var inserted = panel.querySelector('[data-gid="'+gid+'"]');
+  if(inserted){
+    inserted.removeAttribute('data-gid');
+    savedBox = inserted;
+  }
 }
 window.insertBox = insertBox;
+
+/* 네모칸을 손잡이(⠿)로 끌어서 자유롭게 옮긴다. 가로는 %, 세로는 px로 저장해서
+   화면 폭이 달라져도(특히 휴대폰) 너무 어긋나지 않게 한다. */
+var dragState = null;
+document.addEventListener('mousedown', startBoxDrag);
+document.addEventListener('touchstart', startBoxDrag, { passive:false });
+
+function startBoxDrag(e){
+  if(!editMode) return;
+  var handle = e.target.closest && e.target.closest('.g-box-handle');
+  if(!handle) return;
+  e.preventDefault();
+  var box = handle.closest('.g-box');
+  var panel = box.closest('.g-panel');
+  if(!box || !panel) return;
+  savedBox = box;
+  box.classList.add('g-dragging');
+  var pt = e.touches ? e.touches[0] : e;
+  var boxRect = box.getBoundingClientRect();
+  dragState = { box: box, panel: panel, offsetX: pt.clientX - boxRect.left, offsetY: pt.clientY - boxRect.top };
+  document.addEventListener('mousemove', onBoxDrag);
+  document.addEventListener('mouseup', endBoxDrag);
+  document.addEventListener('touchmove', onBoxDrag, { passive:false });
+  document.addEventListener('touchend', endBoxDrag);
+}
+
+function onBoxDrag(e){
+  if(!dragState) return;
+  e.preventDefault();
+  var pt = e.touches ? e.touches[0] : e;
+  var panelRect = dragState.panel.getBoundingClientRect();
+  var x = pt.clientX - panelRect.left - dragState.offsetX;
+  var y = pt.clientY - panelRect.top - dragState.offsetY;
+  var pct = Math.max(0, Math.min(92, (x / panelRect.width) * 100));
+  dragState.box.style.left = pct + '%';
+  dragState.box.style.top = Math.max(0, y) + 'px';
+}
+
+function endBoxDrag(){
+  if(dragState) dragState.box.classList.remove('g-dragging');
+  dragState = null;
+  document.removeEventListener('mousemove', onBoxDrag);
+  document.removeEventListener('mouseup', endBoxDrag);
+  document.removeEventListener('touchmove', onBoxDrag);
+  document.removeEventListener('touchend', endBoxDrag);
+}
 
 function applyBoxBg(color){
   if(savedBox) savedBox.style.background = color;
