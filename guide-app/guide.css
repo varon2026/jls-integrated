@@ -1,0 +1,60 @@
+/* 신입생 안내 페이지 — 공개 뷰어(guide.html)·편집기(guide-app) 공용 스타일 */
+*{box-sizing:border-box}
+body{margin:0;background:#EEF2FB;color:#1C2A4A;font-family:"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:16px;line-height:1.7;word-break:keep-all}
+.g-wrap{max-width:720px;margin:0 auto;padding:0 16px 60px}
+
+.g-hero{background:#2E4FA6;color:#fff;padding:30px 16px 26px;text-align:center}
+.g-hero .brand{display:inline-block;font-size:13px;font-weight:700;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 14px;margin-bottom:10px}
+.g-hero h1{margin:0;font-size:30px;font-weight:900}
+.g-hero p{margin:10px auto 0;max-width:32em;font-size:14px;opacity:.92}
+
+.g-tabs{position:sticky;top:0;z-index:5;background:#EEF2FB;border-bottom:1px solid #D6DEF2;padding:10px 16px}
+.g-tabs-inner{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.g-tabs button{font:inherit;font-size:14px;font-weight:700;color:#5A6B95;background:#fff;border:1px solid #D6DEF2;border-radius:12px;padding:9px 4px;cursor:pointer}
+.g-tabs button.on{background:#2E4FA6;border-color:#2E4FA6;color:#fff}
+
+.g-panel{display:none;flex-direction:column;gap:18px;padding-top:22px}
+.g-panel.on{display:flex}
+
+.g-flow{background:#1C2A4A;color:#fff;border-radius:18px;padding:18px}
+.g-flow h2{margin:0;font-size:19px}
+.g-flow .chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0;padding:0;list-style:none}
+.g-flow .chips li{background:#fff;color:#1C2A4A;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700}
+
+.g-group{font-size:13px;font-weight:800;color:#2E4FA6;background:#E2EAFB;display:inline-block;border-radius:999px;padding:4px 14px;margin-bottom:-6px}
+
+.g-sec{background:#fff;border-radius:18px;padding:22px 18px;box-shadow:0 1px 0 #D6DEF2}
+.g-sec h2{font-size:21px;margin:0 0 6px;display:flex;align-items:center;gap:9px}
+.g-sec h2 .n{flex:none;width:28px;height:28px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;font-size:12px;font-weight:800;display:grid;place-items:center}
+.g-sec h3{font-size:16px;color:#2E4FA6;margin:16px 0 6px}
+.g-sec p{margin:6px 0 0;color:#4B5B82}
+.g-sec ul,.g-sec ol{margin:10px 0 0;padding-left:20px}
+.g-sec li{margin:4px 0}
+
+.g-note{margin-top:12px;border-radius:12px;padding:12px 14px;font-size:14px;background:#FFF3C8;color:#6A4800}
+.g-note b{display:block;margin-bottom:2px}
+.g-note.alert{background:#FDE4EA;color:#9A2E3E}
+
+.g-grid2{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.g-grid2 li{background:#F1F4FC;border-radius:10px;padding:8px 12px;font-size:14px}
+
+.g-steps{list-style:none;margin:12px 0 0;padding:0;counter-reset:s}
+.g-steps li{counter-increment:s;position:relative;padding:2px 0 14px 40px}
+.g-steps li::before{content:"0" counter(s);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;display:grid;place-items:center;font-size:12px;font-weight:800}
+.g-steps li strong{display:block}
+.g-steps li small{display:block;color:#6B7BA0;font-size:13.5px}
+
+.g-img{max-width:100%;border-radius:12px;display:block;margin:10px 0}
+
+.g-empty{text-align:center;color:#6B7BA0;padding:60px 20px}
+
+/* ===== 편집기 전용 ===== */
+.g-edit-bar{position:sticky;top:0;z-index:9;background:#1C2A4A;color:#fff;display:flex;align-items:center;gap:8px;padding:10px 14px;flex-wrap:wrap}
+.g-edit-bar b{font-size:14px;margin-right:auto}
+.g-edit-bar button{font:inherit;font-size:13px;font-weight:700;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;background:#2E4FA6;color:#fff}
+.g-edit-bar button.ghost{background:rgba(255,255,255,.14)}
+.g-edit-bar button.save{background:#1F9D55}
+.g-edit-bar .g-saved{font-size:12px;opacity:.85}
+.g-editable{outline:none}
+.g-editable:focus{box-shadow:0 0 0 2px #2E4FA6 inset;border-radius:8px}
+.g-tip{background:#FFF3C8;color:#6A4800;font-size:13px;padding:10px 16px;text-align:center}

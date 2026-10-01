@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>신입생 안내 관리</title>
+<link rel="stylesheet" href="guide.css">
+<script src="default-content.js"></script>
+<style>
+.g-login{max-width:360px;margin:80px auto;padding:0 20px;text-align:center}
+.g-login input{width:100%;padding:12px;border:1px solid #D6DEF2;border-radius:10px;font-size:15px;margin-top:10px}
+.g-login button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:10px;background:#2E4FA6;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+.g-login .err{color:#C8375E;font-size:13px;margin-top:10px;min-height:1em}
+.g-linkbox{background:#fff;border:1px dashed #B9C6EA;border-radius:12px;padding:12px 14px;margin:14px 16px 0;font-size:13px;color:#4B5B82;word-break:break-all}
+.g-linkbox b{display:block;margin-bottom:4px;color:#2E4FA6}
+</style>
+</head>
+<body>
+<div id="g-root"><div class="g-empty">불러오는 중…</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+var SUPA_URL='https://hplndiuoohantbalixwu.supabase.co';
+var SUPA_KEY='sb_publishable_xO8KB46SzMx8KeuEE-OVSw_su22mv9X';
+var sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+var EMBED = (function(){ try{ return new URLSearchParams(location.search).has('embed') && window.parent!==window; }catch(e){ return false; } })();
+var curBranch = null;
+
+function esc(s){return (s||'').replace(/[&<>]/g,function(c){return {'&':'&lt;','>':'&gt;','&':'&amp;'}[c]||c;});}
+
+function paintLogin(err){
+  document.getElementById('g-root').innerHTML =
+    '<div class="g-login"><h2>신입생 안내 관리</h2>'+
+    '<p style="color:#6B7BA0;font-size:14px">통합관리 시스템에서 들어오면 자동으로 로그인돼요.<br>여기서 직접 열었다면 분원 코드를 입력해 주세요.</p>'+
+    '<input id="g-code" placeholder="분원 코드 (예: seosuwonjls)">'+
+    '<button onclick="manualLogin()">열기</button>'+
+    '<div class="err">'+esc(err||'')+'</div></div>';
+}
+
+function manualLogin(){
+  var code = document.getElementById('g-code').value.trim();
+  if(!code) return;
+  openEditor(code);
+}
+window.manualLogin = manualLogin;
+
+function openEditor(branch){
+  curBranch = branch;
+  var name = GUIDE_BRANCH_NAMES[branch] || branch;
+  document.getElementById('g-root').innerHTML =
+    '<div class="g-edit-bar">'+
+      '<b>'+esc(name)+' · 신입생 안내 편집</b>'+
+      '<button class="ghost" onclick="insertImage()">🖼 사진 추가</button>'+
+      '<button class="save" onclick="saveGuide()">저장</button>'+
+      '<span class="g-saved" id="g-saved"></span>'+
+    '</div>'+
+    '<div class="g-tip">본문을 바로 눌러서 고치면 돼요. 사진은 커서를 둔 자리에 들어가요. 탭(학부모/학생/시험/학원 생활)은 섹션 맨 위 라벨로 구분돼요 — 구분을 지우지 않으면 돼요.</div>'+
+    '<div class="g-linkbox"><b>학부모님께 보낼 링크</b>'+
+      '<span id="g-share-link"></span> '+
+      '<button class="ghost" style="margin-top:8px" onclick="copyLink()">링크 복사</button>'+
+    '</div>'+
+    '<div class="g-wrap"><div class="g-editable" id="g-editable" contenteditable="true"></div></div>'+
+    '<input type="file" id="g-file" accept="image/*" style="display:none">';
+
+  var shareUrl = location.origin + location.pathname.replace(/guide-app\/index\.html$/, 'guide.html') + '?branch=' + encodeURIComponent(branch);
+  document.getElementById('g-share-link').textContent = shareUrl;
+
+  document.getElementById('g-file').addEventListener('change', onFilePicked);
+
+  sb.from('branch_guides').select('content_html').eq('branch_id', branch).maybeSingle()
+    .then(function(res){
+      var html = (res.data && res.data.content_html) || guideDefaultHtml(name);
+      document.getElementById('g-editable').innerHTML = html;
+    });
+}
+
+function copyLink(){
+  var t = document.getElementById('g-share-link').textContent;
+  navigator.clipboard.writeText(t).then(function(){
+    var s=document.getElementById('g-saved'); s.textContent='링크 복사됨'; setTimeout(function(){s.textContent='';},1800);
+  });
+}
+window.copyLink = copyLink;
+
+var savedRange = null;
+document.addEventListener('selectionchange', function(){
+  var sel = window.getSelection();
+  var ed = document.getElementById('g-editable');
+  if(ed && sel.rangeCount && ed.contains(sel.anchorNode)) savedRange = sel.getRangeAt(0).cloneRange();
+});
+
+function insertImage(){ document.getElementById('g-file').click(); }
+window.insertImage = insertImage;
+
+function onFilePicked(e){
+  var file = e.target.files[0];
+  e.target.value='';
+  if(!file) return;
+  var saved = document.getElementById('g-saved');
+  saved.textContent = '업로드 중…';
+  var path = curBranch + '/' + Date.now() + '-' + file.name.replace(/[^\w.\-]/g,'_');
+  sb.storage.from('guide-images').upload(path, file).then(function(res){
+    if(res.error){ saved.textContent='업로드 실패: '+res.error.message; return; }
+    var url = sb.storage.from('guide-images').getPublicUrl(path).data.publicUrl;
+    var ed = document.getElementById('g-editable');
+    ed.focus();
+    var sel = window.getSelection();
+    if(savedRange){ sel.removeAllRanges(); sel.addRange(savedRange); }
+    document.execCommand('insertHTML', false, '<img class="g-img" src="'+url+'">');
+    saved.textContent = '사진 추가됨';
+    setTimeout(function(){saved.textContent='';},1800);
+  });
+}
+
+function saveGuide(){
+  var html = document.getElementById('g-editable').innerHTML;
+  var saved = document.getElementById('g-saved');
+  saved.textContent = '저장 중…';
+  sb.from('branch_guides').upsert({ branch_id: curBranch, content_html: html, updated_at: new Date().toISOString() }).then(function(res){
+    saved.textContent = res.error ? ('저장 실패: '+res.error.message) : '저장됨';
+    setTimeout(function(){saved.textContent='';},2000);
+  });
+}
+window.saveGuide = saveGuide;
+
+(function init(){
+  if(EMBED){
+    window.addEventListener('message', function(e){
+      if(e.origin !== location.origin) return;
+      var d = e.data || {};
+      if(d.type==='jls-books-branch' && d.branch){ openEditor(d.branch); }
+    });
+    try{ window.parent.postMessage({type:'jls-books-ready'},'*'); }catch(e){}
+    var saved=null; try{ saved=sessionStorage.getItem('jls_branch'); }catch(e){}
+    if(saved) openEditor(saved); else paintLogin('');
+  } else {
+    var saved=null; try{ saved=sessionStorage.getItem('jls_branch'); }catch(e){}
+    if(saved) openEditor(saved); else paintLogin('');
+  }
+})();
+</script>
+</body>
+</html>
