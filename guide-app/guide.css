@@ -58,6 +58,25 @@ body.g-has-toolbar .g-tabs{top:48px}
 
 .g-img{max-width:100%;border-radius:14px;display:block;margin:10px 0;cursor:zoom-in}
 
+/* 알록달록 기능 소개 알약(캡슐) 모양 칸 — 색은 순서대로 6가지를 돌려써서
+   한 섹션 안에서 칸마다 다른 파스텔 색이 나오게 한다 */
+.g-pills{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.g-pills li{border-radius:999px;padding:12px 10px;text-align:center;font-size:13.5px;font-weight:700;color:#1C2A4A}
+.g-pills li:nth-child(6n+1){background:#DCE8FF}
+.g-pills li:nth-child(6n+2){background:#FFE1E8}
+.g-pills li:nth-child(6n+3){background:#DFF5E6}
+.g-pills li:nth-child(6n+4){background:#EDE2FF}
+.g-pills li:nth-child(6n+5){background:#FFEAC2}
+.g-pills li:nth-child(6n+6){background:#D8F3F3}
+
+/* 앱 화면 캡쳐 두 장을 나란히 + 사진 밑에 캡션 */
+.g-appshots{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.g-appshots .g-img{margin:0}
+.g-appshots .cap{text-align:center;margin-top:8px;font-size:13px;font-weight:700;color:#4B5B82}
+
+.g-storebtns{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.g-storebtns a{background:#2E4FA6;color:#fff;padding:10px 20px;border-radius:999px;font-weight:700;font-size:13.5px;text-decoration:none;display:inline-block}
+
 .g-lightbox{position:fixed;inset:0;background:rgba(11,20,40,.92);z-index:100;display:none;align-items:center;justify-content:center;padding:30px 16px}
 .g-lightbox.show{display:flex}
 .g-lightbox img{max-width:92vw;max-height:88vh;border-radius:10px;cursor:default}
