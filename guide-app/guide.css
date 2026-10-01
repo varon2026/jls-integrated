@@ -70,6 +70,15 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-panel[contenteditable="true"] .g-box-wrap .g-box-handle,
 .g-panel[contenteditable="true"] .g-box-wrap .g-box-del{display:flex}
 .g-box-wrap.g-dragging .g-box{opacity:.85;box-shadow:0 10px 24px rgba(28,42,74,.3)}
+
+/* 네모 "안"에 넣는 작은 배지 — 끌어서 옮기는 게 아니라 글자처럼 줄 안에 흐른다 */
+.g-mini{display:inline-block;padding:2px 11px;margin:0 2px;background:#F1F4FC;border-radius:8px;vertical-align:middle}
+.g-mini-round{border-radius:999px}
+.g-mini-circle{border-radius:50%;min-width:1.9em;height:1.9em;padding:2px;display:inline-flex;align-items:center;justify-content:center;text-align:center}
+.g-mini-sketch{background:#fff;border:1.5px dashed #B9C6EA}
+
+.g-mini-table{border-collapse:collapse;margin:10px 0;width:100%}
+.g-mini-table td{border:1px solid #D6DEF2;padding:8px 10px;min-width:50px}
 /* 스케치북(스프링노트) 느낌 — 특정 그림을 베낀 게 아니라 점선 구멍 + 스프링을 표현하는
    일반적인 CSS 기법(radial-gradient 반복)을 우리 색으로 새로 그린 것 */
 .g-box-sketch{background:#fff;border:1px solid #D6DEF2;margin-top:24px}

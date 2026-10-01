@@ -95,6 +95,8 @@ function renderToolbar(){
           '<button onclick="insertBox(\'round\')">▢ 둥근 네모</button>'+
           '<button onclick="insertBox(\'circle\')">○ 동그라미</button>'+
           '<button onclick="insertBox(\'sketch\')">📓 스케치북</button>'+
+          '<div style="height:1px;background:#EEF2FB;margin:3px 2px"></div>'+
+          '<button onclick="insertTable()">▦ 표</button>'+
         '</div>'+
       '</div>'+
       '<label class="g-colorlbl">배경색 <input type="color" oninput="applyBoxBg(this.value)" value="#ffffff"></label>'+
@@ -172,6 +174,32 @@ function restoreSelection(){
   return !sel.isCollapsed;
 }
 
+/* 글자 선택 없이 커서 위치만 복원(네모 추가처럼 "삽입"에 쓴다 — 선택돼 있을 필요 없음) */
+function restoreCursor(){
+  if(!savedPanel || !savedRange) return false;
+  savedPanel.focus();
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(savedRange);
+  return true;
+}
+
+function getAncestorBox(node){
+  var el = node && (node.nodeType===3 ? node.parentElement : node);
+  return el && el.closest ? el.closest('.g-box') : null;
+}
+
+/* 지금 화면에 보이는 위치(고정 상단바 바로 밑)를 패널 기준 좌표로 계산.
+   이걸 안 하면 스크롤을 내려서 작업 중일 때 새 네모가 맨 위에 생겨서
+   "안 만들어졌나?" 하고 다시 누르게 된다. */
+function currentViewTopIn(panel){
+  var toolbar = document.getElementById('g-toolbar');
+  var tabs = document.querySelector('.g-tabs');
+  var stickyH = (toolbar ? toolbar.offsetHeight : 0) + (tabs ? tabs.offsetHeight : 0);
+  var docY = window.scrollY + stickyH + 16;   // 지금 화면에 보이는 지점의 '문서 전체' 기준 위치
+  return Math.max(0, docY - panel.offsetTop); // 패널 기준 좌표로 변환
+}
+
 function toggleShapeMenu(){
   var m = document.getElementById('g-shapemenu');
   if(m) m.classList.toggle('show');
@@ -183,8 +211,15 @@ function insertBox(shape){
   document.getElementById('g-shapemenu').classList.remove('show');
   var panel = rootEl.querySelector('.g-panel.on');
   if(!panel) return;
+
+  // 커서가 이미 다른 네모 "안"에 있으면 — 거기에 작은 배지로 끼워 넣는다(중첩)
+  if(savedRange && getAncestorBox(savedRange.startContainer)){
+    insertMiniShape(shape);
+    return;
+  }
+
   gBoxSeq++;
-  var top = 20 + (gBoxSeq % 6) * 60;
+  var top = currentViewTopIn(panel) + (gBoxSeq % 5) * 36;
   var isCircle = shape === 'circle';
   var wrapStyle = isCircle
     ? ('left:'+(6 + (gBoxSeq % 4) * 15)+'%;top:'+top+'px')
@@ -221,6 +256,40 @@ function insertBox(shape){
   }
 }
 window.insertBox = insertBox;
+
+/* 네모 "안"에 넣는 작은 배지 — 끌어서 옮기는 건 안 되고, 글자처럼 그 줄에 같이 흐른다.
+   손잡이·삭제 버튼이 없으니, 지우려면 글자처럼 드래그해서 선택한 뒤 지우면 된다. */
+function insertMiniShape(shape){
+  document.getElementById('g-shapemenu').classList.remove('show');
+  if(!restoreCursor()) return;
+  var html = '<span class="g-mini g-mini-'+shape+'">텍스트</span>&nbsp;';
+  document.execCommand('insertHTML', false, html);
+}
+
+function insertTable(){
+  document.getElementById('g-shapemenu').classList.remove('show');
+  var panel = rootEl.querySelector('.g-panel.on');
+  if(!panel) return;
+  var tableHtml = '<table class="g-mini-table">'+
+    '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>'+
+    '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>'+
+    '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>'+
+    '</table>';
+  if(restoreCursor()){
+    document.execCommand('insertHTML', false, tableHtml);
+    return;
+  }
+  // 커서 기억이 없으면(화면을 막 열자마자 등) 지금 보이는 자리 끝에 넣는다
+  panel.focus();
+  var r = document.createRange();
+  r.selectNodeContents(panel);
+  r.collapse(false);
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(r);
+  document.execCommand('insertHTML', false, tableHtml);
+}
+window.insertTable = insertTable;
 
 function deleteBoxEvt(e, btn){
   // contenteditable 영역 안의 버튼이라 그냥 click만 쓰면 첫 클릭이 "선택"으로만
