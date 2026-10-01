@@ -32,6 +32,7 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-flow .chips li{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
 .g-flow .chips li b{background:#fff;color:#1C2A4A;border-radius:999px;padding:5px 13px;font-weight:700}
 .g-flow .chips li:not(:last-child)::after{content:"→";opacity:.6;margin-left:2px;font-weight:400}
+.g-flow-deco{position:absolute;top:18px;right:18px;opacity:.85}
 
 .g-group{font-family:"Jua",sans-serif;font-size:14px;color:#fff;background:#6E8EE8;display:inline-block;border-radius:999px;padding:5px 16px;margin-bottom:-6px}
 
@@ -82,6 +83,9 @@ body.g-has-toolbar .g-tabs{top:48px}
    둘을 한 wrap으로 묶고 그 안에서 음수 마진으로 겹치게 한다. */
 .g-sketchwrap{position:relative}
 .g-sketchwrap .g-group{position:relative;z-index:2;margin:0 0 -14px 10px}
+.g-sketchwrap .g-grouphead{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 -14px 10px}
+.g-sketchwrap .g-grouphead .g-group{margin:0}
+.g-grouphead a{font-size:12.5px;font-weight:700;color:#2E4FA6;text-decoration:none}
 .g-sketchwrap .g-sec{position:relative}
 .g-sketchwrap .g-sec::before{content:"";position:absolute;left:22px;right:22px;top:-9px;height:16px;
   background:radial-gradient(circle at 7px 8px,#EAF1FF 0 3.5px,transparent 4px) 0 0/20px 16px repeat-x;}
