@@ -95,10 +95,9 @@ function renderToolbar(){
           '<button onclick="insertBox(\'round\')">▢ 둥근 네모</button>'+
           '<button onclick="insertBox(\'circle\')">○ 동그라미</button>'+
           '<button onclick="insertBox(\'sketch\')">📓 스케치북</button>'+
-          '<div style="height:1px;background:#EEF2FB;margin:3px 2px"></div>'+
-          '<button onclick="insertTable()">▦ 표</button>'+
         '</div>'+
       '</div>'+
+      '<button onclick="insertTable()">▦ 표 추가</button>'+
       '<label class="g-colorlbl">배경색 <input type="color" oninput="applyBoxBg(this.value)" value="#ffffff"></label>'+
       '<label class="g-colorlbl">글자색 <input type="color" oninput="applyTextColor(this.value)" value="#1C2A4A"></label>'+
       '<select onchange="applyFontSize(this.value);this.selectedIndex=0">'+
@@ -161,8 +160,9 @@ var savedBox = null;
 document.addEventListener('click', function(e){
   if(!editMode || !rootEl) return;
   if(!rootEl.contains(e.target)) return;
+  var cell = e.target.closest && e.target.closest('td');
   var box = e.target.closest && e.target.closest('.g-box');
-  savedBox = box || null;
+  savedBox = cell || box || null;
 });
 
 function restoreSelection(){
@@ -186,8 +186,23 @@ function restoreCursor(){
 
 function getAncestorBox(node){
   var el = node && (node.nodeType===3 ? node.parentElement : node);
-  return el && el.closest ? el.closest('.g-box') : null;
+  if(!el || !el.closest) return null;
+  return el.closest('.g-box') || el.closest('td');   // 네모 안이거나 표 칸 안이면 같은 취급
 }
+
+/* 네모 안에서 엔터를 치면 기본 동작이 네모 자체를 둘로 쪼개버려서(같은 스타일의
+   네모가 하나 더 생김), 엔터는 그냥 줄바꿈(<br>)만 하도록 가로챈다. */
+document.addEventListener('keydown', function(e){
+  if(!editMode || e.key !== 'Enter' || e.shiftKey) return;
+  var sel = window.getSelection();
+  if(!sel.rangeCount) return;
+  var node = sel.anchorNode;
+  var el = node && (node.nodeType===3 ? node.parentElement : node);
+  if(el && el.closest && (el.closest('.g-box') || el.closest('.g-mini') || el.closest('td'))){
+    e.preventDefault();
+    document.execCommand('insertLineBreak');
+  }
+});
 
 /* 지금 화면에 보이는 위치(고정 상단바 바로 밑)를 패널 기준 좌표로 계산.
    이걸 안 하면 스크롤을 내려서 작업 중일 때 새 네모가 맨 위에 생겨서
@@ -271,7 +286,7 @@ function insertTable(){
   var panel = rootEl.querySelector('.g-panel.on');
   if(!panel) return;
   var tableHtml = '<table class="g-mini-table">'+
-    '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>'+
+    '<tr class="g-mt-head"><td>제목1</td><td>제목2</td><td>제목3</td></tr>'+
     '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>'+
     '<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>'+
     '</table>';
