@@ -8,6 +8,8 @@ body{margin:0;background:#EAF1FF;color:#1C2A4A;font-family:"Apple SD Gothic Neo"
 .g-hero{background:linear-gradient(165deg,#5A86E8 0%,#3E66D6 100%);color:#fff;padding:36px 16px 28px;text-align:center;position:relative;overflow:hidden}
 .g-hero .deco{position:absolute;opacity:.85;pointer-events:none}
 .g-hero-img{display:block;max-width:100%;max-height:220px;margin:18px auto 0;border-radius:14px;position:relative;z-index:1}
+.g-hero-editbox{position:absolute;right:14px;bottom:14px;display:flex;gap:6px;z-index:3}
+.g-hero-editbox button{font:inherit;font-size:12px;font-weight:700;border:0;border-radius:999px;padding:6px 13px;cursor:pointer;background:rgba(255,255,255,.95);color:#2E4FA6}
 .g-hero .brand{display:inline-block;font-size:13px;font-weight:700;background:rgba(255,255,255,.2);border-radius:999px;padding:5px 14px;position:relative;z-index:1}
 .g-hero .welcome{font-family:"Gaegu","Jua",cursive;font-size:20px;margin-top:12px;position:relative;z-index:1}
 .g-hero h1{margin:4px 0 0;font-size:clamp(30px,8vw,40px);position:relative;z-index:1}
@@ -15,6 +17,7 @@ body{margin:0;background:#EAF1FF;color:#1C2A4A;font-family:"Apple SD Gothic Neo"
 .g-hero p{margin:12px auto 0;max-width:30em;font-size:14px;opacity:.95;position:relative;z-index:1}
 
 .g-tabs{position:sticky;top:0;z-index:5;background:#EAF1FF;border-bottom:1px solid #CFDCF7;padding:10px 16px}
+body.g-has-toolbar .g-tabs{top:48px}
 .g-tabs-inner{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .g-tabs button{font:inherit;font-family:"Jua",sans-serif;font-size:15px;color:#5A6B95;background:#fff;border:1px solid #CFDCF7;border-radius:14px;padding:8px 4px 7px;cursor:pointer;line-height:1.2}
 .g-tabs button span{display:block;font-family:"Apple SD Gothic Neo",sans-serif;font-size:10.5px;font-weight:500;opacity:.8;margin-top:2px}
@@ -60,12 +63,11 @@ body{margin:0;background:#EAF1FF;color:#1C2A4A;font-family:"Apple SD Gothic Neo"
 .g-footer{text-align:center;color:#8A9BC9;font-size:13px;margin-top:30px;font-family:"Jua",sans-serif}
 
 /* ===== 편집기 전용 ===== */
-.g-edit-bar{position:sticky;top:0;z-index:9;background:#1C2A4A;color:#fff;display:flex;align-items:center;gap:8px;padding:10px 14px;flex-wrap:wrap}
-.g-edit-bar b{font-size:14px;margin-right:auto}
-.g-edit-bar button{font:inherit;font-size:13px;font-weight:700;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;background:#2E4FA6;color:#fff}
-.g-edit-bar button.ghost{background:rgba(255,255,255,.14)}
-.g-edit-bar button.save{background:#1F9D55}
-.g-edit-bar .g-saved{font-size:12px;opacity:.85}
-.g-editable{outline:none}
-.g-editable:focus{box-shadow:0 0 0 2px #2E4FA6 inset;border-radius:8px}
-.g-tip{background:#FFF3C8;color:#6A4800;font-size:13px;padding:10px 16px;text-align:center}
+.g-toolbar{position:sticky;top:0;z-index:20;height:48px;box-sizing:border-box;background:#fff;border-bottom:1px solid #D6DEF2;display:flex;align-items:center;gap:8px;padding:0 14px}
+.g-toolbar .g-saved{font-size:12px;color:#6B7BA0;margin-right:auto}
+.g-toolbar button{font:inherit;font-size:13px;font-weight:700;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:#EEF2FB;color:#2E4FA6}
+.g-toolbar button.primary{background:#2E4FA6;color:#fff}
+.g-toolbar button.save{background:#1F9D55;color:#fff}
+.g-panel[contenteditable="true"]{outline:none}
+.g-panel[contenteditable="true"] .g-sec,.g-panel[contenteditable="true"] .g-flow{box-shadow:0 0 0 1.5px dashed transparent}
+.g-panel[contenteditable="true"] .g-sec:focus-within,.g-panel[contenteditable="true"] .g-flow:focus-within{box-shadow:0 0 0 2px #2E4FA6 inset;border-radius:20px}

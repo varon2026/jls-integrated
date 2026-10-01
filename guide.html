@@ -6,6 +6,7 @@
 <title>신입생 안내 · JLS</title>
 <link rel="stylesheet" href="guide-app/guide.css">
 <script src="guide-app/default-content.js"></script>
+<script src="guide-app/render.js"></script>
 </head>
 <body>
 <div id="g-root"></div>
@@ -16,78 +17,17 @@ var SUPA_URL='https://hplndiuoohantbalixwu.supabase.co';
 var SUPA_KEY='sb_publishable_xO8KB46SzMx8KeuEE-OVSw_su22mv9X';
 var sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
 
-function esc(s){return (s||'').replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
-
-/* 히어로 영역에 뿌리는 눈꽃 모양 장식 (저작권 걱정 없는 아주 단순한 기하학 도형) */
-function heroDeco(pos, size, small){
-  var s = small ? 16 : 26;
-  size = size || s;
-  return '<svg class="deco" style="'+pos+'" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" aria-hidden="true">'+
-    '<path d="M12 1v22M1 12h22M4.2 4.2l15.6 15.6M19.8 4.2 4.2 19.8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
-}
-
 function paintEmpty(msg){
   document.getElementById('g-root').innerHTML =
-    '<div class="g-hero"><span class="brand">JLS 정상어학원</span><h1>신입생 안내</h1></div>'+
-    '<div class="g-empty">'+esc(msg)+'</div>';
+    '<div class="g-hero"><span class="brand">JLS 정상어학원</span><h1 class="g-disp">신입생 안내</h1></div>'+
+    '<div class="g-empty">'+escG(msg)+'</div>';
 }
 
 function paintGuide(branchCode, html, heroImageUrl){
   var name = (window.GUIDE_BRANCH_NAMES && GUIDE_BRANCH_NAMES[branchCode]) || '';
   var root = document.getElementById('g-root');
-  var heroArt = heroImageUrl
-    ? '<img class="g-hero-img" src="'+esc(heroImageUrl)+'" alt="">'
-    : heroDeco('left:6%;top:18px',30)+heroDeco('right:8%;top:60px',22)+
-      heroDeco('right:16%;top:14px',16,true)+heroDeco('left:14%;top:70px',14,true);
-  root.innerHTML =
-    '<div class="g-hero">'+
-      heroArt+
-      '<span class="brand">'+esc(name)+' JLS</span>'+
-      '<div class="welcome">Welcome to JLS!</div>'+
-      '<h1 class="g-disp">신입생 안내</h1>'+
-      '<p>처음 학원을 이용하시는 학부모님과 학생들을 위한 안내입니다. 아래 탭에서 필요한 내용을 골라 보세요.</p></div>'+
-    '<nav class="g-tabs"><div class="g-tabs-inner">'+
-      '<button data-tab="parent" class="on">학부모<span>가입·결제·앱</span></button>'+
-      '<button data-tab="student">학생<span>과제·단어</span></button>'+
-      '<button data-tab="exam">시험<span>재시험·STaRT</span></button>'+
-      '<button data-tab="life">학원 생활<span>특강·시상</span></button>'+
-    '</div></nav>'+
-    '<div class="g-wrap">'+
-      '<div class="g-panel on" id="g-panel-parent"></div>'+
-      '<div class="g-panel" id="g-panel-student"></div>'+
-      '<div class="g-panel" id="g-panel-exam"></div>'+
-      '<div class="g-panel" id="g-panel-life"></div>'+
-    '</div>'+
-    '<div class="g-footer">'+esc(name)+' JLS</div>';
-
-  splitIntoTabs(html);
-
-  var btns = root.querySelectorAll('.g-tabs button');
-  btns.forEach(function(b){
-    b.onclick = function(){
-      btns.forEach(function(x){x.classList.remove('on')});
-      b.classList.add('on');
-      root.querySelectorAll('.g-panel').forEach(function(p){p.classList.remove('on')});
-      document.getElementById('g-panel-'+b.dataset.tab).classList.add('on');
-      window.scrollTo(0,0);
-    };
-  });
-}
-
-/* 편집기에서 저장한 하나의 HTML 덩어리를 data-tab 마커 기준으로 4개 패널에 나눠 담는다.
-   마커가 없는 옛 콘텐츠는 전부 '학부모' 탭에 들어간다 (하위호환). */
-function splitIntoTabs(html){
-  var tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  var targets = {parent:[], student:[], exam:[], life:[]};
-  Array.prototype.forEach.call(tmp.children, function(node){
-    var tab = node.getAttribute && node.getAttribute('data-tab');
-    if(!tab || !targets[tab]) tab = 'parent';
-    targets[tab].push(node.outerHTML);
-  });
-  Object.keys(targets).forEach(function(k){
-    document.getElementById('g-panel-'+k).innerHTML = targets[k].join('');
-  });
+  buildGuideShell(root, name, heroImageUrl);
+  splitIntoTabs(root, html);
 }
 
 (function init(){
