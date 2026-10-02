@@ -95,6 +95,12 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-storebtns{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
 .g-storebtns a{background:#2E4FA6;color:#fff;padding:10px 20px;border-radius:999px;font-weight:700;font-size:13.5px;text-decoration:none;display:inline-block}
 
+/* 유튜브 영상 삽입 — 가로세로 비율을 16:9로 고정해서 화면 폭에 맞게 늘어난다 */
+.g-video{position:relative;padding-top:56.25%;margin-top:14px;border-radius:14px;overflow:hidden;background:#000}
+.g-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.g-video-cap{margin-top:8px;font-size:13px;color:#6B7BA0}
+.g-video-cap a{color:#2E4FA6;font-weight:700;text-decoration:underline}
+
 /* 묶음 꼬리표(뱃지) — 카드 "안"으로 파고들지 않고, 카드 위 빈 자리에 따로 떠 있는다.
    카드 쪽 점선 구멍(.g-sec::before/::after)이 카드 위로 최대 13px까지 올라오므로,
    꼬리표 아래 여백을 18px로 둬서 점선·흰 카드 어느 쪽과도 안 겹치게 한다. */

@@ -144,12 +144,26 @@ function stColHtml(words, c, step){
   }).join('');
   return '<div class="g-st-col '+state+'" data-col="'+c+'"><span class="h">'+(c+1)+' '+(showKo?'뜻':'영어')+'</span>'+rows+'</div>';
 }
+/* 단어 목록을 "씨앗" 상태(<ul class="g-st-words" hidden>)에서 읽는다.
+   편집기에서 저장하면 지금 화면에 그려진 DOM이 그대로 저장되는데, 이 위젯은
+   스스로 다시 그려 넣는 식이라 자칫 "다 그려진 뒤의 모습"이 저장될 수 있다
+   (실제로 한 번 그런 일이 있었다 — data-built="1" 같은 상태값까지 저장돼서,
+   다음에 열었을 때 다시 그리질 않고 그 굳어버린 모습 그대로 떴다).
+   그래서 씨앗 목록을 매번 새로 그려 넣은 innerHTML 안에도 항상 같이 넣어
+   둔다 — 언제 다시 저장되더라도 씨앗이 함께 저장되니 다음에 또 읽을 수 있다.
+   혹시 씨앗이 없는 옛날 저장본이면 data-words에 저장해둔 값으로 대신한다. */
+function stWords(box){
+  var lis = box.querySelectorAll('.g-st-words li');
+  if(lis.length) return Array.prototype.map.call(lis, function(li){ return {ko: li.dataset.ko, en: li.dataset.en}; });
+  try{ return JSON.parse(box.dataset.words || '[]'); }catch(e){ return []; }
+}
 function stBuild(box){
-  var words = Array.prototype.map.call(box.querySelectorAll('.g-st-words li'), function(li){
-    return {ko: li.dataset.ko, en: li.dataset.en};
-  });
+  var words = stWords(box);
   box.dataset.words = JSON.stringify(words);
-  box.innerHTML =
+  var seedHtml = '<ul class="g-st-words" hidden>'+words.map(function(w){
+    return '<li data-ko="'+escG(w.ko)+'" data-en="'+escG(w.en)+'"></li>';
+  }).join('')+'</ul>';
+  box.innerHTML = seedHtml +
     '<h4 class="g-st-title">4칸 접기 Self-test 따라하기</h4>'+
     '<div class="g-st-hint"><span class="g-st-tap">👆</span> 좋아요! 한 칸 쓰고 <b>바로 채점</b>, 그다음 칸으로</div>'+
     '<div class="g-st-tabs">'+ST_TAB_LABELS.map(function(l,i){
@@ -175,8 +189,9 @@ function stRender(box, animate){
 }
 function wireSelfTest(rootEl){
   rootEl.querySelectorAll('.g-selftest').forEach(function(box){
-    if(box.dataset.built) return;
-    box.dataset.built = '1';
+    /* "한 번 지었으면 다시 안 지음" 식 guard를 일부러 안 둔다 — 매번 씨앗
+       목록부터 다시 그려서, 화면에 뭐가 저장돼 있었든 항상 1칸부터 깨끗하게
+       시작한다. */
     box.dataset.step = '0';
     stBuild(box);
     stRender(box, false);
