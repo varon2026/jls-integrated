@@ -149,12 +149,20 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-lightbox-close{position:fixed;top:16px;right:18px;width:38px;height:38px;border-radius:50%;border:0;background:#fff;color:#1C2A4A;font-size:16px;cursor:pointer}
 
 .g-carousel{margin:10px 0}
+/* 가로 스크롤바를 숨기지 않고 그대로 둔다 — 남동탄 참고 화면도 동그란 점 대신
+   기본 스크롤바로 "더 있다"는 걸 보여준다. 점(.g-carousel-dots)을 쓰던 옛 캐러셀이
+   남아있을 수 있어 관련 CSS는 지우지 않고 그대로 둔다. */
 .g-carousel-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;gap:10px;-webkit-overflow-scrolling:touch}
-.g-carousel-track::-webkit-scrollbar{display:none}
 .g-carousel-track img{flex:0 0 85%;scroll-snap-align:center;border-radius:14px;max-width:85%;margin:0;cursor:zoom-in}
 .g-carousel-dots{display:flex;justify-content:center;gap:6px;margin-top:8px}
 .g-carousel-dots button{width:7px;height:7px;border-radius:50%;background:#C9D4EE;border:0;padding:0;cursor:pointer}
 .g-carousel-dots button.on{background:#2E4FA6;width:16px;border-radius:4px}
+
+/* 초등/중등처럼 레벨 뱃지 + 교재 이름을 나란히 두는 소제목 — .g-sec h3 대신 쓴다 */
+.g-levelhead{display:flex;align-items:center;gap:10px;margin:18px 0 10px}
+.g-levelhead:first-child{margin-top:0}
+.g-level-tag{background:#1C2A4A;color:#fff;font-weight:800;font-size:13px;border-radius:999px;padding:6px 14px;flex-shrink:0}
+.g-levelhead b{font-size:22px;color:#1C2A4A;font-weight:800}
 
 /* 캐러셀 사진마다 아래에 캡션을 따로 달 때 — img를 .g-carousel-item으로 한 번 감싼다.
    감싸지 않은 옛 캐러셀(캡션 없음)은 위 .g-carousel-track img 규칙이 그대로 적용된다. */
