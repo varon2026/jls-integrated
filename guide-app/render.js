@@ -102,6 +102,33 @@ function wireCarousels(rootEl){
   });
 }
 
+/* Self-test 4칸 접기 위젯 — 지금 몇 칸째, 뭘 적을 차례인지만 따라가며 보여준다.
+   실제 채점은 학생이 공책에 직접 한다(이 위젯은 안내용). */
+var ST_LABELS = ['1칸 · 뜻 적기 (단어책 보면서)','2칸 · 영어 적기 (1칸 가리고, 기억으로)','3칸 · 뜻 적기 (2칸까지 가리고)','4칸 · 영어 적기 (3칸까지 가리고)'];
+function wireSelfTest(rootEl){
+  rootEl.querySelectorAll('.g-selftest').forEach(function(box){
+    if(box.dataset.wired) return;
+    box.dataset.wired = '1';
+    var step = 0;
+    var words = box.querySelectorAll('.g-st-words li');
+    var stepEl = box.querySelector('.g-st-step');
+    var labelEl = box.querySelector('.g-st-label');
+    var prevBtn = box.querySelector('.g-st-prev');
+    var nextBtn = box.querySelector('.g-st-next');
+    function render(){
+      var showKo = (step % 2 === 0);
+      words.forEach(function(li){ li.textContent = showKo ? li.dataset.ko : li.dataset.en; });
+      stepEl.textContent = (step+1) + ' / 4';
+      labelEl.textContent = ST_LABELS[step];
+      prevBtn.disabled = (step === 0);
+      nextBtn.textContent = (step === 3) ? '처음으로 ↺' : '다음 칸 쓰기 →';
+    }
+    prevBtn.onclick = function(){ if(step>0){ step--; render(); } };
+    nextBtn.onclick = function(){ step = (step === 3) ? 0 : step+1; render(); };
+    render();
+  });
+}
+
 function wireTabs(rootEl){
   var btns = rootEl.querySelectorAll('.g-tabs button');
   btns.forEach(function(b){
@@ -132,6 +159,7 @@ function splitIntoTabs(rootEl, html){
   });
   wireLightbox(rootEl);
   wireCarousels(rootEl);
+  wireSelfTest(rootEl);
 }
 
 /* 편집기 전용: 4개 패널에 나뉜 내용을 다시 하나의 HTML로 합친다 (저장용) */

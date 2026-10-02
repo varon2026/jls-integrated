@@ -158,6 +158,26 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-panel[contenteditable="true"] .g-box:hover{outline:1.5px dashed #2E4FA6;outline-offset:2px}
 .g-link{color:#2E4FA6;text-decoration:underline}
 
+/* 요일별 시간표 — 수업 있는 날(.on)만 분홍으로 강조 */
+.g-schedule{width:100%;border-collapse:collapse;margin:14px 0 0;font-size:12.5px}
+.g-schedule caption{text-align:left;font-weight:800;margin-bottom:6px;color:#1C2A4A;font-size:13.5px}
+.g-schedule th,.g-schedule td{border:1px solid #E3E9F7;padding:8px 3px;text-align:center;vertical-align:top;line-height:1.4}
+.g-schedule th{background:#F1F4FC;font-weight:800;color:#4B5B82}
+.g-schedule td.on{background:#FDE4EA;font-weight:700;color:#9A2E3E}
+
+/* Self-test 4칸 접기 — 따라하기 식 안내 위젯. 실제 채점이 아니라 "지금 몇 칸째,
+   뭘 적을 차례인지" 보여주는 안내용이라, 저장된 글(innerHTML)엔 <script>가 못 돌아서
+   wireSelfTest()(render.js)가 이 구조를 찾아서 동작을 붙인다. */
+.g-selftest{background:#F7F9FD;border:1px solid #E3E9F7;border-radius:16px;padding:18px;margin-top:14px}
+.g-st-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.g-st-step{font-size:12px;font-weight:800;color:#fff;background:#2E4FA6;border-radius:999px;padding:3px 11px}
+.g-st-label{font-family:"Jua",sans-serif;font-size:15px;color:#1C2A4A}
+.g-selftest .g-st-words{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.g-selftest .g-st-words li{background:#fff;border:1px solid #E3E9F7;border-radius:10px;padding:10px;text-align:center;font-weight:700;color:#1C2A4A}
+.g-st-nav{display:flex;justify-content:space-between;margin-top:14px}
+.g-st-nav button{font:inherit;font-size:13px;font-weight:700;border:0;border-radius:999px;padding:8px 16px;cursor:pointer;background:#EEF2FB;color:#2E4FA6}
+.g-st-nav button:disabled{opacity:.4;cursor:default}
+
 .g-empty{text-align:center;color:#6B7BA0;padding:60px 20px}
 
 .g-footer{text-align:center;color:#8A9BC9;font-size:13px;margin-top:30px;font-family:"Jua",sans-serif}
