@@ -29,10 +29,13 @@ body.g-has-toolbar .g-tabs{top:48px}
 
 .g-flow{background:#1C2A4A;color:#fff;border-radius:20px;padding:20px;position:relative;overflow:hidden}
 .g-flow h2{margin:0;font-size:21px;font-family:"Jua",sans-serif;font-weight:400}
-.g-flow .chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:14px 0 0;padding:0;list-style:none}
-.g-flow .chips li{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
-.g-flow .chips li b{background:#fff;color:#1C2A4A;border-radius:999px;padding:5px 13px;font-weight:700}
-.g-flow .chips li:not(:last-child)::after{content:"→";opacity:.6;margin-left:2px;font-weight:400}
+/* 칸이 길어 화면 폭을 넘기면 줄바꿈하지 않고 한 줄로 두고 가로로 스와이프해서 본다
+   (남동탄 참고 화면도 한 줄 유지 — 줄바꿈되면 박스 높이가 들쭉날쭉해 보임) */
+.g-flow .chips{display:flex;flex-wrap:nowrap;align-items:center;gap:3px;margin:14px 0 0;padding:0 2px 4px;list-style:none;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.g-flow .chips::-webkit-scrollbar{display:none}
+.g-flow .chips li{display:flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;flex:none}
+.g-flow .chips li b{background:#fff;color:#1C2A4A;border-radius:999px;padding:5px 9px;font-weight:700;white-space:nowrap}
+.g-flow .chips li:not(:last-child)::after{content:"→";opacity:.6;margin-left:0;font-weight:400}
 .g-flow-deco{position:absolute;top:18px;right:18px;opacity:.85}
 
 /* 흰 카드 위에서 쓰는 순서 칩 — .g-flow .chips와 같은 모양이지만 짙은 배경이 아닐 때 쓴다 */
