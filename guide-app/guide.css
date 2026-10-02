@@ -95,6 +95,16 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-storebtns{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
 .g-storebtns a{background:#2E4FA6;color:#fff;padding:10px 20px;border-radius:999px;font-weight:700;font-size:13.5px;text-decoration:none;display:inline-block}
 
+.g-linkbtn{display:inline-block;margin-top:14px;background:#DCEEF5;color:#1C2A4A;padding:11px 20px;border-radius:12px;font-weight:800;font-size:14px;text-decoration:none}
+
+/* 별표(✳) 점 목록 — 네모칸 없이 간단한 안내문 나열할 때 */
+.g-list-ast{list-style:none;margin:14px 0 0;padding:0}
+.g-list-ast li{position:relative;padding-left:22px;margin:9px 0;color:#1C2A4A}
+.g-list-ast li::before{content:"✳";position:absolute;left:0;top:1px;color:#8A95B8;font-size:12px}
+
+.g-poster{display:block;max-width:100%;border-radius:14px;margin:16px 0 0;border:1px solid #E3E9F7}
+.g-poster-cap{text-align:center;margin-top:8px;font-size:13px;color:#6B7BA0}
+
 /* 유튜브 영상 삽입 — 가로세로 비율을 16:9로 고정해서 화면 폭에 맞게 늘어난다 */
 /* 영상을 iframe으로 바로 끼워 넣지 않고, 썸네일 사진 + 재생 버튼을 눌러
    유튜브로 이동하는 방식으로 한다 — 올린 사람이 "퍼가기(embed)"를 막아둔
