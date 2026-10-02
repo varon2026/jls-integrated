@@ -102,38 +102,79 @@ function wireCarousels(rootEl){
   });
 }
 
-/* Self-test 4칸 접기 위젯 — 지금 몇 칸째, 뭘 적을 차례인지만 따라가며 보여준다.
-   실제 채점은 학생이 공책에 직접 한다(이 위젯은 안내용).
+/* Self-test 4칸 접기 위젯 — 1칸 뜻 → 2칸 영어 → 3칸 뜻 → 4칸 영어, 네 칸을 한
+   화면에 나란히 두고 지나온 칸은 접힌(빗금) 모습으로, 지금 칸은 테두리로,
+   아직 안 지나온 칸은 빈 칸으로 보여준다. 실제 채점은 학생이 공책에 직접
+   한다 — 이 위젯은 "한 칸 쓰고 바로 채점하고 다음 칸으로" 방법을 보여주는
+   안내용이라, 2칸(처음 영어 쓰기)에서 한 단어를 일부러 틀리게, 4칸(두 번째
+   영어 쓰기)에서는 그 단어를 맞게 보여줘서 "바로 채점→다시 확인" 효과를
+   실제로 보여준다.
    버튼에 onclick을 직접 매다는 대신, wireLightbox처럼 rootEl 하나에만 클릭을
    위임해서 듣는다 — splitIntoTabs가 두 번 이상 불려서 패널 innerHTML이
    다시 만들어져도(버튼이 새 DOM 노드로 바뀌어도) rootEl 자체는 그대로라
    리스너가 안 끊긴다. 버튼에 직접 매다는 방식은 실제 배포 사이트에서
-   가끔 onclick이 비어있는 채로 나오는 문제가 있었다(원인 특정은 못 했지만,
-   패널이 다시 그려지는 타이밍과 맞물린 것으로 보임) — 위임 방식은 그 타이밍과
-   무관하게 항상 "지금 이 순간의" 버튼을 찾아서 처리하므로 더 안전하다. */
-var ST_LABELS = ['1칸 · 뜻 적기 (단어책 보면서)','2칸 · 영어 적기 (1칸 가리고, 기억으로)','3칸 · 뜻 적기 (2칸까지 가리고)','4칸 · 영어 적기 (3칸까지 가리고)'];
+   가끔 onclick이 비어있는 채로 나오는 문제가 있었다. */
+var ST_TAB_LABELS = ['1칸 뜻','2칸 영어','3칸 뜻','4칸 영어'];
+var ST_CAPTIONS = [
+  '단어책을 보면서 1칸에 뜻을 적습니다. 다 적으면 단어책과 비교해 맞게 옮겼는지 채점합니다.',
+  '1칸을 가리고 뜻만 떠올리며 2칸에 영어를 씁니다. 다 쓰면 바로 채점! 둘째 줄 단어를 틀렸네요 — 발음·뜻·스펠링을 다시 확인한 뒤 다음 칸으로 넘어갑니다.',
+  '1~2칸을 가리고 2칸의 영어만 보면서 3칸에 뜻을 씁니다. 다 쓰면 바로 채점합니다.',
+  '1~3칸을 가리고 3칸의 뜻만 보면서 4칸에 영어를 씁니다. 채점해 보니 2칸에서 틀렸던 단어를 이번엔 맞게 썼어요 — 이렇게 틀린 단어를 다시 익혀서 다음엔 안 틀리도록 합니다.'
+];
+var ST_BAD_ROW = 1;
+var ST_BAD_TYPO = 'borow';
 function stPop(el){
   el.classList.remove('pop');
   void el.offsetWidth;
   el.classList.add('pop');
 }
+function stColHtml(words, c, step){
+  var showKo = (c % 2 === 0);
+  var state = c < step ? 'hidden' : (c === step ? 'now' : 'blank');
+  var rows = words.map(function(w, i){
+    var isBadDemo = (c === 1 && i === ST_BAD_ROW);
+    if(isBadDemo){
+      return '<span class="w bad">'+escG(ST_BAD_TYPO)+'</span><span class="fix">→ '+escG(w.en)+'</span>';
+    }
+    var text = showKo ? w.ko : w.en;
+    return '<span class="w">'+escG(text)+'</span>';
+  }).join('');
+  return '<div class="g-st-col '+state+'" data-col="'+c+'"><span class="h">'+(c+1)+' '+(showKo?'뜻':'영어')+'</span>'+rows+'</div>';
+}
+function stBuild(box){
+  var words = Array.prototype.map.call(box.querySelectorAll('.g-st-words li'), function(li){
+    return {ko: li.dataset.ko, en: li.dataset.en};
+  });
+  box.dataset.words = JSON.stringify(words);
+  box.innerHTML =
+    '<div class="g-st-hint">👆 좋아요! 한 칸 쓰고 <b>바로 채점</b>, 그다음 칸으로</div>'+
+    '<div class="g-st-tabs">'+ST_TAB_LABELS.map(function(l,i){
+      return '<button type="button" data-jump="'+i+'"><i>'+(i+1)+'</i>'+l+'</button>';
+    }).join('')+'</div>'+
+    '<div class="g-st-grid"></div>'+
+    '<p class="g-st-cap"></p>'+
+    '<div class="g-st-nav"><button type="button" class="g-st-prev">← 이전</button><span class="g-st-prog"></span><button type="button" class="g-st-next">다음 칸 쓰기 →</button></div>';
+}
 function stRender(box, animate){
   var step = parseInt(box.dataset.step || '0', 10);
-  var showKo = (step % 2 === 0);
-  box.querySelectorAll('.g-st-words li').forEach(function(li){
-    li.textContent = showKo ? li.dataset.ko : li.dataset.en;
-    if(animate) stPop(li);
-  });
-  var stepEl = box.querySelector('.g-st-step');
-  stepEl.textContent = (step+1) + ' / 4';
-  if(animate) stPop(stepEl);
-  box.querySelector('.g-st-label').textContent = ST_LABELS[step];
+  var words = JSON.parse(box.dataset.words || '[]');
+  var grid = box.querySelector('.g-st-grid');
+  grid.innerHTML = [0,1,2,3].map(function(c){ return stColHtml(words, c, step); }).join('');
+  if(animate) stPop(grid.querySelector('[data-col="'+step+'"]'));
+  box.querySelector('.g-st-cap').textContent = ST_CAPTIONS[step];
+  box.querySelector('.g-st-prog').textContent = (step+1) + ' / 4';
   box.querySelector('.g-st-prev').disabled = (step === 0);
-  box.querySelector('.g-st-next').textContent = (step === 3) ? '처음으로 ↺' : '다음 칸 쓰기 →';
+  box.querySelector('.g-st-next').textContent = (step === 3) ? '처음부터 다시 ↺' : '다음 칸 쓰기 →';
+  box.querySelectorAll('.g-st-tabs button').forEach(function(b, i){
+    b.setAttribute('aria-pressed', i === step ? 'true' : 'false');
+  });
 }
 function wireSelfTest(rootEl){
   rootEl.querySelectorAll('.g-selftest').forEach(function(box){
-    if(!box.dataset.step) box.dataset.step = '0';
+    if(box.dataset.built) return;
+    box.dataset.built = '1';
+    box.dataset.step = '0';
+    stBuild(box);
     stRender(box, false);
   });
   if(rootEl.dataset.stWired) return;
@@ -142,7 +183,10 @@ function wireSelfTest(rootEl){
     var box = e.target.closest && e.target.closest('.g-selftest');
     if(!box) return;
     var step = parseInt(box.dataset.step || '0', 10);
-    if(e.target.closest('.g-st-next')){
+    var jumpBtn = e.target.closest('.g-st-tabs button');
+    if(jumpBtn){
+      step = parseInt(jumpBtn.dataset.jump, 10);
+    } else if(e.target.closest('.g-st-next')){
       step = (step === 3) ? 0 : step + 1;
     } else if(e.target.closest('.g-st-prev')){
       if(step === 0) return;
