@@ -103,40 +103,55 @@ function wireCarousels(rootEl){
 }
 
 /* Self-test 4칸 접기 위젯 — 지금 몇 칸째, 뭘 적을 차례인지만 따라가며 보여준다.
-   실제 채점은 학생이 공책에 직접 한다(이 위젯은 안내용). */
+   실제 채점은 학생이 공책에 직접 한다(이 위젯은 안내용).
+   버튼에 onclick을 직접 매다는 대신, wireLightbox처럼 rootEl 하나에만 클릭을
+   위임해서 듣는다 — splitIntoTabs가 두 번 이상 불려서 패널 innerHTML이
+   다시 만들어져도(버튼이 새 DOM 노드로 바뀌어도) rootEl 자체는 그대로라
+   리스너가 안 끊긴다. 버튼에 직접 매다는 방식은 실제 배포 사이트에서
+   가끔 onclick이 비어있는 채로 나오는 문제가 있었다(원인 특정은 못 했지만,
+   패널이 다시 그려지는 타이밍과 맞물린 것으로 보임) — 위임 방식은 그 타이밍과
+   무관하게 항상 "지금 이 순간의" 버튼을 찾아서 처리하므로 더 안전하다. */
 var ST_LABELS = ['1칸 · 뜻 적기 (단어책 보면서)','2칸 · 영어 적기 (1칸 가리고, 기억으로)','3칸 · 뜻 적기 (2칸까지 가리고)','4칸 · 영어 적기 (3칸까지 가리고)'];
+function stPop(el){
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+}
+function stRender(box, animate){
+  var step = parseInt(box.dataset.step || '0', 10);
+  var showKo = (step % 2 === 0);
+  box.querySelectorAll('.g-st-words li').forEach(function(li){
+    li.textContent = showKo ? li.dataset.ko : li.dataset.en;
+    if(animate) stPop(li);
+  });
+  var stepEl = box.querySelector('.g-st-step');
+  stepEl.textContent = (step+1) + ' / 4';
+  if(animate) stPop(stepEl);
+  box.querySelector('.g-st-label').textContent = ST_LABELS[step];
+  box.querySelector('.g-st-prev').disabled = (step === 0);
+  box.querySelector('.g-st-next').textContent = (step === 3) ? '처음으로 ↺' : '다음 칸 쓰기 →';
+}
 function wireSelfTest(rootEl){
   rootEl.querySelectorAll('.g-selftest').forEach(function(box){
-    if(box.dataset.wired) return;
-    box.dataset.wired = '1';
-    var step = 0;
-    var words = box.querySelectorAll('.g-st-words li');
-    var stepEl = box.querySelector('.g-st-step');
-    var labelEl = box.querySelector('.g-st-label');
-    var prevBtn = box.querySelector('.g-st-prev');
-    var nextBtn = box.querySelector('.g-st-next');
-    /* 클래스를 뗐다 다시 붙여야 같은 애니메이션이 또 돈다(브라우저는 이미 붙어있는
-       클래스를 다시 붙이면 무시한다) — 한 프레임 쉬었다가 다시 건다 */
-    function pop(el){
-      el.classList.remove('pop');
-      void el.offsetWidth;
-      el.classList.add('pop');
+    if(!box.dataset.step) box.dataset.step = '0';
+    stRender(box, false);
+  });
+  if(rootEl.dataset.stWired) return;
+  rootEl.dataset.stWired = '1';
+  rootEl.addEventListener('click', function(e){
+    var box = e.target.closest && e.target.closest('.g-selftest');
+    if(!box) return;
+    var step = parseInt(box.dataset.step || '0', 10);
+    if(e.target.closest('.g-st-next')){
+      step = (step === 3) ? 0 : step + 1;
+    } else if(e.target.closest('.g-st-prev')){
+      if(step === 0) return;
+      step--;
+    } else {
+      return;
     }
-    function render(animate){
-      var showKo = (step % 2 === 0);
-      words.forEach(function(li){
-        li.textContent = showKo ? li.dataset.ko : li.dataset.en;
-        if(animate) pop(li);
-      });
-      stepEl.textContent = (step+1) + ' / 4';
-      if(animate) pop(stepEl);
-      labelEl.textContent = ST_LABELS[step];
-      prevBtn.disabled = (step === 0);
-      nextBtn.textContent = (step === 3) ? '처음으로 ↺' : '다음 칸 쓰기 →';
-    }
-    prevBtn.onclick = function(){ if(step>0){ step--; render(true); } };
-    nextBtn.onclick = function(){ step = (step === 3) ? 0 : step+1; render(true); };
-    render(false);
+    box.dataset.step = String(step);
+    stRender(box, true);
   });
 }
 
