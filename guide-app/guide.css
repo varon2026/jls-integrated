@@ -41,7 +41,7 @@ body.g-has-toolbar .g-tabs{top:48px}
 /* 흰 카드 위에서 쓰는 순서 칩 — .g-flow .chips와 같은 모양이지만 짙은 배경이 아닐 때 쓴다 */
 .g-flowchips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:14px 0 0;padding:0;list-style:none}
 .g-flowchips li{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700}
-.g-flowchips li b{background:#EEF2FB;color:#2E4FA6;border-radius:999px;padding:7px 14px;font-weight:700;white-space:nowrap}
+.g-flowchips li b{background:#EEF2FB;color:#2E4FA6;border-radius:999px;padding:7px 8px 7px 14px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
 .g-flowchips li:not(:last-child)::after{content:"→";opacity:.5;margin-left:2px;font-weight:400;color:#8A95B8}
 
 .g-group{font-family:"Jua",sans-serif;font-size:14px;color:#fff;background:#6E8EE8;display:inline-block;border-radius:999px;padding:5px 16px;margin-bottom:-6px;box-shadow:0 2px 0 #4A6BC9}
@@ -216,7 +216,7 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-mt-badge{display:inline-block;background:#FCD9DC;color:#9A2E3E;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;margin-left:4px;vertical-align:1px}
 
 /* 진한 바탕 + 작은 동그라미 점이 붙는 강조 뱃지 — "clue 표시!"처럼 꼭 봐야 하는 말에 쓴다 */
-.g-badge-dot{display:inline-flex;align-items:center;gap:5px;background:#E0506E;color:#fff;font-size:11px;font-weight:800;border-radius:999px;padding:3px 10px 3px 8px;margin-left:4px;vertical-align:1px}
+.g-badge-dot{display:inline-flex;align-items:center;gap:5px;background:#E0506E;color:#fff;font-size:11px;font-weight:800;border-radius:999px;padding:3px 10px 3px 8px}
 .g-badge-dot::before{content:"";width:5px;height:5px;border-radius:50%;background:#fff;flex-shrink:0}
 
 /* 문장 속에서 꼭 지켜야 할 말을 붉은 글씨로 강조할 때 — .g-note.warn의 "!"와 같은 색 */
