@@ -1,7 +1,8 @@
 /* 신입생 안내 페이지 — 공개 뷰어(guide.html)·편집기(guide-app) 공용 스타일 */
 @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@1.0/nanumsquare.css');
 *{box-sizing:border-box}
-body{margin:0;background:#EAF1FF;color:#1C2A4A;font-family:"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:16px;line-height:1.7;word-break:keep-all}
+body{margin:0;background:#EAF1FF;color:#1C2A4A;font-family:"NanumSquare","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:16px;line-height:1.7;word-break:keep-all}
 .g-wrap{max-width:720px;margin:0 auto;padding:0 16px 60px}
 .g-disp{font-family:"Jua","Apple SD Gothic Neo",sans-serif;font-weight:400}
 
@@ -71,7 +72,7 @@ body.g-has-toolbar .g-tabs{top:48px}
 /* 알록달록 기능 소개 알약(캡슐) 모양 칸 — 색은 순서대로 6가지를 돌려써서
    한 섹션 안에서 칸마다 다른 파스텔 색이 나오게 한다 */
 .g-pills{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
-.g-pills li{border-radius:999px;padding:12px 10px;text-align:center;font-size:13.5px;font-weight:700;color:#1C2A4A}
+.g-pills li{display:flex;align-items:center;justify-content:center;text-align:center;min-height:46px;border-radius:999px;padding:12px 10px;font-size:13.5px;font-weight:700;color:#1C2A4A}
 .g-pills li:nth-child(6n+1){background:#DCE8FF}
 .g-pills li:nth-child(6n+2){background:#FFE1E8}
 .g-pills li:nth-child(6n+3){background:#DFF5E6}
