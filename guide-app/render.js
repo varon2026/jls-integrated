@@ -147,7 +147,7 @@ function stBuild(box){
   });
   box.dataset.words = JSON.stringify(words);
   box.innerHTML =
-    '<div class="g-st-hint">👆 좋아요! 한 칸 쓰고 <b>바로 채점</b>, 그다음 칸으로</div>'+
+    '<div class="g-st-hint"><span class="g-st-tap">👆</span> 좋아요! 한 칸 쓰고 <b>바로 채점</b>, 그다음 칸으로</div>'+
     '<div class="g-st-tabs">'+ST_TAB_LABELS.map(function(l,i){
       return '<button type="button" data-jump="'+i+'"><i>'+(i+1)+'</i>'+l+'</button>';
     }).join('')+'</div>'+
