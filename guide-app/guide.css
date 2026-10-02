@@ -35,6 +35,12 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-flow .chips li:not(:last-child)::after{content:"→";opacity:.6;margin-left:2px;font-weight:400}
 .g-flow-deco{position:absolute;top:18px;right:18px;opacity:.85}
 
+/* 흰 카드 위에서 쓰는 순서 칩 — .g-flow .chips와 같은 모양이지만 짙은 배경이 아닐 때 쓴다 */
+.g-flowchips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:14px 0 0;padding:0;list-style:none}
+.g-flowchips li{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700}
+.g-flowchips li b{background:#EEF2FB;color:#2E4FA6;border-radius:999px;padding:7px 14px;font-weight:700;white-space:nowrap}
+.g-flowchips li:not(:last-child)::after{content:"→";opacity:.5;margin-left:2px;font-weight:400;color:#8A95B8}
+
 .g-group{font-family:"Jua",sans-serif;font-size:14px;color:#fff;background:#6E8EE8;display:inline-block;border-radius:999px;padding:5px 16px;margin-bottom:-6px}
 
 .g-sec{background:#fff;border-radius:20px;padding:24px 20px;box-shadow:0 2px 0 #CFDCF7;position:relative}
