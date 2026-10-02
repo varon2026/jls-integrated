@@ -115,17 +115,28 @@ function wireSelfTest(rootEl){
     var labelEl = box.querySelector('.g-st-label');
     var prevBtn = box.querySelector('.g-st-prev');
     var nextBtn = box.querySelector('.g-st-next');
-    function render(){
+    /* 클래스를 뗐다 다시 붙여야 같은 애니메이션이 또 돈다(브라우저는 이미 붙어있는
+       클래스를 다시 붙이면 무시한다) — 한 프레임 쉬었다가 다시 건다 */
+    function pop(el){
+      el.classList.remove('pop');
+      void el.offsetWidth;
+      el.classList.add('pop');
+    }
+    function render(animate){
       var showKo = (step % 2 === 0);
-      words.forEach(function(li){ li.textContent = showKo ? li.dataset.ko : li.dataset.en; });
+      words.forEach(function(li){
+        li.textContent = showKo ? li.dataset.ko : li.dataset.en;
+        if(animate) pop(li);
+      });
       stepEl.textContent = (step+1) + ' / 4';
+      if(animate) pop(stepEl);
       labelEl.textContent = ST_LABELS[step];
       prevBtn.disabled = (step === 0);
       nextBtn.textContent = (step === 3) ? '처음으로 ↺' : '다음 칸 쓰기 →';
     }
-    prevBtn.onclick = function(){ if(step>0){ step--; render(); } };
-    nextBtn.onclick = function(){ step = (step === 3) ? 0 : step+1; render(); };
-    render();
+    prevBtn.onclick = function(){ if(step>0){ step--; render(true); } };
+    nextBtn.onclick = function(){ step = (step === 3) ? 0 : step+1; render(true); };
+    render(false);
   });
 }
 
