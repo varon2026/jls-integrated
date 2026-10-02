@@ -162,6 +162,18 @@ body.g-has-toolbar .g-tabs{top:48px}
 
 .g-footer{text-align:center;color:#8A9BC9;font-size:13px;margin-top:30px;font-family:"Jua",sans-serif}
 
+/* 맨 마지막 "환영합니다" 마무리 카드. 캐릭터는 특정 그림을 베끼지 않고
+   둥근 도형 + 점 2개(눈)만으로 간단히 표현한다. */
+.g-closing{background:linear-gradient(165deg,#5A86E8 0%,#3E66D6 100%);color:#fff;border-radius:20px;padding:30px 22px 0;text-align:center;overflow:hidden}
+.g-closing h2{font-family:"Jua",sans-serif;font-size:23px;margin:0 0 14px}
+.g-closing p{margin:0 auto;max-width:30em;font-size:14px;line-height:1.85;opacity:.95}
+.g-closing .welcome{display:block;font-family:"Jua",sans-serif;font-size:17px;margin:20px 0 0}
+.g-closing .chars{display:flex;justify-content:center;align-items:flex-end;gap:8px;margin-top:24px}
+.g-closing .char{position:relative;width:64px;height:82px;border-radius:50% 50% 0 0}
+.g-closing .char.spiky{border-radius:0;clip-path:polygon(0 100%,0 32%,14% 4%,28% 26%,42% 2%,56% 26%,70% 2%,84% 22%,100% 34%,100% 100%)}
+.g-closing .char .eyes{position:absolute;top:40%;left:50%;transform:translateX(-50%);display:flex;gap:9px}
+.g-closing .char .eyes i{width:9px;height:9px;background:#1C2A4A;border-radius:50%;display:block;font-style:normal}
+
 /* ===== 편집기 전용 ===== */
 .g-toolbar{position:sticky;top:0;z-index:20;box-sizing:border-box;background:#fff;border-bottom:1px solid #D6DEF2;display:flex;flex-direction:column}
 .g-toolbar-row{display:flex;align-items:center;gap:8px;padding:7px 14px;flex-wrap:wrap}
