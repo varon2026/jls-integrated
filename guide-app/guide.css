@@ -187,10 +187,10 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-carousel-item .cap{text-align:center;margin-top:8px;font-size:13px;font-weight:700;color:#4B5B82}
 
 /* 자습/재시험/중등예비시험처럼 제목+짧은 설명이 같이 들어가는 안내 카드 */
-.g-infogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:14px}
-.g-infocard{background:#DCEEF5;border-radius:14px;padding:14px}
-.g-infocard b{display:block;font-size:14.5px;color:#1C2A4A;margin-bottom:4px}
-.g-infocard p{margin:0;font-size:13px;color:#4B5B82;line-height:1.5}
+.g-infogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:14px}
+.g-infocard{background:#D7F1F7;border-radius:12px;padding:9px 13px}
+.g-infocard b{display:block;font-size:15px;color:#0B2358;margin-bottom:2px}
+.g-infocard p{margin:0;font-size:12.5px;color:#4B5E88;line-height:1.5}
 
 /* "15분 전까지"처럼 큰 숫자 + 설명을 가로로 나란히 두는 안내 박스 */
 .g-timebox{display:flex;align-items:center;gap:14px;margin-top:14px;background:#FFEFC2;border-radius:14px;padding:16px 18px}
