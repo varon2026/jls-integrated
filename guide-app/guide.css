@@ -53,6 +53,7 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-sec h2{font-family:"Jua",sans-serif;font-size:22px;margin:0 0 8px;display:flex;align-items:center;gap:10px}
 .g-sec h2 .n{flex:none;width:30px;height:30px;border-radius:50%;background:#FCD9DC;color:#9A2E3E;font-family:"Apple SD Gothic Neo",sans-serif;font-size:12px;font-weight:800;display:grid;place-items:center}
 .g-sec h3{font-family:"Jua",sans-serif;font-size:17px;color:#3E66D6;margin:18px 0 6px}
+.g-sec h4{margin:16px 0 8px;font-size:15px;font-weight:800;color:#1C2A4A}
 .g-sec p{margin:6px 0 0;color:#4B5B82}
 .g-sec ul,.g-sec ol{margin:10px 0 0;padding-left:20px}
 .g-sec li{margin:4px 0}
@@ -145,6 +146,24 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-carousel-dots{display:flex;justify-content:center;gap:6px;margin-top:8px}
 .g-carousel-dots button{width:7px;height:7px;border-radius:50%;background:#C9D4EE;border:0;padding:0;cursor:pointer}
 .g-carousel-dots button.on{background:#2E4FA6;width:16px;border-radius:4px}
+
+/* 캐러셀 사진마다 아래에 캡션을 따로 달 때 — img를 .g-carousel-item으로 한 번 감싼다.
+   감싸지 않은 옛 캐러셀(캡션 없음)은 위 .g-carousel-track img 규칙이 그대로 적용된다. */
+.g-carousel-item{flex:0 0 85%;max-width:85%;scroll-snap-align:center}
+.g-carousel-item img{display:block;width:100%;margin:0;border-radius:14px;cursor:zoom-in}
+.g-carousel-item .cap{text-align:center;margin-top:8px;font-size:13px;font-weight:700;color:#4B5B82}
+
+/* 자습/재시험/중등예비시험처럼 제목+짧은 설명이 같이 들어가는 안내 카드 */
+.g-infogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:14px}
+.g-infocard{background:#DCEEF5;border-radius:14px;padding:14px}
+.g-infocard b{display:block;font-size:14.5px;color:#1C2A4A;margin-bottom:4px}
+.g-infocard p{margin:0;font-size:13px;color:#4B5B82;line-height:1.5}
+
+/* "15분 전까지"처럼 큰 숫자 + 설명을 가로로 나란히 두는 안내 박스 */
+.g-timebox{display:flex;align-items:center;gap:14px;margin-top:14px;background:#FFEFC2;border-radius:14px;padding:16px 18px}
+.g-timebox .num{font-size:26px;font-weight:800;color:#8A6200;flex-shrink:0}
+.g-timebox .body b{display:block;font-size:14.5px;color:#4A3300;margin-bottom:2px}
+.g-timebox .body p{margin:0;font-size:13px;color:#6A4800;line-height:1.5}
 
 /* 네모칸 = 위치만 잡는 바깥 틀(g-box-wrap) + 실제 글이 들어가는 안쪽(g-box).
    손잡이·삭제 버튼을 글자 바로 옆(같은 편집 영역 안)에 두면 한글 입력(IME) 중에
