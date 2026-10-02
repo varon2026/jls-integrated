@@ -158,10 +158,15 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-carousel-dots button{width:7px;height:7px;border-radius:50%;background:#C9D4EE;border:0;padding:0;cursor:pointer}
 .g-carousel-dots button.on{background:#2E4FA6;width:16px;border-radius:4px}
 
+/* 초등/중등 교재 안내를 옅은 하늘색 박스로 한 번 더 감싼다 (남동탄 참고 화면) —
+   뱃지+설명칸+사진이 하나의 덩어리라는 걸 한눈에 보여준다 */
+.g-levelbox{background:#DCEEF5;border-radius:16px;padding:18px;margin-top:16px}
+.g-levelbox:first-child{margin-top:0}
+.g-levelbox .g-grid2 li{background:#fff}
+
 /* 초등/중등처럼 레벨 뱃지 + 교재 이름을 나란히 두는 소제목 — .g-sec h3 대신 쓴다 */
-.g-levelhead{display:flex;align-items:center;gap:10px;margin:18px 0 10px}
-.g-levelhead:first-child{margin-top:0}
-.g-level-tag{background:#1C2A4A;color:#fff;font-weight:800;font-size:13px;border-radius:999px;padding:6px 14px;flex-shrink:0}
+.g-levelhead{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.g-level-tag{background:#3E66D6;color:#fff;font-weight:800;font-size:13px;border-radius:999px;padding:6px 14px;flex-shrink:0}
 .g-levelhead b{font-size:22px;color:#1C2A4A;font-weight:800}
 
 /* 캐러셀 사진마다 아래에 캡션을 따로 달 때 — img를 .g-carousel-item으로 한 번 감싼다.
