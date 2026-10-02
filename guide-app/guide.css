@@ -158,16 +158,24 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-carousel-dots button{width:7px;height:7px;border-radius:50%;background:#C9D4EE;border:0;padding:0;cursor:pointer}
 .g-carousel-dots button.on{background:#2E4FA6;width:16px;border-radius:4px}
 
-/* 초등/중등 교재 안내를 옅은 하늘색 박스로 한 번 더 감싼다 (남동탄 참고 화면) —
-   뱃지+설명칸+사진이 하나의 덩어리라는 걸 한눈에 보여준다 */
-.g-levelbox{background:#DCEEF5;border-radius:16px;padding:18px;margin-top:16px}
+/* 초등/중등 교재 안내를 옅은 하늘색 박스로 한 번 더 감싼다 — 남동탄 실제 사이트에서
+   개발자도구로 직접 뽑은 색·여백 값 그대로 (추측으로 비슷한 색 쓰지 않음) */
+.g-levelbox{background:#D7F1F7;border-radius:18px;padding:16px;margin-top:16px}
 .g-levelbox:first-child{margin-top:0}
-.g-levelbox .g-grid2 li{background:#fff}
 
 /* 초등/중등처럼 레벨 뱃지 + 교재 이름을 나란히 두는 소제목 — .g-sec h3 대신 쓴다 */
 .g-levelhead{display:flex;align-items:center;gap:10px;margin:0 0 12px}
-.g-level-tag{background:#3E66D6;color:#fff;font-weight:800;font-size:13px;border-radius:999px;padding:6px 14px;flex-shrink:0}
-.g-levelhead b{font-size:22px;color:#1C2A4A;font-weight:800}
+.g-level-tag{background:#204FA1;color:#fff;font-weight:700;font-size:12px;border-radius:999px;padding:2px 10px;flex-shrink:0}
+.g-levelhead b{font-family:"Jua",sans-serif;font-size:20px;font-weight:400;color:#0B2358}
+
+/* "단어 시험지 — 각 Lesson 페이지의 오른쪽"처럼 항목명·설명을 한 줄씩 세로로 쌓는 표.
+   .g-grid2(여러 칸이 가로로 나란히 배치되는 그리드)를 잘못 써서 남동탄처럼 한 줄씩
+   쌓이지 않고 칸끼리 옆으로 붙어버렸던 문제를 고친 것 — 구조 자체가 달랐다. */
+.g-attlist{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.g-attrow{display:grid;grid-template-columns:118px 1fr;gap:10px;background:#fff;border-radius:12px;padding:9px 12px}
+.g-attrow .k{font-size:14.5px;font-weight:700;color:#204FA1}
+.g-attrow .v{font-size:14.5px;color:#0B2358}
+.g-attrow .v small{display:block;margin-top:3px;font-size:12.5px;color:#4B5E88}
 
 /* 캐러셀 사진마다 아래에 캡션을 따로 달 때 — img를 .g-carousel-item으로 한 번 감싼다.
    감싸지 않은 옛 캐러셀(캡션 없음)은 위 .g-carousel-track img 규칙이 그대로 적용된다. */
