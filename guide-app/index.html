@@ -101,6 +101,7 @@ function renderToolbar(){
       '<button onclick="insertBadge()">🏷 배지</button>'+
       '<label class="g-colorlbl">배경색 <input type="color" oninput="applyBoxBg(this.value)" value="#ffffff"></label>'+
       '<label class="g-colorlbl">글자색 <input type="color" oninput="applyTextColor(this.value)" value="#1C2A4A"></label>'+
+      '<button onclick="applyBold()"><b>B</b> 굵게</button>'+
       '<select onchange="applyFontSize(this.value);this.selectedIndex=0">'+
         '<option value="">글씨크기</option><option value="13">작게</option><option value="16">보통</option><option value="20">크게</option><option value="28">아주크게</option>'+
       '</select>'+
@@ -462,6 +463,11 @@ function wrapSelectionStyle(styleStr){
     document.execCommand('insertHTML', false, '<span style="'+styleStr+'">'+escG(sel.toString())+'</span>');
   }
 }
+
+function applyBold(){
+  wrapSelectionStyle('font-weight:800');
+}
+window.applyBold = applyBold;
 
 function applyFontSize(px){
   if(!px) return;
