@@ -130,7 +130,10 @@ function stPop(el){
 }
 function stColHtml(words, c, step){
   var showKo = (c % 2 === 0);
-  var state = c < step ? 'hidden' : (c === step ? 'now' : 'blank');
+  /* 지금 칸만 보이는 게 아니라, "바로 직전 칸 + 지금 칸" 두 개가 짝으로 함께
+     보인다 — 영어를 쓸 때 바로 앞 뜻 칸을 보면서 써야 하기 때문. 그보다
+     앞 칸들은 이미 접어 넘긴 것처럼 가려진다. */
+  var state = (c === step) ? 'now' : (c === step - 1) ? 'show' : (c < step) ? 'hidden' : 'blank';
   var rows = words.map(function(w, i){
     var isBadDemo = (c === 1 && i === ST_BAD_ROW);
     if(isBadDemo){
@@ -147,6 +150,7 @@ function stBuild(box){
   });
   box.dataset.words = JSON.stringify(words);
   box.innerHTML =
+    '<h4 class="g-st-title">4칸 접기 Self-test 따라하기</h4>'+
     '<div class="g-st-hint"><span class="g-st-tap">👆</span> 좋아요! 한 칸 쓰고 <b>바로 채점</b>, 그다음 칸으로</div>'+
     '<div class="g-st-tabs">'+ST_TAB_LABELS.map(function(l,i){
       return '<button type="button" data-jump="'+i+'"><i>'+(i+1)+'</i>'+l+'</button>';

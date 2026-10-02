@@ -176,6 +176,7 @@ body.g-has-toolbar .g-tabs{top:48px}
    뭘 적을 차례인지" 보여주는 안내용이라, 저장된 글(innerHTML)엔 <script>가 못 돌아서
    wireSelfTest()(render.js)가 이 구조를 찾아서 동작을 붙인다. */
 .g-selftest{background:#E7ECFB;border-radius:16px;padding:18px;margin-top:14px}
+.g-st-title{font-family:"Jua",sans-serif;font-size:17px;color:#1C2A4A;margin:0 0 10px}
 .g-st-hint{display:flex;align-items:center;gap:8px;font-size:13.5px;color:#4B5B82;margin:0 0 12px}
 @keyframes g-st-tap{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
 .g-st-tap{display:inline-block;animation:g-st-tap 1.3s ease-in-out infinite}
