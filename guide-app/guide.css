@@ -73,7 +73,7 @@ body.g-has-toolbar .g-tabs{top:48px}
 
 .g-grid2{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
 .g-grid2 li{background:#F1F4FC;border-radius:12px;padding:8px 12px;font-size:14px}
-.g-grid2.mint li{background:#DFF5F5;padding:12px;font-weight:700}
+.g-grid2.mint li{background:#DFF5F5;padding:12px;font-weight:700;text-align:center}
 
 .g-steps{list-style:none;margin:14px 0 0;padding:0;counter-reset:s}
 .g-steps li{counter-increment:s;position:relative;padding:2px 0 16px 42px}
@@ -214,6 +214,13 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-mini-table td b{font-weight:800}
 /* 표 안에 쓰는 작은 분홍 뱃지 — "100% 만점"의 "만점"처럼 강조할 말에 붙인다 */
 .g-mt-badge{display:inline-block;background:#FCD9DC;color:#9A2E3E;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;margin-left:4px;vertical-align:1px}
+
+/* 진한 바탕 + 작은 동그라미 점이 붙는 강조 뱃지 — "clue 표시!"처럼 꼭 봐야 하는 말에 쓴다 */
+.g-badge-dot{display:inline-flex;align-items:center;gap:5px;background:#E0506E;color:#fff;font-size:11px;font-weight:800;border-radius:999px;padding:3px 10px 3px 8px;margin-left:4px;vertical-align:1px}
+.g-badge-dot::before{content:"";width:5px;height:5px;border-radius:50%;background:#fff;flex-shrink:0}
+
+/* 문장 속에서 꼭 지켜야 할 말을 붉은 글씨로 강조할 때 — .g-note.warn의 "!"와 같은 색 */
+.g-red{color:#E0506E}
 /* 스케치북(스프링노트) 느낌 — 특정 그림을 베낀 게 아니라 점선 구멍 + 스프링을 표현하는
    일반적인 CSS 기법(radial-gradient 반복)을 우리 색으로 새로 그린 것 */
 .g-box-sketch{background:#fff;border:1px solid #D6DEF2;margin-top:24px}
