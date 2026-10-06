@@ -2456,7 +2456,7 @@ function renderWonmuBody(){
 
 /* 신입생 안내 — 같은 화면 안에서 연다. 분원관리자는 편집기, 본사관리자는 분원을 골라 학부모 화면 */
 function renderGuideFrame(body){
-  const back='<div class="lt-back" onclick="wonmuGo('hub')">‹ 원무 홈</div>';
+  const back='<div class="lt-back" onclick="wonmuGo(\'hub\')">‹ 원무 홈</div>';
   const frameStyle='width:100%;height:calc(100vh - 150px);min-height:620px;border:0;border-radius:14px;background:#fff';
   if(session.role==='branch'){
     try{ sessionStorage.setItem('jls_branch', session.branchId); }catch(e){}
