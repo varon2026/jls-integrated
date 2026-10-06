@@ -2448,9 +2448,27 @@ function renderWonmuBody(){
   if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
   else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
   else if(v==='award'){ if(cr) cr.innerHTML=`${home} › <b>시상관리</b>`; renderAward(body); }
+  else if(v==='guide'){ if(cr) cr.innerHTML=`${home} › <b>신입생 안내</b>`; renderGuideFrame(body); }
   else if(v==='booking'){ if(cr) cr.innerHTML=`${home} › <span class="cl" onclick="wonmuGo('leveltest')">레벨테스트</span> › <b>예약 입력</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'leveltest\')">‹ 레벨테스트로</div><div id="bkInner"></div>'; renderBooking($('bkInner')); }
   else if(v==='exam'){ if(cr) cr.innerHTML='<b>원무</b>'; wonmuState.view='hub'; renderWonmuHub(body); openExam(); }
   else { if(cr) cr.innerHTML='<b>원무</b>'; renderWonmuHub(body); }
+}
+
+/* 신입생 안내 — 같은 화면 안에서 연다. 분원관리자는 편집기, 본사관리자는 분원을 골라 학부모 화면 */
+function renderGuideFrame(body){
+  const back='<div class="lt-back" onclick="wonmuGo('hub')">‹ 원무 홈</div>';
+  const frameStyle='width:100%;height:calc(100vh - 150px);min-height:620px;border:0;border-radius:14px;background:#fff';
+  if(session.role==='branch'){
+    try{ sessionStorage.setItem('jls_branch', session.branchId); }catch(e){}
+    body.innerHTML=back+`<iframe src="guide-app/index.html?embed=1" style="${frameStyle}" title="신입생 안내 편집"></iframe>`;
+    return;
+  }
+  const brs=branchList();
+  const pick=wonmuState.guideBranch || (brs[0] && brs[0].id);
+  wonmuState.guideBranch=pick;
+  const chips=brs.map(x=>{ const on=x.id===pick; return `<button onclick="wonmuState.guideBranch='${x.id}';renderWonmuBody()" style="border:0;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;background:${on?'#2E4FA6':'#EEF2FB'};color:${on?'#fff':'#2E4FA6'}">${esc(x.name)}</button>`; }).join('');
+  body.innerHTML=back+`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 12px">${chips}</div>`
+    +`<iframe src="guide.html?branch=${encodeURIComponent(pick)}" style="${frameStyle}" title="신입생 안내"></iframe>`;
 }
 
 /* ---------- 원무 홈(허브): 레벨테스트 / 인원현황 두 카드 ---------- */
@@ -2767,15 +2785,10 @@ function renderWonmuHub(b){
     <div class="hc-foot"><span class="l">담임이 반배정표에서 바로 선택</span><span class="r"><span class="b">분원 관리자가 확인</span></span></div></div>`;
   }
 
-  // 신입생 안내 — 분원관리자는 자기 분원 페이지를 편집, 본사관리자는 분원별로 학부모 화면을 보기만 한다
-  if(session.role==='branch'){
-    h+=`<div class="hub-card" onclick="window.open('guide-app/index.html?branch=${encodeURIComponent(session.branchId)}','_blank')">
-      <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>신입생 안내 편집</h3><p>우리 분원 신입생 안내 페이지를 고쳐요</p></div><div class="hc-go">편집하기 ›</div></div></div>`;
-  }
-  if(session.role==='admin'){
-    h+=`<div class="hub-card"><div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>신입생 안내 보기</h3><p>분원을 골라 학부모님 화면으로 봐요</p></div></div>`
-      + brs.map(x=>`<a href="guide.html?branch=${encodeURIComponent(x.id)}" target="_blank" rel="noopener" style="display:inline-block;margin:6px 6px 0 0;padding:6px 12px;border-radius:999px;background:#EEF2FB;color:#2E4FA6;font-weight:700;font-size:13px;text-decoration:none">${esc(x.name)} ↗</a>`).join('')
-      + `</div>`;
+  // 신입생 안내 — 분원관리자는 자기 분원 편집, 본사관리자는 분원을 골라 학부모 화면 보기
+  if(session.role==='branch' || session.role==='admin'){
+    h+=`<div class="hub-card" onclick="wonmuGo('guide')">
+      <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>신입생 안내</h3><p>${session.role==='branch'?'우리 분원 신입생 안내 페이지를 고쳐요':'분원을 골라 학부모님 화면으로 봐요'}</p></div><div class="hc-go">들어가기 ›</div></div></div>`;
   }
   h+=`</div>`;
   b.innerHTML=h;
