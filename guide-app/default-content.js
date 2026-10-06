@@ -20,8 +20,11 @@ var GUIDE_BLOG_URLS = {
 };
 
 var GUIDE_ENTRY_MODE = {
-  'br_namdt': 'pad'
+  'br_namdt': 'pad',
+  'br_suwon': 'suwon'
 };
+
+var GUIDE_SUWON_ENTRY_HTML = "<div class=\"g-sec\" data-tab=\"exam\"><h2><span class=\"n\">08</span>입실 방법</h2><ol class=\"g-steps\"><li><strong>입실 버튼을 누르고 이름 입력하기</strong><small>STaRT Room 패드에서 <b>입실</b>(들어올 때)을 누르고 이름을 입력해요.</small><figure class=\"g-entry-fig\"><img src=\"https://hplndiuoohantbalixwu.supabase.co/storage/v1/object/public/guide-images/seosuwonjls/suwon-start-1.webp\" alt=\"STaRT Room 입실 화면\"><figcaption>입실 화면 · 이름 입력하기</figcaption></figure></li><li><strong>이름과 휴대폰 번호 뒤 4자리 입력</strong><small>이름과 휴대폰 번호 뒤 4자리를 입력하고 <b>확인</b>을 눌러요.</small><figure class=\"g-entry-fig\"><img src=\"https://hplndiuoohantbalixwu.supabase.co/storage/v1/object/public/guide-images/seosuwonjls/suwon-start-2.webp\" alt=\"이름과 번호 입력 화면\"><figcaption>이름과 번호 뒤 4자리 입력</figcaption></figure></li><li><strong>입실 완료, 내 자리 확인</strong><small>화면에 나온 자리 번호를 확인하고, 깜빡이는 좌석에 앉아 주세요.</small><figure class=\"g-entry-fig\"><img src=\"https://hplndiuoohantbalixwu.supabase.co/storage/v1/object/public/guide-images/seosuwonjls/suwon-start-3.webp\" alt=\"입실 완료 화면\"><figcaption>입실 완료 · 배정된 자리 번호 확인</figcaption></figure></li><li><strong>나갈 때는 퇴실, 잠깐 나갈 때는 외출·복귀</strong><small>집에 갈 때는 <b>퇴실</b>, 잠시 나갔다 올 때는 <b>외출·복귀</b>를 눌러요.</small></li></ol></div>";
 
 var GUIDE_PAD_ENTRY_HTML = "<div class=\"g-sec\" data-tab=\"exam\"><h2><span class=\"n\">08</span>입실 방법</h2><figure class=\"g-entry-fig\"><img src=\"https://hplndiuoohantbalixwu.supabase.co/storage/v1/object/public/guide-images/seosuwonjls/entry-pad-photo.webp\" alt=\"STaRT Room 패드 입실체크\"><figcaption>STaRT Room에 들어오면 먼저 패드에서 입실체크</figcaption></figure><ol class=\"g-steps\"><li><strong>패드에서 입실체크</strong><small>패드에서 <b>입실</b>을 누르고 뒷번호 4자리를 입력하면 자리가 자동으로 배정되고, 화면에서 내 자리가 깜빡여요. 나갈 때는 <b>퇴실</b>, 잠깐 나갔다 올 때는 <b>외출·복귀</b>를 눌러요.</small><figure class=\"g-entry-fig\"><img src=\"https://hplndiuoohantbalixwu.supabase.co/storage/v1/object/public/guide-images/seosuwonjls/entry-pad-ui.webp\" alt=\"입실 패드 화면\"><figcaption>입실 패드 화면 · 번호 입력 후 배정된 자리 확인</figcaption></figure></li><li><strong>이용 목적 확인</strong><small>자습, 재시험, 예비시험 중 오늘 온 목적에 맞게 이용합니다.</small></li><li><strong>휴대폰 제출</strong><small>지정된 보관 장소에 제출합니다. 온라인 과제 확인이나 온라인 단어장 이용 등 학습에 필요할 때는 안내에 따라 사용할 수 있어요.</small></li></ol></div>";
 
@@ -30,10 +33,11 @@ var GUIDE_TEMPLATE_HTML = "<div class=\"g-flow\" data-tab=\"parent\"><svg class=
 function guideDefaultHtml(branchName, blogUrl, entryMode){
   var name = branchName || '우리';
   var html = GUIDE_TEMPLATE_HTML;
-  if(entryMode === 'pad'){
+  var entry = entryMode === 'pad' ? GUIDE_PAD_ENTRY_HTML : entryMode === 'suwon' ? GUIDE_SUWON_ENTRY_HTML : null;
+  if(entry){
     var a = html.indexOf("<div class=\"g-sec\" data-tab=\"exam\"><h2><span class=\"n\">08</span>입실 방법</h2>");
     var b = html.indexOf("<div class=\"g-sec\" data-tab=\"exam\"><h2><span class=\"n\">09</span>", a);
-    html = html.slice(0, a) + GUIDE_PAD_ENTRY_HTML + html.slice(b);
+    html = html.slice(0, a) + entry + html.slice(b);
   }
   html = html.split('서수원').join(name);
   if(blogUrl) html = html.replace('class="g-naverbtn" href="#"', 'class="g-naverbtn" href="' + blogUrl + '"');
