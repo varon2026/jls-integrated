@@ -107,6 +107,15 @@ function wireBbCarousels(rootEl){
   if(rootEl.dataset.bbWired) return;
   rootEl.dataset.bbWired = '1';
   rootEl.addEventListener('click', function(e){
+    var go = e.target.closest('[data-goto]');
+    if(go){
+      e.preventDefault();
+      var tabBtn = rootEl.querySelector('button[data-tab="' + go.dataset.goto + '"]');
+      if(tabBtn) tabBtn.click();
+      var dest = rootEl.querySelector('#' + go.dataset.anchor);
+      if(dest) dest.scrollIntoView({behavior:'smooth', block:'start'});
+      return;
+    }
     var nav = e.target.closest('.g-bb-nav');
     if(nav){
       var track = nav.parentElement.querySelector('.g-bb-track');
