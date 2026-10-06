@@ -382,3 +382,5 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-app2 b{display:block;font-size:16.5px;color:#0B2358;font-weight:700}
 .g-app2 p{margin:4px 0 0;font-size:14px;color:#4B5E88}
 @media (max-width:520px){.g-app2,.g-camptime{grid-template-columns:1fr}}
+
+@media (max-width:520px){.g-attrow{grid-template-columns:1fr;gap:4px}}
