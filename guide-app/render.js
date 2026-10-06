@@ -102,6 +102,26 @@ function wireCarousels(rootEl){
   });
 }
 
+/* 학원 생활 — 좋은 예시 캐러셀: ‹ › 화살표로 한 장씩 넘기고, ACE/CHESS 전환 */
+function wireBbCarousels(rootEl){
+  if(rootEl.dataset.bbWired) return;
+  rootEl.dataset.bbWired = '1';
+  rootEl.addEventListener('click', function(e){
+    var nav = e.target.closest('.g-bb-nav');
+    if(nav){
+      var track = nav.parentElement.querySelector('.g-bb-track');
+      if(track) track.scrollBy({left: (nav.classList.contains('next') ? 1 : -1) * track.clientWidth, behavior:'smooth'});
+      return;
+    }
+    var sw = e.target.closest('.g-bb-switch button');
+    if(sw){
+      var wrap = sw.closest('.g-bb-switch').parentElement;
+      wrap.querySelectorAll('.g-bb-switch button').forEach(function(b){ b.classList.toggle('on', b === sw); });
+      wrap.querySelectorAll('.g-bb-carousel').forEach(function(c){ c.hidden = c.dataset.set !== sw.dataset.set; });
+    }
+  });
+}
+
 /* Self-test 4칸 접기 위젯 — 1칸 뜻 → 2칸 영어 → 3칸 뜻 → 4칸 영어, 네 칸을 한
    화면에 나란히 두고 지나온 칸은 접힌(빗금) 모습으로, 지금 칸은 테두리로,
    아직 안 지나온 칸은 빈 칸으로 보여준다. 실제 채점은 학생이 공책에 직접
@@ -249,6 +269,7 @@ function splitIntoTabs(rootEl, html){
   wireLightbox(rootEl);
   wireCarousels(rootEl);
   wireSelfTest(rootEl);
+  wireBbCarousels(rootEl);
 }
 
 /* 편집기 전용: 4개 패널에 나뉜 내용을 다시 하나의 HTML로 합친다 (저장용) */
