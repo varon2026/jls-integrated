@@ -39,7 +39,13 @@ function buildGuideShell(rootEl, name, heroImageUrl){
       '<span class="brand">'+escG(name)+' JLS</span>'+
       '<div class="welcome">Welcome to JLS!</div>'+
       '<h1 class="g-disp">신입생 안내</h1>'+
-      '<p>처음 학원을 이용하시는 학부모님과 학생들을 위한 안내입니다. 아래 탭에서 필요한 내용을 골라 보세요.</p></div>'+
+      '<p>처음 학원을 이용하시는 학부모님과 학생들을 위한 안내입니다. 아래 탭에서 필요한 내용을 골라 보세요.</p>'+
+      '<div class="g-quick">'+
+        '<button data-goto="parent">무엇부터 해야 하지?</button>'+
+        '<button data-goto="student">숙제는 어디서 하지?</button>'+
+        '<button data-goto="exam">시험은 언제 보지?</button>'+
+        '<button data-goto="exam">재시험은 어떻게 하지?</button>'+
+      '</div></div>'+
     '<nav class="g-tabs"><div class="g-tabs-inner">'+tabsHtml+'</div></nav>'+
     '<div class="g-wrap">'+panelsHtml+'</div>'+
     '<div class="g-footer">'+escG(name)+' JLS</div>';
@@ -112,7 +118,7 @@ function wireBbCarousels(rootEl){
       e.preventDefault();
       var tabBtn = rootEl.querySelector('button[data-tab="' + go.dataset.goto + '"]');
       if(tabBtn) tabBtn.click();
-      var dest = rootEl.querySelector('#' + go.dataset.anchor);
+      var dest = go.dataset.anchor ? rootEl.querySelector('#' + go.dataset.anchor) : rootEl.querySelector('.g-tabs');
       if(dest) dest.scrollIntoView({behavior:'smooth', block:'start'});
       return;
     }
