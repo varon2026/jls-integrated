@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>신입생 안내 · JLS</title>
-<link rel="stylesheet" href="guide-app/guide.css?v=32">
-<script src="guide-app/default-content.js?v=32"></script>
-<script src="guide-app/render.js?v=32"></script>
+<link rel="stylesheet" href="guide-app/guide.css?v=33">
+<script src="guide-app/default-content.js?v=33"></script>
+<script src="guide-app/render.js?v=33"></script>
 </head>
 <body>
 <div id="g-root"></div>
@@ -38,7 +38,7 @@ function paintGuide(branchCode, html, heroImageUrl){
   sb.from('branch_guides').select('content_html,hero_image_url').eq('branch_id', branch).maybeSingle()
     .then(function(res){
       var html = res.data && res.data.content_html;
-      if(!html){ html = guideDefaultHtml(GUIDE_BRANCH_NAMES[branch], GUIDE_BLOG_URLS[branch]); }
+      if(!html){ html = guideDefaultHtml(GUIDE_BRANCH_NAMES[branch], GUIDE_BLOG_URLS[branch], GUIDE_ENTRY_MODE[branch]); }
       paintGuide(branch, html, res.data && res.data.hero_image_url);
     })
     .catch(function(){ paintEmpty('페이지를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'); });
