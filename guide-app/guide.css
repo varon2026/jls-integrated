@@ -396,3 +396,8 @@ body.g-has-toolbar .g-tabs{top:48px}
   .g-flow .chips li{font-size:13px;flex:none}
   .g-flow .chips li b{padding:6px 11px}
 }
+
+/* 히어로의 빠른 질문 버튼 — 누르면 해당 탭으로 이동 */
+.g-quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:520px;margin:18px auto 0}
+.g-quick button{border:0;background:#fff;color:#1C2A4A;border-radius:999px;padding:12px 14px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 2px 0 rgba(28,42,74,.15)}
+@media (max-width:520px){.g-quick{grid-template-columns:1fr 1fr;gap:8px}.g-quick button{font-size:14px;padding:11px 10px}}
