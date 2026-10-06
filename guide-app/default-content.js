@@ -95,13 +95,11 @@ function guideDefaultHtml(branchName){
   + '<ul class="g-grid2"><li>자습</li><li>재시험</li><li>예비시험</li></ul></div>'
 
   + '<div class="g-sec" data-tab="exam"><h2><span class="n">04</span>입실 방법</h2>'
-  + '<p>(이 분원의 STaRT Room 입실 절차를 적어주세요. 패드로 입실체크하는 방식인지, 다른 방식인지 분원마다 다를 수 있어요.)</p>'
   + '<ol class="g-steps">'
-  + '<li><strong>입실 체크</strong><small>여기에 입실 체크 방법을 적어주세요.</small></li>'
+  + '<li><strong>본인 이름을 STaRT 선생님께 말하기</strong><small>입실할 때 이름을 직접 말씀드려요.</small></li>'
   + '<li><strong>이용 목적 확인</strong><small>자습·재시험·예비시험 중 오늘 온 목적에 맞게 이용해요.</small></li>'
   + '<li><strong>휴대폰 제출</strong><small>지정된 보관 장소에 제출해요.</small></li>'
   + '</ol>'
-  + '<p style="margin-top:8px;font-size:13px;color:#6B7BA0">STaRT Room을 운영하지 않는 분원이면 이 섹션을 지우거나 자습실 안내로 바꿔주세요.</p>'
   + '</div>'
 
   + '<div class="g-sec" data-tab="exam"><h2><span class="n">05</span>통과한 시험지는 교재에 붙이기</h2>'
