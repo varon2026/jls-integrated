@@ -45,7 +45,14 @@ function buildGuideShell(rootEl, name, heroImageUrl){
         '<button data-goto="student">숙제는 어디서 하지?</button>'+
         '<button data-goto="exam">시험은 언제 보지?</button>'+
         '<button data-goto="exam">재시험은 어떻게 하지?</button>'+
-      '</div></div>'+
+      '</div>'+
+      '<div class="g-hero-chars" aria-hidden="true">'+
+        '<span class="c" style="background:#FFB3B5"><b class="e"><i></i><i></i></b></span>'+
+        '<span class="c y" style="background:#F9EDB0"><b class="e"><i></i><i></i></b></span>'+
+        '<span class="c p" style="background:#C0A3D8"><b class="e"><i></i><i></i></b></span>'+
+        '<span class="c spiky" style="background:#E8693A"><b class="e"><i></i><i></i></b></span>'+
+      '</div>'+
+      '</div>'+
     '<nav class="g-tabs"><div class="g-tabs-inner">'+tabsHtml+'</div></nav>'+
     '<div class="g-wrap">'+panelsHtml+'</div>'+
     '<div class="g-footer">'+escG(name)+' JLS</div>';
