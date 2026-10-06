@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>신입생 안내 관리</title>
-<link rel="stylesheet" href="guide.css?v=21">
-<script src="default-content.js?v=21"></script>
-<script src="render.js?v=21"></script>
+<link rel="stylesheet" href="guide.css?v=22">
+<script src="default-content.js?v=22"></script>
+<script src="render.js?v=22"></script>
 <style>
 .g-login{max-width:360px;margin:80px auto;padding:0 20px;text-align:center}
 .g-login input{width:100%;padding:12px;border:1px solid #D6DEF2;border-radius:10px;font-size:15px;margin-top:10px}
@@ -39,7 +39,7 @@ function paintLogin(err){
   document.getElementById('g-root').innerHTML =
     '<div class="g-login"><h2 class="g-disp">신입생 안내 관리</h2>'+
     '<p style="color:#6B7BA0;font-size:14px">통합관리 시스템에서 들어오면 자동으로 로그인돼요.<br>여기서 직접 열었다면 분원 코드를 입력해 주세요.</p>'+
-    '<input id="g-code" placeholder="분원 코드 (예: seosuwonjls)">'+
+    '<input id="g-code" placeholder="분원 코드 (예: br_seosuwon)">'+
     '<button onclick="manualLogin()">열기</button>'+
     '<div class="err">'+escG(err||'')+'</div></div>';
 }

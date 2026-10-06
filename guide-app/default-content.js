@@ -4,14 +4,13 @@
    남겨뒀으니, 각 분원이 자기 사정에 맞게 고쳐야 한다. */
 
 var GUIDE_BRANCH_NAMES = {
-  'baronbooks':       '바론',
-  'namdongtanjls':     '남동탄',
-  'suwon_jls':         '수원',
-  'suwonjls2009':      '장안',
-  'seosuwonjls':       '서수원',
-  'unjeongjls':        '운정1',
-  'unjeongjls2':       '운정2',
-  'asantangjeongjls':  '아산탕정'
+  'br_seosuwon':       '서수원',
+  'br_namdt':          '남동탄',
+  'br_jangan':         '장안',
+  'br_suwon':          '수원',
+  'br_unjeong1':       '운정1',
+  'br_unjeong2':       '운정2',
+  'br_22jcktj':        '아산탕정'
 };
 
 function guideDefaultHtml(branchName){
