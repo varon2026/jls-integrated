@@ -7658,7 +7658,7 @@ ${fmtKDate(f.date)||'(등원일)'}부터 시작하는 ${f.semShort} 등록 확�
  
 # 학기 시작 전 진행되어야 하는 사항
 신규생 가이드
-https://varon2026.github.io/jls-integrated/guide.html?branch=${encodeURIComponent(session.branchId||'')}
+${session.branchId==='br_namdt' ? 'https://yayaya9404-star.github.io/jls-guide/' : 'https://varon2026.github.io/jls-integrated/guide.html?branch='+encodeURIComponent(session.branchId||'')}
 1. 정상어학원 사이트 가입
 - 홈페이지에 학부모님이 먼저 가입해주세요.(www.gojls.com)
 - 학부모님 가입 후 자녀추가하여 등록해 주세요. 학부모님 아이디로 로그인 하면 교재구매, 수강료 결제 가능합니다. 
