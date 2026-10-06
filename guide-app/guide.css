@@ -389,3 +389,10 @@ body.g-has-toolbar .g-tabs{top:48px}
 .g-carousel-item,.g-appshot{background:#fff;border-radius:14px;overflow:hidden}
 .g-carousel-item img,.g-appshot img{display:block;width:100%;height:300px;object-fit:contain;background:#F4F7FD;padding:8px;box-sizing:border-box;margin:0;border-radius:0;cursor:zoom-in}
 .g-carousel-item .cap,.g-appshot .cap{background:#fff;text-align:left;margin:0;padding:10px 14px 12px;font-size:15px;font-weight:400;color:#0B2358}
+
+/* 휴대폰에서는 '한눈에 보기' 칩을 밀지 않고 여러 줄로 바로 보이게 */
+@media (max-width:520px){
+  .g-flow .chips{flex-wrap:wrap;overflow:visible;gap:6px;padding:0}
+  .g-flow .chips li{font-size:13px;flex:none}
+  .g-flow .chips li b{padding:6px 11px}
+}
