@@ -2395,7 +2395,7 @@ function renderDashboard(c){
 
 /* ---------- 대시보드: 레벨테스트 퍼널 (예약→참석→등록, 분원별·월별) ---------- */
 function ltMetrics(recs){
-  let booked=recs.length, attended=0, enrolled=0, notEnr=0, failed=0, waitNext=0, noshow=0, canceled=0, parentOnly=0;
+  let booked=recs.filter(r=>r.status!=='canceled' && r.status!=='noshow').length, attended=0, enrolled=0, notEnr=0, failed=0, waitNext=0, noshow=0, canceled=0, parentOnly=0;
   recs.forEach(r=>{
     const en=r.enrolled, st=r.status;
     if(st==='canceled') canceled++;
