@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>신입생 안내 관리</title>
-<link rel="stylesheet" href="guide.css?v=23">
-<script src="default-content.js?v=23"></script>
-<script src="render.js?v=23"></script>
+<link rel="stylesheet" href="guide.css?v=24">
+<script src="default-content.js?v=24"></script>
+<script src="render.js?v=24"></script>
 <style>
 .g-login{max-width:360px;margin:80px auto;padding:0 20px;text-align:center}
 .g-login input{width:100%;padding:12px;border:1px solid #D6DEF2;border-radius:10px;font-size:15px;margin-top:10px}
@@ -61,7 +61,7 @@ function openEditor(branch){
 
   sb.from('branch_guides').select('content_html,hero_image_url').eq('branch_id', branch).maybeSingle()
     .then(function(res){
-      var html = (res.data && res.data.content_html) || guideDefaultHtml(name);
+      var html = (res.data && res.data.content_html) || guideDefaultHtml(name, GUIDE_BLOG_URLS[branch]);
       curHeroImage = (res.data && res.data.hero_image_url) || null;
       buildGuideShell(rootEl, name, curHeroImage);
       splitIntoTabs(rootEl, html);
