@@ -2767,6 +2767,16 @@ function renderWonmuHub(b){
     <div class="hc-foot"><span class="l">담임이 반배정표에서 바로 선택</span><span class="r"><span class="b">분원 관리자가 확인</span></span></div></div>`;
   }
 
+  // 신입생 안내 — 분원관리자는 자기 분원 페이지를 편집, 본사관리자는 분원별로 학부모 화면을 보기만 한다
+  if(session.role==='branch'){
+    h+=`<div class="hub-card" onclick="window.open('guide-app/index.html?branch=${encodeURIComponent(session.branchId)}','_blank')">
+      <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>신입생 안내 편집</h3><p>우리 분원 신입생 안내 페이지를 고쳐요</p></div><div class="hc-go">편집하기 ›</div></div></div>`;
+  }
+  if(session.role==='admin'){
+    h+=`<div class="hub-card"><div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>신입생 안내 보기</h3><p>분원을 골라 학부모님 화면으로 봐요</p></div></div>`
+      + brs.map(x=>`<a href="guide.html?branch=${encodeURIComponent(x.id)}" target="_blank" rel="noopener" style="display:inline-block;margin:6px 6px 0 0;padding:6px 12px;border-radius:999px;background:#EEF2FB;color:#2E4FA6;font-weight:700;font-size:13px;text-decoration:none">${esc(x.name)} ↗</a>`).join('')
+      + `</div>`;
+  }
   h+=`</div>`;
   b.innerHTML=h;
 }
