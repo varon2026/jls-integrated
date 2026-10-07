@@ -109,6 +109,15 @@ button{font:inherit;color:inherit}
 .section.alt .shot{background:var(--bg)}
 .shot img{border-radius:12px;border:1px solid var(--line);box-shadow:0 20px 50px -22px rgba(0,0,0,.35)}
 
+.format-group{display:flex;flex-direction:column;gap:14px;margin:28px 0}
+.format-card{background:var(--bg-alt);border-radius:16px;padding:22px 24px}
+.section.alt .format-card{background:var(--bg)}
+.format-tag{display:inline-block;font-size:13px;font-weight:700;color:var(--ink);background:var(--accent-pastel);padding:4px 12px;border-radius:999px;margin-bottom:14px}
+.format-pattern{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:19px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1.5}
+.format-example{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:14.5px;color:var(--muted);margin-top:10px}
+.format-legend{font-size:14px;color:var(--muted);line-height:1.8}
+.format-legend b{color:var(--ink);font-weight:700}
+
 .note{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
 .note-label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px}
 .note p{font-size:14px;line-height:1.7;color:var(--muted)}
@@ -235,6 +244,13 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
 </template>
 
 <template id="tpl-class-create">
+  <div class="jumpbar">
+    <div class="jumpbar-inner" id="jumpbar">
+      <button class="jump" data-target="cc-step-1">1. 반 생성</button>
+      <button class="jump" data-target="cc-step-2">2. 반 이름</button>
+    </div>
+  </div>
+
   <header class="hero">
     <div class="container">
       <div class="eyebrow">2장 · 반 만들기</div>
@@ -242,7 +258,7 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
     </div>
   </header>
 
-  <section class="section reveal" id="cc-step-1" style="scroll-margin-top:50px">
+  <section class="section reveal" id="cc-step-1" style="scroll-margin-top:106px">
     <div class="container">
       <div class="step-label">Step 01</div>
       <h2>분원(관)을 고르고 반 생성을 누르세요</h2>
@@ -252,6 +268,27 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
         <li><span class="howto-tag">에이스반</span>왼쪽에서 <b>ACE관</b>을 고르고 <b>반 생성</b>을 누르세요.</li>
       </ul>
       <div class="shot"><img src="img/class-create-combo.png" alt="반현황 화면 — 분원 선택 드롭다운과 반 생성 버튼을 확대해서 안내"></div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="cc-step-2" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 02</div>
+      <h2>반 이름은 이 형식대로 적어요</h2>
+      <div class="shot"><img src="img/class-create-form.png" alt="반 생성 폼 — 반 이름 입력칸 강조"></div>
+      <div class="format-group">
+        <div class="format-card">
+          <span class="format-tag">정규반</span>
+          <div class="format-pattern">[레벨] 학기부 / 요일 / 강의실</div>
+          <div class="format-example">예) [DSB1]FA1/MWF/A</div>
+        </div>
+        <div class="format-card">
+          <span class="format-tag">내신반</span>
+          <div class="format-pattern">[내신] 시간대 / 요일 / 학년 / 강의실(교과서)</div>
+          <div class="format-example">예) [내신]FA4/MWF/M3/O(천재이,미래엔문)</div>
+        </div>
+      </div>
+      <p class="format-legend">학기 <b>SP</b>봄 · <b>SU</b>여름 · <b>FA</b>가을 · <b>WI</b>겨울 (뒤에 부 번호) · 요일 <b>MWF</b>월수금 · <b>TTH</b>화목</p>
     </div>
   </section>
 </template>
