@@ -102,7 +102,7 @@ button{font:inherit;color:inherit}
 .howto-list{list-style:none;margin:0 0 34px;padding:0;display:flex;flex-direction:column;gap:16px}
 .howto-list li{display:flex;align-items:baseline;gap:12px;font-size:17.5px;line-height:1.8;color:var(--ink);flex-wrap:wrap}
 .howto-list b{font-weight:700}
-.howto-tag{flex:none;font-size:13.5px;font-weight:700;color:var(--ink);background:var(--accent-pastel);padding:5px 12px;border-radius:999px}
+.howto-tag{flex:none;display:inline-block;min-width:60px;text-align:center;font-size:13.5px;font-weight:700;color:var(--ink);background:var(--accent-pastel);padding:5px 12px;border-radius:999px}
 @media (hover:hover){ .howto-list li:hover{color:var(--accent)} }
 
 .shot{background:var(--bg-alt);border-radius:20px;padding:18px}
@@ -115,7 +115,7 @@ button{font:inherit;color:inherit}
 .format-tag{display:inline-block;font-size:13px;font-weight:700;color:var(--ink);background:var(--accent-pastel);padding:4px 12px;border-radius:999px;margin-bottom:14px}
 .format-sub{margin-top:16px}
 .format-sub:first-of-type{margin-top:0}
-.format-sub-label{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:4px}
+.format-sub-label{display:inline-block;min-width:60px;text-align:center;font-size:12.5px;font-weight:700;color:var(--ink);background:var(--accent-pastel);padding:4px 10px;border-radius:999px;margin-bottom:10px}
 .format-pattern{font-size:18px;font-weight:700;color:var(--ink);line-height:1.5}
 .format-example{font-size:14.5px;color:var(--muted);margin-top:6px}
 .format-legend{font-size:14.5px;color:var(--muted);line-height:1.9}
@@ -124,9 +124,13 @@ button{font:inherit;color:inherit}
 .field-list{display:flex;flex-direction:column;margin:28px 0}
 .field-row{padding-block:20px;border-top:1px solid var(--line)}
 .field-row:first-child{border-top:none;padding-top:0}
-.field-term{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px}
-.field-desc{font-size:15.5px;line-height:1.8;color:var(--muted)}
+.field-term{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px;transition:color .25s ease,transform .25s ease;transform-origin:left center}
+.field-desc{font-size:15.5px;line-height:1.8;color:var(--muted);transition:color .25s ease,transform .25s ease;transform-origin:left center}
 .field-desc b{color:var(--ink);font-weight:700}
+@media (hover:hover){
+  .field-row:hover .field-term{color:var(--accent);transform:scale(1.02)}
+  .field-row:hover .field-desc{color:var(--ink);transform:scale(1.008)}
+}
 
 .note{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
 .note-label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px}
@@ -258,7 +262,7 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
     <div class="jumpbar-inner" id="jumpbar">
       <button class="jump" data-target="cc-step-1">1. 반 생성</button>
       <button class="jump" data-target="cc-step-2">2. 반 이름</button>
-      <button class="jump" data-target="cc-step-3">3. 나머지 칸</button>
+      <button class="jump" data-target="cc-step-3">3. 반 정보</button>
     </div>
   </div>
 
@@ -275,8 +279,8 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
       <h2>분원(관)을 고르고 반 생성을 누르세요</h2>
       <p class="body-text">처음 로그인하면 뜨는 화면, 위쪽 고정 메뉴에서 <b>반현황</b>을 누르세요.</p>
       <ul class="howto-list">
-        <li><span class="howto-tag">체스반</span>왼쪽에서 <b>CHESS관</b>을 고르고 <b>반 생성</b>을 누르세요.</li>
-        <li><span class="howto-tag">에이스반</span>왼쪽에서 <b>ACE관</b>을 고르고 <b>반 생성</b>을 누르세요.</li>
+        <li><span class="howto-tag">CHESS</span>왼쪽에서 <b>CHESS관</b>을 고르고 <b>반 생성</b>을 누르세요.</li>
+        <li><span class="howto-tag">ACE</span>왼쪽에서 <b>ACE관</b>을 고르고 <b>반 생성</b>을 누르세요.</li>
       </ul>
       <div class="shot"><img src="img/class-create-combo.png" alt="반현황 화면 — 분원 선택 드롭다운과 반 생성 버튼을 확대해서 안내"></div>
     </div>
