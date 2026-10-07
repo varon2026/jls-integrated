@@ -145,13 +145,16 @@ footer.endnote p{font-size:13px;color:var(--muted)}
 
 .price-card{background:var(--bg-alt);border-radius:16px;padding:8px 20px;margin:14px 0 24px;overflow-x:auto}
 .section.alt .price-card{background:var(--bg)}
-.price-table{width:100%;border-collapse:collapse}
-.price-table th{text-align:left;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.03em;padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-.price-table th.num,.price-table td.num{text-align:right}
-.price-table td{font-size:16px;padding:10px;border-bottom:1px solid var(--line);color:var(--ink)}
-.price-table td.num{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.price-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.price-table th{text-align:center;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.03em;padding:12px 10px;border-bottom:1px solid var(--line)}
+.price-table th:first-child,.price-table td:first-child{text-align:left;width:46%}
+.price-table td{font-size:16px;padding:10px;border-bottom:1px solid var(--line);color:var(--ink);text-align:center}
+.price-table td.num{font-weight:600;font-variant-numeric:tabular-nums}
 .price-table tr:last-child td{border-bottom:none}
 @media (hover:hover){ .price-table tbody tr:hover td{background:var(--accent-pastel)} }
+.price-table tr.grp-a td{background:rgba(255,209,64,.3)}
+.price-table tr.grp-b td{background:rgba(94,158,214,.18)}
+.price-table tr.grp-c td{background:rgba(110,181,126,.18)}
 
 .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}
 .reveal.in{opacity:1;transform:translateY(0)}
@@ -456,13 +459,13 @@ footer.endnote p{font-size:13px;color:var(--muted)}
           <tbody>
             <tr><td>IS</td><td class="num">233,000원</td><td class="num">55,000원</td></tr>
             <tr><td>DSA</td><td class="num">263,000원</td><td class="num">55,000원</td></tr>
-            <tr><td>DSB</td><td class="num">290,000원</td><td class="num">55,000원</td></tr>
-            <tr><td>DSC</td><td class="num">290,000원</td><td class="num">55,000원</td></tr>
-            <tr><td>DSD</td><td class="num">290,000원</td><td class="num">55,000원</td></tr>
-            <tr><td>LSA</td><td class="num">310,000원</td><td class="num">55,000원</td></tr>
-            <tr><td>LSB</td><td class="num">310,000원</td><td class="num">55,000원</td></tr>
-            <tr><td>LSC</td><td class="num">310,000원</td><td class="num">65,000원</td></tr>
-            <tr><td>LSD</td><td class="num">310,000원</td><td class="num">65,000원</td></tr>
+            <tr class="grp-a"><td>DSB</td><td class="num">290,000원</td><td class="num">55,000원</td></tr>
+            <tr class="grp-a"><td>DSC</td><td class="num">290,000원</td><td class="num">55,000원</td></tr>
+            <tr class="grp-a"><td>DSD</td><td class="num">290,000원</td><td class="num">55,000원</td></tr>
+            <tr class="grp-b"><td>LSA</td><td class="num">310,000원</td><td class="num">55,000원</td></tr>
+            <tr class="grp-b"><td>LSB</td><td class="num">310,000원</td><td class="num">55,000원</td></tr>
+            <tr class="grp-c"><td>LSC</td><td class="num">310,000원</td><td class="num">65,000원</td></tr>
+            <tr class="grp-c"><td>LSD</td><td class="num">310,000원</td><td class="num">65,000원</td></tr>
             <tr><td>MSA</td><td class="num">320,000원</td><td class="num">65,000원</td></tr>
           </tbody>
         </table>
@@ -473,7 +476,7 @@ footer.endnote p{font-size:13px;color:var(--muted)}
         <table class="price-table">
           <thead><tr><th>레벨</th><th class="num">금액</th></tr></thead>
           <tbody>
-            <tr><td>HB · PA1 · PA2 · A1 · A2 · B</td><td class="num">345,000원</td></tr>
+            <tr><td>B · HB · PA1 · PA2 · A1 · A2</td><td class="num">345,000원</td></tr>
             <tr><td>MA1 · MA2 · MA3 · HA1 · HA2 · HM1 · HM2 · HM3</td><td class="num">355,000원</td></tr>
           </tbody>
         </table>
@@ -484,8 +487,7 @@ footer.endnote p{font-size:13px;color:var(--muted)}
         <table class="price-table">
           <thead><tr><th>학년</th><th class="num">금액</th></tr></thead>
           <tbody>
-            <tr><td>E5 · E6</td><td class="num">23,000원</td></tr>
-            <tr><td>M1</td><td class="num">23,000원</td></tr>
+            <tr><td>E5 · E6 · M1</td><td class="num">23,000원</td></tr>
             <tr><td>M2 · M3</td><td class="num">33,000원</td></tr>
           </tbody>
         </table>
