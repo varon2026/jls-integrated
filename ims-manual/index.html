@@ -47,9 +47,9 @@ button{font:inherit;color:inherit}
 
 /* ───────── list pane ───────── */
 .list-pane{flex:1 1 100%;display:flex;align-items:center;justify-content:flex-start;padding:14vh 20px 10vh 5vw;position:relative;transition:flex-basis .55s cubic-bezier(.2,.7,.2,1)}
-.layout.split .list-pane{flex:0 0 32%;align-items:flex-start;padding:12vh 16px 10vh 4vw;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:hidden}
+.layout.split .list-pane{flex:0 0 19%;min-width:230px;align-items:flex-start;padding:12vh 16px 10vh 3vw;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:hidden}
 .list-inner{display:flex;flex-direction:column;width:100%;max-width:900px;position:relative;isolation:isolate}
-.layout.split .list-inner{max-width:380px}
+.layout.split .list-inner{max-width:230px}
 .glow{position:absolute;left:var(--mx,-9999px);top:var(--my,-9999px);width:520px;height:520px;margin-left:-260px;margin-top:-260px;pointer-events:none;background:radial-gradient(circle,var(--accent-glow) 0%,transparent 68%);filter:blur(36px);opacity:0;transition:opacity .4s ease;z-index:0}
 .list-inner:hover .glow{opacity:1}
 
