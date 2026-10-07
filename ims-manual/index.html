@@ -121,6 +121,13 @@ button{font:inherit;color:inherit}
 .format-legend{font-size:14.5px;color:var(--muted);line-height:1.9}
 .format-legend b{color:var(--ink);font-weight:700}
 
+.field-list{display:flex;flex-direction:column;margin:28px 0}
+.field-row{padding-block:20px;border-top:1px solid var(--line)}
+.field-row:first-child{border-top:none;padding-top:0}
+.field-term{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.field-desc{font-size:15.5px;line-height:1.8;color:var(--muted)}
+.field-desc b{color:var(--ink);font-weight:700}
+
 .note{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
 .note-label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px}
 .note p{font-size:14px;line-height:1.7;color:var(--muted)}
@@ -251,6 +258,7 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
     <div class="jumpbar-inner" id="jumpbar">
       <button class="jump" data-target="cc-step-1">1. 반 생성</button>
       <button class="jump" data-target="cc-step-2">2. 반 이름</button>
+      <button class="jump" data-target="cc-step-3">3. 나머지 칸</button>
     </div>
   </div>
 
@@ -300,6 +308,36 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
         </div>
       </div>
       <p class="format-legend">학기 <b>SP</b>봄 · <b>SU</b>여름 · <b>FA</b>가을 · <b>WI</b>겨울 · 요일 <b>MWF</b>월수금 · <b>TTH</b>화목<br>부 번호는 학기 뒤에 그대로 붙여요 — 겨울학기 1부 <b>WI1</b> · 2부 <b>WI2</b><br>학년 <b>E6</b>초등6 · <b>M1</b>중등1 · <b>M2</b>중등2 · <b>M3</b>중등3</p>
+    </div>
+  </section>
+
+  <section class="section reveal" id="cc-step-3" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 03</div>
+      <h2>나머지 칸은 이렇게 채워요</h2>
+      <div class="shot"><img src="img/class-create-fields.png" alt="반 생성 폼 — 반 시작일부터 내용까지 나머지 입력칸"></div>
+      <div class="field-list">
+        <div class="field-row">
+          <div class="field-term">반 시작일</div>
+          <div class="field-desc">무조건 <b>1일</b>로 입력하세요. 수업 요일이나 공휴일과 상관없이 1일이어야 수강료 등록이 꼬이지 않아요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">반 종료일</div>
+          <div class="field-desc"><b>비워두세요.</b> 미리 넣으면 상담이력을 늦게 쓰는 선생님이 아예 못 쓰게 돼요. 반이 열려 있어야만 상담이력을 적을 수 있어요. 종강은 모든 선생님이 상담이력을 다 쓴 뒤, 날짜·시간을 미리 공지하고 한 번에 처리하세요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">교실</div>
+          <div class="field-desc">강의실 알파벳을 적으면 돼요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">기준학년</div>
+          <div class="field-desc"><b>CHESS</b>는 반에서 제일 많은 학년으로 적으세요(똑같이 많으면 아무거나). <b>ACE</b>는 학년별로 반이 나뉘니 그 학년 그대로 적으세요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">모집 정원</div>
+          <div class="field-desc">기본은 <b>15명</b>이에요. 특별한 사정이 없으면 15명으로 두세요.</div>
+        </div>
+      </div>
     </div>
   </section>
 </template>
