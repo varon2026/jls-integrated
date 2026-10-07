@@ -87,26 +87,27 @@ button{font:inherit;color:inherit}
 .eyebrow{display:inline-block;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.01em;margin-bottom:12px}
 .hero h1{font-size:clamp(28px,5vw,40px);line-height:1.1}
 
-.section{padding-block:48px}
+.section{padding-block:60px}
 .section.alt{background:var(--bg-alt)}
-.step-label{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.01em;margin-bottom:12px}
-.section h2{font-size:clamp(22px,3.6vw,28px);line-height:1.2;margin-bottom:14px;transition:color .25s ease,transform .25s ease;transform-origin:left center}
-.section .body-text{font-size:16px;line-height:1.75;color:var(--ink);opacity:.92;margin-bottom:26px;transition:color .25s ease,transform .25s ease;transform-origin:left center}
+.step-label{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.01em;margin-bottom:14px}
+.section h2{font-size:clamp(23px,3.6vw,29px);line-height:1.3;margin-bottom:20px;transition:color .25s ease,transform .25s ease;transform-origin:left center}
+.section .body-text{font-size:17.5px;line-height:1.95;color:var(--ink);opacity:.92;margin-bottom:22px;transition:color .25s ease,transform .25s ease;transform-origin:left center}
 .section .body-text b{font-weight:700}
+.section .body-text:last-of-type{margin-bottom:32px}
 @media (hover:hover){
   .section h2:hover{color:var(--accent);transform:scale(1.02)}
   .section .body-text:hover{color:var(--accent);opacity:1;transform:scale(1.008)}
 }
 
+.howto-list{list-style:none;margin:0 0 34px;padding:0;display:flex;flex-direction:column;gap:16px}
+.howto-list li{display:flex;align-items:baseline;gap:12px;font-size:17.5px;line-height:1.8;color:var(--ink);flex-wrap:wrap}
+.howto-list b{font-weight:700}
+.howto-tag{flex:none;font-size:13.5px;font-weight:700;color:var(--ink);background:var(--accent-pastel);padding:5px 12px;border-radius:999px}
+@media (hover:hover){ .howto-list li:hover{color:var(--accent)} }
+
 .shot{background:var(--bg-alt);border-radius:20px;padding:18px}
 .section.alt .shot{background:var(--bg)}
 .shot img{border-radius:12px;border:1px solid var(--line);box-shadow:0 20px 50px -22px rgba(0,0,0,.35)}
-
-.callout-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
-.callout-grid figure{margin:0}
-.callout-grid .shot{padding:16px}
-.callout-grid figcaption{text-align:center;font-size:14px;font-weight:700;color:var(--ink);margin-top:10px}
-@media (max-width:560px){ .callout-grid{grid-template-columns:1fr} }
 
 .note{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
 .note-label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px}
@@ -245,7 +246,11 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
     <div class="container">
       <div class="step-label">Step 01</div>
       <h2>분원(관)을 고르고 반 생성을 누르세요</h2>
-      <p class="body-text">학사관리 › <b>반현황</b> 화면으로 들어가세요. <b>체스반</b>을 만들고 싶으면 왼쪽 드롭다운에서 CHESS관을 고르고 반 생성을 누르고, <b>에이스반</b>을 만들고 싶으면 ACE관을 고르고 반 생성을 누르면 돼요.</p>
+      <p class="body-text">처음 로그인하면 뜨는 화면, 위쪽 고정 메뉴에서 <b>반현황</b>을 누르세요.</p>
+      <ul class="howto-list">
+        <li><span class="howto-tag">체스반</span>왼쪽에서 <b>CHESS관</b>을 고르고 <b>반 생성</b>을 누르세요.</li>
+        <li><span class="howto-tag">에이스반</span>왼쪽에서 <b>ACE관</b>을 고르고 <b>반 생성</b>을 누르세요.</li>
+      </ul>
       <div class="shot"><img src="img/class-create-combo.png" alt="반현황 화면 — 분원 선택 드롭다운과 반 생성 버튼을 확대해서 안내"></div>
     </div>
   </section>
