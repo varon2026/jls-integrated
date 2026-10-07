@@ -113,9 +113,12 @@ button{font:inherit;color:inherit}
 .format-card{background:var(--bg-alt);border-radius:16px;padding:22px 24px}
 .section.alt .format-card{background:var(--bg)}
 .format-tag{display:inline-block;font-size:13px;font-weight:700;color:var(--ink);background:var(--accent-pastel);padding:4px 12px;border-radius:999px;margin-bottom:14px}
-.format-pattern{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:19px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1.5}
-.format-example{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:14.5px;color:var(--muted);margin-top:10px}
-.format-legend{font-size:14px;color:var(--muted);line-height:1.8}
+.format-sub{margin-top:16px}
+.format-sub:first-of-type{margin-top:0}
+.format-sub-label{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:4px}
+.format-pattern{font-size:18px;font-weight:700;color:var(--ink);line-height:1.5}
+.format-example{font-size:14.5px;color:var(--muted);margin-top:6px}
+.format-legend{font-size:14.5px;color:var(--muted);line-height:1.9}
 .format-legend b{color:var(--ink);font-weight:700}
 
 .note{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
@@ -279,8 +282,16 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
       <div class="format-group">
         <div class="format-card">
           <span class="format-tag">정규반</span>
-          <div class="format-pattern">[레벨] 학기부 / 요일 / 강의실</div>
-          <div class="format-example">예) [DSB1]FA1/MWF/A</div>
+          <div class="format-sub">
+            <div class="format-sub-label">CHESS</div>
+            <div class="format-pattern">[레벨] 학기,부 / 요일 / 강의실</div>
+            <div class="format-example">예) [DSB1]FA1/MWF/A</div>
+          </div>
+          <div class="format-sub">
+            <div class="format-sub-label">ACE</div>
+            <div class="format-pattern">[레벨(개월수)] 학기,부 / 요일 / 학년 / 강의실</div>
+            <div class="format-example">예) [PA1(4-6)]FA3/MWF/E6/A</div>
+          </div>
         </div>
         <div class="format-card">
           <span class="format-tag">내신반</span>
@@ -288,7 +299,7 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
           <div class="format-example">예) [내신]FA4/MWF/M3/O(천재이,미래엔문)</div>
         </div>
       </div>
-      <p class="format-legend">학기 <b>SP</b>봄 · <b>SU</b>여름 · <b>FA</b>가을 · <b>WI</b>겨울 (뒤에 부 번호) · 요일 <b>MWF</b>월수금 · <b>TTH</b>화목</p>
+      <p class="format-legend">학기 <b>SP</b>봄 · <b>SU</b>여름 · <b>FA</b>가을 · <b>WI</b>겨울 · 요일 <b>MWF</b>월수금 · <b>TTH</b>화목<br>부 번호는 학기 뒤에 그대로 붙여요 — 겨울학기 1부 <b>WI1</b> · 2부 <b>WI2</b></p>
     </div>
   </section>
 </template>
