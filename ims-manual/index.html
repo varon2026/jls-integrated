@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iMS 매뉴얼</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap">
+<style>
+/* home = 큰 글씨로 된 메뉴 목록 하나. 항목을 누르면 그 설명 화면으로 넘어간다.
+   항목별 설명은 애플 홈페이지 느낌으로: 흰색/옅은 회색 섹션이 번갈아 나오고,
+   스크린샷은 옅은 회색 카드에 띄워서 넣는다. */
+:root{
+  --bg:#ffffff;
+  --bg-alt:#f5f5f7;
+  --ink:#1d1d1f;
+  --muted:#86868b;
+  --faint:#c7c7cc;
+  --accent:#0071e3;
+  --line:rgba(0,0,0,.09);
+  --navblur:rgba(255,255,255,.72);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#000000;--bg-alt:#1d1d1f;--ink:#f5f5f7;--muted:#98989d;--faint:#48484a;
+    --accent:#2997ff;--line:rgba(255,255,255,.13);--navblur:rgba(0,0,0,.6);color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#000000;--bg-alt:#1d1d1f;--ink:#f5f5f7;--muted:#98989d;--faint:#48484a;
+  --accent:#2997ff;--line:rgba(255,255,255,.13);--navblur:rgba(0,0,0,.6);color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:'Noto Sans KR',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+h1,h2{margin:0;text-wrap:balance;font-weight:800;letter-spacing:-.02em}
+p{margin:0}
+img{max-width:100%;display:block}
+button{font:inherit;color:inherit}
+
+/* ───────── home ───────── */
+.home{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:14vh 24px 10vh;max-width:640px;margin:0 auto}
+.home-list{display:flex;flex-direction:column}
+.home-item{all:unset;display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:26px;border-bottom:1px solid var(--line);cursor:pointer;box-sizing:border-box}
+.home-item .t{font-size:clamp(26px,6.6vw,38px);font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.home-item .chev{font-size:24px;color:var(--faint);font-weight:400;flex:none}
+@media (hover:hover){ .home-item:hover .t{color:var(--accent)} }
+.home-item:active .t{color:var(--accent)}
+.home-item.disabled{cursor:default}
+.home-item.disabled .t{color:var(--muted)}
+@media (hover:hover){ .home-item.disabled:hover .t{color:var(--muted)} }
+.home-item.disabled .soon{font-size:12.5px;font-weight:600;color:var(--muted);background:var(--bg-alt);border-radius:999px;padding:6px 12px;flex:none;white-space:nowrap}
+
+/* ───────── detail views ───────── */
+.detail{min-height:100vh}
+.back-bar{position:sticky;top:0;z-index:40;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);background:var(--navblur);border-bottom:1px solid var(--line)}
+.back-bar-inner{max-width:700px;margin:0 auto;padding-inline:24px;height:50px;display:flex;align-items:center}
+.back{all:unset;cursor:pointer;font-size:14.5px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:3px}
+
+.jumpbar{position:sticky;top:50px;z-index:39;background:var(--bg);border-bottom:1px solid var(--line)}
+.jumpbar-inner{max-width:700px;margin:0 auto;padding-inline:24px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-block:10px}
+.jumpbar-inner::-webkit-scrollbar{display:none}
+.jump{all:unset;flex:none;font-size:12.5px;font-weight:600;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 13px;cursor:pointer;white-space:nowrap;transition:color .2s,background .2s,border-color .2s;box-sizing:border-box}
+.jump.active{color:#fff;background:var(--accent);border-color:var(--accent)}
+
+.container{max-width:700px;margin:0 auto;padding-inline:24px}
+.hero{padding-block:72px 52px;text-align:center}
+.eyebrow{display:inline-block;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.01em;margin-bottom:14px}
+.hero h1{font-size:clamp(32px,6.4vw,50px);line-height:1.1}
+.hero p{font-size:clamp(16px,2.3vw,19px);line-height:1.6;color:var(--muted);max-width:50ch;margin:18px auto 0}
+
+.section{padding-block:72px}
+.section.alt{background:var(--bg-alt)}
+.step-label{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.01em;margin-bottom:12px}
+.section h2{font-size:clamp(25px,4.4vw,34px);line-height:1.18;margin-bottom:16px}
+.section .body-text{font-size:17px;line-height:1.75;color:var(--ink);opacity:.92;max-width:58ch;margin-bottom:30px}
+.section .body-text b{font-weight:700}
+
+.shot{background:var(--bg-alt);border-radius:22px;padding:22px}
+.section.alt .shot{background:var(--bg)}
+.shot img{border-radius:12px;border:1px solid var(--line);box-shadow:0 20px 50px -22px rgba(0,0,0,.35)}
+
+.note{margin-top:28px;padding-top:22px;border-top:1px solid var(--line);max-width:58ch}
+.note-label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:7px}
+.note p{font-size:14.5px;line-height:1.75;color:var(--muted)}
+.note.warn .note-label{color:#d9534f}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .note.warn .note-label{color:#ff6961} }
+:root[data-theme="dark"] .note.warn .note-label{color:#ff6961}
+
+footer.endnote{padding-block:48px;text-align:center}
+footer.endnote p{font-size:12.5px;color:var(--muted)}
+
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:translateY(0)}
+@media (prefers-reduced-motion: reduce){ .reveal{opacity:1;transform:none;transition:none} }
+
+@media (max-width:480px){
+  .home{padding-block:11vh 8vh}
+  .home-item{padding-block:20px}
+  .hero{padding-block:52px 36px}
+  .section{padding-block:52px}
+  .shot{padding:14px;border-radius:18px}
+}
+</style>
+</head>
+<body>
+
+<div id="view-home" class="home">
+  <div class="home-list">
+    <button class="home-item" data-go="login"><span class="t">로그인</span><span class="chev">›</span></button>
+    <button class="home-item disabled"><span class="t">학생상세조회</span><span class="soon">준비 중</span></button>
+    <button class="home-item disabled"><span class="t">반관리</span><span class="soon">준비 중</span></button>
+    <button class="home-item disabled"><span class="t">학생관리</span><span class="soon">준비 중</span></button>
+    <button class="home-item disabled"><span class="t">상담관리</span><span class="soon">준비 중</span></button>
+    <button class="home-item disabled"><span class="t">메시지</span><span class="soon">준비 중</span></button>
+  </div>
+</div>
+
+<div id="view-login" class="detail" hidden>
+  <div class="back-bar"><div class="back-bar-inner"><button class="back" data-back>‹ 처음으로</button></div></div>
+
+  <div class="jumpbar">
+    <div class="jumpbar-inner" id="jumpbar">
+      <button class="jump" data-target="step-1">1. 로그인</button>
+      <button class="jump" data-target="step-2">2. 인증</button>
+      <button class="jump" data-target="step-3">3. OTP 앱</button>
+      <button class="jump" data-target="step-4">4. 첫 화면</button>
+    </div>
+  </div>
+
+  <header class="hero">
+    <div class="container">
+      <div class="eyebrow">1장 · 처음 로그인하기</div>
+      <h1>iMS, 처음부터<br>차근차근</h1>
+      <p>본사에서 아이디를 받은 뒤, 아래 네 단계만 따라 하면 로그인부터 첫 화면까지 혼자 할 수 있어요.</p>
+    </div>
+  </header>
+
+  <section class="section reveal" id="step-1" style="scroll-margin-top:120px">
+    <div class="container">
+      <div class="step-label">Step 01</div>
+      <h2>아이디와 비밀번호로<br>로그인하세요</h2>
+      <p class="body-text">iMS 주소로 들어가면 이 화면이 떠요. 본사에서 발급해준 ID와 PW를 입력하고 <b>Sign in</b>을 누르세요. 아이디가 없다면 본사 담당자에게 발급을 요청하면 돼요.</p>
+      <div class="shot"><img src="img/login.png" alt="iMS 로그인 화면"></div>
+      <div class="note warn">
+        <span class="note-label">주의</span>
+        <p>아이디·비밀번호는 본인만 써야 해요. 다른 사람에게 알려주거나 같이 쓰면 안 돼요.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="step-2" style="scroll-margin-top:120px">
+    <div class="container">
+      <div class="step-label">Step 02</div>
+      <h2>한 번 더,<br>보안 인증을 거쳐요</h2>
+      <p class="body-text">아이디·비밀번호가 맞아도 바로 들어가지지 않고, 이 화면이 한 번 더 떠요. 빈칸에 <b>6자리 숫자(OTP 코드)</b>를 입력해야 하는데, 이 숫자는 휴대폰 앱에서 1분마다 새로 바뀌어요. 그래서 화면에 적힌 숫자가 아니라, 내 휴대폰 앱을 직접 열어서 지금 뜨는 숫자를 봐야 해요.</p>
+      <div class="shot"><img src="img/otp.png" alt="2단계 인증 화면"></div>
+      <div class="note">
+        <span class="note-label">팁</span>
+        <p>로그인할 때마다 숫자가 다시 바뀌어요. 이 화면이 뜨면 그때 휴대폰 앱을 열어서 숫자를 확인하세요.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section reveal" id="step-3" style="scroll-margin-top:120px">
+    <div class="container">
+      <div class="step-label">Step 03</div>
+      <h2>인증 번호는<br>이 앱에서 받아요</h2>
+      <p class="body-text">2번 화면의 숫자를 받으려면 휴대폰에 <b>Google Authenticator</b>(구글 OTP) 앱이 있어야 해요. 앱스토어나 플레이스토어에서 "구글 OTP" 또는 "Google Authenticator"로 검색해서 설치하세요. 이미 설치돼 있다면 이 단계는 건너뛰어도 돼요.</p>
+      <div class="shot"><img src="img/otp-app.png" alt="Google Authenticator 앱스토어 화면"></div>
+      <div class="note">
+        <span class="note-label">참고</span>
+        <p>앱을 처음 설정하는 방법(QR코드 등록 등)은 아직 이 매뉴얼에 없어요. 처음이라면 본사 담당자에게 한 번 물어보고 진행하세요.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="step-4" style="scroll-margin-top:120px">
+    <div class="container">
+      <div class="step-label">Step 04</div>
+      <h2>이제 첫 화면을<br>확인할 차례예요</h2>
+      <p class="body-text">인증 코드까지 맞으면 로그인이 끝나고 이 화면이 떠요. 위쪽의 <b>iMST · HMS · fluenC</b>는 iMS와는 다른 별도 프로그램으로 넘어가는 메뉴라, 지금은 그대로 두면 돼요. 기본으로 <b>학생상세조회</b> 화면이 열려 있어요.</p>
+      <div class="shot"><img src="img/first-screen.png" alt="로그인 후 첫 화면"></div>
+      <div class="note">
+        <span class="note-label">이 흰 박스는 뭔가요</span>
+        <p>로그인하면 <b>금일조회명단</b>이라는 작은 창이 같이 떠요. 오늘 하루 동안 내가 조회했던 학생들이 모이는 목록이에요. 실제 화면에는 여기에 이름과 학교가 적힌 카드가 보이는데, 매뉴얼이라 학생 정보라서 가렸어요. 오른쪽 위 <b>X</b>를 눌러서 닫고 시작하면 돼요.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="endnote"><p>다음 장은 이어서 추가될 예정이에요.</p></footer>
+</div>
+
+<script>
+(function(){
+  var views = { home: document.getElementById('view-home'), login: document.getElementById('view-login') };
+
+  function showView(name){
+    if(!views[name]) name = 'home';
+    Object.keys(views).forEach(function(k){ views[k].hidden = k !== name; });
+    window.scrollTo(0,0);
+  }
+
+  document.querySelectorAll('[data-go]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var target = btn.dataset.go;
+      location.hash = target;
+      showView(target);
+    });
+  });
+  document.querySelectorAll('[data-back]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      location.hash = '';
+      showView('home');
+    });
+  });
+  window.addEventListener('hashchange', function(){
+    var h = location.hash.replace('#','');
+    showView(h || 'home');
+  });
+  showView(location.hash.replace('#','') || 'home');
+
+  var sections = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting) e.target.classList.add('in'); });
+  }, {threshold:.12});
+  sections.forEach(function(s){ io.observe(s); });
+
+  var jumps = Array.prototype.slice.call(document.querySelectorAll('.jump'));
+  jumps.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var target = document.getElementById(btn.dataset.target);
+      if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  });
+  var spy = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        jumps.forEach(function(b){ b.classList.toggle('active', b.dataset.target === e.target.id); });
+      }
+    });
+  }, {rootMargin:'-45% 0px -50% 0px'});
+  sections.forEach(function(s){ spy.observe(s); });
+})();
+</script>
+</body>
+</html>
