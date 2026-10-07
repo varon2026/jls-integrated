@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>iMS 매뉴얼</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fonts-archive/NEXONLv1Gothic/subsets/NEXONLv1Gothic-dynamic-subset.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap">
 <style>
 /* 메뉴 글씨만 쭉 있는 첫 화면 → 글씨를 누르면 화면이 좌/우로 갈라지면서
@@ -14,8 +15,8 @@
   --bg-alt:#f5f5f7;
   --ink:#1d1d1f;
   --muted:#86868b;
-  --accent:#0071e3;
-  --accent-glow:rgba(0,113,227,.16);
+  --accent:#af52de;
+  --accent-glow:rgba(175,82,222,.22);
   --line:rgba(0,0,0,.09);
   --navblur:rgba(255,255,255,.72);
   color-scheme:light;
@@ -23,17 +24,17 @@
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#000000;--bg-alt:#1d1d1f;--ink:#f5f5f7;--muted:#98989d;
-    --accent:#2997ff;--accent-glow:rgba(41,151,255,.18);--line:rgba(255,255,255,.13);--navblur:rgba(0,0,0,.6);color-scheme:dark;
+    --accent:#bf5af2;--accent-glow:rgba(191,90,242,.26);--line:rgba(255,255,255,.13);--navblur:rgba(0,0,0,.6);color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --bg:#000000;--bg-alt:#1d1d1f;--ink:#f5f5f7;--muted:#98989d;
-  --accent:#2997ff;--accent-glow:rgba(41,151,255,.18);--line:rgba(255,255,255,.13);--navblur:rgba(0,0,0,.6);color-scheme:dark;
+  --accent:#bf5af2;--accent-glow:rgba(191,90,242,.26);--line:rgba(255,255,255,.13);--navblur:rgba(0,0,0,.6);color-scheme:dark;
 }
 
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font-family:'Noto Sans KR',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--ink);font-family:'NEXON Lv1 Gothic','Noto Sans KR',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
 [hidden]{display:none!important}
 h1,h2{margin:0;text-wrap:balance;font-weight:800;letter-spacing:-.02em}
 p{margin:0}
@@ -46,13 +47,14 @@ button{font:inherit;color:inherit}
 /* ───────── list pane ───────── */
 .list-pane{flex:1 1 100%;display:flex;align-items:center;justify-content:center;padding:14vh 24px 10vh;position:relative;transition:flex-basis .55s cubic-bezier(.2,.7,.2,1)}
 .layout.split .list-pane{flex:0 0 40%;align-items:flex-start;padding:12vh 32px 10vh 24px;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:hidden}
-.list-inner{display:flex;flex-direction:column;width:100%;max-width:440px;position:relative;margin:0 auto}
-.layout.split .list-inner{margin:0}
-.glow{position:absolute;inset:-40px;pointer-events:none;background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%),var(--accent-glow),transparent 70%);opacity:0;transition:opacity .35s ease;z-index:0}
+.list-inner{display:flex;flex-direction:column;width:100%;max-width:640px;position:relative;margin:0 auto;isolation:isolate}
+.layout.split .list-inner{margin:0;max-width:440px}
+.glow{position:absolute;left:var(--mx,-9999px);top:var(--my,-9999px);width:520px;height:520px;margin-left:-260px;margin-top:-260px;pointer-events:none;background:radial-gradient(circle,var(--accent-glow) 0%,transparent 68%);filter:blur(36px);opacity:0;transition:opacity .4s ease;z-index:0}
 .list-inner:hover .glow{opacity:1}
 
-.item{all:unset;display:block;padding-block:15px;cursor:pointer;order:0;position:relative;z-index:1;transition:filter .45s ease,opacity .45s ease}
-.item .label{display:inline-block;font-size:clamp(23px,5.6vw,34px);font-weight:700;letter-spacing:-.02em;line-height:1.2;color:var(--ink);transition:color .22s ease,transform .22s ease;transform-origin:left center}
+.item{all:unset;display:block;padding-block:16px;cursor:pointer;order:0;position:relative;z-index:1;transition:filter .45s ease,opacity .45s ease}
+.item .label{display:inline-block;font-size:clamp(32px,7.4vw,54px);font-weight:700;letter-spacing:-.02em;line-height:1.18;color:var(--ink);transition:color .22s ease,transform .22s ease;transform-origin:left center}
+.layout.split .item .label{font-size:clamp(26px,5.2vw,40px)}
 @media (hover:hover){ .item:hover .label{color:var(--accent);transform:scale(1.035)} }
 .item:active .label{transform:scale(.96)}
 .item.active{order:-1}
