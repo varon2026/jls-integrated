@@ -35,7 +35,7 @@
 
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font-family:'Nanum Barun Gothic','Noto Sans KR',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--ink);font-family:'Nanum Barun Gothic','Noto Sans KR',-apple-system,sans-serif;-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word}
 [hidden]{display:none!important}
 h1,h2{margin:0;text-wrap:balance;font-weight:700;letter-spacing:-.02em}
 p{margin:0}
@@ -101,6 +101,12 @@ button{font:inherit;color:inherit}
 .shot{background:var(--bg-alt);border-radius:20px;padding:18px}
 .section.alt .shot{background:var(--bg)}
 .shot img{border-radius:12px;border:1px solid var(--line);box-shadow:0 20px 50px -22px rgba(0,0,0,.35)}
+
+.callout-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+.callout-grid figure{margin:0}
+.callout-grid .shot{padding:16px}
+.callout-grid figcaption{text-align:center;font-size:14px;font-weight:700;color:var(--ink);margin-top:10px}
+@media (max-width:560px){ .callout-grid{grid-template-columns:1fr} }
 
 .note{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
 .note-label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px}
@@ -239,8 +245,18 @@ footer.endnote p{font-size:12.5px;color:var(--muted)}
     <div class="container">
       <div class="step-label">Step 01</div>
       <h2>분원(관)을 고르고 반 생성을 누르세요</h2>
-      <p class="body-text">학사관리 › <b>반현황</b> 화면으로 들어가세요. 왼쪽 위 네모 박스(노란 테두리)를 누르면 드롭다운이 뜨는데, 여기서 반을 만들 분원·관(예: 서수원어학CHESS관, 서수원어학ACE관)을 고를 수 있어요. 그다음 오른쪽 위 <b>반 생성</b> 버튼(노란 테두리)을 누르면 새 반을 만들 수 있어요.</p>
+      <p class="body-text">학사관리 › <b>반현황</b> 화면으로 들어가세요. 왼쪽 위 드롭다운에서 분원·관을 고르고, 오른쪽 위 <b>반 생성</b> 버튼을 누르면 새 반을 만들 수 있어요.</p>
       <div class="shot"><img src="img/class-create-01.png" alt="반현황 화면 — 분원 선택 드롭다운과 반 생성 버튼 위치"></div>
+      <div class="callout-grid">
+        <figure>
+          <div class="shot"><img src="img/class-create-callout-branch.png" alt="분원·관 선택 드롭다운 확대"></div>
+          <figcaption>여기서 분원·관을 선택해요</figcaption>
+        </figure>
+        <figure>
+          <div class="shot"><img src="img/class-create-callout-button.png" alt="반 생성 버튼 확대"></div>
+          <figcaption>여기를 눌러서 반을 만들어요</figcaption>
+        </figure>
+      </div>
     </div>
   </section>
 </template>
