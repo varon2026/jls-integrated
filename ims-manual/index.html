@@ -278,6 +278,7 @@ footer.endnote p{font-size:13px;color:var(--muted)}
       <button class="jump" data-target="cc-step-5">5. 선생님</button>
       <button class="jump" data-target="cc-step-6">6. 교육비</button>
       <button class="jump" data-target="cc-step-7">7. 교재</button>
+      <button class="jump" data-target="cc-step-8">8. 학생 목록</button>
     </div>
   </div>
 
@@ -537,6 +538,35 @@ footer.endnote p{font-size:13px;color:var(--muted)}
       </div>
 
       <p class="body-text" style="margin-top:28px">다 하셨으면 <b>저장</b>을 누르세요. 교재도 끝나요.</p>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="cc-step-8" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 08</div>
+      <h2>학생도 반에 배정해요</h2>
+      <p class="body-text"><b>학생 목록</b> 탭에서 <b>반 배정</b>을 누르면 창이 떠요. 위쪽 <b>반</b> / <b>학생</b> 중 상황에 맞게 고르세요.</p>
+      <ul class="howto-list">
+        <li><span class="howto-tag">반</span><span class="howto-text">기존 반을 통째로 골라 학생 전원을 새 반으로 한 번에 옮길 때 써요. 예) 가을학기 <b>DSA1</b> 학생이 전부 겨울학기 <b>DSA2</b>로 올라가면, <b>1. 반 선택</b>에 "DSA1"을 검색하면 그 반이 뜨고, 고르면 학생이 자동으로 다 채워져요.</span></li>
+        <li><span class="howto-tag">학생</span><span class="howto-text">이름을 하나하나 검색해서 추가할 때 써요. 반 이동·점프·중간 신입생처럼 소수 인원만 옮길 때 써요.</span></li>
+      </ul>
+      <div class="shot"><img src="img/class-create-student-bulk.png" alt="반 배정 — 반 선택으로 일괄 배정하는 흐름"></div>
+      <div class="field-list">
+        <div class="field-row">
+          <div class="field-term">시작일</div>
+          <div class="field-desc">요일과 상관없이 1일로 선택하세요. 새 학기를 같이 시작하면 1일, 중도입학이면 그 학생 입학일로 선택하세요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">이전 반에서 종강하시겠습니까?</div>
+          <div class="field-desc"><b>아니요. 추가로 배정합니다.</b>를 선택하고 배정을 누르세요.</div>
+        </div>
+      </div>
+
+      <div class="note warn">
+        <span class="note-label">교육비 생성 팝업 — No</span>
+        <p>배정을 누르면 "교육비를 생성하시겠습니까?" 팝업이 떠요. <b>No</b>를 누르세요. 교육비는 반을 전부 다 만든 뒤 <b>교육비 생성</b> 메뉴에서 한 번에 처리해요.<br>여기서 잘못 등록하면 학생 하나하나 들어가 교육비를 지워야 해서 번거로워요. (단, 학기 중간에 들어오는 신규생을 그 자리에서 배정할 때는 Yes로 바로 생성해도 돼요.)</p>
+      </div>
+      <div class="shot"><img src="img/class-create-student-tuition.png" alt="배정 후 뜨는 교육비 생성 확인 팝업 — No 선택"></div>
     </div>
   </section>
 </template>
