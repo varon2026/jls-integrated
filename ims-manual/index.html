@@ -658,6 +658,105 @@ footer.endnote p{font-size:13px;color:var(--muted)}
   </section>
 </template>
 
+<template id="tpl-reservation">
+  <div class="jumpbar">
+    <div class="jumpbar-inner" id="jumpbar">
+      <button class="jump" data-target="rv-step-1">1. 메뉴 열기</button>
+      <button class="jump" data-target="rv-step-2">2. 예약설정이란</button>
+      <button class="jump" data-target="rv-step-3">3. 이벤트 만들기</button>
+      <button class="jump" data-target="rv-step-4">4. 예약 잡기</button>
+      <button class="jump" data-target="rv-step-5">5. 비용 결제</button>
+    </div>
+  </div>
+
+  <header class="hero">
+    <div class="container">
+      <div class="eyebrow">4장 · 예약 관리</div>
+      <h1>예약 관리</h1>
+    </div>
+  </header>
+
+  <section class="section reveal" id="rv-step-1" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 01</div>
+      <h2>전체 메뉴에서 열어요</h2>
+      <p class="body-text">오른쪽 위 점 9개 아이콘을 누르면 전체 메뉴가 떠요. <b>예약관리</b> 안에 네 가지가 있는데, <b>예약설정</b>과 <b>예약현황조회</b> 이 두 개만 보면 돼요. 입학시험관리·Pre-Test 관리는 안 봐도 돼요.</p>
+      <div class="shot"><img src="img/reservation-menu.png" alt="전체 메뉴 > 예약관리 > 예약설정/예약현황조회"></div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="rv-step-2" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 02</div>
+      <h2>예약설정은 이런 거예요</h2>
+      <p class="body-text"><b>예약설정</b>은 말 그대로 예약을 받는 기능이에요. 보통 신규 레벨테스트 예약을 받을 때 써요. 이것도 분원 드롭다운에서 <b>CHESS 따로, ACE 따로</b> 조회해야 해요.</p>
+      <div class="shot"><img src="img/reservation-setup-list.png" alt="예약설정 화면 — 분원 선택과 신규이벤트 생성"></div>
+    </div>
+  </section>
+
+  <section class="section reveal" id="rv-step-3" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 03</div>
+      <h2>레벨테스트 이벤트부터 만들어요</h2>
+      <p class="body-text">레벨테스트를 진행하면 테스트 비용을 받아요. 비용을 받으려면 먼저 금액을 설정한 <b>이벤트</b>를 만들어야 해요. <b>신규이벤트 생성</b>을 누르면 아래 폼이 떠요.</p>
+      <div class="shot"><img src="img/reservation-event-form.png" alt="신규이벤트 생성 폼 작성 예시"></div>
+      <div class="field-list">
+        <div class="field-row">
+          <div class="field-term">이벤트 유형</div>
+          <div class="field-desc"><b>신규모집</b>을 고르세요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">이벤트명</div>
+          <div class="field-desc">예) 26년 11월 레벨테스트</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">이벤트기간 · 시간</div>
+          <div class="field-desc">그 달 1일부터 말일까지, 시간은 14:00~20:00처럼 적으세요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">장소</div>
+          <div class="field-desc">분원명을 적으세요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">최대 참여인원</div>
+          <div class="field-desc">100으로 적으세요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">예약접수비</div>
+          <div class="field-desc">
+            <ul class="howto-list" style="margin-top:14px">
+              <li><span class="howto-tag">CHESS</span><span class="howto-text">10,000원</span></li>
+              <li><span class="howto-tag">ACE</span><span class="howto-text">20,000원</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="note warn">
+        <span class="note-label">CHESS·ACE 각각</span>
+        <p>이벤트는 CHESS용, ACE용 따로 만들어야 해요. 접수비가 다르기 때문이에요. 다 입력했으면 <b>생성</b>을 누르세요.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="rv-step-4" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 04</div>
+      <h2>학생 상담에서 예약을 잡아요</h2>
+      <p class="body-text">이벤트를 만들고 나면, 그 학생 상담 화면에서 바로 예약을 잡을 수 있어요. <b>상담</b>을 누르고 <b>예약등록</b>을 누르면 창이 떠요. 이벤트 카드를 고르고 아래로 내려서 <b>날짜/시간</b>과 <b>내용</b>을 채운 뒤 <b>예약</b>을 누르면, 상담이력에 <b>일반예약</b>으로 잡혀요.</p>
+      <div class="shot"><img src="img/reservation-booking-combo.png" alt="상담 > 예약등록 > 날짜·시간·내용 입력 > 상담이력에 등록"></div>
+    </div>
+  </section>
+
+  <section class="section reveal" id="rv-step-5" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 05</div>
+      <h2>레벨테스트비를 결제해요</h2>
+      <p class="body-text">예약이 잡히면 <b>교육비결제</b> 탭으로 들어가서 레벨테스트비(전문상담료)를 결제할 수 있어요.</p>
+      <div class="shot"><img src="img/reservation-payment.png" alt="교육비결제 탭에서 전문상담료 결제"></div>
+    </div>
+  </section>
+</template>
+
 <script>
 (function(){
   var layout = document.getElementById('layout');
