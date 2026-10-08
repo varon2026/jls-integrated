@@ -108,7 +108,8 @@ button{font:inherit;color:inherit}
 
 .shot{background:var(--bg-alt);border-radius:20px;padding:18px}
 .section.alt .shot{background:var(--bg)}
-.shot img{border-radius:12px;border:1px solid var(--line);box-shadow:0 20px 50px -22px rgba(0,0,0,.35)}
+.shot img{border-radius:12px;border:1px solid var(--line);box-shadow:0 20px 50px -22px rgba(0,0,0,.35);transition:transform .3s ease,box-shadow .3s ease}
+@media (hover:hover){ .shot img:hover{transform:scale(1.015);box-shadow:0 26px 60px -20px rgba(0,0,0,.4)} }
 
 .format-group{display:flex;flex-direction:column;gap:14px;margin:28px 0}
 .format-card{background:var(--bg-alt);border-radius:16px;padding:22px 24px}
@@ -254,10 +255,6 @@ footer.endnote p{font-size:13px;color:var(--muted)}
       <h2>인증 번호는 이 앱에서 받아요</h2>
       <p class="body-text">2번 화면의 숫자를 받으려면 휴대폰에 <b>Google Authenticator</b>(구글 OTP) 앱이 있어야 해요. 앱스토어나 플레이스토어에서 "구글 OTP" 또는 "Google Authenticator"로 검색해서 설치하세요. 이미 설치돼 있다면 이 단계는 건너뛰어도 돼요.</p>
       <div class="shot"><img src="img/otp-app.png" alt="Google Authenticator 앱스토어 화면"></div>
-      <div class="note">
-        <span class="note-label">참고</span>
-        <p>앱을 처음 설정하는 방법(QR코드 등록 등)은 아직 이 매뉴얼에 없어요. 처음이라면 본사 담당자에게 한 번 물어보고 진행하세요.</p>
-      </div>
     </div>
   </section>
 
@@ -265,7 +262,7 @@ footer.endnote p{font-size:13px;color:var(--muted)}
     <div class="container">
       <div class="step-label">Step 04</div>
       <h2>이제 첫 화면을 확인할 차례예요</h2>
-      <p class="body-text">인증 코드까지 맞으면 로그인이 끝나고 이 화면이 떠요. 위쪽의 <b>iMST · HMS · fluenC</b>는 iMS와는 다른 별도 프로그램으로 넘어가는 메뉴라, 지금은 그대로 두면 돼요. 기본으로 <b>학생상세조회</b> 화면이 열려 있어요.</p>
+      <p class="body-text">인증 코드까지 맞으면 로그인이 끝나고 이 화면이 떠요. 기본으로 <b>학생상세조회</b> 화면이 열려 있어요.</p>
       <div class="shot"><img src="img/first-screen.png" alt="로그인 후 첫 화면"></div>
     </div>
   </section>
@@ -511,13 +508,18 @@ footer.endnote p{font-size:13px;color:var(--muted)}
         </div>
         <div class="field-row">
           <div class="field-term">세트명</div>
-          <div class="field-desc"><b>1-3개월</b> / <b>4-6개월</b> 중 이번 학기 수업 기간과 맞는 걸 고르세요.</div>
+          <div class="field-desc">
+            <ul class="howto-list">
+              <li><span class="howto-tag">CHESS</span><span class="howto-text"><b>레벨 1</b> 또는 <b>레벨 2</b> 중에서 선택하세요.</span></li>
+              <li><span class="howto-tag">ACE</span><span class="howto-text"><b>1-3개월</b> / <b>4-6개월</b> 중 이번 학기 수업 기간과 맞는 걸 고르세요.</span></li>
+            </ul>
+          </div>
         </div>
         <div class="field-row">
           <div class="field-term">교재</div>
           <div class="field-desc">선택하면 교재 목록이 자동으로 떠요.
             <ul class="howto-list" style="margin-top:14px">
-              <li><span class="howto-tag">CHESS</span><span class="howto-text">뜬 교재 전부 그대로 저장하면 돼요.</span></li>
+              <li><span class="howto-tag">CHESS</span><span class="howto-text">목록에 있는 교재 전부 그대로 저장하면 돼요.</span></li>
               <li><span class="howto-tag">ACE</span><span class="howto-text">목록을 꼭 확인하고 안 쓰는 교재는 지운 뒤 저장하세요. <b style="white-space:nowrap">ACE Study Materials</b>, <b>한눈에 보이는 필기+오답 NOTE</b>는 보통 지워요.</span></li>
             </ul>
           </div>
@@ -531,7 +533,7 @@ footer.endnote p{font-size:13px;color:var(--muted)}
 
       <div class="note warn">
         <span class="note-label">본사 승인이 필요한 경우</span>
-        <p>본사 기준 수업 기간과 분원이 실제로 진행하는 기간이 다르면(예: 본사는 1-3개월인데 분원은 4-6개월로 진행) 미리 승인을 받아야 해요.<br>최부장님이 주기적으로 보내주는 <b>ACE 교재 사용 신청서</b> 엑셀에 분원에서 쓰는 교재를 적어서 보내면, 본사에서 그 교재를 열어줘요. 바로 열리지 않으니 시간 날 때마다 확인하세요.</p>
+        <p>본사 기준 수업 기간과 분원이 실제로 진행하는 기간이 다르면(예: 본사는 1-3개월인데 분원은 4-6개월로 진행) 미리 승인을 받아야 해요.<br>최부장님이 학기 시작 전 보내주는 <b>ACE 교재 사용 신청서</b> 엑셀에 분원에서 쓰는 교재를 적어서 보내면, 본사에서 그 교재를 열어줘요. 바로 열리지 않으니 시간 날 때마다 확인하세요.</p>
       </div>
 
       <p class="body-text" style="margin-top:28px">다 하셨으면 <b>저장</b>을 누르세요. 교재도 끝나요.</p>
