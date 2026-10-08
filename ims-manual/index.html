@@ -165,6 +165,19 @@ footer.endnote p{font-size:13px;color:var(--muted)}
 .sms-card .sms-sub{font-weight:700;margin-bottom:6px}
 .sms-card .sms-muted{color:var(--muted);font-size:13px}
 
+.alert-critical{display:flex;gap:18px;align-items:flex-start;background:rgba(217,83,79,.07);border:1.5px solid rgba(217,83,79,.35);border-radius:18px;padding:24px 26px;margin:28px 0}
+.alert-critical .alert-icon-wrap{flex:none;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;animation:alertPulseRing 2.4s ease-in-out infinite}
+.alert-critical svg{width:30px;height:30px;display:block}
+.alert-critical .alert-body h3{font-size:16px;font-weight:700;color:#d9534f;margin-bottom:8px}
+.alert-critical .alert-body p{font-size:16px;line-height:1.8;color:var(--ink)}
+.alert-critical .alert-body p b{font-weight:700}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .alert-critical .alert-body h3{color:#ff6961} }
+:root[data-theme="dark"] .alert-critical .alert-body h3{color:#ff6961}
+@keyframes alertShake{0%{transform:translateX(0) rotate(0)}15%{transform:translateX(-7px) rotate(-6deg)}30%{transform:translateX(6px) rotate(5deg)}45%{transform:translateX(-5px) rotate(-4deg)}60%{transform:translateX(4px) rotate(3deg)}75%{transform:translateX(-2px) rotate(-2deg)}100%{transform:translateX(0) rotate(0)}}
+@keyframes alertPulseRing{0%{box-shadow:0 0 0 0 rgba(217,83,79,.4)}70%{box-shadow:0 0 0 16px rgba(217,83,79,0)}100%{box-shadow:0 0 0 0 rgba(217,83,79,0)}}
+.reveal.in .alert-critical{animation:alertShake .7s ease}
+@media (prefers-reduced-motion: reduce){ .alert-critical,.alert-critical .alert-icon-wrap{animation:none} }
+
 .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}
 .reveal.in{opacity:1;transform:translateY(0)}
 @media (prefers-reduced-motion: reduce){ .reveal{opacity:1;transform:none;transition:none} }
@@ -667,6 +680,7 @@ footer.endnote p{font-size:13px;color:var(--muted)}
       <button class="jump" data-target="rv-step-4">4. 예약 잡기</button>
       <button class="jump" data-target="rv-step-5">5. 비용 결제</button>
       <button class="jump" data-target="rv-step-6">6. 예약현황조회</button>
+      <button class="jump" data-target="rv-step-7">7. 신규 학생 예약</button>
     </div>
   </div>
 
@@ -763,6 +777,92 @@ footer.endnote p{font-size:13px;color:var(--muted)}
       <h2>예약현황조회는 이런 거예요</h2>
       <p class="body-text">이름 그대로 <b>예약된 사람들을 조회</b>하는 화면이에요. 이것도 분원 드롭다운에서 CHESS·ACE 각각 조회하세요. <b>예약일 조회기간은 3개월 단위</b>로만 조회할 수 있어요.</p>
       <div class="shot"><img src="img/reservation-status-list.png" alt="예약현황조회 — 분원 선택과 3개월 단위 조회기간"></div>
+    </div>
+  </section>
+
+  <section class="section reveal" id="rv-step-7" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 07</div>
+      <h2>신규 학생은 통합관리에서 예약해요</h2>
+
+      <div class="alert-critical">
+        <div class="alert-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#d9534f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3 L22 20 L2 20 Z"/>
+            <line x1="12" y1="9" x2="12" y2="13.5"/>
+            <circle cx="12" cy="16.5" r="0.6" fill="#d9534f" stroke="none"/>
+          </svg>
+        </div>
+        <div class="alert-body">
+          <h3>iMS 임시회원 등록이 막혔어요</h3>
+          <p>본사 홈페이지가 최근 해킹을 당해서, <b>iMS에서 신규 학생(임시회원) 등록 기능이 중단</b>됐어요. 처음 연락 온 학생은 iMS에서 바로 등록하고 예약을 잡을 수 없어요.</p>
+        </div>
+      </div>
+
+      <p class="body-text">예전에는 학생 학년을 확인해서 CHESS·ACE를 구분한 뒤, <b>신규학생등록</b>으로 이름·학교·학년·학부모 연락처를 저장하고 바로 이름 검색으로 레벨테스트 예약까지 잡았어요. 지금은 신규학생등록을 누르면 이 팝업만 떠요.</p>
+      <div class="shot"><img src="img/newresv-blocked-popup.png" alt="임시회원 등록 기능 중단 안내 팝업"></div>
+
+      <p class="body-text" style="margin-top:32px">그래서 신규 레벨테스트는 <b>통합관리 홈페이지</b>에서 진행해요.</p>
+
+      <div class="field-list">
+        <div class="field-row">
+          <div class="field-term">1. 로그인</div>
+          <div class="field-desc"><a href="https://varon2026.github.io/jls-integrated/" target="_blank" rel="noopener">varon2026.github.io/jls-integrated</a> 로 들어가서 로그인하세요.</div>
+        </div>
+      </div>
+      <div class="shot"><img src="img/newresv-login.png" alt="통합관리 홈페이지 로그인 화면"></div>
+
+      <div class="field-list" style="margin-top:28px">
+        <div class="field-row">
+          <div class="field-term">2. 원무 › 레벨테스트</div>
+          <div class="field-desc">사이드바에서 <b>원무</b>를 누르고, <b>레벨테스트</b>를 누르세요.</div>
+        </div>
+      </div>
+      <div class="shot"><img src="img/newresv-nav-combo.png" alt="사이드바 원무 > 레벨테스트 카드"></div>
+
+      <div class="field-list" style="margin-top:28px">
+        <div class="field-row">
+          <div class="field-term">3. 예약 입력</div>
+          <div class="field-desc">오른쪽 위 <b>예약 입력</b>을 누르거나, <b>분원명 막대그래프</b>를 눌러도 같은 화면으로 가요.</div>
+        </div>
+      </div>
+      <div class="shot"><img src="img/newresv-status.png" alt="레벨테스트 현황 — 예약 입력 버튼과 분원 막대그래프"></div>
+
+      <div class="field-list" style="margin-top:28px">
+        <div class="field-row">
+          <div class="field-term">4. 날짜 선택 · 새 예약</div>
+          <div class="field-desc">캘린더에서 학부모님이 원하는 날짜를 고르고, <b>새 예약</b>을 누르세요.</div>
+        </div>
+      </div>
+      <div class="shot"><img src="img/newresv-calendar.png" alt="캘린더에서 날짜 선택 후 새 예약"></div>
+
+      <div class="field-list" style="margin-top:28px">
+        <div class="field-row">
+          <div class="field-term">5. 예약 정보 입력</div>
+          <div class="field-desc">시간·학생 이름·학부모 연락처·학교·학년을 채우세요. <b>메모는 선택</b>이라 적을 내용이 없으면 비워둬도 돼요. 다 채웠으면 <b>예약등록</b>을 누르세요.</div>
+        </div>
+      </div>
+      <div class="shot"><img src="img/newresv-form.png" alt="새 예약 입력 폼 — 메모는 선택 입력"></div>
+
+      <div class="field-list" style="margin-top:28px">
+        <div class="field-row">
+          <div class="field-term">6. 문자 발송</div>
+          <div class="field-desc">학부모님께 보낼 예약 안내 문자 양식이 떠요. <b>CHESS·ACE</b>를 구분해서 내용을 복사하고 문자로 보내세요.</div>
+        </div>
+      </div>
+      <div class="shot"><img src="img/newresv-sms.png" alt="학부모 예약 안내 문자 — CHESS/ACE 구분, 복사하기"></div>
+      <div class="note">
+        <span class="note-label">문자가 왜 안 보내질 때가 있나요</span>
+        <p>이 문자는 받는 분 번호가 통합관리에 회원가입돼 있어야 보낼 수 있어요. 그래서 CHESS·ACE용으로 본인 이름의 계정을 하나씩 만들어두고, 그 계정으로 문자를 보내요. 받는 사람 번호는 보내기 전에 실제 학부모님 번호로 바꿀 수 있어요.</p>
+      </div>
+
+      <div class="field-list" style="margin-top:28px">
+        <div class="field-row">
+          <div class="field-term">7. 상담 기록 남기기</div>
+          <div class="field-desc">예약이 끝나면 그 날짜 카드에 학생이 추가돼요. 전화 상담을 했으면 이름 옆 <b>+기록</b>을 눌러서 상담 내용을 남기세요.</div>
+        </div>
+      </div>
+      <div class="shot"><img src="img/newresv-counsel-combo.png" alt="예약 카드의 +기록 > 상담 기록 남기기"></div>
     </div>
   </section>
 </template>
