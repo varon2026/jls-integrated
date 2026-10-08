@@ -157,6 +157,14 @@ footer.endnote p{font-size:13px;color:var(--muted)}
 .price-table tr.grp-b td{background:rgba(94,158,214,.18)}
 .price-table tr.grp-c td{background:rgba(110,181,126,.18)}
 
+.sms-card{background:var(--bg-alt);border-radius:16px;padding:26px 28px;margin:20px 0}
+.section.alt .sms-card{background:var(--bg)}
+.sms-title{font-size:16px;font-weight:700;color:var(--ink);margin-bottom:16px}
+.sms-card p{font-size:16px;line-height:1.9;color:var(--ink);margin-bottom:14px}
+.sms-card p:last-child{margin-bottom:0}
+.sms-card .sms-sub{font-weight:700;margin-bottom:6px}
+.sms-card .sms-muted{color:var(--muted);font-size:13px}
+
 .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}
 .reveal.in{opacity:1;transform:translateY(0)}
 @media (prefers-reduced-motion: reduce){ .reveal{opacity:1;transform:none;transition:none} }
@@ -567,6 +575,85 @@ footer.endnote p{font-size:13px;color:var(--muted)}
         <p>배정을 누르면 "교육비를 생성하시겠습니까?" 팝업이 떠요. -<b>No</b>를 누르세요.<br>교육비는 반 배정 탭에서 하지 말고, 반을 전부 다 만든 뒤 <b>교육비 생성</b> 메뉴에서 한 번에 진행하세요.<br>반 만들 때마다 하나씩 등록하면, 교육비 생성이 누락되는 반이 생길 수 있어요.<br>(단, 학기 중간에 들어오는 신규생을 그 자리에서 배정할 때는 Yes로 바로 생성해도 돼요.)</p>
       </div>
       <div class="shot"><img src="img/class-create-student-tuition.png" alt="배정 후 뜨는 교육비 생성 확인 팝업 — No 선택"></div>
+    </div>
+  </section>
+</template>
+
+<template id="tpl-textbook-purchase">
+  <div class="jumpbar">
+    <div class="jumpbar-inner" id="jumpbar">
+      <button class="jump" data-target="tb-step-1">1. 메뉴 열기</button>
+      <button class="jump" data-target="tb-step-2">2. 분원 검색</button>
+      <button class="jump" data-target="tb-step-3">3. 확인·다운로드</button>
+      <button class="jump" data-target="tb-step-4">4. 주의</button>
+      <button class="jump" data-target="tb-step-5">5. 안내 문자</button>
+    </div>
+  </div>
+
+  <header class="hero">
+    <div class="container">
+      <div class="eyebrow">3장 · 교재 구매 확인</div>
+      <h1>교재 구매 관리</h1>
+    </div>
+  </header>
+
+  <section class="section reveal" id="tb-step-1" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 01</div>
+      <h2>전체 메뉴에서 열어요</h2>
+      <p class="body-text">어느 화면에 있든, 오른쪽 위 점 9개 아이콘을 누르면 전체 메뉴가 떠요. <b>교재관리 &gt; 교재구매관리</b>를 누르세요.</p>
+      <div class="shot"><img src="img/textbook-purchase-menu.png" alt="전체 메뉴에서 교재관리 > 교재구매관리 들어가기"></div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="tb-step-2" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 02</div>
+      <h2>분원을 고르고 검색하세요</h2>
+      <p class="body-text">CHESS관·ACE관이 분원별로 따로 있어서, 보고 싶은 쪽을 드롭다운에서 고른 뒤 <b>돋보기</b>를 눌러야 그 결과가 떠요. CHESS 따로, ACE 따로 검색해야 해요.</p>
+      <div class="shot"><img src="img/textbook-purchase-filter.png" alt="분원 드롭다운 선택 후 돋보기로 검색"></div>
+    </div>
+  </section>
+
+  <section class="section reveal" id="tb-step-3" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 03</div>
+      <h2>구매 여부를 확인하고 다운로드해요</h2>
+      <p class="body-text"><b>교재구매관리</b>는 학생이 교재를 구매했는지 확인하는 탭이에요. 새 학기 반배정하고 수업 시작 전에, 구매 안 한 학생을 확인하고 문자 보낼 때 많이 써요.</p>
+      <p class="body-text"><b>구매상태</b>에서 <b>구매안함</b>을 누르면 안 산 학생만 걸러져요. 오른쪽 위 아래방향 화살표(다운로드)를 누르면 그 목록을 엑셀로 받을 수 있어요.</p>
+      <div class="shot"><img src="img/textbook-purchase-table.png" alt="구매상태 구매안함 필터와 다운로드 버튼"></div>
+      <div class="note">
+        <span class="note-label">엑셀 다운로드</span>
+        <p><b>다운로드 사유</b>를 적어야 받아져요. 빈칸이거나 사유가 불분명하면 다운로드가 제한될 수 있어요.<br>받은 엑셀 파일은 암호화돼 있어요. 비밀번호는 "아이디+다운로드일"이에요. (예: abcd20260101)</p>
+      </div>
+      <div class="shot"><img src="img/textbook-purchase-download.png" alt="엑셀 다운로드 팝업 — 사유 입력과 다운받기"></div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="tb-step-4" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 04</div>
+      <h2>주의 — 구매 안 했는데 구매로 뜨는 경우</h2>
+      <p class="body-text">아래 두 가지 경우엔 실제로 안 샀는데도 <b>구매</b>로 떠요. 문자 보내기 전에 한 번 의심해보세요.</p>
+      <ul class="howto-list">
+        <li><span class="howto-tag">형제자매</span><span class="howto-text">교재는 학부모 아이디로 구매해요. 그래서 형제자매 중 누군가 예전에 그 책을 산 적이 있으면, 그 구매 이력이 같이 따라붙어서 구매로 떠요.</span></li>
+        <li><span class="howto-tag">이전 학기 교재</span><span class="howto-text">예전 학기에 썼던 교재를 다시 쓰는 경우예요. CHESS는 이런 경우가 거의 없지만, ACE는 종종 있어요. 형제자매도 없는데 구매로 뜬다면 예전에 쓰던 교재인지 의심해봐야 해요.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section reveal" id="tb-step-5" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 05</div>
+      <h2>교재 미구매 안내 문자</h2>
+      <p class="body-text"><b>구매안함</b>으로 걸러낸 학생들에게는 아래 양식으로 문자를 보내면 돼요.</p>
+      <div class="sms-card">
+        <div class="sms-title">[(분원명)JLS-ㅇㅇ학기 교재 미구매 안내]</div>
+        <p>안녕하세요. ㅇㅇㅇ학생 학부모님. 정상어학원입니다.<br>ㅇㅇ학기 수업교재가 구매되지 않아 문자드립니다.<br>금일중으로 교재구매 부탁드립니다.</p>
+        <div class="sms-sub">교재 구매</div>
+        <p>1. <a href="https://www.gojls.com" target="_blank" rel="noopener">www.gojls.com</a> 정상 사이트 학부모 아이디 로그인<br>2. 반 클릭 - 전체 장바구니 담아서 결제</p>
+        <p class="sms-muted">(*학기 전 꼭 교재 구매 해주세요!)</p>
+      </div>
     </div>
   </section>
 </template>
