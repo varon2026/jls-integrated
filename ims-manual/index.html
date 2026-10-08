@@ -900,6 +900,7 @@ footer.endnote p{font-size:13px;color:var(--muted)}
       <button class="jump" data-target="sm-step-7">7. 일할계산</button>
       <button class="jump" data-target="sm-step-8">8. 할인설정</button>
       <button class="jump" data-target="sm-step-9">9. 환불(청구기준)</button>
+      <button class="jump" data-target="sm-step-10">10. 잔고환불</button>
     </div>
   </div>
 
@@ -1202,6 +1203,33 @@ footer.endnote p{font-size:13px;color:var(--muted)}
         환불관리 양식 다운로드 (.xlsx)
       </a>
       <div class="shot"><img src="img/refund-email-example.png" alt="G2WORKS 환불 메일 보내기 예시"></div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="sm-step-10" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 10</div>
+      <h2>잔고환불 — 다음 결제에서 꺼내 쓰는 돈</h2>
+      <p class="body-text">잔고 처리도 똑같이 <b>청구기준(+환불)</b> 화면에서 진행해요. 카드로 결제했든 가상계좌로 결제했든, 학부모님께 바로 돈을 돌려주지 않고 <b>잔고</b>로 남겨서 다음 결제할 때 거기서 꺼내 쓰는 개념이에요. 오른쪽 위 <b>잔고</b> 금액이 그거예요.</p>
+      <div class="shot"><img src="img/balance-coin-icon.png" alt="교육비 납부하기 화면 오른쪽 위 잔고 금액"></div>
+
+      <ul class="howto-list">
+        <li><span class="howto-tag">휴원</span><span class="howto-text">이미 결제를 다 했는데 갑자기 휴원하게 되면, 다음 달 수강료로 쓰도록 그 금액을 잔고로 남겨둬요.</span></li>
+        <li><span class="howto-tag">반 변경</span><span class="howto-text">반 배정하고 결제까지 했는데 더 비싼 반에서 더 싼 반으로 옮기면, 취소하지 않고 <b>상계처리</b>로 진행해요.<br>예) <b>LSA1</b> 365,000원 결제 후 <b>DSD2</b>(345,000원)로 다시 배정하면, 차액 20,000원이 잔고로 들어가서 다음 달 수강료에서 차감할 수 있어요.</span></li>
+      </ul>
+
+      <div class="note warn">
+        <span class="note-label">잔고는 자동으로 차감되지 않아요</span>
+        <p>잔고에 있는 돈은 다음 달 수강료에서 <b>자동으로 빠지지 않아요</b>. 잔고 금액을 잘 기억해두고 확인해서, 직접 잔고로 결제해줘야 학부모님이 불편함을 안 겪어요.<br>잔고 결제는 그냥 <b>결제</b> 버튼을 누르면 돼요. 시스템이 알아서 잔고에 있는 돈만큼 빼고 결제해줘요.</p>
+      </div>
+
+      <p class="body-text" style="margin-top:28px"><b>잔고</b> 옆 동전 아이콘을 누르면, 잔고에 있는 돈을 학부모님 계좌로 이체(환불)할 수도 있어요.</p>
+      <div class="shot"><img src="img/balance-refund-popup.png" alt="잔고환불 팝업 — 환불계좌 등록 안내, 환불상태·환불사유"></div>
+
+      <div class="note warn">
+        <span class="note-label">이것도 똑같이 계좌 등록 + 메일 발송</span>
+        <p>잔고를 계좌로 돌려줄 때도 마찬가지로 학부모님의 <b>환불계좌가 등록</b>돼 있어야 하고, 접수 후엔 <a href="https://office.edujls.com/" target="_blank" rel="noopener">G2WORKS</a>로 환불 파일을 메일로 보내야 해요. (Step 9 참고)</p>
+      </div>
     </div>
   </section>
 </template>
