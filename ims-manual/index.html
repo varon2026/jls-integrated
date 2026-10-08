@@ -180,6 +180,11 @@ footer.endnote p{font-size:13px;color:var(--muted)}
 .cal-legend span{display:inline-flex;align-items:center;gap:7px}
 .cal-swatch{width:14px;height:14px;border-radius:4px;display:inline-block}
 
+.dl-link{display:inline-flex;align-items:center;gap:10px;margin:16px 0;padding:14px 20px;background:var(--bg-alt);border-radius:14px;text-decoration:none;color:var(--ink);font-size:16px;font-weight:600;transition:background .2s}
+.section.alt .dl-link{background:var(--bg)}
+.dl-link svg{flex:none;width:20px;height:20px;color:var(--accent)}
+@media (hover:hover){ .dl-link:hover{background:var(--accent-pastel)} }
+
 .alert-critical{display:flex;gap:18px;align-items:flex-start;background:rgba(217,83,79,.07);border:1.5px solid rgba(217,83,79,.35);border-radius:18px;padding:24px 26px;margin:28px 0}
 .alert-critical .alert-icon-wrap{flex:none;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;animation:alertPulseRing 2.4s ease-in-out infinite}
 .alert-critical svg{width:30px;height:30px;display:block}
@@ -894,6 +899,7 @@ footer.endnote p{font-size:13px;color:var(--muted)}
       <button class="jump" data-target="sm-step-6">6. 교육비 생성</button>
       <button class="jump" data-target="sm-step-7">7. 일할계산</button>
       <button class="jump" data-target="sm-step-8">8. 할인설정</button>
+      <button class="jump" data-target="sm-step-9">9. 환불(청구기준)</button>
     </div>
   </div>
 
@@ -1148,6 +1154,54 @@ footer.endnote p{font-size:13px;color:var(--muted)}
         <span class="note-label">CHESS → ACE 이관 겨울학기가 제일 중요해요</span>
         <p>CHESS에서 ACE로 이관되는 겨울학기를 가장 조심해서 봐야 해요. 이관되면 기존 CHESS에 걸려 있던 형제할인을 풀고, ACE로 다시 설정해야 해요.</p>
       </div>
+    </div>
+  </section>
+
+  <section class="section reveal" id="sm-step-9" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 09</div>
+      <h2>환불 — 청구기준(가상계좌 환불)</h2>
+      <p class="body-text">교육비 납부내역 오른쪽 위에 <b>청구기준(+환불)</b>과 <b>결제기준(+승인취소)</b>이 있어요. 이번엔 <b>청구기준</b>으로 환불하는 법을 설명할게요.</p>
+      <p class="body-text">환불하고 싶은 항목의 체크박스를 누르고, 하단의 <b>환불</b> 버튼을 누르세요. <b>교육비 환불</b> 팝업이 떠요. 여기는 <b>계좌로 입금한 사람, 잔고 환불하는 사람</b>을 환불하는 곳이에요. 카드결제는 여기서 환불 안 해요.</p>
+      <div class="shot"><img src="img/refund-checkout-combo.png" alt="환불할 항목 체크 후 환불 버튼 클릭"></div>
+
+      <div class="note warn">
+        <span class="note-label">가상계좌 결제자는 여기서 환불 접수</span>
+        <p>학부모님이 <b>가상계좌로 결제</b>했다면 여기서 환불 접수를 진행해야 해요.</p>
+      </div>
+
+      <div class="field-list">
+        <div class="field-row">
+          <div class="field-term">환불 규정</div>
+          <div class="field-desc">
+            <ul class="howto-list" style="margin-top:14px">
+              <li><span class="howto-tag">수업 전</span><span class="howto-text">퇴원이면 <b>100%</b> 환불</span></li>
+              <li><span class="howto-tag">10일 이전</span><span class="howto-text">퇴원이면 <b>2/3(67%)</b> 환불</span></li>
+              <li><span class="howto-tag">15일 이전</span><span class="howto-text">퇴원이면 <b>1/2(50%)</b> 환불</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="shot"><img src="img/refund-ratio-combo.png" alt="교육비 환불 팝업 — 환불비율 선택"></div>
+
+      <div class="note warn">
+        <span class="note-label">환불 계좌가 등록돼 있어야 해요</span>
+        <p>학부모님이 <b>정상어학원(gojls.com)</b>에 로그인해서 환불 계좌 정보를 등록해야, iMS에 그 계좌가 자동으로 떠요. 등록이 안 돼 있으면 환불 자체가 안 돼요. 학부모님께 홈페이지에 들어가서 환불 계좌 정보를 등록해달라고 안내하세요.</p>
+      </div>
+      <div class="shot"><img src="img/refund-account-register.png" alt="GOJLS 마이페이지 > 결제수단 관리 > 환불계좌 등록 방법"></div>
+
+      <p class="body-text" style="margin-top:28px">환불 계좌가 뜨면 <b>환불방법·환불상태(환불접수)·환불사유</b>를 확인하고 입력한 뒤 <b>환불</b> 버튼을 누르세요.</p>
+      <div class="shot"><img src="img/refund-account.png" alt="환불방법 — 자동으로 뜨는 계좌 정보, 환불상태·환불사유 선택"></div>
+
+      <div class="note warn">
+        <span class="note-label">G2WORKS로 환불 메일까지 보내야 끝나요</span>
+        <p>환불 접수 후엔 <a href="https://office.edujls.com/" target="_blank" rel="noopener">G2WORKS</a>(office.edujls.com)에 들어가서 <b>김희경 팀장님·박성호 팀장님</b>에게 환불 메일을 보내야 해요. 아래 양식을 받아서 작성한 뒤 메일에 첨부하세요.</p>
+      </div>
+      <a class="dl-link" href="files/환불관리_양식.xlsx" download>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 19h16"/></svg>
+        환불관리 양식 다운로드 (.xlsx)
+      </a>
+      <div class="shot"><img src="img/refund-email-example.png" alt="G2WORKS 환불 메일 보내기 예시"></div>
     </div>
   </section>
 </template>
