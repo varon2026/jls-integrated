@@ -6,6 +6,9 @@ _*.md
 *.xls
 *.csv
 
+# ims-manual은 공개 웹사이트라 다운로드용 빈 양식만 예외로 공개
+!ims-manual/files/*.xlsx
+
 # OS/에디터 잡파일
 .DS_Store
 Thumbs.db
