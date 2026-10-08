@@ -165,6 +165,21 @@ footer.endnote p{font-size:13px;color:var(--muted)}
 .sms-card .sms-sub{font-weight:700;margin-bottom:6px}
 .sms-card .sms-muted{color:var(--muted);font-size:13px}
 
+.calc-card{background:var(--bg-alt);border-radius:16px;padding:24px 28px;margin:20px 0}
+.section.alt .calc-card{background:var(--bg)}
+.calc-card .calc-row{display:flex;align-items:baseline;gap:14px;font-size:16px;line-height:1.9;color:var(--ink);padding-block:7px;border-top:1px solid var(--line)}
+.calc-card .calc-row:first-child{border-top:none}
+.calc-card .calc-label{flex:none;color:var(--muted);min-width:118px}
+.calc-card .calc-expr{font-variant-numeric:tabular-nums}
+.calc-card .calc-expr b{font-weight:700;color:var(--ink)}
+.calc-card .calc-row.result .calc-expr b{color:var(--accent)}
+
+.cal-card{background:var(--bg-alt);border-radius:16px;padding:20px 22px;margin:20px 0}
+.section.alt .cal-card{background:var(--bg)}
+.cal-legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:16px;font-size:13px;color:var(--muted)}
+.cal-legend span{display:inline-flex;align-items:center;gap:7px}
+.cal-swatch{width:14px;height:14px;border-radius:4px;display:inline-block}
+
 .alert-critical{display:flex;gap:18px;align-items:flex-start;background:rgba(217,83,79,.07);border:1.5px solid rgba(217,83,79,.35);border-radius:18px;padding:24px 26px;margin:28px 0}
 .alert-critical .alert-icon-wrap{flex:none;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;animation:alertPulseRing 2.4s ease-in-out infinite}
 .alert-critical svg{width:30px;height:30px;display:block}
@@ -876,6 +891,8 @@ footer.endnote p{font-size:13px;color:var(--muted)}
       <button class="jump" data-target="sm-step-3">3. 화면 구성</button>
       <button class="jump" data-target="sm-step-4">4. 상담 탭</button>
       <button class="jump" data-target="sm-step-5">5. 문자 탭</button>
+      <button class="jump" data-target="sm-step-6">6. 교육비 생성</button>
+      <button class="jump" data-target="sm-step-7">7. 일할계산</button>
     </div>
   </div>
 
@@ -941,6 +958,143 @@ footer.endnote p{font-size:13px;color:var(--muted)}
       <div class="note warn">
         <span class="note-label">꼭 안내해주세요</span>
         <p>임시 비밀번호를 보냈으면, 홈페이지에 로그인해서 <b>내정보</b>에 들어가 비밀번호를 꼭 바꾸라고 안내해주세요.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="sm-step-6" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 06</div>
+      <h2>교육비결제 탭 — 교육비 생성(개별)</h2>
+      <p class="body-text"><b>교육비결제</b> 탭에서는 여러 가지를 할 수 있어요. 그중 먼저 <b>교육비 생성(개별)</b>을 설명할게요. 반 생성 메뉴의 교육비 생성이 반 전체를 한 번에 만드는 일괄 생성이라면, 여기는 학생 한 명씩 따로 만드는 거예요. <b>중도 신규생 교육비 받을 때</b> 많이 써요.</p>
+      <div class="shot"><img src="img/student-tuition-tab.png" alt="교육비결제 탭 — 교육비생성 버튼"></div>
+      <p class="body-text" style="margin-top:28px"><b>교육비생성</b>을 누르면 뜨는 창에서 반을 선택하고, <b>교육비정책</b>에서 정규교습비 A, B를 각각 생성하세요.</p>
+      <div class="shot"><img src="img/student-tuition-policy.png" alt="교육비 생성 — 교육비정책에서 정규교습비 A, B 선택"></div>
+      <div class="field-list">
+        <div class="field-row">
+          <div class="field-term">청구기간</div>
+          <div class="field-desc">그 달 1일부터 말일로 선택하세요.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-term">청구금액</div>
+          <div class="field-desc">중도 입학생이면 수강료를 일할계산해서 이 금액만 조정하면 돼요. (계산법은 다음 단계에서 설명해요)</div>
+        </div>
+      </div>
+      <div class="shot"><img src="img/student-tuition-filled.png" alt="청구기간과 청구금액 입력 예시"></div>
+    </div>
+  </section>
+
+  <section class="section reveal" id="sm-step-7" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 07</div>
+      <h2>중도 입학생은 수강료를 일할계산해요</h2>
+      <p class="body-text">먼저 수업 요일이 그 달에 며칠 있는지 세요. 공휴일이든 프렙데이든 상관없이, 그냥 수업 요일 날짜만 세면 돼요.</p>
+      <div class="cal-card">
+        <svg viewBox="0 0 684 366" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:inherit">
+          <text x="66.0" y="38" text-anchor="middle" font-size="14" font-weight="700" fill="#d9534f">일</text>
+          <text x="158.0" y="38" text-anchor="middle" font-size="14" font-weight="700" fill="#8a8a8e">월</text>
+          <text x="250.0" y="38" text-anchor="middle" font-size="14" font-weight="700" fill="#8a8a8e">화</text>
+          <text x="342.0" y="38" text-anchor="middle" font-size="14" font-weight="700" fill="#8a8a8e">수</text>
+          <text x="434.0" y="38" text-anchor="middle" font-size="14" font-weight="700" fill="#8a8a8e">목</text>
+          <text x="526.0" y="38" text-anchor="middle" font-size="14" font-weight="700" fill="#8a8a8e">금</text>
+          <text x="618.0" y="38" text-anchor="middle" font-size="14" font-weight="700" fill="#8a8a8e">토</text>
+          <rect x="391" y="59" width="86" height="52" rx="10" fill="rgba(94,158,214,.22)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="434.0" y="91.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">1</text>
+          <rect x="483" y="59" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="526.0" y="91.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">2</text>
+          <rect x="575" y="59" width="86" height="52" rx="10" fill="none" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="618.0" y="91.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">3</text>
+          <rect x="23" y="117" width="86" height="52" rx="10" fill="none" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="66.0" y="149.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">4</text>
+          <rect x="115" y="117" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="158.0" y="149.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">5</text>
+          <rect x="207" y="117" width="86" height="52" rx="10" fill="rgba(94,158,214,.22)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="250.0" y="149.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">6</text>
+          <rect x="299" y="117" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="342.0" y="149.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">7</text>
+          <rect x="391" y="117" width="86" height="52" rx="10" fill="rgba(94,158,214,.22)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="434.0" y="149.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">8</text>
+          <rect x="483" y="117" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="526.0" y="149.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">9</text>
+          <rect x="575" y="117" width="86" height="52" rx="10" fill="none" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="618.0" y="149.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">10</text>
+          <rect x="23" y="175" width="86" height="52" rx="10" fill="none" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="66.0" y="207.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">11</text>
+          <rect x="115" y="175" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <rect x="115" y="175" width="86" height="52" rx="10" fill="none" stroke="#8f6a00" stroke-width="2.5"/>
+          <text x="158.0" y="207.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">12</text>
+          <rect x="207" y="175" width="86" height="52" rx="10" fill="rgba(94,158,214,.22)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="250.0" y="207.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">13</text>
+          <rect x="299" y="175" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <rect x="299" y="175" width="86" height="52" rx="10" fill="none" stroke="#8f6a00" stroke-width="2.5"/>
+          <text x="342.0" y="207.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">14</text>
+          <rect x="391" y="175" width="86" height="52" rx="10" fill="rgba(94,158,214,.22)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="434.0" y="207.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">15</text>
+          <rect x="483" y="175" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <rect x="483" y="175" width="86" height="52" rx="10" fill="none" stroke="#8f6a00" stroke-width="2.5"/>
+          <text x="526.0" y="207.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">16</text>
+          <rect x="575" y="175" width="86" height="52" rx="10" fill="none" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="618.0" y="207.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">17</text>
+          <rect x="23" y="233" width="86" height="52" rx="10" fill="none" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="66.0" y="265.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">18</text>
+          <rect x="115" y="233" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <rect x="115" y="233" width="86" height="52" rx="10" fill="none" stroke="#8f6a00" stroke-width="2.5"/>
+          <text x="158.0" y="265.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">19</text>
+          <rect x="207" y="233" width="86" height="52" rx="10" fill="rgba(94,158,214,.22)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="250.0" y="265.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">20</text>
+          <rect x="299" y="233" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <rect x="299" y="233" width="86" height="52" rx="10" fill="none" stroke="#8f6a00" stroke-width="2.5"/>
+          <text x="342.0" y="265.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">21</text>
+          <rect x="391" y="233" width="86" height="52" rx="10" fill="rgba(94,158,214,.22)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="434.0" y="265.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">22</text>
+          <rect x="483" y="233" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <rect x="483" y="233" width="86" height="52" rx="10" fill="none" stroke="#8f6a00" stroke-width="2.5"/>
+          <text x="526.0" y="265.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">23</text>
+          <rect x="575" y="233" width="86" height="52" rx="10" fill="none" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="618.0" y="265.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">24</text>
+          <rect x="23" y="291" width="86" height="52" rx="10" fill="none" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="66.0" y="323.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">25</text>
+          <rect x="115" y="291" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <rect x="115" y="291" width="86" height="52" rx="10" fill="none" stroke="#8f6a00" stroke-width="2.5"/>
+          <text x="158.0" y="323.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">26</text>
+          <rect x="207" y="291" width="86" height="52" rx="10" fill="rgba(94,158,214,.22)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="250.0" y="323.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">27</text>
+          <rect x="299" y="291" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <rect x="299" y="291" width="86" height="52" rx="10" fill="none" stroke="#8f6a00" stroke-width="2.5"/>
+          <text x="342.0" y="323.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">28</text>
+          <rect x="391" y="291" width="86" height="52" rx="10" fill="rgba(94,158,214,.22)" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="434.0" y="323.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">29</text>
+          <rect x="483" y="291" width="86" height="52" rx="10" fill="rgba(255,209,64,.35)" stroke="#e3e1dc" stroke-width="1"/>
+          <rect x="483" y="291" width="86" height="52" rx="10" fill="none" stroke="#8f6a00" stroke-width="2.5"/>
+          <text x="526.0" y="323.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">30</text>
+          <rect x="575" y="291" width="86" height="52" rx="10" fill="none" stroke="#e3e1dc" stroke-width="1"/>
+          <text x="618.0" y="323.0" text-anchor="middle" font-size="16" font-weight="600" fill="#1d1d1f">31</text>
+        </svg>
+        <div class="cal-legend">
+          <span><span class="cal-swatch" style="background:rgba(255,209,64,.5)"></span>월·수·금 — 13회</span>
+          <span><span class="cal-swatch" style="background:rgba(94,158,214,.4)"></span>화·목 — 9회</span>
+          <span><span class="cal-swatch" style="background:none;border:2px solid #8f6a00"></span>10/12부터 등원 — 9회</span>
+        </div>
+      </div>
+
+      <p class="body-text" style="margin-top:28px">예) <b>월수금반</b>, 정규수강료 A+B 합쳐서 한 달 368,000원(A 345,000 + B 23,000)인 학생이 <b>10/12부터</b> 등원한다면:</p>
+      <div class="calc-card">
+        <div class="calc-row"><div class="calc-label">1회 수강료</div><div class="calc-expr">368,000원 ÷ 13회 = <b>28,307원</b></div></div>
+        <div class="calc-row"><div class="calc-label">10/12~10/31</div><div class="calc-expr">28,307원 × 9회 = <b>254,769원</b></div></div>
+        <div class="calc-row result"><div class="calc-label">100원 단위 반올림</div><div class="calc-expr">청구금액 <b>254,800원</b></div></div>
+      </div>
+
+      <div class="note warn">
+        <span class="note-label">레벨테스트비는 차감하세요</span>
+        <p>레벨테스트 비용을 낸 이력이 있다면, 낸 만큼 청구금액에서 차감해야 해요. <b>CHESS 10,000원 · ACE 20,000원</b>.</p>
+      </div>
+      <div class="note warn">
+        <span class="note-label">상담이력에 꼭 기록하세요</span>
+        <p>어떻게 계산했는지 상담이력에 자세히 남겨야 해요. 굉장히 중요해요.</p>
+      </div>
+      <div class="note">
+        <span class="note-label">정규교습비 A 하나에</span>
+        <p>수강료 A, B를 따로 나눠 넣지 말고, 계산한 금액을 <b>정규교습비 A</b> 하나에 합쳐서 넣으면 돼요.</p>
       </div>
     </div>
   </section>
