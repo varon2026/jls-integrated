@@ -868,6 +868,84 @@ footer.endnote p{font-size:13px;color:var(--muted)}
   </section>
 </template>
 
+<template id="tpl-student-manage">
+  <div class="jumpbar">
+    <div class="jumpbar-inner" id="jumpbar">
+      <button class="jump" data-target="sm-step-1">1. 메뉴 열기</button>
+      <button class="jump" data-target="sm-step-2">2. 학생 찾기</button>
+      <button class="jump" data-target="sm-step-3">3. 화면 구성</button>
+      <button class="jump" data-target="sm-step-4">4. 상담 탭</button>
+      <button class="jump" data-target="sm-step-5">5. 문자 탭</button>
+    </div>
+  </div>
+
+  <header class="hero">
+    <div class="container">
+      <div class="eyebrow">5장 · 학생 관리</div>
+      <h1>학생 관리</h1>
+    </div>
+  </header>
+
+  <section class="section reveal" id="sm-step-1" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 01</div>
+      <h2>전체 메뉴에서 열어요</h2>
+      <p class="body-text">오른쪽 위 점 9개 아이콘을 누르면 <b>학생관리</b> 그룹에 여러 메뉴가 떠요. 평소엔 <b>학생상세조회·분원이동처리·재원생조회</b> 이 세 개만 보면 돼요. <b>비재원생조회</b>도 아주 가끔 봐요.</p>
+      <div class="shot"><img src="img/student-manage-menu.png" alt="학생관리 메뉴 — 학생상세조회/분원이동처리/재원생조회"></div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="sm-step-2" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 02</div>
+      <h2>학생상세조회에서 학생을 찾아요</h2>
+      <p class="body-text"><b>학생상세조회</b>는 iMS에 로그인하면 바로 뜨는 첫 화면이에요. 위쪽 이름 검색창에 학생 이름을 치면 <b>학생조회</b> 팝업이 떠요.</p>
+      <div class="note warn">
+        <span class="note-label">재원생 쪽 돋보기를 눌러야 해요</span>
+        <p>팝업 오른쪽에 <b>ACE·CHESS</b>별로 돋보기가 따로 떠요. 상태가 <b>재원생</b>이라고 적힌 쪽 돋보기를 눌러야 해요. 비재원생 쪽을 누르면 안 돼요!</p>
+      </div>
+      <div class="shot"><img src="img/student-search-popup.png" alt="학생조회 팝업 — 재원생 쪽 돋보기를 클릭"></div>
+    </div>
+  </section>
+
+  <section class="section reveal" id="sm-step-3" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 03</div>
+      <h2>화면은 이렇게 구성돼요</h2>
+      <p class="body-text">돋보기를 누르면 왼쪽에 <b>상담·문자·교육비결제·출결·성과·수업이력·학생상세정보</b> 탭이 뜨고, 그 아래 학생 정보, 그 아래 반 정보가 떠요.</p>
+      <div class="shot"><img src="img/student-detail-layout.png" alt="학생 상세 화면 — 탭·학생 정보·반 정보"></div>
+    </div>
+  </section>
+
+  <section class="section alt reveal" id="sm-step-4" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 04</div>
+      <h2>상담 탭 — 상담이력을 보고 적어요</h2>
+      <p class="body-text">담임 선생님이 적은 상담 이력, 예약 이력, 수강료 변경·삭제 이력 같은 것들이 전부 여기 남아요. <b>상담등록</b>을 누르면 직접 상담 내용을 적을 수도 있어요.</p>
+      <div class="shot"><img src="img/student-counsel-tab.png" alt="상담 탭 — 상담등록과 상담이력 목록"></div>
+    </div>
+  </section>
+
+  <section class="section reveal" id="sm-step-5" style="scroll-margin-top:106px">
+    <div class="container">
+      <div class="step-label">Step 05</div>
+      <h2>문자 탭 — 임시 비밀번호도 여기서 보내요</h2>
+      <p class="body-text">문자를 보내는 곳이에요. 오른쪽에서 과거에 보낸 문자 기록도 볼 수 있어요. 가장 중요한 기능은 학생·학부모가 <b>홈페이지 비밀번호를 잊었을 때 임시 비밀번호를 보내는 것</b>이에요.</p>
+      <div class="shot"><img src="img/student-message-tab.png" alt="문자 탭 — 자유입력 드롭다운과 발송 기록"></div>
+      <p class="body-text" style="margin-top:28px">왼쪽 위 <b>자유입력</b>을 누르면 <b>학생 임시비밀번호 · 학부모 임시비밀번호</b>를 고를 수 있어요. 고르면 내용칸에 ID와 비밀번호 양식이 자동으로 채워져요.</p>
+      <div class="shot"><img src="img/student-temppw-combo.png" alt="자유입력 > 학생 임시비밀번호 선택 > 자동 완성된 내용"></div>
+      <div class="note warn">
+        <span class="note-label">비밀번호는 여기서 안 보여요</span>
+        <p>내용에는 <b>#{S_PW}</b>로만 표시되고, 실제 비밀번호는 여기서 바로 보이지 않아요. 문자를 받으면 <b>카카오톡으로 정확한 비밀번호</b>가 따로 발송돼요.</p>
+      </div>
+      <div class="note warn">
+        <span class="note-label">꼭 안내해주세요</span>
+        <p>임시 비밀번호를 보냈으면, 홈페이지에 로그인해서 <b>내정보</b>에 들어가 비밀번호를 꼭 바꾸라고 안내해주세요.</p>
+      </div>
+    </div>
+  </section>
+</template>
+
 <script>
 (function(){
   var layout = document.getElementById('layout');
