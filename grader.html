@@ -1495,7 +1495,7 @@ function buildNaesinArea(){
 }
 /* 학생 이름칸 — 기본 .g td.stu 는 200px 최소폭(DT·AT 공용)이라 내신모의고사 표에선
    쓸데없이 넓어 보인다는 지적이 있었다. 여기서만 인라인 스타일로 좁혀서 다른 표는 안 건드림. */
-const NAESIN_STU_W='min-width:130px;width:130px';
+const NAESIN_STU_W='min-width:170px;width:170px';
 function buildNaesinGrid(section){
   const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const ans=naesinAns(section);
@@ -1608,7 +1608,7 @@ async function loadNaesinSummary(){
   });
   host.innerHTML=`<div class="lbl">총점 <span style="font-weight:700;color:var(--ink3)">(지필 ${wMax} + 듣기 ${lMax} + 수행 ${pMax} = ${totMax})</span></div>
     ${SORTBTNS}
-    <div class="gwrap"><table class="g"><thead><tr class="r1"><th class="stu" style="${NAESIN_STU_W}">학생</th><th>지필<br>/${wMax}</th><th>듣기<br>/${lMax}</th><th>수행<br>/${pMax}</th><th>총점<br>/${totMax}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="gwrap"><table class="g"><thead><tr class="r1"><th class="stu" style="${NAESIN_STU_W}">학생</th><th style="font-size:13px;color:var(--ink);font-weight:900">지필<br>/${wMax}</th><th style="font-size:13px;color:var(--ink);font-weight:900">듣기<br>/${lMax}</th><th style="font-size:13px;color:var(--ink);font-weight:900">수행<br>/${pMax}</th><th style="font-size:13px;color:var(--ink);font-weight:900">총점<br>/${totMax}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 async function saveNaesin(){
   const section=CURTAB;if(section==='총점')return;
