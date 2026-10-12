@@ -290,14 +290,14 @@ const SANOTE='<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px sol
 const SANOTE_ACE='<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px solid #e0a44c;background:#fff3d6;border-radius:10px;font-weight:800;color:#b7791f;font-size:13px">🟧 빨간 네모칸(주관식)은 <b>학생이 받은 점수</b>를 그대로 입력하세요. 예) 배점 2점 문항 → 정답 2, 부분점수 1, 오답 0 (0.5 같은 소수점도 가능).</div>';
 /* 점수 정렬 버튼 (체스·에이스 공용) — 현재 화면의 채점표를 총점 기준으로 정렬 */
 const SORTBTNS='<div class="sortbar" style="display:flex;gap:8px;align-items:center;margin:2px 2px 10px"><span class="hint">점수 정렬:</span><button class="ghost mini" onclick="sortScore(\'desc\')">▼ 높은순</button><button class="ghost mini" onclick="sortScore(\'asc\')">▲ 낮은순</button></div>';
-/* 내신모의고사 수행평가(스피킹·라이팅) — 정답키가 없다(선생님이 항목 보고 점수만 준다).
+/* 내신모의고사 수행평가(Speaking·Writing) — 정답키가 없다(선생님이 항목 보고 점수만 준다).
    그래도 ACE 서술형의 "0~배점 직접입력, 부분점수 허용" 채점 로직(aceScoreRow/computeAce)을
    그대로 쓰고 싶어서, exam_keys에 저장되는 진짜 정답 대신 이 가짜 ans 배열을 만들어 끼워넣는다.
    n은 101~204로 떼어 놔서 지필/듣기 문항번호(1~25)와 데이터칸(data-n)이 안 겹치게 하고,
-   화면엔 label(스피킹1~4·라이팅1~4)로 보여준다. */
+   화면엔 label(Speaking 1~4·Writing 1~4)로 보여준다. 영어학원이라 항목 이름도 영어로 쓴다. */
 const NAESIN_PERF_ITEMS=[
-  {n:101,label:1,sub:'스피킹',pt:4},{n:102,label:2,sub:'스피킹',pt:4},{n:103,label:3,sub:'스피킹',pt:4},{n:104,label:4,sub:'스피킹',pt:3},
-  {n:201,label:1,sub:'라이팅',pt:4},{n:202,label:2,sub:'라이팅',pt:4},{n:203,label:3,sub:'라이팅',pt:4},{n:204,label:4,sub:'라이팅',pt:3},
+  {n:101,label:1,sub:'Speaking',pt:4},{n:102,label:2,sub:'Speaking',pt:4},{n:103,label:3,sub:'Speaking',pt:4},{n:104,label:4,sub:'Speaking',pt:3},
+  {n:201,label:1,sub:'Writing',pt:4},{n:202,label:2,sub:'Writing',pt:4},{n:203,label:3,sub:'Writing',pt:4},{n:204,label:4,sub:'Writing',pt:3},
 ].map(x=>({...x,type:'sa',part:'수행평가'}));
 function rowScore(tr){const raw=(tr.dataset&&tr.dataset.total!=null&&tr.dataset.total!=='')?tr.dataset.total:(tr.querySelector('td.tot')?tr.querySelector('td.tot').textContent:'');if(raw===''||raw==null)return null;const v=parseFloat(raw);return isNaN(v)?null:v;}
 function sortScore(dir){const tb=document.querySelector('#gradeArea table.g tbody');if(!tb)return;const rows=[...tb.children];rows.sort((a,b)=>{const sa=rowScore(a),sb=rowScore(b);if(sa==null&&sb==null)return 0;if(sa==null)return 1;if(sb==null)return -1;/* 미채점은 항상 아래로 */return dir==='asc'?(sa-sb):(sb-sa);});rows.forEach(r=>tb.appendChild(r));}
@@ -1522,29 +1522,30 @@ function buildNaesinGrid(section){
     ${SORTBTNS}
     <div class="gwrap"><table class="g"><thead><tr class="r1">${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
-/* 수행평가 — 스피킹1~4, 라이팅1~4 입력 사이사이에 영역 소계(스피킹합·라이팅합) 칸을 끼워 넣는다.
+/* 수행평가 — Speaking1~4, Writing1~4 입력 사이사이에 영역 소계(Speaking합·Writing합) 칸을 끼워 넣는다.
+   영어학원이라 항목 이름은 한글(스피킹/라이팅) 대신 영어로 표시한다.
    점수 채점은 naesinPerfScoreRow가 전담(공용 aceScoreRow를 안 쓰는 이유는 소계 칸 때문). */
 function naesinPerfCell(a,ri,ci){
   return `<td class="qcell sa" data-n="${a.n}"><input inputmode="decimal" placeholder="0~${a.pt}" ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="직접채점: 획득 점수 입력 (0~${a.pt}, 부분점수 가능)" oninput="onNaesinCell(this)" onkeydown="navKey(event,this,${NAESIN_PERF_ITEMS.length})"></td>`;
 }
 function buildNaesinPerfGrid(){
   const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-  const spk=NAESIN_PERF_ITEMS.filter(a=>a.sub==='스피킹'),wrt=NAESIN_PERF_ITEMS.filter(a=>a.sub==='라이팅');
+  const spk=NAESIN_PERF_ITEMS.filter(a=>a.sub==='Speaking'),wrt=NAESIN_PERF_ITEMS.filter(a=>a.sub==='Writing');
   const spkMax=spk.reduce((s,a)=>s+a.pt,0),wrtMax=wrt.reduce((s,a)=>s+a.pt,0),maxPt=spkMax+wrtMax;
   let head=`<th class="stu" style="${NAESIN_STU_W}">학생</th>`;
-  spk.forEach(a=>{head+=`<th style="font-size:13px;color:var(--ink);font-weight:900">스피킹${a.label}<span class="saq">/${a.pt}</span></th>`;});
-  head+=`<th class="sc" style="font-size:12.5px;color:var(--ink)">스피킹<br>합계</th>`;
-  wrt.forEach(a=>{head+=`<th style="font-size:13px;color:var(--ink);font-weight:900">라이팅${a.label}<span class="saq">/${a.pt}</span></th>`;});
-  head+=`<th class="sc" style="font-size:12.5px;color:var(--ink)">라이팅<br>합계</th>`;
+  spk.forEach(a=>{head+=`<th style="font-size:13px;color:var(--ink);font-weight:900">Speaking ${a.label}<span class="saq">/${a.pt}</span></th>`;});
+  head+=`<th class="sc" style="font-size:12.5px;color:var(--ink)">Speaking<br>합계</th>`;
+  wrt.forEach(a=>{head+=`<th style="font-size:13px;color:var(--ink);font-weight:900">Writing ${a.label}<span class="saq">/${a.pt}</span></th>`;});
+  head+=`<th class="sc" style="font-size:12.5px;color:var(--ink)">Writing<br>합계</th>`;
   head+=`<th class="tot">최종<br>/${maxPt}</th><th class="act">재시험</th>`;
   let body='',ci=0;
   studs.forEach((r,ri)=>{
     ci=0;
     let cells=`<td class="stu" style="${NAESIN_STU_W}"><b>${esc(r.name)}</b><div class="c" style="white-space:normal">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
     spk.forEach(a=>{cells+=naesinPerfCell(a,ri,ci);ci++;});
-    cells+=`<td class="sc" data-sub="스피킹">0</td>`;
+    cells+=`<td class="sc" data-sub="Speaking">0</td>`;
     wrt.forEach(a=>{cells+=naesinPerfCell(a,ri,ci);ci++;});
-    cells+=`<td class="sc" data-sub="라이팅">0</td>`;
+    cells+=`<td class="sc" data-sub="Writing">0</td>`;
     cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}</td>`;
     body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
@@ -1552,13 +1553,13 @@ function buildNaesinPerfGrid(){
       <span><span class="lgbox" style="background:#fff;border:2px solid var(--neg)"></span>직접채점(획득점수)</span>
       <span><span class="lgbox" style="background:#fff3d6;border:1px solid #e0a44c"></span>부분점수</span>
       <span><span class="lgbox" style="background:var(--neg-s);border:1px solid #f0b6b8"></span>배점 초과 입력</span>
-      <span class="hint">방향키 이동 · 수행평가 ${maxPt}점 만점(스피킹 ${spkMax}+라이팅 ${wrtMax}) · 세 영역 합친 총점은 [총점] 탭에서</span></div>
+      <span class="hint">방향키 이동 · 수행평가 ${maxPt}점 만점(Speaking ${spkMax}+Writing ${wrtMax}) · 세 영역 합친 총점은 [총점] 탭에서</span></div>
     ${SANOTE_ACE}
     ${SORTBTNS}
     <div class="gwrap"><table class="g"><thead><tr class="r1">${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function naesinPerfScoreRow(tr){
-  const subs=['스피킹','라이팅'];const got={};subs.forEach(s=>got[s]=0);
+  const subs=['Speaking','Writing'];const got={};subs.forEach(s=>got[s]=0);
   let totGot=0,totPt=0;
   NAESIN_PERF_ITEMS.forEach(a=>{
     const pt=a.pt||0;totPt+=pt;
