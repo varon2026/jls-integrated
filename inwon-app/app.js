@@ -1822,7 +1822,8 @@ function buildShell(){
       <div class="sb-item" data-nav="admin">${I.dash}<span>통합 대시보드</span></div>
       <div class="sb-item" data-nav="ban">${I.roster}<span>반배정표</span></div>
       <div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>
-      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
+      <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>
+      <div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
 } else if(isTeacher){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
@@ -1897,7 +1898,7 @@ function render(){
   // branch 대시보드/데이터관리는 불가. branch는 admin/accounts 불가.
   if(session.role==='admin'){
     if(root==='branch' && parts[1]!=='teacher' && parts[1]!=='class'){ go('admin'); return; }
-   if(root==='data'||root==='students'||root==='segments-edit'||root==='teachers'||root==='start'||root==='passrate'||root==='assistants'||root==='retest'||root==='retest-up'){ go('admin'); return; }
+   if(root==='data'||root==='segments-edit'||root==='teachers'||root==='start'||root==='passrate'||root==='assistants'||root==='retest'||root==='retest-up'){ go('admin'); return; }
   }
   // 선생님: 자기 반 관련 화면만 (myclasses / branch teacher·class 상세)
 if(session.role==='teacher'){
@@ -2575,6 +2576,10 @@ function banLvRank(lv){
 }
 function banBranchId(){ if(session.role!=='admin') return session.branchId; return state.banBranch || (db.branches[0]&&db.branches[0].id); }
 function banSetBranch(v){ state.banBranch=v; renderBanTable(); }
+/* 학생관리 화면의 분원 — banBranchId()와 같은 방식. 분원 계정은 자기 분원 고정,
+   관리자는 화면 안 드롭다운으로 고른 분원(기본은 첫 분원)을 쓴다. */
+function stuMgmtBranchId(){ if(session.role!=='admin') return session.branchId; return state.stuMgmtBranch || (db.branches[0]&&db.branches[0].id); }
+function stuMgmtSetBranch(v){ state.stuMgmtBranch=v; renderStudentManagement(); }
 function renderBanTable(){
   const semId=state.semId; const brId=banBranchId();
   const brName=(getBranch(brId)||{}).name||'분원';
@@ -4336,10 +4341,11 @@ function confirmClearRoster(){
    15-2. 분원 — 학생관리 (신규생 추가 / 퇴원 처리 / 이동 이력)
    ============================================================================ */
 function renderStudentManagement(){
-  const branchId = session.branchId;
+  const branchId = stuMgmtBranchId();
   const b = getBranch(branchId);
   const semId = state.semId;
   crumbs([{label:'학생관리'}]);
+  const brSel = session.role==='admin' ? '<span style="font-size:12.5px;font-weight:800;color:var(--ink-3);margin-right:6px">분원</span><select onchange="stuMgmtSetBranch(this.value)" style="font:inherit;font-weight:700;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:6px 10px;background:#fff;cursor:pointer">'+db.branches.map(x=>'<option value="'+x.id+'" '+(x.id===branchId?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>' : '';
 
   const recs = recordsOf(branchId, semId);
   const movements = db.studentMovements
@@ -4356,9 +4362,11 @@ function renderStudentManagement(){
   const classList = [...classMap.values()].sort((a,b)=> a.label.localeCompare(b.label,'ko'));
 
   el('content').innerHTML = `
-    <div class="page-head">
-      <h2>학생관리</h2>
-      <div class="sub">${esc(b.name)} · ${esc(db.semesters.find(s=>s.id===semId).name)} · 신규생 추가와 퇴원 처리를 합니다</div>
+    <div class="page-head" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div><h2>학생관리</h2>
+      <div class="sub">${esc(b.name)} · ${esc(db.semesters.find(s=>s.id===semId).name)} · 신규생 추가와 퇴원 처리를 합니다</div></div>
+      <div style="flex:1"></div>
+      ${brSel}
     </div>
 
     ${stuSearchPanelHTML()}
@@ -4644,7 +4652,7 @@ function renderStudentManagement(){
   // 문자 카드 최초 렌더
   renderMsgCard();
   // 현 재원생 검색 (입력했을 때만 결과 표시)
-  state.stuSearchBranch = session.branchId;
+  state.stuSearchBranch = branchId;
   renderStuSearch();
 }
 
@@ -4667,7 +4675,7 @@ function renderStuSearch(){
   const box = el('stuSearchResults'); if(!box) return;
   const q = (el('stuSearch') && el('stuSearch').value || '').trim().toLowerCase();
   if(!q){ box.innerHTML = `<div style="padding:10px 2px;color:var(--ink-3);font-size:12.5px">이름·회원코드·학교·반·담임을 입력하면 결과가 여기에 표시됩니다.</div>`; return; }
-  const branchId = state.stuSearchBranch || session.branchId || (db.branches[0]&&db.branches[0].id);
+  const branchId = state.stuSearchBranch || stuMgmtBranchId();
   const semId = state.semId;
   let list = activeRecordsOf(branchId, semId)
     .filter(r=>(r.kind||'regular')!=='exam')
@@ -5671,7 +5679,7 @@ function normDate(s){
 
 /* ----- 신규/퇴원 수동 ----- */
 function addNewStudent(){
-  const branchId=session.branchId, semId=state.semId;
+  const branchId=stuMgmtBranchId(), semId=state.semId;
   const name=el('nsName').value.trim(), code=el('nsCode').value.trim();
   if(!name||!code){ toast('학생명과 회원코드는 필수입니다','err'); return; }
   const enrollDate=el('nsDate').value;  // "2026-07-15" (캘린더 선택값)
@@ -5742,7 +5750,7 @@ const isTransferIn = el('nsTransferIn') ? el('nsTransferIn').checked : false;
 
 /* 퇴원 처리 — 이름/코드 검색 결과 렌더 (동명이인 구분 위해 코드·반·담임 표시) */
 function renderWdResults(){
-  const branchId=session.branchId, semId=state.semId;
+  const branchId=stuMgmtBranchId(), semId=state.semId;
   const q = (el('wdSearch').value||'').trim().toLowerCase();
   const box = el('wdResults');
   if(!q){ box.innerHTML=''; return; }
@@ -5828,7 +5836,7 @@ rec.withdrawReason = isTransfer ? null : reason;
 
 /* 퇴원·전출 학생 검색 (상태 변경용) */
 function renderWcResults(){
-  const branchId=session.branchId, semId=state.semId;
+  const branchId=stuMgmtBranchId(), semId=state.semId;
   const q = (el('wcSearch').value||'').trim().toLowerCase();
   const box = el('wcResults');
   if(!q){ box.innerHTML=''; return; }
