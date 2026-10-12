@@ -316,6 +316,18 @@ function isNaesin(r){
   const toks=(s.match(/[\/_](E\d+|M\d+)(?=[\/(\s]|$)/g)||[]).map(x=>x.slice(1).toUpperCase());
   return toks.includes('E6')||toks.includes('M1');
 }
+/* 내신모의고사 정답키 매칭용 학년 추출 — classLabel 전체(요일·부·코스까지 포함)를
+   '레벨'로 쓰면 같은 시험인데도 반마다(전국 기준 십여 개) 정답키를 따로 올려야 했다.
+   DT/AT처럼 레벨 하나에 여러 반이 묶이도록, 내신모의고사만 학년 토큰(E6/M1)으로 단순화한다. */
+function naesinGrade(r){
+  const s=String(r.className||'')+' '+String(r.classLabel||'');
+  const toks=(s.match(/[\/_](E\d+|M\d+)(?=[\/(\s]|$)/g)||[]).map(x=>x.slice(1).toUpperCase());
+  if(toks.includes('E6'))return 'E6';
+  if(toks.includes('M1'))return 'M1';
+  if(/초등6/.test(s))return 'E6';
+  if(/중등1/.test(s))return 'M1';
+  return '';
+}
 /* AT는 '정답키에 있는 레벨(대괄호 베이스)'인 반만 대상 — 수능반·모의고사반 등 키 없는 반 제외 */
 function atHasKey(r){return variantsForBase(levelCode(r.className)).length>0;}
 function inScopeFor(exam,r){if(exam==='DT')return r.chess;if(exam==='AT')return !r.chess&&atHasKey(r);return isNaesin(r);}
@@ -808,19 +820,19 @@ async function rtToggleMakeup(type,code){
 function scopedRoster(brOverride){const br=(brOverride===undefined)?BRANCH:brOverride;return ROSTER.filter(r=>(!br||r.branchId===br)&&(!TEACHER||String(r.teacher||'').split(',').some(t=>t.trim()===TEACHER))&&inScopeFor(EXAM,r));}
 function levelsForExam(br){
   const m=new Map();
-  scopedRoster(br).forEach(r=>{const code=EXAM==='내신모의고사'?(r.classLabel||r.className):levelCode(r.className);if(!code)return;
+  scopedRoster(br).forEach(r=>{const code=EXAM==='내신모의고사'?naesinGrade(r):levelCode(r.className);if(!code)return;
     if(!m.has(code))m.set(code,{code,chess:r.chess,recs:[]});m.get(code).recs.push(r);});
   return [...m.values()].sort((a,b)=>lvSort(a.code,b.code));
 }
 function studentsOfLevel(code){
-  return scopedRoster().filter(r=>{const c=EXAM==='내신모의고사'?(r.classLabel||r.className):levelCode(r.className);return c===code;})
+  return scopedRoster().filter(r=>{const c=EXAM==='내신모의고사'?naesinGrade(r):levelCode(r.className);return c===code;})
     .sort((a,b)=>(a.branchName+a.className+a.name).localeCompare(b.branchName+b.className+b.name));
 }
 /* 답안입력용 — 반(요일·담임)별로 분리. 같은 레벨이어도 반이 다르면 따로. 정답키는 레벨 걸 공유 */
 function classesForExam(br){
   const m=new Map();
   scopedRoster(br).forEach(r=>{
-    const code=EXAM==='내신모의고사'?(r.classLabel||r.className):levelCode(r.className);
+    const code=EXAM==='내신모의고사'?naesinGrade(r):levelCode(r.className);
     const key=r.branchId+'|'+r.className;
     if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,chess:r.chess,branchName:r.branchName,recs:[]});
     m.get(key).recs.push(r);
