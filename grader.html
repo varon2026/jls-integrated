@@ -290,6 +290,15 @@ const SANOTE='<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px sol
 const SANOTE_ACE='<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px solid #e0a44c;background:#fff3d6;border-radius:10px;font-weight:800;color:#b7791f;font-size:13px">🟧 빨간 네모칸(주관식)은 <b>학생이 받은 점수</b>를 그대로 입력하세요. 예) 배점 2점 문항 → 정답 2, 부분점수 1, 오답 0 (0.5 같은 소수점도 가능).</div>';
 /* 점수 정렬 버튼 (체스·에이스 공용) — 현재 화면의 채점표를 총점 기준으로 정렬 */
 const SORTBTNS='<div class="sortbar" style="display:flex;gap:8px;align-items:center;margin:2px 2px 10px"><span class="hint">점수 정렬:</span><button class="ghost mini" onclick="sortScore(\'desc\')">▼ 높은순</button><button class="ghost mini" onclick="sortScore(\'asc\')">▲ 낮은순</button></div>';
+/* 내신모의고사 수행평가(스피킹·라이팅) — 정답키가 없다(선생님이 항목 보고 점수만 준다).
+   그래도 ACE 서술형의 "0~배점 직접입력, 부분점수 허용" 채점 로직(aceScoreRow/computeAce)을
+   그대로 쓰고 싶어서, exam_keys에 저장되는 진짜 정답 대신 이 가짜 ans 배열을 만들어 끼워넣는다.
+   n은 101~204로 떼어 놔서 지필/듣기 문항번호(1~25)와 데이터칸(data-n)이 안 겹치게 하고,
+   화면엔 label(스피킹1~4·라이팅1~4)로 보여준다. */
+const NAESIN_PERF_ITEMS=[
+  {n:101,label:1,sub:'스피킹',pt:4},{n:102,label:2,sub:'스피킹',pt:4},{n:103,label:3,sub:'스피킹',pt:4},{n:104,label:4,sub:'스피킹',pt:3},
+  {n:201,label:1,sub:'라이팅',pt:4},{n:202,label:2,sub:'라이팅',pt:4},{n:203,label:3,sub:'라이팅',pt:4},{n:204,label:4,sub:'라이팅',pt:3},
+].map(x=>({...x,type:'sa',part:'수행평가'}));
 function rowScore(tr){const raw=(tr.dataset&&tr.dataset.total!=null&&tr.dataset.total!=='')?tr.dataset.total:(tr.querySelector('td.tot')?tr.querySelector('td.tot').textContent:'');if(raw===''||raw==null)return null;const v=parseFloat(raw);return isNaN(v)?null:v;}
 function sortScore(dir){const tb=document.querySelector('#gradeArea table.g tbody');if(!tb)return;const rows=[...tb.children];rows.sort((a,b)=>{const sa=rowScore(a),sb=rowScore(b);if(sa==null&&sb==null)return 0;if(sa==null)return 1;if(sb==null)return -1;/* 미채점은 항상 아래로 */return dir==='asc'?(sa-sb):(sb-sa);});rows.forEach(r=>tb.appendChild(r));}
 function normA(v){v=String(v==null?'':v).trim().toUpperCase();return _L2N[v]||v;}
@@ -1053,10 +1062,10 @@ function renderAnswerView(){
       <div class="ddlist" id="ddList" style="display:none"><div class="ddopts">${opts||'<div style="padding:16px" class="hint">대상 반이 없어요</div>'}</div></div>
     </div>
     <div id="gradeArea"></div>`;
-  if(CURCLASS){ if(EXAM==='AT') buildAceArea(); else buildGrid(); }
+  if(CURCLASS){ if(EXAM==='AT') buildAceArea(); else if(EXAM==='내신모의고사') buildNaesinArea(); else buildGrid(); }
 }
 function toggleDD(){const l=$('ddList');l.style.display=l.style.display==='none'?'':'none';}
-function pickClass(key){CURCLASS=key;CURTAB='독해';renderAnswerView();}
+function pickClass(key){CURCLASS=key;CURTAB=EXAM==='내신모의고사'?'지필평가':'독해';renderAnswerView();}
 
 function curClassObj(){return classesForExam().find(c=>c.key===CURCLASS);}
 function buildGrid(){
@@ -1145,7 +1154,7 @@ function updateHist(tr){
 }
 /* 재시험: 같은 줄에서 다음 차수 입력 준비 — 이전 차수 점수는 이력에 보존, 답안칸은 비움.
    현재 답안이 비어있으면(=이미 재시험 입력 대기) 연타로 차수 안 올라감. 취소로 되돌리기 가능. */
-function reScore(tr){ if(EXAM==='AT') aceScoreRow(tr,aceAns(CURTAB)); else scoreRow(tr); }
+function reScore(tr){ if(EXAM==='AT') aceScoreRow(tr,aceAns(CURTAB)); else if(EXAM==='내신모의고사') aceScoreRow(tr,naesinAns(CURTAB)); else scoreRow(tr); }
 function retest(btn){
   const tr=btn.closest('tr');
   const anyInput=[...tr.querySelectorAll('td.qcell input')].some(i=>i.value.trim()!=='');
@@ -1183,6 +1192,12 @@ async function resetRow(btn){
     const section=CURTAB;
     if(section==='총점'){toast('총점 탭에서는 초기화할 수 없어요. 독해나 문법 탭에서 눌러주세요',false);return;}
     const{error}=await sb.from('exam_scores').delete().eq('test_type','AT').eq('key_name',CURVARIANT).eq('section',section).eq('student_code',tr.dataset.code);
+    if(error){toast('초기화 실패: '+error.message,false);return;}
+  }else if(EXAM==='내신모의고사'){
+    const section=CURTAB;
+    if(section==='총점'){toast('총점 탭에서는 초기화할 수 없어요. 다른 탭에서 눌러주세요',false);return;}
+    const cls=curClassObj();const code=cls?cls.levelCode:'';
+    const{error}=await sb.from('exam_scores').delete().eq('test_type','내신모의고사').eq('key_name',code).eq('section',section).eq('student_code',tr.dataset.code);
     if(error){toast('초기화 실패: '+error.message,false);return;}
   }else{
     const key=curKey();
@@ -1231,6 +1246,7 @@ async function loadSavedScores(){
 /* ── 답안 엑셀 일괄 업로드 (초등·중등 공통) ── */
 function gradeCtx(){
   if(EXAM==='AT'){const ans=aceAns(CURTAB);return {sel:'#aceContent',ans,score:tr=>aceScoreRow(tr,ans),label:(CURVARIANT||'')+'_'+CURTAB};}
+  if(EXAM==='내신모의고사'){const ans=naesinAns(CURTAB);return {sel:'#naesinContent',ans,score:tr=>aceScoreRow(tr,ans),label:((curClassObj()||{}).levelCode||'')+'_'+CURTAB};}
   const key=curKey();const ans=key?(key.answers||[]).slice().sort((a,b)=>a.n-b.n):[];return {sel:'#gradeArea',ans,score:tr=>scoreRow(tr),label:(curClassObj()||{}).levelCode||''};
 }
 function downloadAnsTemplate(){
@@ -1306,7 +1322,7 @@ function computeAce(responses,ans){
   return{got,subG};
 }
 function pickVariant(v){CURVARIANT=v;buildAceArea();}
-function pickTab(t){CURTAB=t;buildAceArea();}
+function pickTab(t){CURTAB=t; if(EXAM==='AT') buildAceArea(); else buildNaesinArea(); }
 function buildAceArea(){
   const area=$('gradeArea');const cls=curClassObj();if(!cls){area.innerHTML='';return;}
   const base=cls.levelCode;const variants=variantsForBase(base);
@@ -1423,6 +1439,126 @@ async function loadAceSaved(section){
 }
 
 /* ============================================================================
+   내신모의고사 전용 — 지필평가·듣기평가·수행평가 3탭 + 총점 (ACE 구조 그대로 재사용)
+   지필·듣기는 정답키(exam_keys)에서 영역(part)으로 필터링, 수행평가는 정답키가 없어서
+   NAESIN_PERF_ITEMS 고정 배열을 쓴다. 채점 로직(부분점수 포함)은 aceScoreRow/computeAce를
+   그대로 가져다 쓰고, exam_scores에는 AT처럼 key_name(레벨)+section으로 구분해 저장한다.
+   ============================================================================ */
+function naesinAns(section,codeOverride){
+  if(section==='수행평가')return NAESIN_PERF_ITEMS;
+  const code=codeOverride!=null?codeOverride:(curClassObj()||{}).levelCode;
+  const k=keyOfLevel(code);
+  return k?(k.answers||[]).filter(a=>(a.part||'')===section).sort((a,b)=>a.n-b.n):[];
+}
+function onNaesinCell(inp){aceScoreRow(inp.closest('tr'),naesinAns(CURTAB));}
+function buildNaesinArea(){
+  const area=$('gradeArea');const cls=curClassObj();if(!cls){area.innerHTML='';return;}
+  const code=cls.levelCode;
+  const tabs=['지필평가','듣기평가','수행평가','총점'].map(t=>`<button class="ghost mini" style="${t===CURTAB?'background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border-color:transparent':''}" onclick="pickTab('${t}')">${t}</button>`).join('');
+  const content = CURTAB==='총점' ? buildNaesinSummary() : buildNaesinGrid(CURTAB);
+  area.innerHTML=`<div class="card" style="padding:16px 20px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-size:16px;font-weight:800">${esc(noDays(code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
+        <div style="flex:1"></div>
+        <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>
+        ${CURTAB!=='총점'?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
+        <label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">답안 엑셀↑<input type="file" accept=".xlsx,.xls" hidden onchange="uploadAns(this)"></label>
+        <button class="btn mini" onclick="saveNaesin()">${CURTAB} 채점 저장</button>`:''}
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${tabs}</div>
+    </div>
+    <div id="naesinContent">${content}</div>`;
+  if(CURTAB==='총점')loadNaesinSummary(); else loadNaesinSaved(CURTAB);
+}
+function buildNaesinGrid(section){
+  const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const ans=naesinAns(section);
+  if(!ans.length)return `<div class="card"><div class="hint">${esc(section)} 정답키가 없어요. 왼쪽 <b>정답등록</b>에서 올려주세요.</div></div>`;
+  const maxPt=Math.round(ans.reduce((s,a)=>s+(a.pt||0),0)*10)/10;
+  let head=`<th class="stu">학생</th>`;
+  ans.forEach(a=>{head+=`<th>${section==='수행평가'?esc(a.sub)+' '+a.label:a.n}${a.type==='sa'?`<span class="saq">/${a.pt||0}</span>`:''}</th>`;});
+  head+=`<th class="tot">최종<br>/${maxPt}</th><th class="act">재시험</th>`;
+  const cols=ans.length;let body='';
+  studs.forEach((r,ri)=>{
+    let cells=`<td class="stu"><b>${esc(r.name)}</b><div class="c">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
+    ans.forEach((a,ci)=>{const sa=a.type==='sa';cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="${sa?'decimal':'numeric'}" ${sa?'':'maxlength="1"'} ${sa?`placeholder="0~${a.pt||0}"`:''} ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?`직접채점: 획득 점수 입력 (0~${a.pt||0}, 부분점수 가능)`:'객관식: 1~5'}" oninput="onNaesinCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
+    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}</td>`;
+    body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
+  });
+  const hasSa=ans.some(a=>a.type==='sa');
+  return `<div class="legend">
+      <span><span class="lgbox" style="background:var(--pos-s);border:1px solid #9dd9bd"></span>정답</span>
+      <span><span class="lgbox" style="background:var(--neg-s);border:1px solid #f0b6b8"></span>오답</span>
+      ${hasSa?`<span><span class="lgbox" style="background:#fff;border:2px solid var(--neg)"></span>직접채점(획득점수)</span>
+      <span><span class="lgbox" style="background:#fff3d6;border:1px solid #e0a44c"></span>부분점수</span>`:''}
+      <span class="hint">방향키 이동 · ${esc(section)} ${maxPt}점 만점 · 세 영역 합친 총점은 [총점] 탭에서</span></div>
+    ${hasSa?SANOTE_ACE:''}
+    ${SORTBTNS}
+    <div class="gwrap"><table class="g"><thead><tr class="r1">${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function buildNaesinSummary(){return `<div id="naesinSum" class="card"><div class="hint">총점 계산 중…</div></div>`;}
+async function loadNaesinSummary(){
+  const host=$('naesinSum');if(!host)return;
+  const cls=curClassObj();if(!cls)return;const code=cls.levelCode;
+  const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const wAns=naesinAns('지필평가',code),lAns=naesinAns('듣기평가',code),pAns=naesinAns('수행평가',code);
+  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사'));}catch(e){host.innerHTML='<div class="hint">불러오기 실패</div>';return;}
+  const wBy={},lBy={},pBy={};
+  (data||[]).forEach(r=>{if(r.key_name!==code)return;
+    const map=r.section==='지필평가'?wBy:(r.section==='듣기평가'?lBy:(r.section==='수행평가'?pBy:null));if(!map)return;
+    const cur=map[r.student_code];const rn=+(r.round||'1'),cn=cur?+(cur.round||'1'):-1;
+    if(!cur||rn>cn||(rn===cn&&String(r.graded_at||'')>String(cur.graded_at||'')))map[r.student_code]=r;});
+  const wMax=Math.round(wAns.reduce((s,a)=>s+(a.pt||0),0)*10)/10,lMax=Math.round(lAns.reduce((s,a)=>s+(a.pt||0),0)*10)/10,pMax=Math.round(pAns.reduce((s,a)=>s+(a.pt||0),0)*10)/10;
+  const totMax=Math.round((wMax+lMax+pMax)*10)/10;
+  let rows='';
+  studs.forEach(st=>{
+    const wRec=wBy[st.code],lRec=lBy[st.code],pRec=pBy[st.code];
+    const w=wRec?computeAce(wRec.responses,wAns):null,l=lRec?computeAce(lRec.responses,lAns):null,p=pRec?computeAce(pRec.responses,pAns):null;
+    const wsc=w?w.got:null,lsc=l?l.got:null,psc=p?p.got:null;
+    const graded=!!(w||l||p);
+    const total=Math.round(((wsc||0)+(lsc||0)+(psc||0))*10)/10;
+    rows+=`<tr${graded?` data-total="${total}"`:''}><td class="stu"><b>${esc(st.name)}</b><div class="c">${esc(st.school||'')} ${esc(gradeKey(st.grade)||'')} · ${esc(st.code||'')}</div></td>
+      <td class="sc">${wsc==null?'<span style="color:var(--ink3)">미채점</span>':wsc}</td>
+      <td class="sc">${lsc==null?'<span style="color:var(--ink3)">미채점</span>':lsc}</td>
+      <td class="sc">${psc==null?'<span style="color:var(--ink3)">미채점</span>':psc}</td>
+      <td class="sc" style="font-weight:800;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2))">${graded?total:'-'}</td></tr>`;
+  });
+  host.innerHTML=`<div class="lbl">총점 <span style="font-weight:700;color:var(--ink3)">(지필 ${wMax} + 듣기 ${lMax} + 수행 ${pMax} = ${totMax})</span></div>
+    ${SORTBTNS}
+    <div class="gwrap"><table class="g"><thead><tr class="r1"><th class="stu">학생</th><th>지필<br>/${wMax}</th><th>듣기<br>/${lMax}</th><th>수행<br>/${pMax}</th><th>총점<br>/${totMax}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+async function saveNaesin(){
+  const section=CURTAB;if(section==='총점')return;
+  const cls=curClassObj();if(!cls)return;const code=cls.levelCode;
+  const ans=naesinAns(section);if(!ans.length){toast('정답키가 없어요',false);return;}
+  const trs=[...document.querySelectorAll('#naesinContent tbody tr')].filter(tr=>[...tr.querySelectorAll('td.qcell input')].some(i=>i.value.trim()!==''));
+  if(!trs.length){toast('입력된 학생이 없어요',false);return;}
+  let ok=0;
+  for(const tr of trs){
+    const s=aceScoreRow(tr,ans);
+    const responses=ans.map(a=>{const td=tr.querySelector(`td.qcell[data-n="${a.n}"]`);const val=(td.querySelector('input').value||'').trim();const r={n:a.n,ans:val};if(a.type==='sa'){let num=parseFloat(val.replace(/[^0-9.]/g,''));if(isNaN(num))num=0;r.p=Math.max(0,Math.min(a.pt||0,num));}return r;});
+    await sb.from('exam_scores').delete().eq('test_type','내신모의고사').eq('key_name',code).eq('section',section).eq('student_code',tr.dataset.code);
+    const{error}=await sb.from('exam_scores').insert({key_name:code,section,semester:semName(SEM),test_type:'내신모의고사',branch:tr.dataset.branch,class_name:tr.dataset.class,student_name:tr.dataset.name,student_code:tr.dataset.code,responses,correct:0,num_q:ans.length,got_pt:s.got,total_pt:s.tot,score:s.got,graded_at:new Date().toISOString(),round:String(tr.dataset.attempt||'1'),prev_scores:JSON.parse(tr.dataset.prev||'[]')});
+    if(error){toast('저장 실패: '+error.message,false);return;}ok++;
+  }
+  toast(`${section} ${ok}명 저장됨 ✓`);await loadScored();buildNaesinArea();
+}
+async function loadNaesinSaved(section){
+  const cls=curClassObj();if(!cls)return;const code=cls.levelCode;
+  const ans=naesinAns(section);if(!ans.length)return;
+  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사'));}catch(e){return;}
+  const byCode={};(data||[]).forEach(r=>{if(r.key_name===code&&r.section===section)byCode[r.student_code]=r;});
+  const ansByN={};ans.forEach(a=>ansByN[a.n]=a);
+  document.querySelectorAll('#naesinContent tbody tr').forEach(tr=>{const rec=byCode[tr.dataset.code];if(!rec)return;
+    tr.dataset.attempt=String(rec.round||'1');tr.dataset.prev=JSON.stringify(rec.prev_scores||[]);
+    (rec.responses||[]).forEach(rp=>{const td=tr.querySelector(`td.qcell[data-n="${rp.n}"]`);if(!td)return;const i=td.querySelector('input');if(!i)return;
+      const a=ansByN[rp.n];let val=rp.ans||'';
+      if(a&&a.type==='sa'){ if(rp.p!=null){ val=String(rp.p); } }
+      i.value=val;});
+    aceScoreRow(tr,ans);});
+}
+
+/* ============================================================================
    성적 엑셀 다운로드 — 세부 항목별 점수 (답안 X, 점수만)
    · 미응시(채점기록 없음) = 노란 줄 / 재시험 = 초록 줄 + 1차·2차 총점 맨 끝
    · 정답키가 등록된 레벨·영역만 내보냄
@@ -1516,6 +1652,26 @@ function atSheetFor(variant,recs,idx){
   });
   return {name:variant,header,rows};
 }
+/* 내신모의고사 한 레벨(code) → 시트. 지필·듣기·수행 각 획득점수 + 총점 */
+function naesinSheetFor(code,recs,idx){
+  const wAns=naesinAns('지필평가',code),lAns=naesinAns('듣기평가',code),pAns=naesinAns('수행평가',code);
+  const wMax=Math.round(wAns.reduce((s,a)=>s+(a.pt||0),0)*10)/10,lMax=Math.round(lAns.reduce((s,a)=>s+(a.pt||0),0)*10)/10,pMax=Math.round(pAns.reduce((s,a)=>s+(a.pt||0),0)*10)/10;
+  const built=recs.map(r=>{
+    const wRec=idx[r.code+'|'+code+'|지필평가'],lRec=idx[r.code+'|'+code+'|듣기평가'],pRec=idx[r.code+'|'+code+'|수행평가'];
+    const w=wRec?computeAce(wRec.responses,wAns):null,l=lRec?computeAce(lRec.responses,lAns):null,p=pRec?computeAce(pRec.responses,pAns):null;
+    return {r,w,l,p,none:!(w||l||p)};
+  });
+  const header=['분원명','학생명','학교','학년','회원코드','지필','듣기','수행','총점'];
+  const rows=built.map(b=>{
+    const cells=_meta(b.r);
+    if(b.none){while(cells.length<header.length)cells.push('');return {cells,fill:XL_YELLOW};}
+    const wsc=b.w?b.w.got:null,lsc=b.l?b.l.got:null,psc=b.p?b.p.got:null;
+    const tot=Math.round(((wsc||0)+(lsc||0)+(psc||0))*10)/10;
+    cells.push(wsc==null?'':wsc,lsc==null?'':lsc,psc==null?'':psc,tot);
+    return {cells,fill:null};
+  });
+  return {name:code,header,rows,widths:[11,12,15,7,13,9,9,9,9]};
+}
 async function writeXlsxColored(sheets,filename){
   const thin={style:'thin',color:{argb:XL_LINE}};const border={top:thin,left:thin,bottom:thin,right:thin};
   const wb=new ExcelJS.Workbook();
@@ -1548,6 +1704,12 @@ async function exportScoresXlsx(){
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
       const sh=atSheetFor(variant,studs,idx);sh.name=_sheetName(cls.levelCode+'_'+vLabel(variant,cls.levelCode));sh.widths=[11,12,15,7,13];
       await writeXlsxColored([sh],`${EXAM}_${cls.levelCode}_${vLabel(variant,cls.levelCode)}_${semName(SEM)}`);
+    }else if(EXAM==='내신모의고사'){
+      const code=cls.levelCode;
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('key_name',code));
+      const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+code+'|'+r.section,r));
+      const sh=naesinSheetFor(code,studs,idx);sh.name=_sheetName(code);
+      await writeXlsxColored([sh],`${EXAM}_${code}_${semName(SEM)}`);
     }else{
       const key=keyOfLevel(cls.levelCode);if(!key){toast('정답키가 없어요',false);return;}
       const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM).eq('key_id',key.id));
@@ -1576,6 +1738,16 @@ async function exportScoresBulk(){
           const sh=atSheetFor(v,studs,idx);sh.name=_uniqSheet(sheets,noDays(classDetail(cls.className))+'_'+vLabel(v,cls.levelCode));sh.widths=[11,12,15,7,13];
           sheets.push(sh);
         });
+      });
+    }else if(EXAM==='내신모의고사'){
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사'));
+      const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
+      levelsForExam(brDl).forEach(l=>{
+        const code=l.code;
+        const studs=l.recs.slice().sort((a,b)=>(a.branchName+a.name).localeCompare(b.branchName+b.name));
+        if(!studs.some(r=>idx[r.code+'|'+code+'|지필평가']||idx[r.code+'|'+code+'|듣기평가']||idx[r.code+'|'+code+'|수행평가']))return;
+        const sh=naesinSheetFor(code,studs,idx);sh.name=_uniqSheet(sheets,code);
+        sheets.push(sh);
       });
     }else{
       const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM));
