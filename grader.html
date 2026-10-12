@@ -1496,13 +1496,14 @@ function buildNaesinArea(){
 /* 학생 이름칸 — 기본 .g td.stu 는 200px 최소폭(DT·AT 공용)이라 내신모의고사 표에선
    쓸데없이 넓어 보인다는 지적이 있었다. 여기서만 인라인 스타일로 좁혀서 다른 표는 안 건드림. */
 const NAESIN_STU_W='min-width:170px;width:170px';
+const NAESIN_TH='font-size:13px;color:var(--ink);font-weight:900';
 function buildNaesinGrid(section){
   const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const ans=naesinAns(section);
   if(!ans.length)return `<div class="card"><div class="hint">${esc(section)} 정답키가 없어요. 왼쪽 <b>정답등록</b>에서 올려주세요.</div></div>`;
   const maxPt=Math.round(ans.reduce((s,a)=>s+(a.pt||0),0)*10)/10;
-  let head=`<th class="stu" style="${NAESIN_STU_W}">학생</th>`;
-  ans.forEach(a=>{head+=`<th style="font-size:13px;color:var(--ink);font-weight:900">${a.n}${a.type==='sa'?`<span class="saq">/${a.pt||0}</span>`:''}</th>`;});
+  let head=`<th class="stu" style="${NAESIN_STU_W};${NAESIN_TH}">학생</th>`;
+  ans.forEach(a=>{head+=`<th style="${NAESIN_TH}">${a.n}${a.type==='sa'?`<span class="saq">/${a.pt||0}</span>`:''}</th>`;});
   head+=`<th class="tot">최종<br>/${maxPt}</th><th class="act">재시험</th>`;
   const cols=ans.length;let body='';
   studs.forEach((r,ri)=>{
@@ -1532,10 +1533,10 @@ function buildNaesinPerfGrid(){
   const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const spk=NAESIN_PERF_ITEMS.filter(a=>a.sub==='Speaking'),wrt=NAESIN_PERF_ITEMS.filter(a=>a.sub==='Writing');
   const spkMax=spk.reduce((s,a)=>s+a.pt,0),wrtMax=wrt.reduce((s,a)=>s+a.pt,0),maxPt=spkMax+wrtMax;
-  let head=`<th class="stu" style="${NAESIN_STU_W}">학생</th>`;
-  spk.forEach(a=>{head+=`<th style="font-size:13px;color:var(--ink);font-weight:900">Speaking ${a.label}<span class="saq">/${a.pt}</span></th>`;});
+  let head=`<th class="stu" style="${NAESIN_STU_W};${NAESIN_TH}">학생</th>`;
+  spk.forEach(a=>{head+=`<th style="${NAESIN_TH}">Speaking ${a.label}<span class="saq">/${a.pt}</span></th>`;});
   head+=`<th class="sc" style="font-size:12.5px;color:var(--ink)">Speaking<br>합계</th>`;
-  wrt.forEach(a=>{head+=`<th style="font-size:13px;color:var(--ink);font-weight:900">Writing ${a.label}<span class="saq">/${a.pt}</span></th>`;});
+  wrt.forEach(a=>{head+=`<th style="${NAESIN_TH}">Writing ${a.label}<span class="saq">/${a.pt}</span></th>`;});
   head+=`<th class="sc" style="font-size:12.5px;color:var(--ink)">Writing<br>합계</th>`;
   head+=`<th class="tot">최종<br>/${maxPt}</th><th class="act">재시험</th>`;
   let body='',ci=0;
@@ -1608,7 +1609,7 @@ async function loadNaesinSummary(){
   });
   host.innerHTML=`<div class="lbl">총점 <span style="font-weight:700;color:var(--ink3)">(지필 ${wMax} + 듣기 ${lMax} + 수행 ${pMax} = ${totMax})</span></div>
     ${SORTBTNS}
-    <div class="gwrap"><table class="g"><thead><tr class="r1"><th class="stu" style="${NAESIN_STU_W}">학생</th><th style="font-size:13px;color:var(--ink);font-weight:900">지필<br>/${wMax}</th><th style="font-size:13px;color:var(--ink);font-weight:900">듣기<br>/${lMax}</th><th style="font-size:13px;color:var(--ink);font-weight:900">수행<br>/${pMax}</th><th style="font-size:13px;color:var(--ink);font-weight:900">총점<br>/${totMax}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="gwrap"><table class="g"><thead><tr class="r1"><th class="stu" style="${NAESIN_STU_W};${NAESIN_TH}">학생</th><th style="${NAESIN_TH}">지필<br>/${wMax}</th><th style="${NAESIN_TH}">듣기<br>/${lMax}</th><th style="${NAESIN_TH}">수행<br>/${pMax}</th><th style="${NAESIN_TH}">총점<br>/${totMax}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 async function saveNaesin(){
   const section=CURTAB;if(section==='총점')return;
