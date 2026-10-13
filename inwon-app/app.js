@@ -5048,6 +5048,21 @@ function parseWithdrawDate(v, yearHint){
   if(dm && yearHint) return `${yearHint}-${dm[1].padStart(2,'0')}-${dm[2].padStart(2,'0')}`;
   return '';
 }
+/* 겨울학기 퇴원일 연도 보정 — 겨울학기는 12월=학기연도 그대로, 1·2월=학기연도+1인데,
+   분원이 엑셀에 연도 없이 '12/30'만 적으면 엑셀이 저장할 때 '그 당시 현재연도'를 자동으로
+   붙여버린다(Date 객체로 읽힘, parseWithdrawDate의 yearHint도 안 통함). 1·2월은 공교롭게
+   맞아떨어져서 안 틀리고 12월만 1년 밀려 들어왔다(25-26겨울학기 134건 — sql/fix_winter_wd_year.sql).
+   날짜가 이미 구해진 뒤 최종적으로 한 번 더 겨울학기 규칙에 맞춰 바로잡는다. */
+function winterYearFix(dateStr, semId){
+  const dm = String(dateStr||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const sm = String(semId||'').match(/sem_(\d+)_winter/);
+  if(!dm || !sm) return dateStr;
+  const baseYear = parseInt(sm[1],10);
+  const month = parseInt(dm[2],10);
+  const expectYear = (month===1||month===2) ? baseYear+1 : (month===12 ? baseYear : null);
+  if(expectYear===null || parseInt(dm[1],10)===expectYear) return dateStr;
+  return `${expectYear}-${dm[2]}-${dm[3]}`;
+}
 // "5월말일퇴원"→2026-05-31, "3월중도퇴원"→2026-03-15. 월 못 찾으면 학기기준일.
 function withdrawDateFromLabel(label, semId){
   const mm = String(label).match(/(\d{1,2})\s*월/);
@@ -5217,7 +5232,7 @@ async function doImportRoster(rows, idx, file, branchId, semId, opts){
           wdDate = semEndDate(semId);   // 중3졸업 → 학기말
         } else {
           const rawWdDate = idx.withdrawdate>=0 ? r[idx.withdrawdate] : '';
-          wdDate = parseWithdrawDate(rawWdDate) || withdrawDateFromLabel(wdRaw, semId);
+          wdDate = winterYearFix(parseWithdrawDate(rawWdDate) || withdrawDateFromLabel(wdRaw, semId), semId);
         }
       }
       // 특이사항은 분원마다 말이 다르다 — '신입생' '9월 신규생' '복귀생' 전부 같은 뜻으로 읽는다.
@@ -5406,7 +5421,7 @@ function importWithdrawals(file, branchId, semId){
       const transRaw = idx.transfer>=0 ? String(r[idx.transfer]||'').trim() : '';
       const toBranch = transRaw ? branchIdFromNote(transRaw) : null;
       const isTransfer = !!toBranch;
-      const wdDate = parseWithdrawDate(idx.date>=0 ? r[idx.date] : '', yearHint);
+      const wdDate = winterYearFix(parseWithdrawDate(idx.date>=0 ? r[idx.date] : '', yearHint), semId);
       /* 날짜를 못 읽었다고 오늘 날짜(업로드한 날)로 채우면 안 된다 — 2026 여름학기에
          "7/31"처럼 연도 없이 적은 걸 못 읽어서 업로드한 날(8/3)이 퇴원일로 우르르
          찍힌 적이 있다. 못 읽으면 비워 두고 결과창에 이름을 보여준다(사유 못 알아본
