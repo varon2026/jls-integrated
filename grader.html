@@ -848,7 +848,11 @@ function classesForExam(br){
   scopedRoster(br).forEach(r=>{
     const code=EXAM==='내신모의고사'?naesinGrade(r):levelCode(r.className);
     const key=r.branchId+'|'+r.className;
-    if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,chess:r.chess,branchName:r.branchName,recs:[]});
+    /* levelCode는 내신모의고사에선 학년(E6/M1)으로 — 같은 학년 반끼리 정답키를 묶으려고.
+       근데 목록 배지에 그대로 쓰면 반마다 다 'E6'만 찍혀서 뭐가 뭔지 구분이 안 된다
+       (AT 입력처럼 A1/A2/B 같은 실제 레벨이 찍혀야 어느 반인지 알고 클릭할 수 있다).
+       묶는 기준은 그대로 두고, 배지 표시용으로 실제 반 레벨을 따로 둔다. */
+    if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,dispCode:levelCode(r.className),chess:r.chess,branchName:r.branchName,recs:[]});
     m.get(key).recs.push(r);
   });
   return [...m.values()].sort((a,b)=>lvSort(a.levelCode,b.levelCode)||a.className.localeCompare(b.className));
@@ -1044,7 +1048,7 @@ function renderAnswerView(){
       : g>0 ? `<span class="tag" style="background:var(--soft);color:var(--brand)">채점 ${g}/${c.recs.length}</span>`
       : `<span class="tag" style="background:var(--line2);color:var(--ink3)">미채점 0/${c.recs.length}</span>`;
     return `<div class="ddopt" onclick="pickClass('${esc(c.key)}')">
-      <b>${esc(noDays(c.levelCode))}</b> <span class="tag ${c.chess?'chess':'ace'}">${c.chess?'CHESS':'ACE'}</span>
+      <b>${esc(noDays(c.dispCode||c.levelCode))}</b> <span class="tag ${c.chess?'chess':'ace'}">${c.chess?'CHESS':'ACE'}</span>
       <span style="color:var(--ink3);font-weight:700">${esc(classDetail(c.className))}</span>
       ${ROLE==='admin'&&!BRANCH?`<span style="color:var(--ink3);font-size:11.5px">· ${esc(c.branchName)}</span>`:''}
       ${k?'':'<span class="tag" style="background:var(--warn-s);color:var(--warn)">정답키없음</span>'}
@@ -1063,7 +1067,7 @@ function renderAnswerView(){
       <span class="hint">정답키가 등록된 레벨만 · 미응시 노랑 · 재시험 초록</span>
     </div>
     <div class="dd" style="margin-bottom:16px">
-      <div class="ddbox" onclick="toggleDD()"><span id="ddLabel">${cur?esc(noDays(cur.levelCode))+' · '+esc(classDetail(cur.className)):'<span class=ph>— 반을 선택하세요 —</span>'}</span><span style="color:var(--ink3)">▾</span></div>
+      <div class="ddbox" onclick="toggleDD()"><span id="ddLabel">${cur?esc(noDays(cur.dispCode||cur.levelCode))+' · '+esc(classDetail(cur.className)):'<span class=ph>— 반을 선택하세요 —</span>'}</span><span style="color:var(--ink3)">▾</span></div>
       <div class="ddlist" id="ddList" style="display:none"><div class="ddopts">${opts||'<div style="padding:16px" class="hint">대상 반이 없어요</div>'}</div></div>
     </div>
     <div id="gradeArea"></div>`;
@@ -1081,7 +1085,7 @@ function buildGrid(){
   const key=keyOfLevel(code);
   const off=disabledSet(); const isOff=off.has(code);
   const head=`<div class="card" style="padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div style="font-size:16px;font-weight:800">${esc(noDays(code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
+      <div style="font-size:16px;font-weight:800">${esc(noDays(cls.dispCode||code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
       <div class="hint">응시 ${studs.length}명 · <b style="color:var(--pos)">채점 ${gradedOf(cls)}/${studs.length}명</b> · ${key?`정답키 ${key.num_q}문항`:'<b style="color:var(--warn)">정답키 없음</b>'}</div>
       <div style="flex:1"></div>
       ${cutlineChip()}
@@ -1486,7 +1490,7 @@ function buildNaesinArea(){
   const content = CURTAB==='총점' ? buildNaesinSummary() : (CURTAB==='수행평가' ? buildNaesinPerfGrid() : buildNaesinGrid(CURTAB));
   area.innerHTML=`<div class="card" style="padding:16px 20px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="font-size:16px;font-weight:800">${esc(noDays(code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
+        <div style="font-size:16px;font-weight:800">${esc(noDays(cls.dispCode||code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
         <div style="flex:1"></div>
         <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>
         ${CURTAB!=='총점'?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
