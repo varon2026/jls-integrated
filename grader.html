@@ -327,14 +327,16 @@ function gradeKey(g){g=String(g||'').trim();let m;if(m=g.match(/중\s*등?\s*(\d
    (운영자가 남동탄 ACE 전체명단을 올렸는데 내신모의고사엔 0명으로 떠서 찾은 문제). */
 function naesinGrade(r){
   const s=String(r.className||'')+' '+String(r.classLabel||'');
+  /* E6·M1만 처음에 있어서 그 둘만 하드코딩했었는데, M2·M3·E5 반이 생기면서
+     그 반들이 통째로 '내신모의고사 반'으로 안 잡혀 목록에서 빠졌다(서수원).
+     학년 숫자는 안 가리고 E/M 토큰이면 전부 받는다. */
   const toks=(s.match(/[\/_](E\d+|M\d+)(?=[\/(\s]|$)/g)||[]).map(x=>x.slice(1).toUpperCase());
-  if(toks.includes('E6'))return 'E6';
-  if(toks.includes('M1'))return 'M1';
-  if(/초등6/.test(s))return 'E6';
-  if(/중등1/.test(s))return 'M1';
+  if(toks.length) return toks[0];
+  const km = s.match(/(초등|중등)\s*(\d+)/);
+  if(km) return (km[1]==='초등'?'E':'M')+km[2];
   const gk=gradeKey(r.grade);
-  if(gk==='초6')return 'E6';
-  if(gk==='중1')return 'M1';
+  const gm = gk.match(/^(초|중)(\d+)$/);
+  if(gm) return (gm[1]==='초'?'E':'M')+gm[2];
   return '';
 }
 function isNaesin(r){
