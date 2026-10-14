@@ -1058,7 +1058,7 @@ function naesinSectionBadges(c){
   const total=c.recs.length;
   return NAESIN_SECTIONS.map(sec=>({sec,n:c.recs.filter(r=>SCORED_SECTIONS.has(r.code+'|'+c.levelCode+'|'+sec)).length}))
     .filter(x=>x.n>0)
-    .map(x=>`<span class="tag" style="background:var(--soft);color:var(--brand)">${esc(sec.replace('평가',''))} ${x.n}/${total}</span>`)
+    .map(x=>`<span class="tag" style="background:var(--soft);color:var(--brand)">${esc(x.sec.replace('평가',''))} ${x.n}/${total}</span>`)
     .join(' ');
 }
 function renderAnswerView(){
