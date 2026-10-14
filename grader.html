@@ -1051,13 +1051,29 @@ function onBulk(inp,forceSection){
 /* ============================================================================
    답안입력
    ============================================================================ */
+/* 내신모의고사 반 목록 배지 — 세 영역 다 끝나야 '채점완료'. 아직 다 안 끝났으면
+   '미채점'으로 뭉뚱그리지 않고, 입력된 영역만 따로 칩으로 보여준다
+   (듣기만 입력했으면 '듣기 n/반인원' 칩만 뜸). */
+function naesinSectionBadges(c){
+  const total=c.recs.length;
+  return NAESIN_SECTIONS.map(sec=>({sec,n:c.recs.filter(r=>SCORED_SECTIONS.has(r.code+'|'+c.levelCode+'|'+sec)).length}))
+    .filter(x=>x.n>0)
+    .map(x=>`<span class="tag" style="background:var(--soft);color:var(--brand)">${esc(sec.replace('평가',''))} ${x.n}/${total}</span>`)
+    .join(' ');
+}
 function renderAnswerView(){
   const classes=classesForExam(); const off=disabledSet();
   const opts=classes.map(c=>{const k=EXAM==='AT'?variantsForBase(c.levelCode).length>0:!!keyOfLevel(c.levelCode);const isOff=off.has(c.levelCode);const g=gradedOf(c);
-    const gtag = isOff ? '<span class="tag" style="background:var(--line2);color:var(--ink3)">미응시</span>'
-      : (g>=c.recs.length&&c.recs.length>0) ? `<span class="tag" style="background:var(--pos-s);color:var(--pos)">채점완료 ${g}/${c.recs.length}</span>`
-      : g>0 ? `<span class="tag" style="background:var(--soft);color:var(--brand)">채점 ${g}/${c.recs.length}</span>`
-      : `<span class="tag" style="background:var(--line2);color:var(--ink3)">미채점 0/${c.recs.length}</span>`;
+    let gtag;
+    if(isOff){
+      gtag = '<span class="tag" style="background:var(--line2);color:var(--ink3)">미응시</span>';
+    } else if(EXAM==='내신모의고사' && !(g>=c.recs.length&&c.recs.length>0)){
+      gtag = naesinSectionBadges(c) || `<span class="tag" style="background:var(--line2);color:var(--ink3)">미채점 0/${c.recs.length}</span>`;
+    } else {
+      gtag = (g>=c.recs.length&&c.recs.length>0) ? `<span class="tag" style="background:var(--pos-s);color:var(--pos)">채점완료 ${g}/${c.recs.length}</span>`
+        : g>0 ? `<span class="tag" style="background:var(--soft);color:var(--brand)">채점 ${g}/${c.recs.length}</span>`
+        : `<span class="tag" style="background:var(--line2);color:var(--ink3)">미채점 0/${c.recs.length}</span>`;
+    }
     return `<div class="ddopt" onclick="pickClass('${esc(c.key)}')">
       <b>${esc(noDays(c.dispCode||c.levelCode))}</b> <span class="tag ${c.chess?'chess':'ace'}">${c.chess?'CHESS':'ACE'}</span>
       <span style="color:var(--ink3);font-weight:700">${esc(classDetail(c.className))}</span>
