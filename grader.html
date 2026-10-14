@@ -274,6 +274,7 @@ const CUTLINE_FROM_RANK=semRankLocal('sem_2026_fall');
 function cutlineActive(){return semRankLocal(SEM)>=CUTLINE_FROM_RANK;}
 let CURVARIANT='', CURTAB='독해';   // ACE: 선택한 기간·버전(전체레벨명) / 탭(독해·문법·총점)
 let SCOREDCODES=new Set();  // 현재 시험종류·학기에서 이미 채점 저장된 학생 회원코드
+let SCORED_SECTIONS=new Set();  // 내신모의고사용 — "코드|레벨|영역" 단위로 저장 여부 확인(지필/듣기/수행 중 하나만 있어도 '채점완료'로 잘못 뜨던 것)
 
 /* ---- 재시험관리(Phase 2) 전역 상태 ----
    PAGE='exam'(기존 답안입력/정답등록) 또는 'retest'(새 화면). 사이드바 맨 아래 별도 메뉴로 들어감.
@@ -398,11 +399,21 @@ async function loadRoster(){
 async function loadKeys(){const{data,error}=await sb.from('exam_keys').select('*').order('created_at',{ascending:false});if(!error)KEYS=data||[];}
 async function loadConfig(){const{data,error}=await sb.from('exam_config').select('*');CONFIG={};if(!error&&data)data.forEach(r=>{CONFIG[r.test_type]=new Set(r.disabled||[]);if(r.cutline!=null&&r.cutline!=='')CUTLINE[r.test_type]=Number(r.cutline);});}
 async function loadScored(){
-  try{ const rows=await fetchAll('exam_scores','student_code,test_type,semester',q=>q.eq('test_type',EXAM).eq('semester',semName(SEM)));
-    SCOREDCODES=new Set(rows.map(r=>r.student_code)); }
-  catch(e){ SCOREDCODES=new Set(); }
+  try{ const rows=await fetchAll('exam_scores','student_code,test_type,semester,section,key_name',q=>q.eq('test_type',EXAM).eq('semester',semName(SEM)));
+    SCOREDCODES=new Set(rows.map(r=>r.student_code));
+    SCORED_SECTIONS=new Set(rows.map(r=>r.student_code+'|'+r.key_name+'|'+r.section)); }
+  catch(e){ SCOREDCODES=new Set(); SCORED_SECTIONS=new Set(); }
 }
-function gradedOf(cls){return cls.recs.filter(r=>SCOREDCODES.has(r.code)).length;}
+/* 내신모의고사는 지필·듣기·수행 세 영역이 각각 별도 행이라, 하나만 저장해도
+   student_code가 SCOREDCODES에 들어가 '채점완료'로 잘못 떴다(듣기만 입력한 반이
+   전원 채점완료로 표시됨). 내신모의고사만 세 영역이 다 있어야 채점된 걸로 센다. */
+const NAESIN_SECTIONS=['지필평가','듣기평가','수행평가'];
+function gradedOf(cls){
+  if(EXAM==='내신모의고사'){
+    return cls.recs.filter(r=>NAESIN_SECTIONS.every(sec=>SCORED_SECTIONS.has(r.code+'|'+cls.levelCode+'|'+sec))).length;
+  }
+  return cls.recs.filter(r=>SCOREDCODES.has(r.code)).length;
+}
 function prettySem(id){const m=String(id).match(/(\d{4})[_-]?(spring|summer|fall|autumn|winter)/i);if(m){const t={spring:'봄',summer:'여름',fall:'가을',autumn:'가을',winter:'겨울'}[m[2].toLowerCase()];return `${m[1]}년 ${t}학기`;}return id;}
 function semName(id){const s=SEMS.find(x=>x.id===id);return s&&s.name?s.name:prettySem(id);}
 function disabledSet(){return CONFIG[EXAM]||new Set();}
