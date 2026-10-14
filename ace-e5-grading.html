@@ -237,6 +237,12 @@ async function loadRoster(){
   ROWS.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
 }
 
+async function onBranchChange(v){
+  BRANCH = v;
+  document.getElementById('app').innerHTML = '불러오는 중…';
+  try{ await loadRoster(); } catch(e){ toast('명단 로드 실패: '+(e.message||e), false); }
+  render();
+}
 function addManualRow(){
   const name=prompt('비재원생 이름을 입력하세요'); if(!name)return;
   const school=prompt('학교(선택, 없으면 취소 없이 빈칸)')||'';
@@ -270,9 +276,20 @@ function setTab(k){ CURTAB=k; render(); }
 function render(){
   const app=document.getElementById('app');
   const scopeLabel = ROLE==='admin' && !BRANCH ? '전체 분원' : (BRANCHES[BRANCH]||'');
+  const branchOptions = Object.keys(BRANCHES)
+    .sort((a,c)=>String(BRANCHES[a]).localeCompare(String(BRANCHES[c]),'ko'))
+    .map(id=>`<option value="${id}" ${id===BRANCH?'selected':''}>${esc(BRANCHES[id])}</option>`).join('');
   app.innerHTML = `
     <div class="h2">초5 ACE 진급시험 — 답안입력</div>
     <div class="sub">체스반 재원생 중 초등5학년만 가나다순으로 불러왔어요 (${esc(scopeLabel)}${TEACHER?' · '+esc(TEACHER)+' 선생님 반':''} · ${esc(SEM||'학기 미확인')}) · 총 ${ROWS.length}명</div>
+    ${ROLE==='admin' ? `
+    <div class="card" style="padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+      <span class="hint">분원</span>
+      <select onchange="onBranchChange(this.value)" style="font:inherit;font-weight:700;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:8px 10px">
+        <option value="">전체 분원</option>
+        ${branchOptions}
+      </select>
+    </div>` : ''}
     <div class="card addrow-card" style="padding:14px 18px;margin-bottom:14px">
       <button class="ghost mini" onclick="addManualRow()">+ 답안입력 추가 (비재원생)</button>
       <span class="hint" style="margin-left:10px">재원생 명단에 없는 응시자는 여기로 줄을 추가하세요</span>
