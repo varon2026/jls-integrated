@@ -1,0 +1,205 @@
+/* ============================================================================
+   레벨테스트 테마 덮어쓰기 — 입력화면만 우리 톤(파스텔 보라 + NanumSquare)으로.
+   ※ 원본 CSS/JS는 그대로. 이 파일만 맨 마지막에 로드해서 겉옷만 갈아입힘.
+   ※ 성적표(#reportArea / .chess-report-root)는 공식문서라 원본 유지 → 폰트·색 되돌림.
+   ============================================================================ */
+@import url('https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css');
+
+/* 폰트 통일 (입력화면) */
+* { font-family: "NanumSquare", "Malgun Gothic", sans-serif !important; }
+/* 성적표는 원본 폰트 유지 */
+#reportArea, #reportArea *, .chess-report-root, .chess-report-root * { font-family: "Pretendard", sans-serif !important; }
+
+/* 배경 */
+body, .wrap, .home-shell { background: #f8f6fc !important; color: #2f3138; }
+.wrap { padding: 26px 28px; }
+
+/* 입력 카드 */
+.hero-card {
+  background: #fff !important;
+  border: 1px solid #ece8f5 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 6px 24px rgba(120,105,160,.06) !important;
+  padding: 24px 26px !important;
+}
+
+/* 라벨/제목 */
+.form-group label { color: #6b6385 !important; font-weight: 700 !important; }
+h1 { color: #8b6ee8 !important; font-weight: 800 !important; }
+h2, h3 { color: #2f3138 !important; font-weight: 800 !important; }
+.muted, .hero-title, .kpi-label { color: #9a93b0 !important; }
+
+/* 입력칸 */
+input, select {
+  border: 1px solid #ece8f5 !important;
+  border-radius: 11px !important;
+  background: #faf8fe !important;
+  height: 44px !important;
+  font-size: 14.5px !important;
+  color: #2f3138 !important;
+}
+input:focus, select:focus {
+  outline: none !important;
+  border-color: #8b6ee8 !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 3px #efe9fc !important;
+}
+
+/* 기본 버튼 → 프라이머리(보라 그라데이션) */
+button { border-radius: 12px !important; font-weight: 800 !important; }
+button:not(.secondary):not(.ghost):not(.paper-btn):not(.lt-save-btn) {
+  background: linear-gradient(135deg, #8b6ee8, #a385f0) !important;
+  color: #fff !important;
+}
+button:hover { filter: brightness(1.04); }
+button.secondary { background: #fff !important; color: #8b6ee8 !important; border: 1px solid #ece8f5 !important; }
+button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border: 1px solid #ece8f5 !important; }
+.next-btn, #startBtn { background: linear-gradient(135deg, #8b6ee8, #a385f0) !important; color: #fff !important; }
+
+/* 홈 하단 액션 (시험지PDF / 답지 / 단체입력) — 우리 톤 소프트 버튼 */
+.paper-btn { height: 42px !important; border-radius: 11px !important; font-weight: 800 !important; }
+.paper-btn.blue   { background: #f0ebfe !important; color: #7a5ce0 !important; border: 1px solid #ddd0fa !important; }
+.paper-btn.pink   { background: #fdeef2 !important; color: #d5638a !important; border: 1px solid #f6cdda !important; }
+.paper-btn.yellow { background: #fdf4e6 !important; color: #c98a2e !important; border: 1px solid #f3e0bf !important; }
+
+/* 시험 선택 버튼 */
+.select-btn {
+  border: 1px solid #ece8f5 !important;
+  border-radius: 14px !important;
+  background: #faf8fe !important;
+  font-weight: 800 !important;
+  color: #2f3138 !important;
+}
+.select-btn:hover { background: #f4effe !important; border-color: #8b6ee8 !important; }
+
+/* 상단 액션바 버튼 크기 */
+.top-bar button { height: 40px !important; }
+
+/* 채점 결과 확인(리뷰) */
+.review-row.correct { background: #eafaf4 !important; border-color: #8fd9bf !important; }
+.review-row.wrong   { background: #fdeef2 !important; border-color: #f0b6c6 !important; }
+.review-row.correct .review-state { color: #2fa878 !important; }
+.review-row.wrong .review-state   { color: #e2557a !important; }
+
+/* 자동배정 레벨 배지/변경 셀렉트 */
+.badge { background: #f0ebfe !important; color: #7a5ce0 !important; }
+#levelOverrideSelect { border-color: #8b6ee8 !important; color: #8b6ee8 !important; }
+
+/* 저장 버튼(통합 레이어)은 초록 유지 — 성공 액션 */
+.lt-save-btn { background: #2fa878 !important; color: #fff !important; }
+
+/* ============================================================================
+   채점결과(리뷰) 화면 디테일 수정
+   ============================================================================ */
+/* 1. 상단 액션바(답안입력 돌아가기 등) 흰 네모 → 배경과 동일하게 */
+.top-bar.sticky-actions, .sticky-actions {
+  background: transparent !important;
+  border-bottom: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* 2. 레벨 변경 영역 → 눈에 확 띄는 보라 카드 + 뱃지 */
+.top-bar.no-print:not(.sticky-actions):has(select) {
+  background: #f4effe !important;
+  border: 1.5px solid #c9b8f5 !important;
+  border-radius: 14px !important;
+  padding: 13px 16px !important;
+  margin: 6px 0 10px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  box-shadow: 0 4px 16px rgba(139,110,232,.10) !important;
+}
+.top-bar.no-print:not(.sticky-actions):has(select)::before {
+  content: "✏ 레벨 변경 가능";
+  background: linear-gradient(135deg,#8b6ee8,#a385f0);
+  color: #fff; font-size: 11.5px; font-weight: 800;
+  padding: 5px 12px; border-radius: 20px; white-space: nowrap;
+}
+.top-bar.no-print:not(.sticky-actions):has(select) span { color: #6b6385 !important; }
+.top-bar.no-print:not(.sticky-actions):has(select) strong { color: #8b6ee8 !important; }
+.top-bar.no-print:not(.sticky-actions):has(select) select {
+  width: auto !important; min-width: 150px !important;
+  height: 42px !important; border: 2px solid #8b6ee8 !important;
+  border-radius: 11px !important; color: #8b6ee8 !important;
+  font-weight: 800 !important; font-size: 15px !important;
+  background: #fff !important; padding: 0 14px !important;
+  box-shadow: 0 0 0 3px #efe9fc !important; cursor: pointer;
+}
+
+/* 3. 요약 박스 4개 → 4칸 그리드 + 간격 (한 줄로 안 늘어지게) */
+.chess-summary-box, .chess-summary-box.kpi-style {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 16px !important;
+  margin-top: 18px !important;
+}
+.chess-summary-box > div {
+  background: #fff !important;
+  border: 1px solid #ece8f5 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 5px 18px rgba(120,105,160,.05) !important;
+  padding: 18px 16px !important;
+}
+@media (max-width: 760px) {
+  .chess-summary-box, .chess-summary-box.kpi-style { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* 답안 입력칸 — 숫자만 넣으니 짧게 (쭉 늘어나던 것 컴팩트하게) */
+.answer-row.simple {
+  grid-template-columns: 46px 130px auto !important;
+  gap: 14px !important;
+  min-height: 56px !important;
+  padding: 10px 16px !important;
+}
+.answer-row.simple .answer-input {
+  font-size: 20px !important;
+  height: 44px !important;
+}
+.answer-row.simple .answer-meta {
+  text-align: left !important;
+  color: #9a93b0 !important;
+}
+
+/* 답안 목록 — 한 줄에 5개씩 (카드가 넓어서 비던 것 해결) */
+.answer-list:has(.answer-row.simple) {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+.answer-row.simple {
+  grid-template-columns: 34px 1fr !important;
+  gap: 8px !important;
+  padding: 10px 12px !important;
+}
+.answer-row.simple .answer-input { font-size: 19px !important; height: 42px !important; }
+.answer-row.simple .answer-meta { display: none !important; }  /* 좁아지니 "답안" 라벨 숨김 */
+@media (max-width: 1200px) {
+  .answer-list:has(.answer-row.simple) { grid-template-columns: repeat(3, minmax(0,1fr)) !important; }
+}
+@media (max-width: 760px) {
+  .answer-list:has(.answer-row.simple) { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+}
+
+/* 채점결과 "객관식/단답형 확인" 줄 — 한 줄에 3개씩 + 내용 왼쪽 정렬(가운데 빈 공간 제거) */
+.review-grid, .review-grid.compact-review-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+.review-row {
+  grid-template-columns: 40px 54px auto auto !important;
+  justify-content: start !important;
+  gap: 14px !important;
+  min-height: 0 !important;
+  padding: 11px 16px !important;
+  border-color: #ece8f5 !important;
+}
+.review-no { font-size: 16px !important; }
+.review-state { font-size: 15px !important; }
+.review-answer, .review-correct-answer { font-size: 14px !important; white-space: nowrap; }
+@media (max-width: 1100px) {
+  .review-grid, .review-grid.compact-review-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+}
+@media (max-width: 680px) {
+  .review-grid, .review-grid.compact-review-grid { grid-template-columns: 1fr !important; }
+}

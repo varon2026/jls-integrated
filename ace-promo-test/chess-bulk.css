@@ -1,0 +1,264 @@
+.bulk-dynamic-section + .bulk-dynamic-section {
+  margin-top: 22px;
+}
+
+.bulk-paste-box {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #dbe7f3;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.bulk-paste-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.bulk-paste-head strong {
+  font-size: 14px;
+  color: #1f5d96;
+}
+
+.bulk-paste-head span {
+  font-size: 12px;
+  color: #6b7c93;
+}
+
+.bulk-paste-textarea {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  border: 1px solid #cfd9e6;
+  border-radius: 10px;
+  padding: 10px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  background: #fff;
+}
+
+.bulk-paste-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bulk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: 8px;
+}
+
+.bulk-mini-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bulk-mini-field span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4c6785;
+  text-align: center;
+}
+
+.bulk-mini-field input {
+  width: 100%;
+  height: 34px;
+  border: 1px solid #cfd9e6;
+  border-radius: 8px;
+  text-align: center;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  background: #fff;
+}
+
+.grammar-grid .bulk-mini-field input {
+  font-weight: 700;
+}
+.bulk-roster-card {
+  background: #fff;
+  border: 1px solid #dbe7f3;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(31, 93, 150, 0.06);
+  margin-top: 18px;
+  margin-bottom: 18px;
+}
+
+.bulk-roster-controls {
+  display: grid;
+  grid-template-columns: 180px 220px auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.bulk-roster-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bulk-roster-field label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #355a80;
+}
+
+.bulk-roster-field input,
+.bulk-roster-field select {
+  height: 38px;
+  border: 1px solid #cfd9e6;
+  border-radius: 10px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.bulk-roster-actions {
+  display: flex;
+  align-items: end;
+}
+
+.bulk-roster-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  border: 1px solid #cfd9e6;
+  border-radius: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  background: #fff;
+}
+
+.bulk-roster-submit {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .bulk-roster-controls {
+    grid-template-columns: 1fr;
+  }
+}
+.bulk-layout {
+  display: grid;
+  grid-template-columns: 760px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.bulk-table-card,
+.bulk-detail-card {
+  min-height: 0;
+}
+
+.bulk-table-card {
+  position: sticky;
+  top: 14px;
+  align-self: start;
+}
+
+.bulk-table-wrap {
+  max-height: calc(100vh - 240px);
+  overflow: auto;
+}
+
+.bulk-detail-card {
+  max-height: calc(100vh - 240px);
+  overflow: auto;
+}
+
+.bulk-detail-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #fff;
+  padding-bottom: 10px;
+}
+
+.bulk-result-card {
+  margin-top: 18px;
+}
+
+@media (max-width: 1200px) {
+  .bulk-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-table-card {
+    position: static;
+  }
+
+  .bulk-table-wrap,
+  .bulk-detail-card {
+    max-height: none;
+  }
+}
+.bulk-table tbody tr.is-selected td {
+  background: #eef6ff !important;
+  border-color: #8eb7df;
+}
+/* 학생 목록 테이블 강제 스타일 */
+.bulk-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+
+/* 칼럼 최소 폭 강제 */
+.bulk-table th:nth-child(1),
+.bulk-table td:nth-child(1) { min-width: 42px; }
+
+.bulk-table th:nth-child(2),
+.bulk-table td:nth-child(2) { min-width: 90px; }   /* 이름 */
+
+.bulk-table th:nth-child(3),
+.bulk-table td:nth-child(3) { min-width: 130px; }  /* 회원코드 */
+
+.bulk-table th:nth-child(4),
+.bulk-table td:nth-child(4) { min-width: 100px; }  /* 학교 */
+
+.bulk-table th:nth-child(5),
+.bulk-table td:nth-child(5) { min-width: 70px; }   /* 학년 */
+
+.bulk-table th:nth-child(6),
+.bulk-table td:nth-child(6) { min-width: 150px; }  /* 시험일 */
+
+.bulk-table th:nth-child(7),
+.bulk-table td:nth-child(7) { min-width: 130px; }  /* 시험지 */
+
+/* 입력칸 */
+.bulk-table input,
+.bulk-table select {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #cfdae8;
+  border-radius: 12px;
+  padding: 0 8px;
+  font-size: 12px;
+  background: #fff;
+  white-space: nowrap;
+}
+
+/* 이름/학교 왼쪽 정렬 */
+.bulk-table td:nth-child(2) input,
+.bulk-table td:nth-child(4) input {
+  text-align: left;
+}
+.bulk-table th,
+.bulk-table td {
+  white-space: normal;
+}
