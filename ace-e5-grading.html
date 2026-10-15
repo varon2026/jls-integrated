@@ -397,6 +397,7 @@ function objScore(row){
 }
 function objMax(){ return E5_EXAM.reduce((s,q)=>s+q.score,0); }
 function vocabScore(row){ return VOCAB_ITEMS.reduce((s,it)=> s + (String(row.vocab[it.no]||'')==='1' ? 1 : 0), 0); }
+function vocabMax(){ return VOCAB_ITEMS.length; }
 function transScore(row){ return TRANS_ITEMS.reduce((s,it)=> s + (Number(row.trans[it.no])||0), 0); }
 function transMax(){ return TRANS_ITEMS.reduce((s,it)=>s+(it.max||0),0); }
 
@@ -496,7 +497,7 @@ function buildObjTable(){
   return head+`<tbody>${body}</tbody>`;
 }
 function buildVocabTable(){
-  const head = `<thead><tr>${studentHeadCells()}${VOCAB_ITEMS.map(it=>`<th>${it.no}<br>${esc(it.word)}</th>`).join('')}</tr></thead>`;
+  const head = `<thead><tr>${studentHeadCells()}${VOCAB_ITEMS.map(it=>`<th>${it.no}<br>${esc(it.word)}</th>`).join('')}<th>점수</th></tr></thead>`;
   const cols = VOCAB_ITEMS.length;
   const body = ROWS.map((r,i)=>{
     const cells = VOCAB_ITEMS.map((it,ci)=>{
@@ -506,12 +507,12 @@ function buildVocabTable(){
         data-r="${i}" data-c="${ci}" onkeydown="navKey(event,this,${cols})"
         oninput="onVocabInput('${r.id}',${it.no},this.value,this)"></td>`;
     }).join('');
-    return `<tr>${studentRowCells(r,i)}${cells}</tr>`;
+    return `<tr>${studentRowCells(r,i)}${cells}<td class="total" id="vocabScore-${r.id}">${vocabScore(r)}/${vocabMax()}</td></tr>`;
   }).join('');
   return head+`<tbody>${body}</tbody>`;
 }
 function buildTransTable(){
-  const head = `<thead><tr>${studentHeadCells()}${TRANS_ITEMS.map(it=>`<th>${it.no}<br>/${it.max}</th>`).join('')}</tr></thead>`;
+  const head = `<thead><tr>${studentHeadCells()}${TRANS_ITEMS.map(it=>`<th>${it.no}<br>/${it.max}</th>`).join('')}<th>점수</th></tr></thead>`;
   const cols = TRANS_ITEMS.length;
   const body = ROWS.map((r,i)=>{
     const cells = TRANS_ITEMS.map((it,ci)=>{
@@ -520,7 +521,7 @@ function buildTransTable(){
         data-r="${i}" data-c="${ci}" onkeydown="navKey(event,this,${cols})"
         oninput="onTransInput('${r.id}',${it.no},this.value,${it.max})"></td>`;
     }).join('');
-    return `<tr>${studentRowCells(r,i)}${cells}</tr>`;
+    return `<tr>${studentRowCells(r,i)}${cells}<td class="total" id="transScore-${r.id}">${transScore(r)}/${transMax()}</td></tr>`;
   }).join('');
   return head+`<tbody>${body}</tbody>`;
 }
@@ -632,8 +633,14 @@ function onVocabInput(id,no,v,inp){
   const r=findRow(id); if(!r)return; v=v.trim(); r.vocab[no]=v;
   const td=inp.closest('td'); td.classList.remove('ok','no');
   if(v==='1') td.classList.add('ok'); else if(v==='0') td.classList.add('no');
+  const sc=document.getElementById('vocabScore-'+id);
+  if(sc) sc.textContent = vocabScore(r)+'/'+vocabMax();
 }
-function onTransInput(id,no,v,max){ const r=findRow(id); if(!r)return; let n=parseInt(v,10); if(isNaN(n))n=''; else n=Math.max(0,Math.min(max,n)); r.trans[no]=n; }
+function onTransInput(id,no,v,max){
+  const r=findRow(id); if(!r)return; let n=parseInt(v,10); if(isNaN(n))n=''; else n=Math.max(0,Math.min(max,n)); r.trans[no]=n;
+  const sc=document.getElementById('transScore-'+id);
+  if(sc) sc.textContent = transScore(r)+'/'+transMax();
+}
 function onLevelChange(id,v){ const r=findRow(id); if(!r)return; r.finalLevel=v; }
 
 window.addEventListener('DOMContentLoaded', boot);
