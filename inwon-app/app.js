@@ -8988,7 +8988,7 @@ function importQappScores(file){
   });
 }
 /* ========================================================================
-   미통과 관리 — 서수원분원 전용
+   미통과 관리 — 서수원·장안분원 전용 (RETEST_BRANCH_NAMES에 등록된 분원만)
    ------------------------------------------------------------------------
    조교가 큐앱에서 받은 엑셀을 하루 한 번 올린다. 9월 1일부터 누적된
    전 반 파일 한 개이고, 그 파일에는 '미통과'만 들어 있다.
@@ -9003,7 +9003,7 @@ function importQappScores(file){
    그 시험에 예약·독려·학부모 연락·보강·자료 제공 중 아무것도 안 누른 상태.
    (하루에 한 번만 누르면 넘어가는 기준으로 하면 대충 누르고 넘어가게 된다)
    ======================================================================== */
-const RETEST_BRANCH_NAMES = ['서수원'];   // 다른 분원은 메뉴 자체가 안 보인다
+const RETEST_BRANCH_NAMES = ['서수원', '장안'];   // 다른 분원은 메뉴 자체가 안 보인다
 function retestOn(branchId){
   const b = getBranch(branchId);
   const nm = String(b && b.name || '').replace(/분원$/,'').replace(/JLS/gi,'').trim();
@@ -10009,7 +10009,7 @@ function renderRetest(){
   if(!branchId || !retestOn(branchId)){
     c.innerHTML = '<div class="page-head"><h2>미통과 관리</h2></div>'
       + '<div style="background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:30px;text-align:center;color:var(--ink-3);font-size:13px">'
-      + '이 기능은 서수원분원에서만 씁니다.</div>';
+      + '이 기능은 일부 분원에서만 씁니다.</div>';
     return;
   }
   /* 버튼을 누르는 건 담임과 분원 계정. 조교는 올리기만 한다.
