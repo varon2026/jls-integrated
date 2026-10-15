@@ -45,29 +45,32 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:max-conte
 .g td.bclr{background:var(--bc)}
 .g tbody tr:hover td{background:#ebe3fa}
 .g tbody tr:hover td.qcell:not(.ok):not(.no) input{background:#ebe3fa}
-/* 총점/레벨 탭 전용 — 인적정보 칸은 글자 크기에 딱 맞게, 점수·레벨 칸은 크고 눈에 띄게.
-   다른 탭(40문항 입력)은 화면을 꽉 채워야 해서 min-width:100%가 필요하지만,
-   이 탭은 칸이 12개뿐이라 그대로 두면 분원/담임 같은 칸이 쓸데없이 늘어났다. */
-/* table-layout:fixed + colgroup로 칸 너비를 직접 지정 — 그래야 표가
-   위 흰색 툴바 카드랑 같은 너비(100%)로 맞춰지면서도, 칸마다 적당한
-   비율을 유지한다(auto면 남는 폭이 아무 칸에나 쏠려서 분원/담임처럼
-   짧은 칸이 쓸데없이 늘어났었다). */
-table.g.totaltbl{width:100%;min-width:0;table-layout:fixed}
-table.g.totaltbl th{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:13.5px;font-weight:800;padding:10px 6px}
-table.g.totaltbl th.chk,table.g.totaltbl td.chk{padding:5px}
-table.g.totaltbl th.idx,table.g.totaltbl td.idx{padding:5px 8px}
-table.g.totaltbl td.idx{color:var(--ink3);font-weight:800}
-table.g.totaltbl td.rank{font-weight:800;color:var(--brand)}
-table.g.totaltbl th.name,table.g.totaltbl td.name{text-align:left;padding:6px 10px}
-table.g.totaltbl td.name{overflow:hidden}
-table.g.totaltbl td.name b{font-size:13.5px}
-table.g.totaltbl td.name .c{font-size:11px;color:var(--ink3);font-weight:700;margin-top:1px}
-table.g.totaltbl th.info,table.g.totaltbl td.info{padding:6px 10px}
-table.g.totaltbl td.info{color:var(--ink2);font-weight:700;overflow:hidden;text-overflow:ellipsis}
-table.g.totaltbl th.score,table.g.totaltbl td.score{padding:9px 6px;font-size:14.5px}
-table.g.totaltbl td.score.big{font-size:16px;font-weight:800;color:var(--brand)}
-table.g.totaltbl th.score select{font:inherit;font-size:11.5px;font-weight:700;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 2px;margin-top:4px;width:100%}
-table.g.totaltbl td.lvl select{font:inherit;font-weight:800;font-size:13.5px;border:1px solid var(--line);border-radius:8px;padding:7px 4px;width:100%}
+/* 총점/레벨 탭 전용 — <table>을 안 쓰고 CSS grid로 짠다.
+   table-layout:fixed는 "비율"만 고정이라 화면이 넓어지면 모든 칸이 같이
+   늘어나서, 분원/담임/학교학년처럼 짧은 칸도 덩달아 넓어지는 문제가
+   있었다(1300px 테스트에선 안 보이다가 실제 넓은 모니터에서 드러남).
+   grid-template-columns는 고정 px 칸은 화면이 아무리 넓어져도 그대로
+   고정되고, minmax(...,1fr)로 준 점수 칸만 남는 폭을 가져간다. */
+/* 점수 칸도 minmax 상한을 둬서 너무 커지지 않게 하고, 그러고도 남는 폭은
+   맨 끝 빈 칸(스페이서)이 가져가게 해서 표 전체 너비는 그대로 흰 박스랑 맞춘다. */
+.ttgrid{display:grid;grid-template-columns:30px 44px 44px 130px 84px 112px 84px 118px minmax(84px,130px) minmax(84px,130px) minmax(84px,130px) minmax(96px,140px) minmax(96px,140px) minmax(0,1fr)}
+.ttgrid>div{border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);padding:8px 6px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;overflow:hidden}
+.ttgrid .gh{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:13.5px;font-weight:800;position:sticky;top:0;z-index:3;flex-direction:column;gap:3px}
+.ttgrid .gh select{font:inherit;font-size:11.5px;font-weight:700;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 2px;width:100%}
+.ttgrid .idx{color:var(--ink3);font-weight:800}
+.ttgrid .rank{font-weight:800;color:var(--brand)}
+.ttgrid .name{justify-content:flex-start;text-align:left;padding:8px 10px}
+.ttgrid .name .nmwrap{overflow:hidden;text-overflow:ellipsis}
+.ttgrid .name b{font-size:13.5px}
+.ttgrid .name .c{font-size:11px;color:var(--ink3);font-weight:700;margin-top:1px}
+.ttgrid .info{color:var(--ink2);font-weight:700;white-space:nowrap;text-overflow:ellipsis}
+.ttgrid .score{font-size:14.5px}
+.ttgrid .score.big{font-size:16px;font-weight:800;color:var(--brand)}
+.ttgrid .lvl select,.ttgrid .score select{font:inherit;font-weight:800;font-size:13.5px;border:1px solid var(--line);border-radius:8px;padding:7px 4px;width:100%}
+.ttgrid .bclr{background:var(--bc)}
+.ttgrid .spacer{border-right:none}
+.ttrow{display:contents}
+.ttrow:hover>div{background:#ebe3fa}
 .addrow-card{background:#fffaf0;border:1px dashed #e8d5a8}
 .addrow-card input,.addrow-card select{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-right:8px}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#2a2440;color:#fff;padding:12px 22px;border-radius:12px;font-weight:700;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:999}
@@ -433,7 +436,7 @@ function render(){
       <button class="ghost mini" onclick="clearSelection()">선택해제</button>
       <span class="hint" style="margin-left:auto">임시레벨 필터는 표 맨 오른쪽 "임시레벨" 칸 헤더에서 고르세요</span>
     </div>` : ''}
-    <div class="gwrap"><table class="g${CURTAB==='total'?' totaltbl':''}">${buildTable()}</table></div>
+    <div class="gwrap">${CURTAB==='total' ? buildTotalGrid() : `<table class="g">${buildTable()}</table>`}</div>
   `;
 }
 
@@ -454,8 +457,7 @@ function studentRowCells(r,i){
 function buildTable(){
   if(CURTAB==='objective') return buildObjTable();
   if(CURTAB==='vocab') return buildVocabTable();
-  if(CURTAB==='trans') return buildTransTable();
-  return buildTotalTable();
+  return buildTransTable();
 }
 
 function buildObjTable(){
@@ -526,30 +528,29 @@ function applyBulkLevel(){
   SELECTED.clear();
   render();
 }
-function buildTotalTable(){
+/* <table>이 아니라 CSS grid(.ttgrid)로 짠다 — grid-template-columns는
+   고정 칸(분원/담임 등)은 화면이 넓어져도 그대로 두고, 점수 칸만
+   minmax(...,1fr)로 남는 폭을 가져가게 할 수 있어서 table-layout:fixed의
+   "다 같이 비례해서 늘어나는" 문제가 없다. */
+function buildTotalGrid(){
   const oMax=objMax(), tMax=transMax();
   const rankMap=computeRanks();
   const filterOpts = LEVEL_OPTIONS.map(lv=>`<option value="${lv}" ${LEVEL_FILTER===lv?'selected':''}>${lv}</option>`).join('');
-  const colgroup = `<colgroup>
-    <col style="width:32px"><col style="width:46px"><col style="width:46px"><col style="width:170px">
-    <col style="width:92px"><col style="width:132px"><col style="width:92px"><col style="width:140px">
-    <col style="width:88px"><col style="width:88px"><col style="width:88px"><col style="width:96px"><col style="width:96px">
-  </colgroup>`;
-  const head = `${colgroup}<thead><tr>
-    <th class="chk"></th>
-    <th class="idx">번호</th>
-    <th class="idx">등수</th>
-    <th class="name">이름(회원코드)</th>
-    <th class="info">분원</th>
-    <th class="info">요일 · 레벨</th>
-    <th class="info">담임</th>
-    <th class="info">학교/학년</th>
-    <th class="score">객관식<br>/${oMax}</th>
-    <th class="score">단어<br>/${VOCAB_ITEMS.length}</th>
-    <th class="score">해석<br>/${tMax}</th>
-    <th class="score">임시레벨<br><select onchange="onLevelFilterChange(this.value)"><option value="">전체</option>${filterOpts}</select></th>
-    <th class="score">최종레벨</th>
-  </tr></thead>`;
+  const head = `
+    <div class="gh chk"></div>
+    <div class="gh idx">번호</div>
+    <div class="gh idx">등수</div>
+    <div class="gh">이름(회원코드)</div>
+    <div class="gh">분원</div>
+    <div class="gh">요일 · 레벨</div>
+    <div class="gh">담임</div>
+    <div class="gh">학교/학년</div>
+    <div class="gh">객관식<br>/${oMax}</div>
+    <div class="gh">단어<br>/${VOCAB_ITEMS.length}</div>
+    <div class="gh">해석<br>/${tMax}</div>
+    <div class="gh">임시레벨<select onchange="onLevelFilterChange(this.value)"><option value="">전체</option>${filterOpts}</select></div>
+    <div class="gh">최종레벨</div>
+    <div class="gh spacer"></div>`;
   let shown=0;
   const body = ROWS.map(r=>{
     const os=objScore(r), vs=vocabScore(r), ts=transScore(r);
@@ -560,23 +561,24 @@ function buildTotalTable(){
     const bc=branchColor(r.branchId); const bs=bc?` style=\"--bc:${bc}\"`:'';
     const opts = LEVEL_OPTIONS.map(lv=>`<option value="${lv}" ${r.finalLevel===lv?'selected':''}>${lv}</option>`).join('');
     const checked = SELECTED.has(r.id)?'checked':'';
-    return `<tr>
-      <td class="chk"><input type="checkbox" ${checked} onchange="toggleSelect('${r.id}',this.checked)"></td>
-      <td class="idx">${shown}</td>
-      <td class="rank">${rankMap[r.id]}</td>
-      <td class="name"><b>${esc(r.name)}</b>${r.manual?' <span class=\"tag manual\">비재원</span>':''}${r.early?' <span class=\"tag early\">얼리버드</span>':''}<div class="c">${esc(r.code||'')}</div></td>
-      <td class="info bclr"${bs}>${esc(r.branchName)}</td>
-      <td class="info bclr"${bs}>${esc(classDetail(r.classLabel))}</td>
-      <td class="info bclr"${bs}>${esc(r.teacher)}</td>
-      <td class="info bclr"${bs}>${esc(r.school)} ${esc(gradeKey(r.grade))}</td>
-      <td class="score big">${os}</td>
-      <td class="score">${vs}</td>
-      <td class="score">${ts}</td>
-      <td class="score big">${suggested}</td>
-      <td class="score lvl"><select onchange="onLevelChange('${r.id}',this.value)">${opts}</select></td>
-    </tr>`;
+    return `<div class="ttrow"${bs}>
+      <div class="chk"><input type="checkbox" ${checked} onchange="toggleSelect('${r.id}',this.checked)"></div>
+      <div class="idx">${shown}</div>
+      <div class="rank">${rankMap[r.id]}</div>
+      <div class="name"><div class="nmwrap"><b>${esc(r.name)}</b>${r.manual?' <span class=\"tag manual\">비재원</span>':''}${r.early?' <span class=\"tag early\">얼리버드</span>':''}<div class="c">${esc(r.code||'')}</div></div></div>
+      <div class="info bclr">${esc(r.branchName)}</div>
+      <div class="info bclr">${esc(classDetail(r.classLabel))}</div>
+      <div class="info bclr">${esc(r.teacher)}</div>
+      <div class="info bclr">${esc(r.school)} ${esc(gradeKey(r.grade))}</div>
+      <div class="score big">${os}</div>
+      <div class="score">${vs}</div>
+      <div class="score">${ts}</div>
+      <div class="score big">${suggested}</div>
+      <div class="lvl"><select onchange="onLevelChange('${r.id}',this.value)">${opts}</select></div>
+      <div class="spacer"></div>
+    </div>`;
   }).join('');
-  return head+`<tbody>${body}</tbody>`;
+  return `<div class="ttgrid">${head}${body}</div>`;
 }
 
 /* 방향키로 옆칸/위아래 칸 이동 (grader.html의 navKey와 동일한 방식) —
