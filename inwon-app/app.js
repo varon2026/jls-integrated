@@ -2496,7 +2496,14 @@ function banDayCode(seg){
 /* 반이름 조각에서 괄호와 그 안 내용을 떼어 낸다. 분원이 같은 이름의 반을 구분하려고
    '(1)FA1' 처럼 붙여 오는 경우가 있어, 시간대·요일을 읽을 때는 떼고 본다. */
 function banBare(seg){ return String(seg==null?'':seg).replace(/\([^()]*\)/g,'').trim(); }
-function banBu(className){
+/* 수업시간은 전체명단 파일에 적히는 값이 아니다 — 반이름엔 '몇 부'(FA1·SU2 등)만 있고
+   실제 시각은 없다. (요일,부)별 시각은 banBu 안의 고정표에서 가져온다. 분원마다 실제
+   수업시간이 다르면 여기 분원ID로 추가한다(기본값과 다르게 쓰는 분원만).
+   수원분원 — 박미선 대리님 요청, 월수금을 깔끔한 시각으로. */
+const BAN_BU_TIME_OVERRIDE = {
+  br_suwon: { MWF: {1:'2:30~4:00',2:'4:00~6:00',3:'6:00~8:00',4:'8:00~10:00'} }
+};
+function banBu(className, branchId){
   const parts=banParts(className);
   /* 시간대 조각은 괄호를 떼고 본다 — 장안이 '[A2(1-3)](1)FA1/TTH/E6/N' 처럼
      대괄호 뒤에 (1) 을 붙여 올려서 'FA1'을 못 읽고 통째로 부 미지정이 됐다. */
@@ -2507,8 +2514,9 @@ function banBu(className){
   if(!day||!num) return null;
   // 시간표에 없는 부 번호가 오면(화목인데 3·4부 등) 시간만 비우고 요일·부는 그대로 보여준다.
   const join=a=>a.filter(Boolean).join(' \u00b7 ');
-  if(day==='MWF'){ const t={1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'}[num]||''; return {order:num, label:join([num+'\ubd80','\uc6d4\uc218\uae08',t])}; }
-  const t={1:'3:30~6:30',2:'6:30~9:30'}[num]||''; return {order:10+num, label:join(['\ud654\ubaa9',t])};
+  const ov=(BAN_BU_TIME_OVERRIDE[branchId]||{})[day];
+  if(day==='MWF'){ const t=(ov||{1:'2:30~4:10',2:'4:10~5:50',3:'5:50~7:50',4:'7:50~9:50'})[num]||''; return {order:num, label:join([num+'\ubd80','\uc6d4\uc218\uae08',t])}; }
+  const t=(ov||{1:'3:30~6:30',2:'6:30~9:30'})[num]||''; return {order:10+num, label:join(['\ud654\ubaa9',t])};
 }
 /* 닫는 대괄호가 빠진 반이름도 레벨은 읽어준다: '[MA1(4~6) / FA3 / …' → 'MA1(4~6)' */
 function banLevel(cn){
@@ -2589,7 +2597,7 @@ function renderBanTable(){
   recs.forEach(r=>{
     /* 부를 못 읽어도 버리지 않는다 — 예전엔 여기서 return 해버려서 그 반 학생 전원이
        반배정표에서 통째로 사라졌고, 총원만 조용히 줄었다. 이제 '부 미지정'으로 모아 보여준다. */
-    const bu=banBu(r.className) || {order:999, label:BAN_NOBU};
+    const bu=banBu(r.className, brId) || {order:999, label:BAN_NOBU};
     if(!buMap.has(bu.label)) buMap.set(bu.label,{order:bu.order, classes:new Map()});
     const grp=buMap.get(bu.label);
     if(!grp.classes.has(r.className)) grp.classes.set(r.className,{label:banLevelLabel(r.className),chess:banIsChess(banLevel(r.className)),teacher:banTeacher(r.teacher),room:banRoom(r.className),students:[]});
