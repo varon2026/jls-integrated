@@ -2485,7 +2485,7 @@ function renderAceE5(b){
       <a href="${src}" target="_blank" rel="noopener" style="font-size:12.5px;font-weight:700;color:var(--wink2);text-decoration:none">새 탭으로 열기 ↗</a>
     </div>
     <iframe src="${src}" title="초등5 ACE 진급시험" allow="clipboard-write"
-      style="width:100%;height:calc(100vh - 190px);min-height:600px;border:1px solid var(--wline);border-radius:16px;background:#fff"></iframe>`;
+      style="width:100%;height:calc(100vh - 190px);min-height:600px;border:none;background:transparent"></iframe>`;
 }
 
 /* ---------- 신입생 안내 전체 화면 오버레이 (시험채점과 같은 형태) ---------- */
