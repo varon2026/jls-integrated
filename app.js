@@ -2457,9 +2457,32 @@ function renderWonmuBody(){
   if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
   else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
   else if(v==='award'){ if(cr) cr.innerHTML=`${home} › <b>시상관리</b>`; renderAward(body); }
+  else if(v==='ace5'){ if(cr) cr.innerHTML=`${home} › <b>초등5 ACE 진급시험</b>`; renderAceE5(body); }
   else if(v==='booking'){ if(cr) cr.innerHTML=`${home} › <span class="cl" onclick="wonmuGo('leveltest')">레벨테스트</span> › <b>예약 입력</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'leveltest\')">‹ 레벨테스트로</div><div id="bkInner"></div>'; renderBooking($('bkInner')); }
   else if(v==='exam'){ if(cr) cr.innerHTML='<b>원무</b>'; wonmuState.view='hub'; renderWonmuHub(body); openExam(); }
   else { if(cr) cr.innerHTML='<b>원무</b>'; renderWonmuHub(body); }
+}
+
+/* ---------- 초등5 ACE 진급시험 — 사이드바를 그대로 두고 wonmuBody 안에 iframe만 넣는다.
+   레벨테스트처럼 사이드바가 안 가려졌으면 좋겠다는 요청이라, 인원현황·시상관리·시험채점이
+   쓰는 전체화면 오버레이(.iw-fs/.lt-overlay, position:fixed로 사이드바까지 덮음)는 안 쓴다.
+   ace-e5-grading.html은 완전히 독립된 파일이라 네이티브로 새로 만들진 않고, wonmuBody
+   영역 안에만 들어가는 보통 iframe으로 띄운다. */
+function aceE5Src(){
+  const p=new URLSearchParams();
+  if(state.semId) p.set('sem', state.semId);
+  p.set('role', session.role||'admin');
+  if(session.branchId) p.set('branch', session.branchId);
+  if(session.role==='teacher' && session.teacherName) p.set('teacher', session.teacherName);
+  return 'ace-e5-grading.html?'+p.toString();
+}
+function renderAceE5(b){
+  const src=aceE5Src();
+  b.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <a href="${src}" target="_blank" rel="noopener" style="font-size:12.5px;font-weight:700;color:var(--wink2);text-decoration:none">새 탭으로 열기 ↗</a>
+    </div>
+    <iframe src="${src}" title="초등5 ACE 진급시험" allow="clipboard-write"
+      style="width:100%;height:calc(100vh - 190px);min-height:600px;border:1px solid var(--wline);border-radius:16px;background:#fff"></iframe>`;
 }
 
 /* ---------- 신입생 안내 전체 화면 오버레이 (시험채점과 같은 형태) ---------- */
@@ -2803,18 +2826,26 @@ function renderWonmuHub(b){
     <div class="hc-foot"><span class="l">답안 입력하면 즉시 O/X·점수</span><span class="r"><span class="b">분원별 진행률</span></span></div></div>`;
   }
 
-  // 시상관리 카드 — DT·AT 자동 1등 · MIP · 베스트북 · 베스트스피치. 담임은 이 카드를 안 보고
-  // inwon-app 사이드바에서 바로 들어간다(로그인하면 원무 허브 자체를 안 거친다).
-  if(hasMenu('award')){
-  h+=`<div class="hub-card" onclick="wonmuGo('award')">
-    <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>시상관리 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT·AT·MIP·BEST BOOK·BEST SPEECH</span></h3><p>레벨별 DT·AT 자동 1등 · 담임이 반배정표에서 바로 후보 선택</p></div><div class="hc-go">들어가기 ›</div></div>
-    <div class="hc-foot"><span class="l">담임이 반배정표에서 바로 선택</span><span class="r"><span class="b">분원 관리자가 확인</span></span></div></div>`;
+  // 초등5 ACE 진급시험 카드 — 체스반 재원생 중 초5만 뽑아 답안입력(ace-e5-grading.html).
+  // 시험채점과 같은 권한 키(grading)를 쓴다 — 결국 같은 '시험 채점' 일이라 따로 권한을 안 늘렸다.
+  if(hasMenu('grading')){
+  h+=`<div class="hub-card" onclick="wonmuGo('ace5')">
+    <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>초등5 ACE 진급시험</h3><p>체스반 재원생 중 초5만 가나다순으로 · 답안입력 · 자동채점 · 레벨배정</p></div><div class="hc-go">들어가기 ›</div></div>
+    <div class="hc-foot"><span class="l">객관식·Voca·Translation 한 번에</span><span class="r"><span class="b">임시레벨 자동 계산</span></span></div></div>`;
   }
 
   // 신입생 안내 — 분원관리자는 자기 분원 편집, 본사관리자는 분원을 골라 학부모 화면 보기
   if(session.role==='branch' || session.role==='admin'){
     h+=`<div class="hub-card" onclick="openGuide()">
       <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>신입생 안내</h3><p>${session.role==='branch'?'우리 분원 신입생 안내 페이지를 고쳐요':'분원을 골라 학부모님 화면으로 봐요'}</p></div><div class="hc-go">들어가기 ›</div></div></div>`;
+  }
+
+  // 시상관리 카드 — DT·AT 자동 1등 · MIP · 베스트북 · 베스트스피치. 담임은 이 카드를 안 보고
+  // inwon-app 사이드바에서 바로 들어간다(로그인하면 원무 허브 자체를 안 거친다).
+  if(hasMenu('award')){
+  h+=`<div class="hub-card" onclick="wonmuGo('award')">
+    <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>시상관리 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT·AT·MIP·BEST BOOK·BEST SPEECH</span></h3><p>레벨별 DT·AT 자동 1등 · 담임이 반배정표에서 바로 후보 선택</p></div><div class="hc-go">들어가기 ›</div></div>
+    <div class="hc-foot"><span class="l">담임이 반배정표에서 바로 선택</span><span class="r"><span class="b">분원 관리자가 확인</span></span></div></div>`;
   }
   h+=`</div>`;
   b.innerHTML=h;
