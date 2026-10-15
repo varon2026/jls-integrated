@@ -4513,102 +4513,67 @@ function renderStudentManagement(){
       </div>
     </div>
 
-    <div class="panel" style="margin-top:16px">
-      <div class="panel-head">
-        <div class="pi" style="background:var(--warn-soft);color:var(--warn)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-3-3"/></svg>
+    <div class="dm-grid" style="margin-top:16px">
+      <!-- ===== 왼쪽: 재원생 정보수정 (반 이동) ===== -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="pi" style="background:var(--brand-soft);color:var(--brand)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h11M4 7l3-3M4 7l3 3M20 17H9M20 17l-3-3M20 17l-3 3"/></svg>
+          </div>
+          <div><h3>재원생 정보수정 (반 이동)</h3></div>
         </div>
-        <div><h3>담임 변경</h3></div>
-      </div>
-      <div class="pd">반의 담임이 중간에 바뀐 경우 등록합니다. <b>변경일 이후</b>의 인원·퇴원은 새 담임 실적으로, 그 전은 이전 담임 실적으로 인원마감표에 반영됩니다.</div>
-      <div class="form-row">
-        <div class="field full"><label>반 선택</label>
-          <select id="tcClass" onchange="onTcClassChange()">
-            <option value="">반을 선택하세요…</option>
-            ${classList.map(c=>`<option value="${esc(c.className)}" data-teacher="${esc(c.teacher)}">${esc(c.label)} · 현재담임 ${esc(c.teacher)}</option>`).join('')}
-          </select>
+        <div class="pd">학생을 검색해서 이름·회원코드·학교·학년을 고치거나, 다른 반으로 옮깁니다. 반 이동은 <b>이동일 다음 달 월초</b>부터 새 반 담임 실적으로 반영되고, 상담(MC) 기록도 학생을 따라갑니다.</div>
+        <div class="field full" style="margin-bottom:8px">
+          <label>학생 검색 (이름 또는 회원코드)</label>
+          <input id="siSearch" placeholder="예: 김태양" autocomplete="off" oninput="renderSiResults()">
         </div>
+        <div id="siResults" class="wd-results"></div>
+        <div id="siPicked"></div>
       </div>
-      <div class="form-row">
-        <div class="field"><label>이전 담임 (수정 가능)</label><input id="tcFrom" placeholder="반 선택 시 자동 · 필요하면 직접 수정"></div>
-        <div class="field"><label>새 담임</label><input id="tcTo" placeholder="새 담임명"></div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label>변경일 (새 담임 수업 시작일)</label><input id="tcDate" type="date" value="${today()}"></div>
-      </div>
-      <button class="btn primary" style="width:100%" onclick="changeTeacher()">담임 변경 등록</button>
-      ${(()=>{
-        const changes = (db.teacherChanges||[]).filter(c=>c.branchId===branchId && c.semesterId===semId)
-          .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-        if(!changes.length) return '';
-        return `<div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:8px">변경 이력</div>
-          ${changes.map(c=>{
-            const cls = classMap.get(c.className);
-            const label = cls?cls.label:c.className;
-            return `<div class="tc-hist">
-              <span>${esc(label)}</span>
-              <span class="tc-flow">${esc(c.fromTeacher)} → <b>${esc(c.toTeacher)}</b></span>
-              <span class="tc-date num">${esc(c.date)}</span>
-              <button class="tc-del" onclick="deleteTeacherChange('${c.id}')">변경 취소</button>
-            </div>`;
-          }).join('')}
-        </div>`;
-      })()}
-    </div>
 
-    <div class="panel" style="margin-top:16px">
-      <div class="panel-head">
-        <div class="pi" style="background:var(--brand-soft);color:var(--brand)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h11M4 7l3-3M4 7l3 3M20 17H9M20 17l-3-3M20 17l-3 3"/></svg>
+      <!-- ===== 오른쪽: 담임 변경 ===== -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="pi" style="background:var(--warn-soft);color:var(--warn)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-3-3"/></svg>
+          </div>
+          <div><h3>담임 변경</h3></div>
         </div>
-        <div><h3>반 이동 (학생 개별)</h3></div>
+        <div class="pd">반의 담임이 중간에 바뀐 경우 등록합니다. <b>변경일 이후</b>의 인원·퇴원은 새 담임 실적으로, 그 전은 이전 담임 실적으로 인원마감표에 반영됩니다.</div>
+        <div class="form-row">
+          <div class="field full"><label>반 선택</label>
+            <select id="tcClass" onchange="onTcClassChange()">
+              <option value="">반을 선택하세요…</option>
+              ${classList.map(c=>`<option value="${esc(c.className)}" data-teacher="${esc(c.teacher)}">${esc(c.label)} · 현재담임 ${esc(c.teacher)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>이전 담임 (수정 가능)</label><input id="tcFrom" placeholder="반 선택 시 자동 · 필요하면 직접 수정"></div>
+          <div class="field"><label>새 담임</label><input id="tcTo" placeholder="새 담임명"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>변경일 (새 담임 수업 시작일)</label><input id="tcDate" type="date" value="${today()}"></div>
+        </div>
+        <button class="btn primary" style="width:100%" onclick="changeTeacher()">담임 변경 등록</button>
+        ${(()=>{
+          const changes = (db.teacherChanges||[]).filter(c=>c.branchId===branchId && c.semesterId===semId)
+            .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+          if(!changes.length) return '';
+          return `<div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:8px">변경 이력</div>
+            ${changes.map(c=>{
+              const cls = classMap.get(c.className);
+              const label = cls?cls.label:c.className;
+              return `<div class="tc-hist">
+                <span>${esc(label)}</span>
+                <span class="tc-flow">${esc(c.fromTeacher)} → <b>${esc(c.toTeacher)}</b></span>
+                <span class="tc-date num">${esc(c.date)}</span>
+                <button class="tc-del" onclick="deleteTeacherChange('${c.id}')">변경 취소</button>
+              </div>`;
+            }).join('')}
+          </div>`;
+        })()}
       </div>
-      <div class="pd">학생 한 명을 다른 반으로 옮깁니다. <b>이동일 다음 달 월초</b>부터 새 반 담임 실적으로 반영되고(이전 담임은 −1, 새 담임은 +1), 상담(MC) 기록도 학생을 따라갑니다. <b>전체 인원수는 안 바뀝니다.</b> 인원마감표에선 이동으로 월초가 바뀐 칸이 <span style="background:#ffe4a3;padding:0 4px;border-radius:3px">색</span>으로 표시돼요.</div>
-      <div class="form-row">
-        <div class="field"><label>현재 반</label>
-          <select id="mvFromClass" onchange="onMvFromClass()">
-            <option value="">반 선택…</option>
-            ${classList.map(c=>`<option value="${esc(c.className)}">${esc(c.label)} · ${esc(c.teacher)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field"><label>옮길 학생</label>
-          <select id="mvStudent"><option value="">먼저 현재 반을 고르세요</option></select>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label>새 반</label>
-          <select id="mvToClass">
-            <option value="">반 선택…</option>
-            ${classList.map(c=>`<option value="${esc(c.className)}">${esc(c.label)} · ${esc(c.teacher)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field"><label>이동일</label><input id="mvDate" type="date" value="${today()}"></div>
-      </div>
-      <button class="btn primary" style="width:100%" onclick="moveStudent()">반 이동 등록</button>
-      ${(()=>{
-        // 같은 학생·같은 날·같은 반 이동이 두 번 저장된 건 한 줄로만 보여준다.
-        // (두 줄로 보이면 '하나 지워야 하나?' 싶어 이동 취소를 누르게 되는데, 그러면 반이 되돌아간다)
-        const _hSeen=new Set();
-        const moves=(db.studentMovements||[]).filter(m=>{
-          if(!(m.type==='classChange' && m.branchId===branchId && m.semesterId===semId)) return false;
-          let i={}; try{ i=JSON.parse(m.memo||'{}'); }catch(e){}
-          const k=[m.studentId, m.date||'', i.fromTeacher||'', i.toTeacher||''].join('|');
-          if(_hSeen.has(k)) return false;
-          _hSeen.add(k); return true;
-        }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-        if(!moves.length) return '';
-        return `<div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:8px">반 이동 이력</div>
-          ${moves.map(m=>{ let info={}; try{info=JSON.parse(m.memo||'{}');}catch(e){}
-            const s=getStudent(m.studentId);
-            return `<div class="tc-hist">
-              <span><b>${esc(s?s.name:'?')}</b></span>
-              <span class="tc-flow">${esc(info.fromLabel||info.fromClass||'')} → <b>${esc(info.toLabel||info.toClass||'')}</b></span>
-              <span class="tc-date num">${esc(m.date||'')}</span>
-              <button class="tc-del" onclick="cancelClassMove('${m.id}')">이동 취소</button>
-            </div>`;
-          }).join('')}
-        </div>`;
-      })()}
     </div>
 
     <div class="panel" style="margin-top:16px">
@@ -6298,25 +6263,134 @@ function onTcClassChange(){
   const opt = sel.options[sel.selectedIndex];
   el('tcFrom').value = opt ? (opt.dataset.teacher||'') : '';
 }
-/* 반 이동 — 현재 반 선택 시 그 반 재원 학생 목록 채움 */
-function onMvFromClass(){
-  const branchId = activeBranchId()||session.branchId, semId = state.semId;
-  const cn = el('mvFromClass').value;
-  const sel = el('mvStudent'); if(!sel) return;
-  if(!cn){ sel.innerHTML='<option value="">먼저 현재 반을 고르세요</option>'; return; }
-  const recs = activeRecordsOf(branchId, semId).filter(r=>r.className===cn)
-    .sort((a,b)=>{const sa=getStudent(a.studentId),sb=getStudent(b.studentId);return String(sa?sa.name:'').localeCompare(String(sb?sb.name:''),'ko');});
-  sel.innerHTML = '<option value="">학생 선택…</option>' + recs.map(r=>{ const s=getStudent(r.studentId); return `<option value="${esc(r.studentId)}">${esc(s?s.name:'?')}${s&&s.code?' ('+esc(s.code)+')':''}</option>`; }).join('');
+/* 재원생 정보수정(반 이동) — 이름/코드 검색 결과 렌더 (퇴원 처리 검색과 동일한 패턴) */
+function renderSiResults(){
+  const branchId=stuMgmtBranchId(), semId=state.semId;
+  const q=(el('siSearch').value||'').trim().toLowerCase();
+  const box=el('siResults');
+  if(!q){ box.innerHTML=''; return; }
+  const matches=activeRecordsOf(branchId,semId).filter(r=>{
+    const s=getStudent(r.studentId); if(!s) return false;
+    return s.name.toLowerCase().includes(q) || (s.code||'').toLowerCase().includes(q);
+  }).sort((a,b)=>{ const sa=getStudent(a.studentId), sb=getStudent(b.studentId); return (sa?sa.name:'').localeCompare(sb?sb.name:'','ko'); });
+  if(matches.length===0){ box.innerHTML=`<div class="wd-empty">검색 결과가 없습니다</div>`; return; }
+  box.innerHTML = matches.slice(0,30).map(r=>{
+    const s=getStudent(r.studentId);
+    return `<div class="wd-item" onclick="pickSiStudent('${s.id}')">
+      <div class="wd-main"><span class="wd-name">${esc(s.name)}</span><span class="code-chip">${esc(s.code)}</span></div>
+      <div class="wd-meta">${esc(r.classLabel||r.className)} · ${esc(r.teacher)} 담임 · ${esc(s.school||'')} ${esc(s.grade||'')}</div>
+    </div>`;
+  }).join('');
 }
-/* 반 이동 등록 — 학생 1명을 새 반으로 (반이름·라벨·담임 갱신 + 이동 이력) */
-function moveStudent(){
-  const branchId = activeBranchId()||session.branchId, semId = state.semId;
-  const fromCn=el('mvFromClass').value, studentId=el('mvStudent').value, toCn=el('mvToClass').value, date=el('mvDate').value||today();
-  if(!fromCn||!studentId){ toast('옮길 학생을 선택하세요','err'); return; }
-  if(!toCn){ toast('새 반을 선택하세요','err'); return; }
-  if(fromCn===toCn){ toast('현재 반과 새 반이 같습니다','err'); return; }
-  const rec = activeRecordsOf(branchId,semId).find(r=>r.studentId===studentId && r.className===fromCn);
+/* 검색 결과에서 학생 선택 → 정보수정 폼 + 반 이동 폼을 같이 띄운다 */
+function pickSiStudent(studentId){
+  el('siSearch').value='';
+  el('siResults').innerHTML='';
+  renderSiPicked(studentId);
+}
+function clearSiPick(){
+  el('siSearch').value='';
+  el('siResults').innerHTML='';
+  el('siPicked').innerHTML='';
+}
+function renderSiPicked(studentId){
+  const s=getStudent(studentId); if(!s){ el('siPicked').innerHTML=''; return; }
+  const branchId=stuMgmtBranchId(), semId=state.semId;
+  const rec=activeRecordsOf(branchId,semId).find(r=>r.studentId===studentId);
+  const classMap=new Map();
+  activeRecordsOf(branchId,semId).forEach(r=>{ if(!classMap.has(r.className)) classMap.set(r.className,{className:r.className,label:r.classLabel||r.className,teacher:r.teacher}); });
+  const classList=[...classMap.values()].sort((a,b)=>a.label.localeCompare(b.label,'ko'));
+  const grades=['초등1','초등2','초등3','초등4','초등5','초등6','중등1','중등2','중등3'];
+  // 같은 학생·같은 날·같은 반 이동이 두 번 저장된 건 한 줄로만 보여준다 (반이동 패널과 동일한 중복 제거 규칙)
+  const _hSeen=new Set();
+  const moves=(db.studentMovements||[]).filter(m=>{
+    if(!(m.type==='classChange' && m.studentId===studentId && m.branchId===branchId && m.semesterId===semId)) return false;
+    let i={}; try{ i=JSON.parse(m.memo||'{}'); }catch(e){}
+    const k=[m.date||'', i.fromTeacher||'', i.toTeacher||''].join('|');
+    if(_hSeen.has(k)) return false;
+    _hSeen.add(k); return true;
+  }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  el('siPicked').innerHTML = `
+    <div class="wd-picked-card" style="margin-top:10px">
+      <div>
+        <div class="wd-picked-name">선택됨: <b>${esc(s.name)}</b> <span class="code-chip">${esc(s.code)}</span></div>
+        <div class="wd-meta">${rec?esc(rec.classLabel||rec.className)+' · '+esc(rec.teacher)+' 담임':'이 학기 재원 기록 없음'}</div>
+      </div>
+      <button class="btn sm" onclick="clearSiPick()">취소</button>
+    </div>
+    <div style="margin-top:14px">
+      <div class="form-row">
+        <div class="field"><label>이름</label><input id="siName" value="${esc(s.name)}"></div>
+        <div class="field"><label>회원코드</label><input id="siCode" value="${esc(s.code||'')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>학교</label><input id="siSchool" value="${esc(s.school||'')}"></div>
+        <div class="field"><label>학년</label>
+          <select id="siGrade">
+            <option value="">학년 선택…</option>
+            ${grades.map(g=>`<option value="${g}" ${s.grade===g?'selected':''}>${g}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <button class="btn primary" style="width:100%" onclick="saveStudentInfo('${studentId}')">정보 저장</button>
+    </div>
+    ${rec ? `
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+      <div style="font-size:12.5px;font-weight:700;color:var(--ink-2);margin-bottom:8px">반 이동</div>
+      <div class="form-row">
+        <div class="field"><label>새 반</label>
+          <select id="siToClass">
+            <option value="">반 선택…</option>
+            ${classList.map(c=>`<option value="${esc(c.className)}" ${c.className===rec.className?'disabled':''}>${esc(c.label)} · ${esc(c.teacher)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>이동일</label><input id="siMoveDate" type="date" value="${today()}"></div>
+      </div>
+      <button class="btn" style="width:100%" onclick="moveStudentDirect('${studentId}')">반 이동 등록</button>
+    </div>` : ''}
+    ${moves.length ? `
+    <div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:8px">이 학생 반 이동 이력</div>
+      ${moves.map(m=>{ let info={}; try{info=JSON.parse(m.memo||'{}');}catch(e){}
+        return `<div class="tc-hist">
+          <span class="tc-flow">${esc(info.fromLabel||info.fromClass||'')} → <b>${esc(info.toLabel||info.toClass||'')}</b></span>
+          <span class="tc-date num">${esc(m.date||'')}</span>
+          <button class="tc-del" onclick="cancelClassMove('${m.id}')">이동 취소</button>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+  `;
+}
+/* 재원생 정보수정 저장 — 이름·회원코드·학교·학년을 students 레코드에 직접 반영.
+   회원코드는 다른 분원에서 명단 매칭(이름 없이 코드로만)에 쓰이기 때문에, 이미 쓰는 학생이
+   있으면 경고만 하고 막지는 않는다(김규빈 중복 사고 — sql/fix_kim_gyubin_dup_student.sql). */
+function saveStudentInfo(studentId){
+  const s=getStudent(studentId); if(!s){ toast('학생을 찾을 수 없습니다','err'); return; }
+  const name=el('siName').value.trim(), code=el('siCode').value.trim(), school=el('siSchool').value.trim(), grade=el('siGrade').value;
+  if(!name){ toast('이름을 입력하세요','err'); return; }
+  if(!code){ toast('회원코드를 입력하세요','err'); return; }
+  const dup = code!==s.code && db.students.some(x=>x.id!==studentId && x.code===code);
+  const doSave = ()=>{
+    closeModal();
+    s.name=name; s.code=code; s.school=school; s.grade=grade;
+    showSaving('저장 중…');
+    saveDB().then(ok=>{ hideSaving(); toast(ok?'학생 정보 저장됨':'저장 실패, 다시 시도하세요', ok?'ok':'err');
+      if(ok){ render(); renderSiPicked(studentId); } });
+  };
+  if(dup){
+    openConfirm('회원코드 중복', `회원코드 "${esc(code)}"는 이미 다른 학생이 쓰고 있어요. 그래도 저장할까요?\n(같은 코드를 두 학생이 쓰면 나중에 명단 매칭이 꼬일 수 있어요)`, doSave, {yesLabel:'그래도 저장', danger:true});
+  } else {
+    doSave();
+  }
+}
+/* 반 이동 등록 — 검색으로 이미 학생을 알고 있으니 현재 반을 바로 찾는다 (반이름·라벨·담임 갱신 + 이동 이력) */
+function moveStudentDirect(studentId){
+  const branchId=stuMgmtBranchId(), semId=state.semId;
+  const rec=activeRecordsOf(branchId,semId).find(r=>r.studentId===studentId);
   if(!rec){ toast('학생 기록을 찾을 수 없습니다','err'); return; }
+  const toCn=el('siToClass').value, date=el('siMoveDate').value||today();
+  if(!toCn){ toast('새 반을 선택하세요','err'); return; }
+  const fromCn=rec.className;
+  if(fromCn===toCn){ toast('현재 반과 새 반이 같습니다','err'); return; }
   const target = activeRecordsOf(branchId,semId).find(r=>r.className===toCn)
     || db.semesterRecords.find(r=>r.branchId===branchId&&r.semesterId===semId&&r.className===toCn);
   const toLabel = target ? (target.classLabel||toCn) : toCn;
@@ -6335,7 +6409,8 @@ function moveStudent(){
     memo:JSON.stringify({fromClass:fromCn,fromLabel,toClass:toCn,toLabel,fromTeacher,toTeacher}) });
   rec.className=toCn; rec.classLabel=toLabel; rec.teacher=toTeacher;   // MC/상담기록은 studentId 기준이라 자동으로 따라옴
   showSaving('반 이동 저장 중…');
-  saveDB().then(ok=>{ hideSaving(); toast(ok?`반 이동 완료 · ${fromLabel} → ${toLabel}`:'저장 실패, 다시 시도하세요', ok?'ok':'err'); render(); });
+  saveDB().then(ok=>{ hideSaving(); toast(ok?`반 이동 완료 · ${fromLabel} → ${toLabel}`:'저장 실패, 다시 시도하세요', ok?'ok':'err');
+    if(ok){ render(); renderSiPicked(studentId); } });
 }
 /* 반 이동 취소 — 이력 삭제 + 학생을 이전 반으로 되돌림 */
 function cancelClassMove(id){
