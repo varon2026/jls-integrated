@@ -27,6 +27,10 @@ body{font-family:'NanumSquare','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
 .tabs button{background:#fff;border:1px solid var(--line);color:var(--ink2);border-radius:10px;padding:9px 16px;font:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
 .tabs button.on{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border-color:transparent}
 .gwrap{overflow:auto;border:1px solid var(--line2);border-radius:12px;max-height:75vh}
+/* 총점/레벨 탭은 가로 스크롤이 필요 없어서(폭에 맞춰 늘고 주는 표라)
+   세로도 이 안에서 따로 안 긁고 페이지 자체가 스크롤되게 한다 —
+   스크롤이 두 개(페이지+표) 생겨서 표 오른쪽 끝이 잘려 보이던 것 방지. */
+.gwrap.flat{overflow:visible;max-height:none}
 table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:max-content;min-width:100%}
 .g th,.g td{border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);padding:5px;text-align:center;white-space:nowrap}
 .g th{background:#f6f3fc;color:var(--ink3);font-size:11px;font-weight:800;position:sticky;top:0;z-index:3;padding:7px 5px}
@@ -46,15 +50,13 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:max-conte
 .g tbody tr:hover td{background:#ebe3fa}
 .g tbody tr:hover td.qcell:not(.ok):not(.no) input{background:#ebe3fa}
 /* 총점/레벨 탭 전용 — <table>을 안 쓰고 CSS grid로 짠다.
-   table-layout:fixed는 "비율"만 고정이라 화면이 넓어지면 모든 칸이 같이
-   늘어나서, 분원/담임/학교학년처럼 짧은 칸도 덩달아 넓어지는 문제가
-   있었다(1300px 테스트에선 안 보이다가 실제 넓은 모니터에서 드러남).
-   grid-template-columns는 고정 px 칸은 화면이 아무리 넓어져도 그대로
-   고정되고, minmax(...,1fr)로 준 점수 칸만 남는 폭을 가져간다. */
-/* 화면이 넓어도 표는 제 너비(1316px)만큼만 차지하고 늘어나지 않는다.
-   위 카드·툴바들도 렌더링할 때 이 너비에 맞춰 max-width를 걸어서
-   표랑 길이를 맞춘다(render()의 TOTALTAB_WIDTH 참고) — 오른쪽은 그냥 비워둔다. */
-.ttgrid{display:grid;width:max-content;grid-template-columns:30px 44px 44px 130px 84px 112px 84px 118px 130px 130px 130px 140px 140px}
+   width:100%로 화면 폭에 맞게 늘었다 줄었다 하되, 분원/담임/학교학년처럼
+   내용이 짧은 칸은 고정 px로 묶어서 같이 늘어나지 않게 하고, 점수 칸만
+   minmax로 적당히(140~150px) 커지다 멈춘다. 그러고도 남는 폭은 맨 끝
+   보이지 않는 스페이서 칸이 가져가서 표가 항상 화면 폭에 꽉 맞고
+   가로 스크롤이 안 생긴다. 요일·레벨/담임은 실제 가장 긴 값
+   ("월수금 3부 · B(1-3)_E5", "Stephanie 최지영")을 직접 재서 안 잘리게 잡았다. */
+.ttgrid{display:grid;width:100%;grid-template-columns:30px 44px 44px 130px 84px 150px 120px 118px minmax(84px,140px) minmax(84px,140px) minmax(84px,140px) minmax(96px,150px) minmax(96px,150px) minmax(0,1fr)}
 /* .ttgrid>div(자식 결합자)는 안 된다 — .ttrow가 display:contents라
    실제 DOM에선 이 칸들이 .ttgrid의 '자식'이 아니라 '손자'라서 안 걸린다.
    그래서 셀마다 .gcell 클래스를 따로 붙이고 거리 상관없는 .ttgrid .gcell로 건다. */
@@ -72,6 +74,8 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:max-conte
 .ttgrid .score.big{font-size:16px;font-weight:800;color:var(--brand)}
 .ttgrid .lvl select,.ttgrid .score select{font:inherit;font-weight:800;font-size:13.5px;border:1px solid var(--line);border-radius:8px;padding:7px 4px;width:100%}
 .ttgrid .bclr{background:var(--bc)}
+.ttgrid .spacer{background:transparent;border:none}
+.ttgrid>.spacer{position:sticky;top:0;z-index:3}
 .ttrow{display:contents}
 .ttrow:hover>div{background:#ebe3fa}
 .addrow-card{background:#fffaf0;border:1px dashed #e8d5a8}
@@ -389,18 +393,15 @@ function transMax(){ return TRANS_ITEMS.reduce((s,it)=>s+(it.max||0),0); }
 function tabBtn(key,label){ return `<button class="${CURTAB===key?'on':''}" onclick="setTab('${key}')">${label}</button>`; }
 function setTab(k){ CURTAB=k; render(); }
 
-const TOTALTAB_WIDTH = 1316; // .ttgrid 칸 너비 합(30+44+44+130+84+112+84+118+130*3+140*2) — 위 카드들도 이 너비로 맞춘다
 function render(){
   const app=document.getElementById('app');
   const scopeLabel = ROLE==='admin' && !BRANCH ? '전체 분원' : (BRANCHES[BRANCH]||'');
   const branchOptions = Object.keys(BRANCHES)
     .sort((a,c)=>String(BRANCHES[a]).localeCompare(String(BRANCHES[c]),'ko'))
     .map(id=>`<option value="${id}" ${id===BRANCH?'selected':''}>${esc(BRANCHES[id])}</option>`).join('');
-  const capStyle = CURTAB==='total' ? ` style=\"max-width:${TOTALTAB_WIDTH}px\"` : '';
   app.innerHTML = `
     <div class="h2">초5 ACE 진급시험 — 답안입력</div>
     <div class="sub">체스반 재원생 중 초등5학년만 가나다순으로 불러왔어요 (${esc(scopeLabel)}${TEACHER?' · '+esc(TEACHER)+' 선생님 반':''} · ${esc(SEM||'학기 미확인')}) · 총 ${ROWS.length}명</div>
-    <div${capStyle}>
     ${TABLE_MISSING ? `
     <div class="card" style="padding:14px 18px;margin-bottom:14px;background:var(--neg-s);border-color:#f0b6b8;color:var(--neg);font-weight:700">
       저장 표(ace_e5_exam_results)가 아직 없어서 입력한 답안이 저장되지 않아요.
@@ -442,8 +443,9 @@ function render(){
       <button class="ghost mini" onclick="clearSelection()">선택해제</button>
       <span class="hint" style="margin-left:auto">임시레벨 필터는 표 맨 오른쪽 "임시레벨" 칸 헤더에서 고르세요</span>
     </div>` : ''}
-    <div class="gwrap">${CURTAB==='total' ? buildTotalGrid() : `<table class="g">${buildTable()}</table>`}</div>
-    </div>
+    ${CURTAB==='total'
+      ? `<div class="gwrap flat">${buildTotalGrid()}</div>`
+      : `<div class="gwrap"><table class="g">${buildTable()}</table></div>`}
   `;
 }
 
@@ -556,7 +558,8 @@ function buildTotalGrid(){
     <div class="gcell gh">단어<br>/${VOCAB_ITEMS.length}</div>
     <div class="gcell gh">해석<br>/${tMax}</div>
     <div class="gcell gh">임시레벨<select onchange="onLevelFilterChange(this.value)"><option value="">전체</option>${filterOpts}</select></div>
-    <div class="gcell gh">최종레벨</div>`;
+    <div class="gcell gh">최종레벨</div>
+    <div class="gcell spacer"></div>`;
   let shown=0;
   const body = ROWS.map(r=>{
     const os=objScore(r), vs=vocabScore(r), ts=transScore(r);
@@ -581,6 +584,7 @@ function buildTotalGrid(){
       <div class="gcell score">${ts}</div>
       <div class="gcell score big">${suggested}</div>
       <div class="gcell lvl"><select onchange="onLevelChange('${r.id}',this.value)">${opts}</select></div>
+      <div class="gcell spacer"></div>
     </div>`;
   }).join('');
   return `<div class="ttgrid">${head}${body}</div>`;
