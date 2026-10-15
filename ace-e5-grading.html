@@ -54,7 +54,10 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:max-conte
 /* 점수 칸도 minmax 상한을 둬서 너무 커지지 않게 하고, 그러고도 남는 폭은
    맨 끝 빈 칸(스페이서)이 가져가게 해서 표 전체 너비는 그대로 흰 박스랑 맞춘다. */
 .ttgrid{display:grid;grid-template-columns:30px 44px 44px 130px 84px 112px 84px 118px minmax(84px,130px) minmax(84px,130px) minmax(84px,130px) minmax(96px,140px) minmax(96px,140px) minmax(0,1fr)}
-.ttgrid>div{border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);padding:8px 6px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;overflow:hidden}
+/* .ttgrid>div(자식 결합자)는 안 된다 — .ttrow가 display:contents라
+   실제 DOM에선 이 칸들이 .ttgrid의 '자식'이 아니라 '손자'라서 안 걸린다.
+   그래서 셀마다 .gcell 클래스를 따로 붙이고 거리 상관없는 .ttgrid .gcell로 건다. */
+.ttgrid .gcell{border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);padding:8px 6px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;overflow:hidden}
 .ttgrid .gh{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:13.5px;font-weight:800;position:sticky;top:0;z-index:3;flex-direction:column;gap:3px}
 .ttgrid .gh select{font:inherit;font-size:11.5px;font-weight:700;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 2px;width:100%}
 .ttgrid .idx{color:var(--ink3);font-weight:800}
@@ -537,20 +540,20 @@ function buildTotalGrid(){
   const rankMap=computeRanks();
   const filterOpts = LEVEL_OPTIONS.map(lv=>`<option value="${lv}" ${LEVEL_FILTER===lv?'selected':''}>${lv}</option>`).join('');
   const head = `
-    <div class="gh chk"></div>
-    <div class="gh idx">번호</div>
-    <div class="gh idx">등수</div>
-    <div class="gh">이름(회원코드)</div>
-    <div class="gh">분원</div>
-    <div class="gh">요일 · 레벨</div>
-    <div class="gh">담임</div>
-    <div class="gh">학교/학년</div>
-    <div class="gh">객관식<br>/${oMax}</div>
-    <div class="gh">단어<br>/${VOCAB_ITEMS.length}</div>
-    <div class="gh">해석<br>/${tMax}</div>
-    <div class="gh">임시레벨<select onchange="onLevelFilterChange(this.value)"><option value="">전체</option>${filterOpts}</select></div>
-    <div class="gh">최종레벨</div>
-    <div class="gh spacer"></div>`;
+    <div class="gcell gh chk"></div>
+    <div class="gcell gh idx">번호</div>
+    <div class="gcell gh idx">등수</div>
+    <div class="gcell gh">이름(회원코드)</div>
+    <div class="gcell gh">분원</div>
+    <div class="gcell gh">요일 · 레벨</div>
+    <div class="gcell gh">담임</div>
+    <div class="gcell gh">학교/학년</div>
+    <div class="gcell gh">객관식<br>/${oMax}</div>
+    <div class="gcell gh">단어<br>/${VOCAB_ITEMS.length}</div>
+    <div class="gcell gh">해석<br>/${tMax}</div>
+    <div class="gcell gh">임시레벨<select onchange="onLevelFilterChange(this.value)"><option value="">전체</option>${filterOpts}</select></div>
+    <div class="gcell gh">최종레벨</div>
+    <div class="gcell gh spacer"></div>`;
   let shown=0;
   const body = ROWS.map(r=>{
     const os=objScore(r), vs=vocabScore(r), ts=transScore(r);
@@ -562,20 +565,20 @@ function buildTotalGrid(){
     const opts = LEVEL_OPTIONS.map(lv=>`<option value="${lv}" ${r.finalLevel===lv?'selected':''}>${lv}</option>`).join('');
     const checked = SELECTED.has(r.id)?'checked':'';
     return `<div class="ttrow"${bs}>
-      <div class="chk"><input type="checkbox" ${checked} onchange="toggleSelect('${r.id}',this.checked)"></div>
-      <div class="idx">${shown}</div>
-      <div class="rank">${rankMap[r.id]}</div>
-      <div class="name"><div class="nmwrap"><b>${esc(r.name)}</b>${r.manual?' <span class=\"tag manual\">비재원</span>':''}${r.early?' <span class=\"tag early\">얼리버드</span>':''}<div class="c">${esc(r.code||'')}</div></div></div>
-      <div class="info bclr">${esc(r.branchName)}</div>
-      <div class="info bclr">${esc(classDetail(r.classLabel))}</div>
-      <div class="info bclr">${esc(r.teacher)}</div>
-      <div class="info bclr">${esc(r.school)} ${esc(gradeKey(r.grade))}</div>
-      <div class="score big">${os}</div>
-      <div class="score">${vs}</div>
-      <div class="score">${ts}</div>
-      <div class="score big">${suggested}</div>
-      <div class="lvl"><select onchange="onLevelChange('${r.id}',this.value)">${opts}</select></div>
-      <div class="spacer"></div>
+      <div class="gcell chk"><input type="checkbox" ${checked} onchange="toggleSelect('${r.id}',this.checked)"></div>
+      <div class="gcell idx">${shown}</div>
+      <div class="gcell rank">${rankMap[r.id]}</div>
+      <div class="gcell name"><div class="nmwrap"><b>${esc(r.name)}</b>${r.manual?' <span class=\"tag manual\">비재원</span>':''}${r.early?' <span class=\"tag early\">얼리버드</span>':''}<div class="c">${esc(r.code||'')}</div></div></div>
+      <div class="gcell info bclr">${esc(r.branchName)}</div>
+      <div class="gcell info bclr">${esc(classDetail(r.classLabel))}</div>
+      <div class="gcell info bclr">${esc(r.teacher)}</div>
+      <div class="gcell info bclr">${esc(r.school)} ${esc(gradeKey(r.grade))}</div>
+      <div class="gcell score big">${os}</div>
+      <div class="gcell score">${vs}</div>
+      <div class="gcell score">${ts}</div>
+      <div class="gcell score big">${suggested}</div>
+      <div class="gcell lvl"><select onchange="onLevelChange('${r.id}',this.value)">${opts}</select></div>
+      <div class="gcell spacer"></div>
     </div>`;
   }).join('');
   return `<div class="ttgrid">${head}${body}</div>`;
