@@ -42,6 +42,7 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:max-conte
 .g td.lvl select{font:inherit;font-weight:800;font-size:12.5px;border:1px solid var(--line);border-radius:8px;padding:5px 7px}
 .g td.total{font-weight:800;color:var(--brand)}
 .g td.meta{color:var(--ink2);font-weight:700}
+.g td.bclr{background:var(--bc)}
 .g tbody tr:hover td{background:#ebe3fa}
 .g tbody tr:hover td.qcell:not(.ok):not(.no) input{background:#ebe3fa}
 .addrow-card{background:#fffaf0;border:1px dashed #e8d5a8}
@@ -96,6 +97,19 @@ function levelAlpha(cn){const m=String(cn||'').match(/^\s*\[?\s*([A-Za-z]+)/);re
 function isChess(cn){return /^(IS|DS|LS|MS)/.test(levelAlpha(cn));}
 function gradeKey(g){g=String(g||'').trim();let m;if(m=g.match(/중\s*등?\s*(\d)/))return '중'+m[1];if(m=g.match(/초\s*등?\s*(\d)/))return '초'+m[1];if(m=g.match(/고\s*(\d)/))return '고'+m[1];if(m=g.match(/^(\d)$/))return '초'+m[1];return g;}
 function classDetail(cn){return String(cn||'').replace(/^\s*\[[^\]\/]*\]?\s*/,'').trim()||cn;}
+
+/* 분원별 파스텔 배경 — 전체 분원으로 섞여 보일 때 같은 분원끼리 눈에 띄게.
+   분원id를 해시해서 고르면 분원 수가 적을 때(지금 7개) 팔레트 8개 안에서
+   우연히 같은 색이 겹치는 경우가 생겨서, 분원 목록을 불러온 뒤 가나다순으로
+   팔레트를 하나씩 순서대로 배정한다 — 겹칠 일이 없다. */
+const BRANCH_PALETTE = ['#fdeef0','#eef5fd','#fdf7e0','#eafaf0','#f4eefd','#fdf0e3','#e9fbf6','#f7eef7','#eef9fd','#fdeef7'];
+let BRANCH_COLOR_MAP={};
+function assignBranchColors(){
+  BRANCH_COLOR_MAP={};
+  const ids=Object.keys(BRANCHES).sort((a,c)=>String(BRANCHES[a]).localeCompare(String(BRANCHES[c]),'ko'));
+  ids.forEach((id,i)=>{ BRANCH_COLOR_MAP[id]=BRANCH_PALETTE[i%BRANCH_PALETTE.length]; });
+}
+function branchColor(branchId){ return branchId ? (BRANCH_COLOR_MAP[branchId]||'') : ''; }
 
 /* ---------------- 정답키 / 단어 / 해석 — leveltest(E6)과 100% 동일 확인 완료 ---------------- */
 const E5_EXAM = [{"no": 1, "ans": "5", "score": 2, "area": "LC", "competency": "논리적 관계 파악하기", "type": "관계/직업/장소 파악하기"}, {"no": 2, "ans": "5", "score": 2, "area": "LC", "competency": "세부 내용 파악하기", "type": "세부 정보 파악하기"}, {"no": 3, "ans": "3", "score": 2, "area": "LC", "competency": "세부 내용 파악하기", "type": "세부 정보 파악하기"}, {"no": 4, "ans": "3", "score": 2, "area": "LC", "competency": "논리적 관계 파악하기", "type": "목적/의도/이유 추론하기"}, {"no": 5, "ans": "3", "score": 2, "area": "LC", "competency": "세부 내용 파악하기", "type": "세부 정보 파악하기"}, {"no": 6, "ans": "5", "score": 2, "area": "LC", "competency": "세부 내용 파악하기", "type": "숫자 정보 파악하기"}, {"no": 7, "ans": "4", "score": 2, "area": "LC", "competency": "논리적 관계 파악하기", "type": "목적/의도/이유 추론하기"}, {"no": 8, "ans": "2", "score": 2, "area": "LC", "competency": "세부 내용 파악하기", "type": "세부 정보 파악하기"}, {"no": 9, "ans": "2", "score": 2, "area": "LC", "competency": "세부 내용 파악하기", "type": "그림 정보 파악하기"}, {"no": 10, "ans": "3", "score": 2, "area": "LC", "competency": "논리적 관계 파악하기", "type": "관계/직업/장소 파악하기"}, {"no": 11, "ans": "3", "score": 2, "area": "LC", "competency": "세부 내용 파악하기", "type": "세부 정보 파악하기"}, {"no": 12, "ans": "3", "score": 2, "area": "LC", "competency": "세부 내용 파악하기", "type": "숫자 정보 파악하기"}, {"no": 13, "ans": "1", "score": 2, "area": "LC", "competency": "논리적 관계 파악하기", "type": "적절한 응답 / 상황에 적절한 말 고르기"}, {"no": 14, "ans": "2", "score": 2, "area": "LC", "competency": "논리적 관계 파악하기", "type": "심정 파악하기"}, {"no": 15, "ans": "5", "score": 2, "area": "LC", "competency": "세부 내용 파악하기", "type": "세부 정보 파악하기"}, {"no": 16, "ans": "5", "score": 2, "area": "LC", "competency": "중심 내용 파악하기", "type": "내용 파악하기"}, {"no": 17, "ans": "3", "score": 2, "area": "LC", "competency": "중심 내용 파악하기", "type": "내용 파악하기"}, {"no": 18, "ans": "3", "score": 2, "area": "LC", "competency": "중심 내용 파악하기", "type": "내용 파악하기"}, {"no": 19, "ans": "3", "score": 2, "area": "LC", "competency": "중심 내용 파악하기", "type": "주제 파악하기"}, {"no": 20, "ans": "4", "score": 2, "area": "LC", "competency": "중심 내용 파악하기", "type": "주제 파악하기"}, {"no": 21, "ans": "2", "score": 3, "area": "RC", "competency": "문법과 어휘", "type": "어휘"}, {"no": 22, "ans": "3", "score": 3, "area": "RC", "competency": "중심 내용 파악하기", "type": "글의 종류"}, {"no": 23, "ans": "3", "score": 3, "area": "RC", "competency": "논리적 관계 파악하기", "type": "단어가 들어갈 빈칸 추론"}, {"no": 24, "ans": "5", "score": 3, "area": "RC", "competency": "세부 내용 파악하기", "type": "내용 일치/불일치"}, {"no": 25, "ans": "2", "score": 3, "area": "RC", "competency": "세부 내용 파악하기", "type": "내용 일치/불일치"}, {"no": 26, "ans": "3", "score": 3, "area": "RC", "competency": "논리적 관계 파악하기", "type": "문장삽입"}, {"no": 27, "ans": "5", "score": 3, "area": "RC", "competency": "논리적 관계 파악하기", "type": "지시어 찾기"}, {"no": 28, "ans": "1", "score": 3, "area": "RC", "competency": "세부 내용 파악하기", "type": "내용 일치/불일치"}, {"no": 29, "ans": "1", "score": 3, "area": "RC", "competency": "중심 내용 파악하기", "type": "글의 요지"}, {"no": 30, "ans": "5", "score": 3, "area": "RC", "competency": "세부 내용 파악하기", "type": "문맥상 적합한 빈칸 추론"}, {"no": 31, "ans": "3", "score": 3, "area": "RC", "competency": "논리적 관계 파악하기", "type": "글쓴이의 심정"}, {"no": 32, "ans": "3", "score": 3, "area": "RC", "competency": "세부 내용 파악하기", "type": "내용 일치/불일치"}, {"no": 33, "ans": "5", "score": 3, "area": "RC", "competency": "중심 내용 파악하기", "type": "글의 목적"}, {"no": 34, "ans": "1", "score": 3, "area": "RC", "competency": "세부 내용 파악하기", "type": "내용 일치/불일치"}, {"no": 35, "ans": "1", "score": 3, "area": "RC", "competency": "논리적 관계 파악하기", "type": "글의 순서"}, {"no": 36, "ans": "5", "score": 3, "area": "RC", "competency": "세부 내용 파악하기", "type": "내용 일치/불일치"}, {"no": 37, "ans": "3", "score": 3, "area": "RC", "competency": "맥락 파악하기", "type": "글의 분위기 파악"}, {"no": 38, "ans": "1", "score": 3, "area": "RC", "competency": "세부 내용 파악하기", "type": "내용 일치/불일치"}, {"no": 39, "ans": "3", "score": 3, "area": "RC", "competency": "중심 내용 파악하기", "type": "글의 목적"}, {"no": 40, "ans": "3", "score": 3, "area": "RC", "competency": "중심 내용 파악하기", "type": "글의  목적"}];
@@ -195,6 +209,7 @@ async function boot(){
       fetchAll('students','id,code,name,school,grade')
     ]);
     BRANCHES={}; (b.data||[]).forEach(x=>BRANCHES[x.id]=x.name);
+    assignBranchColors();
     STUDENTS={}; st.forEach(x=>STUDENTS[x.id]=x);
     await resolveCurrentSemester();
     await loadRoster();
@@ -388,12 +403,14 @@ function studentHeadCells(){
   return `<th class="no">번호</th><th class="stu">이름(회원코드)</th><th>분원</th><th>요일 · 레벨</th><th>담임</th><th>학교/학년</th>`;
 }
 function studentRowCells(r,i){
+  const bc=branchColor(r.branchId);
+  const bs=bc?` style=\"--bc:${bc}\"`:'';
   return `<td class="no">${i+1}${r.manual?' <button class=\"ghost mini\" style=\"padding:2px 6px\" onclick=\"removeRow(\'' + r.id + '\')\">x</button>':''}</td>
     <td class="stu"><b>${esc(r.name)}</b>${r.manual?' <span class=\"tag manual\">비재원</span>':''}${r.early?' <span class=\"tag early\">얼리버드</span>':''}<div class="c">${esc(r.code||'')}</div></td>
-    <td class="meta">${esc(r.branchName)}</td>
-    <td class="meta">${esc(classDetail(r.classLabel))}</td>
-    <td class="meta">${esc(r.teacher)}</td>
-    <td class="meta">${esc(r.school)} ${esc(gradeKey(r.grade))}</td>`;
+    <td class="meta bclr"${bs}>${esc(r.branchName)}</td>
+    <td class="meta bclr"${bs}>${esc(classDetail(r.classLabel))}</td>
+    <td class="meta bclr"${bs}>${esc(r.teacher)}</td>
+    <td class="meta bclr"${bs}>${esc(r.school)} ${esc(gradeKey(r.grade))}</td>`;
 }
 
 function buildTable(){
@@ -412,7 +429,7 @@ function buildObjTable(){
       const cls = v==='' ? '' : (String(v)===String(q.ans) ? 'ok' : 'no');
       return `<td class="qcell ${cls}"><input maxlength="1" inputmode="numeric" value="${esc(v)}"
         data-r="${i}" data-c="${ci}" onkeydown="navKey(event,this,${cols})"
-        oninput="onObjInput('${r.id}',${q.no},this.value)"></td>`;
+        oninput="onObjInput('${r.id}',${q.no},this.value,this)"></td>`;
     }).join('');
     return `<tr>${studentRowCells(r,i)}${cells}</tr>`;
   }).join('');
@@ -427,7 +444,7 @@ function buildVocabTable(){
       const cls = v==='1' ? 'ok' : (v==='0' ? 'no' : '');
       return `<td class="qcell ${cls}"><input maxlength="1" inputmode="numeric" value="${esc(v)}"
         data-r="${i}" data-c="${ci}" onkeydown="navKey(event,this,${cols})"
-        oninput="onVocabInput('${r.id}',${it.no},this.value)"></td>`;
+        oninput="onVocabInput('${r.id}',${it.no},this.value,this)"></td>`;
     }).join('');
     return `<tr>${studentRowCells(r,i)}${cells}</tr>`;
   }).join('');
@@ -481,12 +498,21 @@ function navKey(e,inp,cols){
   if(nx){nx.focus();nx.select();}
 }
 function findRow(id){ return ROWS.find(r=>r.id===id); }
-function onObjInput(id,no,v){ const r=findRow(id); if(!r)return; r.obj[no]=v.trim(); rerenderCellOnly(); }
-function onVocabInput(id,no,v){ const r=findRow(id); if(!r)return; r.vocab[no]=v.trim(); rerenderCellOnly(); }
-function onTransInput(id,no,v,max){ const r=findRow(id); if(!r)return; let n=parseInt(v,10); if(isNaN(n))n=''; else n=Math.max(0,Math.min(max,n)); r.trans[no]=n; rerenderCellOnly(); }
+/* 입력할 때마다 표 전체를 다시 그리면 입력칸 포커스가 날아가서, 지금 입력한
+   칸의 정/오답 배경색만 바로 바꿔준다(td.classList만 건드리고 다른 건 안 그림). */
+function onObjInput(id,no,v,inp){
+  const r=findRow(id); if(!r)return; v=v.trim(); r.obj[no]=v;
+  const q=E5_EXAM.find(x=>x.no===no);
+  const td=inp.closest('td'); td.classList.remove('ok','no');
+  if(v!=='') td.classList.add(String(v)===String(q.ans)?'ok':'no');
+}
+function onVocabInput(id,no,v,inp){
+  const r=findRow(id); if(!r)return; v=v.trim(); r.vocab[no]=v;
+  const td=inp.closest('td'); td.classList.remove('ok','no');
+  if(v==='1') td.classList.add('ok'); else if(v==='0') td.classList.add('no');
+}
+function onTransInput(id,no,v,max){ const r=findRow(id); if(!r)return; let n=parseInt(v,10); if(isNaN(n))n=''; else n=Math.max(0,Math.min(max,n)); r.trans[no]=n; }
 function onLevelChange(id,v){ const r=findRow(id); if(!r)return; r.finalLevel=v; }
-/* 입력할 때마다 표 전체를 다시 그리면 입력칸 포커스가 날아가서, 정/오답 배경색만 직접 바꿔준다 */
-function rerenderCellOnly(){ /* 배경색은 다음 탭 전환/총점 탭에서 반영됨. 실시간 하이라이트는 추후 보강 */ }
 
 window.addEventListener('DOMContentLoaded', boot);
 </script>
