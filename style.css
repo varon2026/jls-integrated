@@ -75,6 +75,10 @@ button{cursor:pointer}
 .pick.op-br.away span{color:#b7791f;font-weight:800}
 .pick.op-br.away select{border-color:#e0a44c;background:#fdf3e6;color:#b7791f}
 .content{padding:26px;max-width:1320px;width:100%}
+/* 초5 ACE 진급시험(원무탭 iframe)은 답안칸이 40개라 1320px로는 화면이 넓어도 계속
+   가로스크롤이 생긴다. 그 화면에 있을 때만 app.js의 renderWonmuBody()가 이 클래스를
+   붙여서 max-width를 풀어준다 — 다른 화면(대시보드 등)엔 영향 없게 거길 벗어나면 뗀다. */
+.content.wide{max-width:none}
 
 .page-h{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px}
 .page-h h2{font-size:27px;font-weight:800;letter-spacing:-.4px;display:flex;align-items:center;gap:9px}

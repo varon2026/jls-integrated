@@ -507,6 +507,7 @@ function render(){
   jhdHide();                       // 화면을 옮기면 떠 있던 전형 명단은 닫는다
   buildOpBranchPick();
   const c=$('content'); const v=state.view;
+  c.classList.remove('wide');      // 초5 ACE 화면에서만 풀어주는 폭 제한 — 다른 화면으론 안 새어나가게 기본은 항상 원복
   $('semPick').style.display='flex';        // 학기는 어느 화면에서나 고를 수 있다
   if(v==='dashboard'){ renderDashHome(c); }
   else if(v==='accounts'){ $('crumbs').innerHTML='<span class="mut">설정 › </span><b>계정 관리</b>'; renderAccounts(c); }
@@ -2453,6 +2454,7 @@ function wonmuGo(v){ wonmuState.view=v; renderWonmuBody(); window.scrollTo(0,0);
 function renderWonmuBody(){
   const body=$('wonmuBody'); if(!body) return;
   const v=wonmuState.view, cr=$('crumbs');
+  const contentEl=$('content'); if(contentEl) contentEl.classList.toggle('wide', v==='ace5');
   const home='<span class="cl" onclick="wonmuGo(\'hub\')">원무</span>';
   if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
   else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
