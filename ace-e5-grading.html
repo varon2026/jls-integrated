@@ -48,18 +48,26 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:max-conte
 /* 총점/레벨 탭 전용 — 인적정보 칸은 글자 크기에 딱 맞게, 점수·레벨 칸은 크고 눈에 띄게.
    다른 탭(40문항 입력)은 화면을 꽉 채워야 해서 min-width:100%가 필요하지만,
    이 탭은 칸이 12개뿐이라 그대로 두면 분원/담임 같은 칸이 쓸데없이 늘어났다. */
-table.g.totaltbl{width:auto;min-width:0}
-table.g.totaltbl th.chk,table.g.totaltbl td.chk{width:30px;padding:5px}
-table.g.totaltbl th.idx,table.g.totaltbl td.idx{padding:5px 8px;color:var(--ink3);font-weight:800}
+/* table-layout:fixed + colgroup로 칸 너비를 직접 지정 — 그래야 표가
+   위 흰색 툴바 카드랑 같은 너비(100%)로 맞춰지면서도, 칸마다 적당한
+   비율을 유지한다(auto면 남는 폭이 아무 칸에나 쏠려서 분원/담임처럼
+   짧은 칸이 쓸데없이 늘어났었다). */
+table.g.totaltbl{width:100%;min-width:0;table-layout:fixed}
+table.g.totaltbl th{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:13.5px;font-weight:800;padding:10px 6px}
+table.g.totaltbl th.chk,table.g.totaltbl td.chk{padding:5px}
+table.g.totaltbl th.idx,table.g.totaltbl td.idx{padding:5px 8px}
+table.g.totaltbl td.idx{color:var(--ink3);font-weight:800}
 table.g.totaltbl td.rank{font-weight:800;color:var(--brand)}
 table.g.totaltbl th.name,table.g.totaltbl td.name{text-align:left;padding:6px 10px}
+table.g.totaltbl td.name{overflow:hidden}
 table.g.totaltbl td.name b{font-size:13.5px}
 table.g.totaltbl td.name .c{font-size:11px;color:var(--ink3);font-weight:700;margin-top:1px}
-table.g.totaltbl th.info,table.g.totaltbl td.info{padding:6px 12px;color:var(--ink2);font-weight:700}
-table.g.totaltbl th.score,table.g.totaltbl td.score{min-width:78px;padding:9px 8px;font-size:14.5px}
+table.g.totaltbl th.info,table.g.totaltbl td.info{padding:6px 10px}
+table.g.totaltbl td.info{color:var(--ink2);font-weight:700;overflow:hidden;text-overflow:ellipsis}
+table.g.totaltbl th.score,table.g.totaltbl td.score{padding:9px 6px;font-size:14.5px}
 table.g.totaltbl td.score.big{font-size:16px;font-weight:800;color:var(--brand)}
-table.g.totaltbl th.score select{font:inherit;font-size:10.5px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:2px 3px;margin-top:4px;width:100%}
-table.g.totaltbl td.lvl select{font:inherit;font-weight:800;font-size:13.5px;border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+table.g.totaltbl th.score select{font:inherit;font-size:11.5px;font-weight:700;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 2px;margin-top:4px;width:100%}
+table.g.totaltbl td.lvl select{font:inherit;font-weight:800;font-size:13.5px;border:1px solid var(--line);border-radius:8px;padding:7px 4px;width:100%}
 .addrow-card{background:#fffaf0;border:1px dashed #e8d5a8}
 .addrow-card input,.addrow-card select{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-right:8px}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#2a2440;color:#fff;padding:12px 22px;border-radius:12px;font-weight:700;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:999}
@@ -522,7 +530,12 @@ function buildTotalTable(){
   const oMax=objMax(), tMax=transMax();
   const rankMap=computeRanks();
   const filterOpts = LEVEL_OPTIONS.map(lv=>`<option value="${lv}" ${LEVEL_FILTER===lv?'selected':''}>${lv}</option>`).join('');
-  const head = `<thead><tr>
+  const colgroup = `<colgroup>
+    <col style="width:32px"><col style="width:46px"><col style="width:46px"><col style="width:170px">
+    <col style="width:92px"><col style="width:132px"><col style="width:92px"><col style="width:140px">
+    <col style="width:88px"><col style="width:88px"><col style="width:88px"><col style="width:96px"><col style="width:96px">
+  </colgroup>`;
+  const head = `${colgroup}<thead><tr>
     <th class="chk"></th>
     <th class="idx">번호</th>
     <th class="idx">등수</th>
