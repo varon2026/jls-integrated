@@ -275,6 +275,10 @@ function cutlineActive(){return semRankLocal(SEM)>=CUTLINE_FROM_RANK;}
 let CURVARIANT='', CURTAB='독해';   // ACE: 선택한 기간·버전(전체레벨명) / 탭(독해·문법·총점)
 let SCOREDCODES=new Set();  // 현재 시험종류·학기에서 이미 채점 저장된 학생 회원코드
 let SCORED_SECTIONS=new Set();  // 내신모의고사용 — "코드|레벨|영역" 단위로 저장 여부 확인(지필/듣기/수행 중 하나만 있어도 '채점완료'로 잘못 뜨던 것)
+/* 내신모의고사 학년 보정 — 반 이름만 보고 자동분류하면 틀리는 학생(자기 학년 아닌 반에
+   낀 경우)을 사람이 학생 단위로 직접 지정. 표 없이도(SQL 안 돌렸어도) 안 죽게 빈 채로 둔다. */
+let NAESIN_OV={};
+let NAESIN_OV_OK=true;
 
 /* ---- 재시험관리(Phase 2) 전역 상태 ----
    PAGE='exam'(기존 답안입력/정답등록) 또는 'retest'(새 화면). 사이드바 맨 아래 별도 메뉴로 들어감.
@@ -326,7 +330,7 @@ function gradeKey(g){g=String(g||'').trim();let m;if(m=g.match(/중\s*등?\s*(\d
    남동탄처럼 반 이름에 학년을 아예 안 넣는 분원(예: "[A1]FA2/TTH/B")은 반 이름만 봐서는
    절대 못 잡는다 — 그래서 마지막엔 학생 레코드의 grade 칸("초등6"/"중등1")을 본다
    (운영자가 남동탄 ACE 전체명단을 올렸는데 내신모의고사엔 0명으로 떠서 찾은 문제). */
-function naesinGrade(r){
+function naesinGradeFromClass(r){
   const s=String(r.className||'')+' '+String(r.classLabel||'');
   const toks=(s.match(/[\/_](E\d+|M\d+)(?=[\/(\s]|$)/g)||[]).map(x=>x.slice(1).toUpperCase());
   if(toks.includes('E6'))return 'E6';
@@ -338,7 +342,16 @@ function naesinGrade(r){
   if(gk==='중1')return 'M1';
   return '';
 }
+/* 학년 보정(NAESIN_OV) — 반 이름 기준 분류보다 사람이 직접 지정한 값이 항상 우선.
+   자기 학년 아닌 반에 낀 학생을 반 이름만 보고 분류하면 계속 틀리기 때문. */
+function naesinGrade(r){
+  const ov=NAESIN_OV[r.code];
+  if(ov==='E6'||ov==='M1')return ov;
+  if(ov==='EXCLUDE')return '';
+  return naesinGradeFromClass(r);
+}
 function isNaesin(r){
+  if(NAESIN_OV[r.code]==='EXCLUDE') return false;   // 수업은 듣지만 내신모의고사는 안 보는 학생
   const s=String(r.className||'')+' '+String(r.classLabel||'');
   if(/내신/.test(s)) return true;
   return !!naesinGrade(r);
@@ -385,7 +398,7 @@ async function loadAll(){
   const m={};all.forEach(r=>{if(r.status==='active')m[r.semester_id]=(m[r.semester_id]||0)+1;});
   SEM_IDS=Object.keys(m).sort((a,c)=>m[c]-m[a]);
   if(!SEM) SEM=SEM_IDS[0]||(SEMS[0]&&SEMS[0].id);
-  await Promise.all([loadRoster(),loadKeys(),loadConfig()]);
+  await Promise.all([loadRoster(),loadKeys(),loadConfig(),loadNaesinOverrides()]);
   await loadScored();
 }
 async function loadRoster(){
@@ -398,6 +411,14 @@ async function loadRoster(){
 }
 async function loadKeys(){const{data,error}=await sb.from('exam_keys').select('*').order('created_at',{ascending:false});if(!error)KEYS=data||[];}
 async function loadConfig(){const{data,error}=await sb.from('exam_config').select('*');CONFIG={};if(!error&&data)data.forEach(r=>{CONFIG[r.test_type]=new Set(r.disabled||[]);if(r.cutline!=null&&r.cutline!=='')CUTLINE[r.test_type]=Number(r.cutline);});}
+/* sql/naesin_overrides.sql을 아직 안 돌린 사이트도 있을 수 있어서, 표가 없으면(error)
+   그냥 빈 채로 두고 조용히 넘어간다 — 기존 반이름 기준 분류만 그대로 작동. */
+async function loadNaesinOverrides(){
+  const{data,error}=await sb.from('naesin_overrides').select('*').eq('semester_id',SEM);
+  if(error){ NAESIN_OV_OK=false; NAESIN_OV={}; return; }
+  NAESIN_OV_OK=true; NAESIN_OV={};
+  (data||[]).forEach(r=>{ NAESIN_OV[r.student_code]=r.override; });
+}
 async function loadScored(){
   try{ const rows=await fetchAll('exam_scores','student_code,test_type,semester,section,key_name',q=>q.eq('test_type',EXAM).eq('semester',semName(SEM)));
     SCOREDCODES=new Set(rows.map(r=>r.student_code));
@@ -858,12 +879,18 @@ function classesForExam(br){
   const m=new Map();
   scopedRoster(br).forEach(r=>{
     const code=EXAM==='내신모의고사'?naesinGrade(r):levelCode(r.className);
-    const key=r.branchId+'|'+r.className;
+    /* 내신모의고사만: 같은 반(className) 안에 학년 보정을 받은 학생이 섞여 있으면
+       그 학생들만 따로 묶는다. 안 그러면 반을 그냥 className만으로 묶기 때문에
+       그 반에서 먼저 처리된 학생의 학년이 반 전체의 정답키를 결정해버린다
+       (보정 안 받은 중1반 학생들 사이에 초6으로 보정된 학생이 섞였는데,
+       순서상 보정 안 받은 학생이 먼저 잡히면 보정된 학생도 중1로 묶여버림). */
+    const key=(EXAM==='내신모의고사') ? r.branchId+'|'+r.className+'|'+code : r.branchId+'|'+r.className;
     /* levelCode는 내신모의고사에선 학년(E6/M1)으로 — 같은 학년 반끼리 정답키를 묶으려고.
        근데 목록 배지에 그대로 쓰면 반마다 다 'E6'만 찍혀서 뭐가 뭔지 구분이 안 된다
        (AT 입력처럼 A1/A2/B 같은 실제 레벨이 찍혀야 어느 반인지 알고 클릭할 수 있다).
        묶는 기준은 그대로 두고, 배지 표시용으로 실제 반 레벨을 따로 둔다. */
-    if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,dispCode:levelCode(r.className),chess:r.chess,branchName:r.branchName,recs:[]});
+    if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,dispCode:levelCode(r.className),chess:r.chess,branchName:r.branchName,recs:[],hasOverride:false});
+    if(NAESIN_OV[r.code])m.get(key).hasOverride=true;
     m.get(key).recs.push(r);
   });
   return [...m.values()].sort((a,b)=>lvSort(a.levelCode,b.levelCode)||a.className.localeCompare(b.className));
@@ -1079,6 +1106,7 @@ function renderAnswerView(){
       <span style="color:var(--ink3);font-weight:700">${esc(classDetail(c.className))}</span>
       ${ROLE==='admin'&&!BRANCH?`<span style="color:var(--ink3);font-size:11.5px">· ${esc(c.branchName)}</span>`:''}
       ${k?'':'<span class="tag" style="background:var(--warn-s);color:var(--warn)">정답키없음</span>'}
+      ${(EXAM==='내신모의고사'&&c.hasOverride)?'<span class="tag" style="background:var(--soft);color:var(--brand)">학년보정</span>':''}
       ${gtag}</div>`;}).join('');
   const cur=classes.find(c=>c.key===CURCLASS);
   $('content').innerHTML=`
@@ -1510,6 +1538,46 @@ function onNaesinCell(inp){
   aceScoreRow(tr,ans);
   flagNaesinOverMax(tr,ans);
 }
+/* 학년 보정 패널 — 반 이름으로 자동분류된 학년이 틀린 학생(자기 학년 아닌 반에 낀 경우)을
+   사람이 직접 고쳐주는 곳. 정답키가 없어서 아래 채점표 자체가 안 뜨는 반(buildNaesinGrid가
+   일찍 return해버림)에서도 이 패널만은 항상 보여야, 명단이 아예 안 뜨는 학생도 여기서
+   먼저 꺼내줄 수 있다. 담임은 못 건드린다(분원직원·관리자만). */
+function naesinOvLabel(v){return v==='E6'?'초6':v==='M1'?'중1':v==='EXCLUDE'?'내신모의고사 제외':'반 기준';}
+function naesinOvPanel(cls){
+  if(ROLE==='teacher') return '';
+  if(!NAESIN_OV_OK) return `<div class="card" style="padding:12px 16px;margin-bottom:12px;background:var(--warn-s);color:var(--warn);font-weight:700;font-size:13px">학년 보정 표가 아직 없어요 — sql/naesin_overrides.sql을 Supabase에서 한 번 실행해주세요.</div>`;
+  const rows=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(r=>{
+    const cur=NAESIN_OV[r.code]||'';
+    const baseCode=naesinGradeFromClass(r);
+    const baseLabel=baseCode==='E6'?'초6':baseCode==='M1'?'중1':'모름';
+    const opt=v=>`<option value="${v}" ${cur===v?'selected':''}>${v===''?'반 기준('+esc(baseLabel)+')':esc(naesinOvLabel(v))}</option>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line2)">
+      <div style="flex:1;font-size:13px"><b>${esc(r.name)}</b> <span style="color:var(--ink3);font-size:12px">${esc(r.code||'')} · ${esc(gradeKey(r.grade)||'')}</span></div>
+      <select onchange="setNaesinOverride('${esc(r.code)}',this.value)" style="font:inherit;font-size:12.5px;font-weight:700;border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:#fff">
+        ${opt('')}${opt('E6')}${opt('M1')}${opt('EXCLUDE')}
+      </select>
+    </div>`;
+  }).join('');
+  return `<details class="card" style="padding:12px 16px;margin-bottom:12px">
+    <summary style="cursor:pointer;font-weight:800;font-size:13.5px;color:var(--ink2)">이 반 학생 학년 보정 (${cls.recs.length}명) — 자기 학년 아닌 반에 낀 학생만 바꿔주세요</summary>
+    <div style="margin-top:10px">${rows}</div>
+  </details>`;
+}
+async function setNaesinOverride(code,value){
+  if(ROLE==='teacher')return;
+  if(!value){
+    const{error}=await sb.from('naesin_overrides').delete().eq('student_code',code).eq('semester_id',SEM);
+    if(error){toast('저장 실패: '+error.message,false);return;}
+    delete NAESIN_OV[code];
+  }else{
+    const payload={id:'novr_'+SEM+'_'+code,student_code:code,semester_id:SEM,override:value,updated_at:new Date().toISOString()};
+    const{error}=await sb.from('naesin_overrides').upsert(payload,{onConflict:'student_code,semester_id'});
+    if(error){toast('저장 실패: '+error.message,false);return;}
+    NAESIN_OV[code]=value;
+  }
+  toast('학년 보정 저장됨 ✓');
+  renderAnswerView();   // 보정으로 반 그룹이 바뀔 수 있어서 반 목록부터 다시 그린다
+}
 function buildNaesinArea(){
   const area=$('gradeArea');const cls=curClassObj();if(!cls){area.innerHTML='';return;}
   const code=cls.levelCode;
@@ -1526,6 +1594,7 @@ function buildNaesinArea(){
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${tabs}</div>
     </div>
+    ${naesinOvPanel(cls)}
     <div id="naesinContent">${content}</div>`;
   if(CURTAB==='총점')loadNaesinSummary(); else loadNaesinSaved(CURTAB);
 }
