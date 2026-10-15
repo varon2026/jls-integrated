@@ -481,7 +481,7 @@ function buildTable(){
 }
 
 function buildObjTable(){
-  const head = `<thead><tr>${studentHeadCells()}${E5_EXAM.map(q=>`<th>${q.no}</th>`).join('')}</tr></thead>`;
+  const head = `<thead><tr>${studentHeadCells()}${E5_EXAM.map(q=>`<th>${q.no}</th>`).join('')}<th>점수</th></tr></thead>`;
   const cols = E5_EXAM.length;
   const body = ROWS.map((r,i)=>{
     const cells = E5_EXAM.map((q,ci)=>{
@@ -491,7 +491,7 @@ function buildObjTable(){
         data-r="${i}" data-c="${ci}" onkeydown="navKey(event,this,${cols})"
         oninput="onObjInput('${r.id}',${q.no},this.value,this)"></td>`;
     }).join('');
-    return `<tr>${studentRowCells(r,i)}${cells}</tr>`;
+    return `<tr>${studentRowCells(r,i)}${cells}<td class="total" id="objScore-${r.id}">${objScore(r)}/${objMax()}</td></tr>`;
   }).join('');
   return head+`<tbody>${body}</tbody>`;
 }
@@ -623,6 +623,10 @@ function onObjInput(id,no,v,inp){
   const q=E5_EXAM.find(x=>x.no===no);
   const td=inp.closest('td'); td.classList.remove('ok','no');
   if(v!=='') td.classList.add(String(v)===String(q.ans)?'ok':'no');
+  /* 표 전체를 다시 그리면 입력 포커스가 날아가서, 점수칸 하나만 찾아 직접 갱신한다
+     (ok/no 배경색을 바로 바꿔주는 것과 같은 이유). */
+  const sc=document.getElementById('objScore-'+id);
+  if(sc) sc.textContent = objScore(r)+'/'+objMax();
 }
 function onVocabInput(id,no,v,inp){
   const r=findRow(id); if(!r)return; v=v.trim(); r.vocab[no]=v;
