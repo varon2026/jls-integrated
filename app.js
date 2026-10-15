@@ -275,8 +275,9 @@ const MENU_TREE=[
       {k:'inwon.students',label:'학생관리'},
       {k:'inwon.segments',label:'세그먼트공지'},
       {k:'inwon.data',    label:'데이터관리'},
-      /* 미통과 관리는 서수원분원만 쓴다. 다른 분원 계정에 체크해 둬도 학사관리 쪽에서
-         분원 이름으로 한 번 더 막으므로 메뉴가 뜨지 않는다. */
+      /* 미통과 관리는 서수원·장안분원만 쓴다(학사관리의 RETEST_BRANCH_NAMES). 그 외
+         분원 계정에 체크해 둬도 학사관리 쪽에서 분원 이름으로 한 번 더 막으므로
+         메뉴가 뜨지 않는다. */
       {k:'inwon.retest',  label:'미통과 관리'},
       {k:'inwon.retestup',label:'성적 올리기'},
     ]},
