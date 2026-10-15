@@ -183,7 +183,8 @@ const LEVEL_OPTIONS=['미배정','HB','PA1','PA2','A1','A2'];
 /* ---------------- 상태 ---------------- */
 let BRANCHES={}, STUDENTS={}, ROWS=[];
 let CURTAB='objective'; // objective | vocab | trans | total
-let MANUAL_SEQ=1;
+let TABLE_MISSING=false;   // ace_e5_exam_results 표가 아직 없으면 저장을 막고 배너를 띄운다
+let SAVING=false, LAST_SAVED='';
 
 async function boot(){
   readParams();
@@ -197,6 +198,7 @@ async function boot(){
     STUDENTS={}; st.forEach(x=>STUDENTS[x.id]=x);
     await resolveCurrentSemester();
     await loadRoster();
+    await loadSavedGrades();
   }catch(e){
     document.getElementById('app').innerHTML = '<div class="card">명단을 불러오지 못했어요: '+esc(e.message||e)+'</div>';
     return;
@@ -248,22 +250,81 @@ async function loadRoster(){
 async function onBranchChange(v){
   BRANCH = v;
   document.getElementById('app').innerHTML = '불러오는 중…';
-  try{ await loadRoster(); } catch(e){ toast('명단 로드 실패: '+(e.message||e), false); }
+  try{ await loadRoster(); await loadSavedGrades(); } catch(e){ toast('명단 로드 실패: '+(e.message||e), false); }
   render();
 }
 function addManualRow(){
   const name=prompt('비재원생 이름을 입력하세요'); if(!name)return;
   const school=prompt('학교(선택, 없으면 취소 없이 빈칸)')||'';
   ROWS.push({
-    id:'manual_'+(MANUAL_SEQ++), studentId:null, code:'', name, school, grade:'초등5',
+    /* crypto.randomUUID로 고정 id를 만들어야 저장 후 새로고침해도 같은 학생으로
+       이어서 불러온다 — 번호(MANUAL_SEQ)로 만들면 새로고침마다 1번부터 다시
+       매겨져서 저장된 답안이랑 연결이 끊긴다. */
+    id:'manual_'+crypto.randomUUID(), studentId:null, code:'', name, school, grade:'초등5',
     branchId:BRANCH||'', branchName:BRANCHES[BRANCH]||'', className:'(비재원생)', classLabel:'(비재원생)',
     teacher:'', manual:true, obj:{}, vocab:{}, trans:{}, finalLevel:''
   });
   render();
 }
 function removeRow(id){
-  if(!confirm('이 줄을 지울까요?'))return;
-  ROWS=ROWS.filter(r=>r.id!==id); render();
+  if(!confirm('이 줄을 지울까요? 저장했던 답안이 있으면 같이 지워져요'))return;
+  ROWS=ROWS.filter(r=>r.id!==id);
+  if(!TABLE_MISSING) sb.from('ace_e5_exam_results').delete().eq('id',id).then(()=>{});
+  render();
+}
+
+/* ---------------- 저장/불러오기 (ace_e5_exam_results) ---------------- */
+async function loadSavedGrades(){
+  TABLE_MISSING=false;
+  let data;
+  try{
+    data = await fetchAll('ace_e5_exam_results','*',
+      q=>{ q=q.eq('semester_id',SEM); if(BRANCH) q=q.eq('branch_id',BRANCH); return q; });
+  }catch(e){
+    TABLE_MISSING=true; // sql/ace_e5_exam.sql을 아직 안 돌린 상태 — 저장 막고 배너만 띄운다
+    return;
+  }
+  const byId={}; (data||[]).forEach(rec=>byId[rec.id]=rec);
+  const matched=new Set();
+  ROWS.forEach(r=>{
+    const rec=byId[r.id]; if(!rec)return;
+    matched.add(r.id);
+    r.obj=rec.obj_answers||{}; r.vocab=rec.vocab_answers||{}; r.trans=rec.trans_scores||{};
+    r.finalLevel=rec.final_level||'';
+  });
+  // 비재원생(수동 추가) 저장분은 명단 조회에 안 잡히니 저장된 걸로 다시 만든다
+  (data||[]).forEach(rec=>{
+    if(matched.has(rec.id) || !rec.manual) return;
+    ROWS.push({
+      id:rec.id, studentId:rec.student_id, code:rec.student_code||'', name:rec.student_name||'',
+      school:rec.school||'', grade:rec.grade||'초등5',
+      branchId:rec.branch_id||'', branchName:BRANCHES[rec.branch_id]||'',
+      className:rec.class_name||'(비재원생)', classLabel:rec.class_name||'(비재원생)',
+      teacher:rec.teacher||'', manual:true,
+      obj:rec.obj_answers||{}, vocab:rec.vocab_answers||{}, trans:rec.trans_scores||{},
+      finalLevel:rec.final_level||''
+    });
+  });
+  ROWS.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
+}
+async function saveAll(){
+  if(TABLE_MISSING){ toast('저장 표가 아직 없어요 — sql/ace_e5_exam.sql을 먼저 돌려주세요', false); return; }
+  if(!ROWS.length){ toast('저장할 학생이 없어요', false); return; }
+  SAVING=true; render();
+  const now=new Date().toISOString();
+  const payload=ROWS.map(r=>({
+    id:r.id, semester_id:SEM, branch_id:r.branchId||null, student_id:r.studentId||null,
+    student_code:r.code||null, student_name:r.name, school:r.school||null, grade:r.grade||null,
+    class_name:r.classLabel||r.className||null, teacher:r.teacher||null, manual:!!r.manual,
+    obj_answers:r.obj||{}, vocab_answers:r.vocab||{}, trans_scores:r.trans||{},
+    final_level:r.finalLevel||null, updated_at:now
+  }));
+  const{error}=await sb.from('ace_e5_exam_results').upsert(payload,{onConflict:'id'});
+  SAVING=false;
+  if(error){ toast('저장 실패: '+error.message, false); render(); return; }
+  LAST_SAVED=new Date().toLocaleString('ko-KR',{hour12:false});
+  toast(`${payload.length}명 저장됨 ✓`);
+  render();
 }
 
 /* ---------------- 채점 ---------------- */
@@ -290,6 +351,11 @@ function render(){
   app.innerHTML = `
     <div class="h2">초5 ACE 진급시험 — 답안입력</div>
     <div class="sub">체스반 재원생 중 초등5학년만 가나다순으로 불러왔어요 (${esc(scopeLabel)}${TEACHER?' · '+esc(TEACHER)+' 선생님 반':''} · ${esc(SEM||'학기 미확인')}) · 총 ${ROWS.length}명</div>
+    ${TABLE_MISSING ? `
+    <div class="card" style="padding:14px 18px;margin-bottom:14px;background:var(--neg-s);border-color:#f0b6b8;color:var(--neg);font-weight:700">
+      저장 표(ace_e5_exam_results)가 아직 없어서 입력한 답안이 저장되지 않아요.
+      sql/ace_e5_exam.sql을 Supabase SQL Editor에서 한 번 돌려주세요.
+    </div>` : ''}
     ${ROLE==='admin' ? `
     <div class="card" style="padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
       <span class="hint">분원</span>
@@ -302,11 +368,17 @@ function render(){
       <button class="ghost mini" onclick="addManualRow()">+ 답안입력 추가 (비재원생)</button>
       <span class="hint" style="margin-left:10px">재원생 명단에 없는 응시자는 여기로 줄을 추가하세요</span>
     </div>
-    <div class="tabs">
-      ${tabBtn('objective','일반시험(객관식 40)')}
-      ${tabBtn('vocab','Voca (40)')}
-      ${tabBtn('trans','Translation (15)')}
-      ${tabBtn('total','총점 / 레벨')}
+    <div class="tabs" style="justify-content:space-between">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${tabBtn('objective','일반시험(객관식 40)')}
+        ${tabBtn('vocab','Voca (40)')}
+        ${tabBtn('trans','Translation (15)')}
+        ${tabBtn('total','총점 / 레벨')}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${LAST_SAVED ? `<span class="hint">마지막 저장 ${esc(LAST_SAVED)}</span>` : ''}
+        <button class="btn" onclick="saveAll()" ${SAVING||TABLE_MISSING?'disabled':''}>${SAVING?'저장 중…':'💾 저장'}</button>
+      </div>
     </div>
     <div class="gwrap"><table class="g">${buildTable()}</table></div>
   `;
