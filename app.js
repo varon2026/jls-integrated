@@ -2480,7 +2480,8 @@ function aceE5Src(){
 }
 function renderAceE5(b){
   const src=aceE5Src();
-  b.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+  b.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="lt-back" style="margin-bottom:0" onclick="wonmuGo('hub')">‹ 원무로</div>
       <a href="${src}" target="_blank" rel="noopener" style="font-size:12.5px;font-weight:700;color:var(--wink2);text-decoration:none">새 탭으로 열기 ↗</a>
     </div>
     <iframe src="${src}" title="초등5 ACE 진급시험" allow="clipboard-write"
