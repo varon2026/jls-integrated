@@ -904,7 +904,7 @@ function classesForExam(br){
        근데 목록 배지에 그대로 쓰면 반마다 다 'E6'만 찍혀서 뭐가 뭔지 구분이 안 된다
        (AT 입력처럼 A1/A2/B 같은 실제 레벨이 찍혀야 어느 반인지 알고 클릭할 수 있다).
        묶는 기준은 그대로 두고, 배지 표시용으로 실제 반 레벨을 따로 둔다. */
-    if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,dispCode:levelCode(r.className),chess:r.chess,branchId:r.branchId,branchName:r.branchName,recs:[],hasOverride:false});
+    if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,dispCode:levelCode(r.className),chess:r.chess,branchId:r.branchId,branchName:r.branchName,teacher:r.teacher||'',recs:[],hasOverride:false});
     if(NAESIN_OV[r.code])m.get(key).hasOverride=true;
     m.get(key).recs.push(r);
   });
@@ -1215,7 +1215,7 @@ function buildGrid(){
   const key=keyOfLevel(code);
   const off=disabledSet(); const isOff=off.has(code);
   const head=`<div class="card" style="padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div style="font-size:16px;font-weight:800">${esc(noDays(cls.dispCode||code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
+      <div style="font-size:16px;font-weight:800">${esc(noDays(cls.dispCode||code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}${cls.teacher?' · 담임 '+esc(cls.teacher):''}</span></div>
       <div class="hint">응시 ${studs.length}명 · <b style="color:var(--pos)">채점 ${gradedOf(cls)}/${studs.length}명</b> · ${key?`정답키 ${key.num_q}문항`:'<b style="color:var(--warn)">정답키 없음</b>'}</div>
       <div style="flex:1"></div>
       ${cutlineChip()}
@@ -1479,7 +1479,7 @@ function buildAceArea(){
   const content = CURTAB==='총점' ? buildAceSummary() : buildAceGrid(CURTAB);
   area.innerHTML=`<div class="card" style="padding:16px 20px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="font-size:16px;font-weight:800">${esc(base)} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
+        <div style="font-size:16px;font-weight:800">${esc(base)} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}${cls.teacher?' · 담임 '+esc(cls.teacher):''}</span></div>
         <div style="flex:1"></div>
         <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>
         ${CURTAB!=='총점'?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
@@ -1661,7 +1661,7 @@ function buildNaesinArea(){
   const content = CURTAB==='총점' ? buildNaesinSummary() : (CURTAB==='수행평가' ? buildNaesinPerfGrid() : buildNaesinGrid(CURTAB));
   area.innerHTML=`<div class="card" style="padding:16px 20px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="font-size:16px;font-weight:800">${esc(noDays(cls.dispCode||code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}</span></div>
+        <div style="font-size:16px;font-weight:800">${esc(noDays(cls.dispCode||code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}${cls.teacher?' · 담임 '+esc(cls.teacher):''}</span></div>
         <div style="flex:1"></div>
         <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>
         ${CURTAB!=='총점'?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
