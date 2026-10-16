@@ -2751,7 +2751,7 @@ async function loadAceExamResults(cohortSemId){
   if(ACE_EXAM_RESULTS_SEM===cohortSemId) return;
   try{
     const {data,error}=await sb.from('ace_e5_exam_results')
-      .select('student_id,obj_score,vocab_score,trans_score,final_level').eq('semester_id',cohortSemId);
+      .select('student_id,obj_score,vocab_score,trans_score,final_level,obj_answers,vocab_answers,trans_scores').eq('semester_id',cohortSemId);
     if(error) throw error;
     ACE_EXAM_RESULTS={}; (data||[]).forEach(r=>{ if(r.student_id) ACE_EXAM_RESULTS[r.student_id]=r; });
   }catch(e){ ACE_EXAM_RESULTS={}; }
@@ -2803,13 +2803,26 @@ function aceMoveScorePill(value,max,tierUp,tierDown){
   const tier = pct>=(tierUp!=null?tierUp:70)?'good':(pct<(tierDown!=null?tierDown:40)?'low':'');
   return `<span class="acemv-scorepill ${tier}">${value}<span class="max">/${max}</span></span>`;
 }
+/* 실제 응시 여부 — 채점 화면(ace-e5-grading.html)이 저장할 때 화면에 불러온
+   반 전체 학생을 통째로 upsert하기 때문에(한 명도 안 건드려도), 행이 있다고
+   해서 응시했다는 뜻이 아니다. 안 건드린 학생은 obj_answers/vocab_answers/
+   trans_scores가 전부 빈 객체({})로 저장되므로, 그걸로 진짜 응시를 가린다.
+   이걸 점수 0점과 구분 못 하면(= 행 존재만으로 판단하면) 얼리버드 이관생을
+   빼고 남은 학생 전원이 '응시함'으로 잡혀서 '진급 안함' 수가 크게 부풀었다. */
+function aceMoveTested(studentId){
+  const ex = ACE_EXAM_RESULTS[studentId];
+  if(!ex) return false;
+  const hasAny=o=>o && typeof o==='object' && Object.keys(o).length>0;
+  return hasAny(ex.obj_answers) || hasAny(ex.vocab_answers) || hasAny(ex.trans_scores);
+}
 function aceMoveScoreCell(studentId){
   const ex = ACE_EXAM_RESULTS[studentId];
-  if(!ex) return '<span style="color:var(--ink-3);font-size:12px">미응시</span>';
+  if(!aceMoveTested(studentId)) return '<span style="color:var(--ink-3);font-size:12px">미응시</span>';
+  const row=(label,pill)=>`<span style="display:flex;align-items:baseline;gap:5px"><span style="font-size:10.5px;color:var(--ink-3);width:34px;flex:none">${label}</span>${pill}</span>`;
   return `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">
-    <span>${aceMoveScorePill(ex.obj_score,100)}</span>
-    <span>${aceMoveScorePill(ex.vocab_score,40)}</span>
-    <span>${aceMoveScorePill(ex.trans_score,100)}</span>
+    ${row('객관식', aceMoveScorePill(ex.obj_score,100))}
+    ${row('단어', aceMoveScorePill(ex.vocab_score,40))}
+    ${row('해석', aceMoveScorePill(ex.trans_score,100))}
   </div>`;
 }
 function aceMoveReportLink(branchId, semId, role, studentCode){
@@ -2843,6 +2856,18 @@ function aceMoveOutcomeCell(x){
 let ACE_MOVE_FILTER={teacher:'',level:'',status:'',q:''};
 let ACE_MOVE_FULLLIST=[];
 function aceMoveSetFilter(key,v){ ACE_MOVE_FILTER[key]=v; state.aceMovePage=1; renderAceMoveBody(); }
+/* 검색창 한글 입력 — renderAceMoveBody()가 매번 input을 통째로 다시 그리다 보니,
+   한글 입력 중(조합 중)에 다시 그려서 입력 요소가 통째로 바뀌면 IME 조합이
+   끊겨서 글자가 하나도 안 써졌다. 조합이 끝났을 때만 반영하고, 다시 그린 뒤엔
+   검색창에 포커스·커서 위치를 되돌려준다. */
+function aceMoveSearchInput(elm){
+  if(elm.dataset.composing==='1') return;
+  const pos=elm.selectionStart;
+  ACE_MOVE_FILTER.q=elm.value; state.aceMovePage=1;
+  renderAceMoveBody();
+  const elm2=document.querySelector('.acemv-filterbar input[type=text]');
+  if(elm2){ elm2.focus(); try{ elm2.setSelectionRange(pos,pos); }catch(e){} }
+}
 function aceMoveFiltered(){
   const f=ACE_MOVE_FILTER;
   return ACE_MOVE_FULLLIST.filter(x=>{
@@ -2870,8 +2895,8 @@ function renderAceMoveBody(){
     return an.localeCompare(bn,'ko');
   });
 
-  const withdrawNoExam = ACE_MOVE_FULLLIST.filter(x=>aceMoveStatusOf(x)==='withdraw' && !ACE_EXAM_RESULTS[x.rec.studentId]).length;
-  const testedNotPromoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && !x.early && ACE_EXAM_RESULTS[x.rec.studentId]).length;
+  const withdrawNoExam = ACE_MOVE_FULLLIST.filter(x=>aceMoveStatusOf(x)==='withdraw' && !aceMoveTested(x.rec.studentId)).length;
+  const testedNotPromoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && !x.early && aceMoveTested(x.rec.studentId)).length;
   const early = ACE_MOVE_FULLLIST.filter(x=>x.early).length;
   const total = ACE_MOVE_FULLLIST.length;
   const rate = total? Math.round(early/total*1000)/10 : 0;
@@ -2903,7 +2928,10 @@ function renderAceMoveBody(){
       ${isTeacherView?'':`<select onchange="aceMoveSetFilter('teacher',this.value)"><option value="">담임 전체</option>${teacherOpts}</select>`}
       <select onchange="aceMoveSetFilter('level',this.value)"><option value="">가을학기 레벨 전체</option>${levelOpts}</select>
       <select onchange="aceMoveSetFilter('status',this.value)"><option value="">진급여부 전체</option>${statusOpts}</select>
-      <input type="text" placeholder="이름 검색" value="${esc(ACE_MOVE_FILTER.q)}" oninput="aceMoveSetFilter('q',this.value)">
+      <input type="text" placeholder="이름 검색" value="${esc(ACE_MOVE_FILTER.q)}"
+        oninput="aceMoveSearchInput(this)"
+        oncompositionstart="this.dataset.composing='1'"
+        oncompositionend="this.dataset.composing='';aceMoveSearchInput(this)">
     </div>`;
 
   const pgN=Math.max(1, Math.ceil(list.length/ACE_MOVE_PER));
