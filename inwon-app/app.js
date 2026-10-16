@@ -3016,7 +3016,11 @@ function renderAceMoveBody(){
   const levels=[...new Set(ACE_MOVE_FULLLIST.map(x=>x.fallRec.classLabel||x.fallRec.className).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
 
   const withdrawNoExam = ACE_MOVE_FULLLIST.filter(x=>aceMoveStatusOf(x)==='withdraw' && !aceMoveTested(x.rec.studentId)).length;
-  const testedNotPromoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && !x.early && aceMoveTested(x.rec.studentId)).length;
+  /* 원래는 '반이 아직 체스인지'(x.early)로만 셌는데, 그러면 '진급여부 선택'에서
+     진급/진급 안함을 눌러도 이 숫자가 꿈쩍 안 했다 — 반 이동 여부와 상관없는
+     계산이었기 때문. 버튼으로 직접 조작 가능한 숫자가 되게, '진급 안함으로
+     표시해 둔 학생'(aceMoveStatusOf==='hold') 기준으로 바꿨다. */
+  const testedNotPromoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && aceMoveTested(x.rec.studentId) && aceMoveStatusOf(x)==='hold').length;
   const early = ACE_MOVE_FULLLIST.filter(x=>x.early).length;
   const total = ACE_MOVE_FULLLIST.length;
   const rate = total? Math.round(early/total*1000)/10 : 0;
