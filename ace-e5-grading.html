@@ -118,12 +118,18 @@ let sb=null;
 function initSb(){ if(!sb) sb=supabase.createClient(SUPA_URL,SUPA_KEY); return sb; }
 
 let ROLE='admin', BRANCH='', TEACHER='', SEM=null;
+let REPORT_CODE='';
 function readParams(){
   const p=new URLSearchParams(location.search);
   if(p.get('role'))ROLE=p.get('role');
   if(p.get('branch'))BRANCH=p.get('branch');
   if(p.get('teacher'))TEACHER=p.get('teacher');
   if(p.get('sem'))SEM=p.get('sem');
+  /* ACE 이관생 화면(학사관리)에서 특정 학생 성적표로 바로 들어올 때 쓰는 값.
+     거기서 바로 새 탭을 띄우게 하면(페이지 로드 중 자동 팝업) 거의 다
+     팝업 차단에 걸려서, 대신 총점 탭으로 이동 + 그 줄을 하이라이트만 해두고
+     성적표 버튼은 사람이 직접 누르게 한다(흰 화면 버그 때랑 같은 이유). */
+  if(p.get('report'))REPORT_CODE=p.get('report');
 }
 function isTeacherRO(){ return !!TEACHER; }
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -269,7 +275,20 @@ async function boot(){
     document.getElementById('app').innerHTML = '<div class="card">명단을 불러오지 못했어요: '+esc(e.message||e)+'</div>';
     return;
   }
+  if(REPORT_CODE) CURTAB='total';
   render();
+  if(REPORT_CODE) highlightReportRow();
+}
+function highlightReportRow(){
+  const row=ROWS.find(r=>r.code===REPORT_CODE);
+  if(!row) return;
+  setTimeout(()=>{
+    const el=document.querySelector(`.ttrow[data-code="${CSS.escape(REPORT_CODE)}"]`);
+    if(!el) return;
+    el.scrollIntoView({block:'center'});
+    el.style.outline='3px solid var(--brand)';
+    el.style.outlineOffset='-2px';
+  },0);
 }
 
 /* 학기 구분 없이 'active'만 보면 예전 학기에 정리 안 된 찌꺼기 기록까지 섞인다.
@@ -379,11 +398,16 @@ async function saveAll(){
   if(!ROWS.length){ toast('저장할 학생이 없어요', false); return; }
   SAVING=true; render();
   const now=new Date().toISOString();
+  /* 점수(obj_score/vocab_score/trans_score)도 같이 계산해서 저장한다 — ACE 이관생
+     화면(inwon-app)이 정답지 없이도 이 점수만 읽어서 쓸 수 있게. 정답지는 여기
+     한 곳에만 두고, 점수는 저장할 때 미리 계산해서 넘겨주는 식으로 양쪽이
+     서로 다른 정답지를 들고 있게 되는 걸 막는다. */
   const payload=ROWS.map(r=>({
     id:r.id, semester_id:SEM, branch_id:r.branchId||null, student_id:r.studentId||null,
     student_code:r.code||null, student_name:r.name, school:r.school||null, grade:r.grade||null,
     class_name:r.classLabel||r.className||null, teacher:r.teacher||null, manual:!!r.manual,
     obj_answers:r.obj||{}, vocab_answers:r.vocab||{}, trans_scores:r.trans||{},
+    obj_score:objScore(r), vocab_score:vocabScore(r), trans_score:transScore(r),
     final_level:r.finalLevel||null, updated_at:now
   }));
   const{error}=await sb.from('ace_e5_exam_results').upsert(payload,{onConflict:'id'});
@@ -588,7 +612,7 @@ function buildTotalGrid(){
     const bc=branchColor(r.branchId); const bs=bc?` style=\"--bc:${bc}\"`:'';
     const opts = LEVEL_OPTIONS.map(lv=>`<option value="${lv}" ${r.finalLevel===lv?'selected':''}>${lv}</option>`).join('');
     const checked = SELECTED.has(r.id)?'checked':'';
-    return `<div class="ttrow"${bs}>
+    return `<div class="ttrow" data-code="${esc(r.code||'')}"${bs}>
       <div class="gcell chk"><input type="checkbox" ${checked} onchange="toggleSelect('${r.id}',this.checked)"></div>
       <div class="gcell idx">${shown}</div>
       <div class="gcell rank">${rankMap[r.id]}</div>

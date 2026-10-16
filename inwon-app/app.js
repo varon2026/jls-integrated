@@ -1359,6 +1359,12 @@ function headcountClean(branchId, semId){
      (예: 서수원 2명)은 체스 기록이 아예 없어서 자동으로 빠진다.
    · 학년 표기가 분원마다 "초등5"/"초5"/"5학년"로 제각각이라 숫자만 본다
      (CLAUDE.md 관습과 동일).
+   · 코호트는 '그 가을학기'로 한 번 고정한다(2026-10, 운영자 확인). 겨울학기에
+     이 화면을 봐도 같은 가을 명단을 계속 추적한다 — "지금 재원 중인 애들"만
+     보면, 9월엔 초5·체스였는데 그 사이 퇴원한 학생이 통째로 안 보이게 된다
+     (운영자: "9월부터 초등5학년 기준으로 이관율을 확인한다면서 그때 퇴원
+     이미 한 애들은 왜 명단에 없냐"). 퇴원한 학생은 명단에서 빼지 않고
+     맨 아래 '퇴원' 구역에 그대로 둔다.
    ============================================================================ */
 const ACE_MOVE_SEASONS = ['fall','winter'];   // 대시보드 박스·메뉴는 가을·겨울학기에만 노출
 function semSeasonOf(semId){ const m=String(semId||'').match(/sem_\d+_(\w+)/); return m?m[1]:''; }
@@ -1383,23 +1389,46 @@ function aceSemName(semId){ const s=(db.semesters||[]).find(x=>x.id===semId); re
    전/후학기를 비교하는 아래 로직으로는 이 학생들이 안 잡힌다(운정1 이관 실적 누락).
    그래서 이 전출-전입 짝만 따로 찾아서 운정1 이관 실적에 얹어준다. */
 const ACE_LINKED_TRANSFER = {br_unjeong1:'br_unjeong2'};
-/* 이관 대상자 목록 — {rec, early} 배열. early=true면 이번 학기 들어 이미 체스→에이스로 넘어간 얼리버드. */
+/* 코호트 고정 — 겨울학기에 봐도 같은 해 가을학기 기준으로 유지 */
+function aceMoveCohortSemId(semId){
+  return semSeasonOf(semId)==='winter' ? `sem_${semYearOf(semId)}_fall` : semId;
+}
+/* 이관 대상자 목록 — {rec, fallRec, withdrawn, early, ...} 배열.
+   rec = 표시용 기준 레코드(재원 중이면 지금 학기 것, 퇴원했으면 가을학기 것).
+   fallRec = 그 학생의 가을학기(코호트) 레코드 — '가을학기 레벨' 칸에 씀.
+   withdrawn=true면 코호트 이후 퇴원. early=true면 이미 체스→에이스로 넘어감. */
 function aceMoveCandidates(branchId, semId){
-  const recs = activeRecordsOf(branchId, semId).filter(r=>isGradeE5(r.grade));
-  const prevId = prevSemId(semId);
+  const cohortSemId = aceMoveCohortSemId(semId);
+  const prevId = prevSemId(cohortSemId);   // 가을의 직전 학기(여름) — 얼리버드 판정용
   const prevMap = new Map();
   if(prevId){
     db.semesterRecords.filter(r=>r.branchId===branchId && r.semesterId===prevId && (r.kind||'regular')!=='exam')
       .forEach(r=>prevMap.set(r.studentId, r));
   }
-  const list = recs.filter(r=>{
+  // 코호트 기준 명단 — 가을학기 레코드는 재원/퇴원 가리지 않고 전부 본다(recordsOf, activeRecordsOf 아님)
+  const cohortRecs = recordsOf(branchId, cohortSemId).filter(r=>{
+    if(!isGradeE5(r.grade)) return false;
     if(isChess(r.className)) return true;
     const prev = prevMap.get(r.studentId);
     return !!(prev && isChess(prev.className));
-  }).map(r=>{
-    const prev = prevMap.get(r.studentId);
-    const early = !isChess(r.className) && !!(prev && isChess(prev.className));
-    return {rec:r, early, prevClassName: prev?prev.className:null, prevClassLabel: prev?prev.classLabel:null};
+  });
+
+  // 퇴원 판정은 "이번 학기 명단에 없음"만으로 단정하지 않는다 — 분원이 겨울학기
+  // 명단을 아직 안 올렸을 뿐인 재원생까지 퇴원으로 잘못 떨어지기 때문. 가을·겨울
+  // 두 학기(이 화면이 보는 범위) 안에서 status='withdraw'로 명시된 기록이 있을
+  // 때만 진짜 퇴원으로 본다.
+  const relevantSemIds = [cohortSemId, nextSemId(cohortSemId)].filter(Boolean);
+  const list = cohortRecs.map(fallRec=>{
+    const curRec = (semId===cohortSemId) ? fallRec
+      : db.semesterRecords.find(r=>r.studentId===fallRec.studentId && r.semesterId===semId && (r.kind||'regular')!=='exam');
+    const withdrawRec = db.semesterRecords.find(r=>r.studentId===fallRec.studentId && r.branchId===branchId
+      && (r.kind||'regular')!=='exam' && r.status==='withdraw' && relevantSemIds.includes(r.semesterId));
+    const withdrawn = !!withdrawRec;
+    const dispRec = (curRec && curRec.status==='active') ? curRec : fallRec;
+    const early = !withdrawn && !isChess(dispRec.className);
+    return {rec:dispRec, fallRec, curRec:(withdrawRec||curRec), withdrawn, early,
+      prevClassName: prevMap.get(fallRec.studentId)?.className||null,
+      prevClassLabel: prevMap.get(fallRec.studentId)?.classLabel||null};
   });
 
   const linkedTo = ACE_LINKED_TRANSFER[branchId];
@@ -1410,7 +1439,8 @@ function aceMoveCandidates(branchId, semId){
       const cur = db.semesterRecords.find(r=>r.studentId===prev.studentId && r.semesterId===semId
         && r.branchId===linkedTo && r.status!=='withdraw' && (r.kind||'regular')!=='exam');
       if(cur && !isChess(cur.className)){
-        list.push({rec:cur, early:true, prevClassName:prev.className, prevClassLabel:prev.classLabel, movedBranch:true});
+        list.push({rec:cur, fallRec:prev, withdrawn:false, early:true,
+          prevClassName:prev.className, prevClassLabel:prev.classLabel, movedBranch:true});
       }
     });
   }
@@ -1419,8 +1449,10 @@ function aceMoveCandidates(branchId, semId){
 function aceMoveStats(branchId, semId){
   const list = aceMoveCandidates(branchId, semId);
   const early = list.filter(x=>x.early).length;
+  const withdrawn = list.filter(x=>x.withdrawn).length;
   const total = list.length;
-  return {total, early, rate: total? Math.round(early/total*1000)/10 : 0};
+  const waiting = total - early - withdrawn;
+  return {total, early, withdrawn, waiting, rate: total? Math.round(early/total*1000)/10 : 0};
 }
 
 /* 담임별 집계 */
@@ -2679,7 +2711,7 @@ function renderBranchDashboard(){
       ${kpiCard('현 재원생', hc.active, {unit:'명', accent:true, ca:hc.ca.active})}
       ${aceMoveSeasonOn(semId) ? (()=>{ const mv=aceMoveStats(branchId, semId);
         return kpiCard('이관 (체스→에이스)', mv.total, {unit:'명',
-          badgesHtml:`<span class="ca-early">얼리버드 ${mv.early}</span><span class="ca-wait">대상 ${mv.total-mv.early}</span>`}); })() : ''}
+          badgesHtml:`<span class="ca-early">얼리버드 ${mv.early}</span><span class="ca-wait">대상 ${mv.waiting}</span>${mv.withdrawn?`<span class="status-badge withdraw">퇴원 ${mv.withdrawn}</span>`:''}`}); })() : ''}
     </div>
     ${stuSearchPanelHTML()}
     <div class="sect-head"><h3>전체 상담률</h3>
@@ -2701,9 +2733,61 @@ function renderBranchDashboard(){
 /* ============================================================================
    11-1. ACE 이관생 — 체스→에이스 이관 대상자 (분원 전체 / 담임은 자기 반만)
    ----------------------------------------------------------------------------
-   점수(E6·단어·해석)·자동 레벨 칸은 아직 안 넣었다 — 이관테스트 시험지 형식이
-   아직 정해지지 않아서(부장님 확인 예정), 형식 나오면 그때 채점 버튼과 같이 붙인다.
+   점수(E6·단어·해석)·최종레벨은 초등5 ACE 진급시험 채점 화면(ace-e5-grading.html,
+   별도 파일)이 ace_e5_exam_results 표에 저장해둔 걸 그대로 읽어온다.
+   정답지(40문항 등)는 그 파일 한 곳에만 둬서, 점수는 그쪽이 저장할 때 이미
+   계산해서 넣어둔 obj_score/vocab_score/trans_score 칸만 읽는다 — 정답지를
+   여기에도 복사해 넣으면 한쪽만 고쳤을 때 서로 다른 점수가 나오는 문제가
+   생기기 때문(이 저장소에서 app.js/inwon-app/app.js 함수 중복 때문에 반복됐던
+   문제와 같은 함정).
+
+   '진급 안함' 처리 — 기본은 전원 '진급'(행이 없으면 진급)이고, 분원이 예외로
+   누른 학생만 사유와 함께 ace_move_outcomes에 저장한다. 미통과 관리·명단 제외
+   기능과 같은 방식: saveDB 안 쓰고 이 표에만 직접 쓴다.
    ============================================================================ */
+let ACE_EXAM_RESULTS={}, ACE_EXAM_RESULTS_SEM=null;
+let ACE_MOVE_OUTCOMES={}, ACE_MOVE_OUTCOMES_SEM=null, ACE_MOVE_OUTCOMES_OK=true;
+async function loadAceExamResults(cohortSemId){
+  if(ACE_EXAM_RESULTS_SEM===cohortSemId) return;
+  try{
+    const {data,error}=await sb.from('ace_e5_exam_results')
+      .select('student_id,obj_score,vocab_score,trans_score,final_level').eq('semester_id',cohortSemId);
+    if(error) throw error;
+    ACE_EXAM_RESULTS={}; (data||[]).forEach(r=>{ if(r.student_id) ACE_EXAM_RESULTS[r.student_id]=r; });
+  }catch(e){ ACE_EXAM_RESULTS={}; }
+  ACE_EXAM_RESULTS_SEM=cohortSemId;
+}
+async function loadAceMoveOutcomes(cohortSemId){
+  if(ACE_MOVE_OUTCOMES_SEM===cohortSemId) return;
+  try{
+    const {data,error}=await sb.from('ace_move_outcomes').select('*').eq('cohort_semester_id',cohortSemId);
+    if(error) throw error;
+    ACE_MOVE_OUTCOMES={}; (data||[]).forEach(r=>{ ACE_MOVE_OUTCOMES[r.student_id]=r; });
+    ACE_MOVE_OUTCOMES_OK=true;
+  }catch(e){ ACE_MOVE_OUTCOMES={}; ACE_MOVE_OUTCOMES_OK=false; }
+  ACE_MOVE_OUTCOMES_SEM=cohortSemId;
+}
+async function setAceMoveHold(studentId, cohortSemId, branchId, studentName){
+  if(!ACE_MOVE_OUTCOMES_OK){ toast('sql/ace_move_outcomes.sql을 먼저 실행해주세요','err'); return; }
+  const reason=prompt(`${studentName} 학생을 '진급 안함'으로 표시하는 사유를 적어주세요.`);
+  if(reason===null) return;
+  if(!reason.trim()){ toast('사유를 입력해야 해요','err'); return; }
+  const payload={id:'amo_'+cohortSemId+'_'+studentId, student_id:studentId, cohort_semester_id:cohortSemId,
+    branch_id:branchId, reason:reason.trim(), updated_by:(session.username||session.teacherName||''), updated_at:new Date().toISOString()};
+  const {error}=await sb.from('ace_move_outcomes').upsert(payload,{onConflict:'student_id,cohort_semester_id'});
+  if(error){ toast('저장 실패: '+error.message,'err'); return; }
+  ACE_MOVE_OUTCOMES[studentId]=payload;
+  toast('진급 안함으로 표시했어요');
+  renderAceMove();
+}
+async function clearAceMoveHold(studentId, cohortSemId, studentName){
+  if(!confirm(`${studentName} 학생을 다시 '진급'으로 되돌릴까요?`)) return;
+  const {error}=await sb.from('ace_move_outcomes').delete().eq('student_id',studentId).eq('cohort_semester_id',cohortSemId);
+  if(error){ toast('되돌리기 실패: '+error.message,'err'); return; }
+  delete ACE_MOVE_OUTCOMES[studentId];
+  toast('다시 진급으로 되돌렸어요');
+  renderAceMove();
+}
 function aceMoveSetPage(n){ state.aceMovePage=n; render(); }
 const ACE_MOVE_PER=15;
 function aceMovePager(pg, pgN, total){
@@ -2713,7 +2797,29 @@ function aceMovePager(pg, pgN, total){
   for(let i=1;i<=pgN;i++){ if(i===1||i===pgN||Math.abs(i-pg)<=2) mid+=btn(i,i,false); else if(mid.slice(-3)!=='...') mid+='<span style="color:var(--ink-3);padding:0 2px">...</span>'; }
   return `<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:14px 4px;flex-wrap:wrap">${btn(pg-1,'← 이전',pg<=1)}${mid}${btn(pg+1,'다음 →',pg>=pgN)}</div>`;
 }
-function renderAceMove(){
+function aceMoveScoreCell(studentId){
+  const ex = ACE_EXAM_RESULTS[studentId];
+  if(!ex) return '<span style="color:var(--ink-3);font-size:12px">미응시</span>';
+  const n=v=>(v==null?'-':v);
+  return `<div style="font-size:11.5px;line-height:1.5;color:var(--ink-2)">객관식 ${n(ex.obj_score)}<br>단어 ${n(ex.vocab_score)}<br>해석 ${n(ex.trans_score)}</div>`;
+}
+function aceMoveReportLink(branchId, semId, role, studentCode){
+  const p=new URLSearchParams();
+  p.set('sem',semId); p.set('role',role); if(branchId) p.set('branch',branchId);
+  if(studentCode) p.set('report',studentCode);
+  return `../ace-e5-grading.html?${p.toString()}`;
+}
+function aceMoveOutcomeCell(x){
+  const r=x.rec, st=getStudent(r.studentId);
+  const name = esc(st?st.name:'');
+  if(x.withdrawn) return '<span class="status-badge withdraw">퇴원</span>';
+  const outcome = ACE_MOVE_OUTCOMES[r.studentId];
+  if(outcome){
+    return `<span class="ca-early" title="${esc(outcome.reason)}" style="cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700" onclick="clearAceMoveHold('${r.studentId}','${x.cohortSemId}','${name}')">진급 안함 ↺</span>`;
+  }
+  return `<span class="ca-ace" style="cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700" onclick="setAceMoveHold('${r.studentId}','${x.cohortSemId}','${esc(x.branchIdForSave)}','${name}')">진급</span>`;
+}
+async function renderAceMove(){
   const isTeacherView = session.role==='teacher';
   const branchId = isTeacherView ? session.branchId : activeBranchId();
   const b = getBranch(branchId);
@@ -2726,23 +2832,31 @@ function renderAceMove(){
     return;
   }
 
-  let list = aceMoveCandidates(branchId, semId);
-  if(isTeacherView) list = list.filter(x=>x.rec.teacher===session.teacherName);
-  const early = list.filter(x=>x.early).length;
-  const total = list.length;
+  el('content').innerHTML = `<div class="page-head"><h2>ACE 이관생</h2><div class="sub">불러오는 중…</div></div>`;
+  const cohortSemId = aceMoveCohortSemId(semId);
+  await Promise.all([loadAceExamResults(cohortSemId), loadAceMoveOutcomes(cohortSemId)]);
+
+  let fullList = aceMoveCandidates(branchId, semId);
+  if(isTeacherView) fullList = fullList.filter(x=>x.rec.teacher===session.teacherName);
+  fullList.forEach(x=>{ x.cohortSemId=cohortSemId; x.branchIdForSave=branchId; });
+
+  const list = fullList.filter(x=>!x.withdrawn);
+  const withdrawnList = fullList.filter(x=>x.withdrawn);
+  const early = fullList.filter(x=>x.early).length;
+  const total = fullList.length;
   const rate = total? Math.round(early/total*1000)/10 : 0;
 
   let html = `
     <div class="page-head">
       <h2>ACE 이관생</h2>
-      <div class="sub">${isTeacherView?'내 반 · ':esc(b.name)+' · '}초5 · 체스 → 에이스 이관 대상자 · ${esc(aceSemName(semId))}</div>
+      <div class="sub">${isTeacherView?'내 반 · ':esc(b.name)+' · '}초5 · 체스 → 에이스 이관 대상자 · ${esc(aceSemName(semId))}${cohortSemId!==semId?' (가을 '+esc(aceSemName(cohortSemId))+' 명단 기준)':''}</div>
     </div>
     <div class="kpi-row c2">
       ${kpiCard('이관 대상자', total, {unit:'명'})}
       ${kpiCard('전체 이관율', rate, {unit:'%'})}
     </div>`;
 
-  if(list.length===0){
+  if(fullList.length===0){
     html += emptyState('대상자가 없습니다', isTeacherView?'내 반에는 초5 체스 이관 대상 학생이 없습니다.':'이 분원에는 초5 체스 이관 대상 학생이 없습니다.');
     el('content').innerHTML = html;
     return;
@@ -2753,24 +2867,27 @@ function renderAceMove(){
   state.aceMovePage=pg;
   const pageList=list.slice((pg-1)*ACE_MOVE_PER, pg*ACE_MOVE_PER);
 
-  const rows = pageList.map(x=>{
+  const rows = pageList.map((x,i)=>{
     const r = x.rec, st = getStudent(r.studentId);
+    const ex = ACE_EXAM_RESULTS[r.studentId];
     return `<tr>
+      <td>${(pg-1)*ACE_MOVE_PER+i+1}</td>
       <td>${esc(st?st.name:'')}</td>
       ${isTeacherView?'':`<td>${esc(r.teacher)}</td>`}
-      <td><span class="${isChess(r.className)?'ca-chess':'ca-ace'}" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(r.classLabel||r.className)}</span></td>
-      <td>${esc(r.grade || (st?st.grade:''))}</td>
-      <td>${x.early?'<span class="ca-early" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">얼리버드</span>':'<span class="ca-wait" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">대상</span>'}</td>
+      <td><span class="ca-chess" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(x.fallRec.classLabel||x.fallRec.className)}</span></td>
+      <td>${ex&&ex.final_level?esc(ex.final_level):'<span style="color:var(--ink-3)">-</span>'}</td>
+      <td>${aceMoveScoreCell(r.studentId)}</td>
+      <td><a href="${aceMoveReportLink(branchId, cohortSemId, session.role, st?st.code:'')}" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:var(--brand)">성적표 ↗</a></td>
+      <td>${aceMoveOutcomeCell(x)}</td>
     </tr>`;
   }).join('');
 
   html += `
     <div class="sect-head"><h3>이관 대상자 명단</h3><span class="cnt">${list.length}명</span></div>
     <div class="table-wrap"><table class="grid">
-      <thead><tr><th style="width:90px">이름</th>${isTeacherView?'':'<th style="width:130px">담임</th>'}<th>현재 반</th><th style="width:80px">학년</th><th style="width:90px">상태</th></tr></thead>
+      <thead><tr><th style="width:44px">번호</th><th style="width:90px">이름</th>${isTeacherView?'':'<th style="width:110px">담임</th>'}<th style="width:110px">가을학기 레벨</th><th style="width:100px">ACE 진급레벨</th><th style="width:110px">점수</th><th style="width:80px">성적표</th><th style="width:100px">진급 여부</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>${aceMovePager(pg, pgN, list.length)}</div>
-    <div style="font-size:12px;color:var(--ink-3);margin-top:8px">점수(E6·단어·해석)와 자동 레벨 칸은 이관테스트 시험지 형식이 정해지면 채점 버튼과 함께 추가됩니다.</div>`;
+    </table>${aceMovePager(pg, pgN, list.length)}</div>`;
 
   const earlyList = list.filter(x=>x.early);
   if(earlyList.length){
@@ -2789,10 +2906,32 @@ function renderAceMove(){
         <thead><tr><th>이름</th><th>이전 반</th><th>현재 반</th>${isTeacherView?'':'<th>담임</th>'}</tr></thead>
         <tbody>${hrows}</tbody>
       </table></div>`;
-    el('content').innerHTML = html;
-  } else {
-    el('content').innerHTML = html;
   }
+
+  if(withdrawnList.length){
+    /* 9월(가을) 코호트엔 있었지만 그 사이 퇴원한 학생 — 운영자 요청: "9월 기준으로
+       이관율을 잰다면서 그때 퇴원한 애들은 왜 명단에 없냐"는 지적으로 추가.
+       명단에서 빼지 않고 맨 아래에 따로 보여준다. */
+    const wrows = withdrawnList.map(x=>{
+      const r=x.rec, st=getStudent(r.studentId);
+      const reasonCode = x.curRec && x.curRec.withdrawReason;
+      const reasonLabel = reasonCode ? (wdReasonLabel(reasonCode)||reasonCode) : '';
+      return `<tr>
+        <td>${esc(st?st.name:'')}</td>
+        ${isTeacherView?'':`<td>${esc(r.teacher)}</td>`}
+        <td><span class="ca-chess" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(x.fallRec.classLabel||x.fallRec.className)}</span></td>
+        <td>${esc(reasonLabel)}</td>
+      </tr>`;
+    }).join('');
+    html += `
+      <div class="sect-head" style="margin-top:22px"><h3>퇴원한 학생</h3><span class="cnt">가을 코호트 소속이었지만 그 사이 퇴원 · ${withdrawnList.length}명</span></div>
+      <div class="table-wrap"><table class="grid">
+        <thead><tr><th>이름</th>${isTeacherView?'':'<th>담임</th>'}<th>가을학기 레벨</th><th>퇴원 사유</th></tr></thead>
+        <tbody>${wrows}</tbody>
+      </table></div>`;
+  }
+
+  el('content').innerHTML = html;
 }
 
 /* ============================================================================
