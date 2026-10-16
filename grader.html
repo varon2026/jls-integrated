@@ -1715,20 +1715,21 @@ function buildNaesinPerfGrid(){
   const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const spk=NAESIN_PERF_ITEMS.filter(a=>a.sub==='Speaking'),wrt=NAESIN_PERF_ITEMS.filter(a=>a.sub==='Writing');
   const spkMax=spk.reduce((s,a)=>s+a.pt,0),wrtMax=wrt.reduce((s,a)=>s+a.pt,0),maxPt=spkMax+wrtMax;
+  // 왼쪽 Writing · 오른쪽 Speaking (분원 요청) — 입력칸 순서(data-c)도 그대로 따라감
   let head=`<th class="stu" style="${NAESIN_STU_W};${NAESIN_TH}">학생</th>`;
-  spk.forEach(a=>{head+=`<th style="${NAESIN_TH}">Speaking ${a.label}<span class="saq">/${a.pt}</span></th>`;});
-  head+=`<th class="sc" style="font-size:12.5px;color:var(--ink)">Speaking<br>합계</th>`;
   wrt.forEach(a=>{head+=`<th style="${NAESIN_TH}">Writing ${a.label}<span class="saq">/${a.pt}</span></th>`;});
   head+=`<th class="sc" style="font-size:12.5px;color:var(--ink)">Writing<br>합계</th>`;
+  spk.forEach(a=>{head+=`<th style="${NAESIN_TH}">Speaking ${a.label}<span class="saq">/${a.pt}</span></th>`;});
+  head+=`<th class="sc" style="font-size:12.5px;color:var(--ink)">Speaking<br>합계</th>`;
   head+=`<th class="tot">최종<br>/${maxPt}</th><th class="act">재시험</th>`;
   let body='',ci=0;
   studs.forEach((r,ri)=>{
     ci=0;
     let cells=`<td class="stu" style="${NAESIN_STU_W}"><b>${esc(r.name)}</b><div class="c" style="white-space:normal">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
-    spk.forEach(a=>{cells+=naesinPerfCell(a,ri,ci);ci++;});
-    cells+=`<td class="sc" data-sub="Speaking">0</td>`;
     wrt.forEach(a=>{cells+=naesinPerfCell(a,ri,ci);ci++;});
     cells+=`<td class="sc" data-sub="Writing">0</td>`;
+    spk.forEach(a=>{cells+=naesinPerfCell(a,ri,ci);ci++;});
+    cells+=`<td class="sc" data-sub="Speaking">0</td>`;
     cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}${examRemoveBtn(r.code)}</td>`;
     body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
@@ -1736,7 +1737,7 @@ function buildNaesinPerfGrid(){
       <span><span class="lgbox" style="background:#fff;border:2px solid var(--neg)"></span>직접채점(획득점수)</span>
       <span><span class="lgbox" style="background:#fff3d6;border:1px solid #e0a44c"></span>부분점수</span>
       <span><span class="lgbox" style="background:var(--neg-s);border:1px solid #f0b6b8"></span>배점 초과 입력</span>
-      <span class="hint">방향키 이동 · 수행평가 ${maxPt}점 만점(Speaking ${spkMax}+Writing ${wrtMax}) · 세 영역 합친 총점은 [총점] 탭에서</span></div>
+      <span class="hint">방향키 이동 · 수행평가 ${maxPt}점 만점(Writing ${wrtMax}+Speaking ${spkMax}) · 세 영역 합친 총점은 [총점] 탭에서</span></div>
     ${SANOTE_ACE}
     ${SORTBTNS}
     <div class="gwrap"><table class="g"><thead><tr class="r1">${head}</tr></thead><tbody>${body}</tbody></table></div>`;
