@@ -2782,7 +2782,7 @@ async function aceMoveSetHoldBulk(studentIds, cohortSemId, branchId, reason){
   renderAceMoveBody(); /* renderAceMove()는 필터·검색·페이지를 초기화해서 쓰지 않는다 — ACE_MOVE_OUTCOMES는 이미 메모리에 반영됐으니 다시 불러올 필요도 없다 */
 }
 async function aceMoveClearHoldBulk(studentIds, cohortSemId){
-  /* '진급 안함' 기록이 있던 학생만 실제로 지워진다 — 애초에 기본값(진급 예정)
+  /* '진급 안함' 기록이 있던 학생만 실제로 지워진다 — 애초에 기본값(진급)
      이던 학생을 골라서 눌러도 지울 게 없어 0건이 지워진다. 그런데도 항상
      "n명 되돌렸어요"라고 뜨면, 뭘 눌러도 똑같이 성공 토스트만 보이고 뱃지는
      원래부터 그대로였을 뿐인데 "안 바뀐다"는 오해를 산다. 실제로 지워진
@@ -2792,8 +2792,8 @@ async function aceMoveClearHoldBulk(studentIds, cohortSemId){
   if(error){ toast('되돌리기 실패: '+error.message,'err'); return; }
   const changedCount = data ? data.length : (studentIds.length-already.length);
   studentIds.forEach(id=>{ delete ACE_MOVE_OUTCOMES[id]; ACE_MOVE_SELECTED.delete(id); });
-  if(changedCount>0) toast(`${changedCount}명 진급 예정으로 되돌렸어요`);
-  else toast('선택한 학생은 이미 진급 예정 상태였어요(바뀐 게 없어요)');
+  if(changedCount>0) toast(`${changedCount}명 진급으로 되돌렸어요`);
+  else toast('선택한 학생은 이미 진급 상태였어요(바뀐 게 없어요)');
   renderAceMoveBody();
 }
 /* 진급 여부 선택 팝업 — 한 명 클릭이든, 체크박스로 여러 명 고른 뒤 일괄 버튼이든
@@ -2807,8 +2807,8 @@ function openAceMoveChoice(studentIds, cohortSemId, branchId, label){
       <button class="modal-x" onclick="closeModal()">×</button></div>
     <div class="modal-body">
       <div style="display:flex;gap:10px">
-        <button class="btn" style="flex:1;padding:18px 10px;font-size:14px;font-weight:700" onclick="aceMoveChoicePick('promote')">진급 예정</button>
-        <button class="btn" style="flex:1;padding:18px 10px;font-size:14px;font-weight:700;background:var(--neg-s);color:var(--neg);border-color:#f0b6b8" onclick="aceMoveChoicePick('hold')">진급 안함</button>
+        <button class="btn" style="flex:1;padding:18px 10px;font-size:14px;font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center" onclick="aceMoveChoicePick('promote')">진급</button>
+        <button class="btn" style="flex:1;padding:18px 10px;font-size:14px;font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;background:var(--neg-s);color:var(--neg);border-color:#f0b6b8" onclick="aceMoveChoicePick('hold')">진급 안함</button>
       </div>
     </div>`);
 }
@@ -2837,7 +2837,12 @@ function aceMoveBulkOpen(){
   if(!ids.length) return;
   openAceMoveChoice(ids, ACE_MOVE_FULLLIST.cohortSemId, (session.role==='teacher'?session.branchId:activeBranchId()), `선택한 ${ids.length}명 일괄 처리`);
 }
-function aceMoveSetPage(n){ state.aceMovePage=n; render(); }
+/* 2페이지로 안 넘어가던 버그 — 전체 render()를 다시 불렀더니 그 안에서 도는
+   renderAceMove()가 데이터를 다시 불러오면서 끝에 state.aceMovePage=1을
+   무조건 되돌려놔서, 페이지 번호를 2로 바꿔봐야 곧바로 1로 덮어써졌다.
+   페이지 번호는 명단 표만 다시 그리면 되므로 aceMoveRenderResults()만 부른다
+   (검색창 처리와 같은 이유 — 전체를 다시 그릴 필요가 없다). */
+function aceMoveSetPage(n){ state.aceMovePage=n; aceMoveRenderResults(); }
 const ACE_MOVE_PER=15;
 function aceMovePager(pg, pgN, total){
   if(total<=ACE_MOVE_PER) return `<div style="padding:10px 4px;font-size:12px;color:var(--ink-3)">전체 ${total}명</div>`;
@@ -2897,16 +2902,17 @@ function aceMoveStatusBadge(x){
     const outcome = ACE_MOVE_OUTCOMES[x.rec.studentId];
     return `<span class="ca-early" title="${esc(outcome.reason)}" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">진급 안함</span>`;
   }
-  /* 아무 버튼도 안 눌렀으면 전부 똑같이 '진급'(초록)으로 보여서, 실제로 반이
-     이미 바뀐 애(얼리버드)랑 아직 아무 결정도 안 된 애가 똑같이 '이미 확정된
-     것처럼' 보였다. 반이 진짜 에이스로 바뀐 애만 '이관완료'(확정), 아직인 애는
-     '진급 예정'(기본값, 회색)으로 나눠서 뭐가 진짜 끝난 건지 보이게 한다. */
-  if(x.early) return `<span class="ca-ace" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">이관완료</span>`;
-  return `<span class="ca-wait" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">진급 예정</span>`;
+  /* 한때 '이관완료'(반이 이미 체스→에이스로 바뀐 애)를 따로 구분해 봤는데,
+     ACE 진급레벨도 '미배정'이고 점수도 '미응시'인 B반 학생이 '이관완료'로
+     뜨는 등(반 이름 알파벳만 보고 판단해서 시험·레벨 확정 여부와 무관하게
+     분류됨) 오히려 더 헷갈린다는 지적으로 되돌렸다. 퇴원/진급 안함 말고는
+     전부 '진급' 하나로만 본다 — 반이 실제로 바뀐지는 '가을학기 레벨'·
+     'ACE 진급레벨' 칸을 보면 된다. */
+  return `<span class="ca-wait" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">진급</span>`;
 }
 /* 진급여부 칸 — 직접 클릭해서 바로 바뀌는 대신(언제 눌러야 하는지 헷갈린다는
    지적), 퇴원 확정된 애 말고는 전부 '진급여부 선택' 버튼을 두고 팝업에서
-   진급예정/진급안함을 고르게 한다. 얼리버드로 이미 반이 바뀐 애도 나중에
+   진급/진급안함을 고르게 한다. 얼리버드로 이미 반이 바뀐 애도 나중에
    되돌릴 일이 있을 수 있어 버튼은 똑같이 둔다. */
 function aceMoveOutcomeCell(x){
   const r=x.rec, st=getStudent(r.studentId);
