@@ -3045,9 +3045,14 @@ function renderAceMoveBody(){
      표시해 둔 학생'(aceMoveStatusOf==='hold') 기준으로 바꿨다. */
   const testedNotPromoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && aceMoveTested(x.rec.studentId) && aceMoveStatusOf(x)==='hold').length;
   const promoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && aceMoveStatusOf(x)==='promote').length;
-  const early = ACE_MOVE_FULLLIST.filter(x=>x.early).length;
   const total = ACE_MOVE_FULLLIST.length;
-  const rate = total? Math.round(early/total*1000)/10 : 0;
+  /* 전체 이관율 — "얼리버드로 반 이미 바뀐 애" 비율(x.early)로 계산했더니,
+     이관테스트를 아직 아무도 안 본 시점에도 얼리버드 수만큼 이관율이 떠서
+     "이관테스트 본 뒤의 비율인데 테스트 전인데 왜 0이 아니냐"는 지적을
+     받았다. 이관율은 담임이 '진급여부 선택'에서 실제로 '진급'으로 확정한
+     학생(promoted) 기준으로 바꿨다 — 테스트 전엔 0%, 담임이 진급을 확정할
+     때마다 올라간다. */
+  const rate = total? Math.round(promoted/total*1000)/10 : 0;
 
   let html = `
     <div class="page-head">
