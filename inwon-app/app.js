@@ -2767,34 +2767,34 @@ async function loadAceMoveOutcomes(cohortSemId){
   }catch(e){ ACE_MOVE_OUTCOMES={}; ACE_MOVE_OUTCOMES_OK=false; }
   ACE_MOVE_OUTCOMES_SEM=cohortSemId;
 }
-/* 진급 여부 — 한 명이든 여러 명이든 같은 팝업·같은 함수로 처리한다(체크박스로
-   여러 명 고른 다음 일괄로 눌러도 studentIds 배열만 커질 뿐 로직은 똑같다). */
-async function aceMoveSetHoldBulk(studentIds, cohortSemId, branchId, reason){
-  if(!ACE_MOVE_OUTCOMES_OK){ toast('sql/ace_move_outcomes.sql을 먼저 실행해주세요','err'); return; }
+/* 진급 여부 — 예전엔 이 표에 행이 있으면 무조건 '진급 안함'이었고, 행이
+   없으면(기본값) 화면엔 그냥 회색 '진급'으로 떴다. 그런데 "아무도 안 건드려서
+   기본값인 것"과 "담임이 직접 '진급'으로 확정한 것"이 구분이 안 된다는
+   지적으로, decision 칸을 둬서 둘 다 명시적으로 저장한다
+   (sql/ace_move_outcomes_decision.sql 로 칸 추가 — reason도 진급 확정에는
+   필요 없어서 nullable로 바꿨다).
+   한 명이든 여러 명이든 같은 팝업·같은 함수로 처리한다. */
+async function aceMoveSetDecisionBulk(studentIds, cohortSemId, branchId, decision, reason){
+  if(!ACE_MOVE_OUTCOMES_OK){ toast('sql/ace_move_outcomes_decision.sql을 먼저 실행해주세요','err'); return; }
+  /* 이미 그 상태인 학생만 골라서 눌러도 "n명 표시했어요"라고 뜨면, 뭘 눌러도
+     똑같이 성공 토스트만 보이고 뱃지는 그대로였을 뿐인데 안 바뀐다는 오해를
+     산다 — 실제로 바뀌는 학생만 센다. */
+  const changed = studentIds.filter(id=>{ const o=ACE_MOVE_OUTCOMES[id]; return !o || o.decision!==decision; });
+  const label = decision==='promote' ? '진급' : '진급 안함';
+  if(!changed.length){
+    toast(`선택한 학생은 이미 ${label} 상태였어요(바뀐 게 없어요)`);
+    ACE_MOVE_SELECTED.clear(); renderAceMoveBody();
+    return;
+  }
   const now=new Date().toISOString();
-  const payload=studentIds.map(studentId=>({id:'amo_'+cohortSemId+'_'+studentId, student_id:studentId, cohort_semester_id:cohortSemId,
-    branch_id:branchId, reason:reason.trim(), updated_by:(session.username||session.teacherName||''), updated_at:now}));
+  const payload=changed.map(studentId=>({id:'amo_'+cohortSemId+'_'+studentId, student_id:studentId, cohort_semester_id:cohortSemId,
+    branch_id:branchId, decision, reason:(reason&&reason.trim())||null, updated_by:(session.username||session.teacherName||''), updated_at:now}));
   const {error}=await sb.from('ace_move_outcomes').upsert(payload,{onConflict:'student_id,cohort_semester_id'});
   if(error){ toast('저장 실패: '+error.message,'err'); return; }
   payload.forEach(p=>{ ACE_MOVE_OUTCOMES[p.student_id]=p; });
   studentIds.forEach(id=>ACE_MOVE_SELECTED.delete(id));
-  toast(`${studentIds.length}명 진급 안함으로 표시했어요`);
+  toast(`${changed.length}명 ${label}으로 표시했어요`);
   renderAceMoveBody(); /* renderAceMove()는 필터·검색·페이지를 초기화해서 쓰지 않는다 — ACE_MOVE_OUTCOMES는 이미 메모리에 반영됐으니 다시 불러올 필요도 없다 */
-}
-async function aceMoveClearHoldBulk(studentIds, cohortSemId){
-  /* '진급 안함' 기록이 있던 학생만 실제로 지워진다 — 애초에 기본값(진급)
-     이던 학생을 골라서 눌러도 지울 게 없어 0건이 지워진다. 그런데도 항상
-     "n명 되돌렸어요"라고 뜨면, 뭘 눌러도 똑같이 성공 토스트만 보이고 뱃지는
-     원래부터 그대로였을 뿐인데 "안 바뀐다"는 오해를 산다. 실제로 지워진
-     개수만큼만 숫자를 보여주고, 0건이면 다르게 안내한다. */
-  const already = studentIds.filter(id=>!ACE_MOVE_OUTCOMES[id]);
-  const {data,error}=await sb.from('ace_move_outcomes').delete().eq('cohort_semester_id',cohortSemId).in('student_id',studentIds).select('student_id');
-  if(error){ toast('되돌리기 실패: '+error.message,'err'); return; }
-  const changedCount = data ? data.length : (studentIds.length-already.length);
-  studentIds.forEach(id=>{ delete ACE_MOVE_OUTCOMES[id]; ACE_MOVE_SELECTED.delete(id); });
-  if(changedCount>0) toast(`${changedCount}명 진급으로 되돌렸어요`);
-  else toast('선택한 학생은 이미 진급 상태였어요(바뀐 게 없어요)');
-  renderAceMoveBody();
 }
 /* 진급 여부 선택 팝업 — 한 명 클릭이든, 체크박스로 여러 명 고른 뒤 일괄 버튼이든
    똑같은 팝업으로 들어온다. '진급 안함'을 고르면 그 자리에서 사유를 받는다. */
@@ -2814,12 +2814,12 @@ function openAceMoveChoice(studentIds, cohortSemId, branchId, label){
 }
 function aceMoveChoicePick(choice){
   const ctx=ACE_MOVE_CHOICE_CTX; if(!ctx) return;
-  if(choice==='promote'){ closeModal(); aceMoveClearHoldBulk(ctx.studentIds, ctx.cohortSemId); return; }
+  if(choice==='promote'){ closeModal(); aceMoveSetDecisionBulk(ctx.studentIds, ctx.cohortSemId, ctx.branchId, 'promote', null); return; }
   const reason=prompt(`${ctx.studentIds.length>1?ctx.studentIds.length+'명':'1명'} 학생을 '진급 안함'으로 표시하는 사유를 적어주세요.`);
   if(reason===null) return;
   if(!reason.trim()){ toast('사유를 입력해야 해요','err'); return; }
   closeModal();
-  aceMoveSetHoldBulk(ctx.studentIds, ctx.cohortSemId, ctx.branchId, reason);
+  aceMoveSetDecisionBulk(ctx.studentIds, ctx.cohortSemId, ctx.branchId, 'hold', reason);
 }
 /* 체크박스 선택 — 퇴원 확정된 학생은 진급 여부 자체가 의미 없어서 선택 대상에서 뺀다. */
 let ACE_MOVE_SELECTED=new Set();
@@ -2886,9 +2886,15 @@ function aceMoveReportLink(branchId, semId, role, studentCode){
   return `../ace-e5-grading.html?${p.toString()}`;
 }
 /* 진급여부 — 통합 상태값 3가지로 정리(퇴원/진급 안함/진급), 필터·배지 둘 다 이걸로 */
+/* 'hold'(진급 안함)/'promote'(진급)는 전부 담임이 '진급여부 선택'에서 직접
+   고른 것만 해당한다 — 행이 없으면 'undecided'(아직 아무도 안 건드림).
+   예전엔 행이 없으면 화면에 그냥 회색 '진급'이 떠서, 기본값인지 담임이
+   확인하고 진급으로 둔 건지 구분이 안 됐다. */
 function aceMoveStatusOf(x){
   if(x.withdrawn) return 'withdraw';
-  return ACE_MOVE_OUTCOMES[x.rec.studentId] ? 'hold' : 'promote';
+  const o = ACE_MOVE_OUTCOMES[x.rec.studentId];
+  if(!o) return 'undecided';
+  return o.decision==='promote' ? 'promote' : 'hold';
 }
 /* 상태 배지만(클릭 동작 없음) — 선택 버튼·일괄 처리 결과창에서 같이 쓴다. */
 function aceMoveStatusBadge(x){
@@ -2900,15 +2906,14 @@ function aceMoveStatusBadge(x){
   }
   if(status==='hold'){
     const outcome = ACE_MOVE_OUTCOMES[x.rec.studentId];
-    return `<span class="ca-early" title="${esc(outcome.reason)}" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">진급 안함</span>`;
+    return `<span class="ca-early" title="${esc(outcome.reason||'')}" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">진급 안함</span>`;
   }
-  /* 한때 '이관완료'(반이 이미 체스→에이스로 바뀐 애)를 따로 구분해 봤는데,
-     ACE 진급레벨도 '미배정'이고 점수도 '미응시'인 B반 학생이 '이관완료'로
-     뜨는 등(반 이름 알파벳만 보고 판단해서 시험·레벨 확정 여부와 무관하게
-     분류됨) 오히려 더 헷갈린다는 지적으로 되돌렸다. 퇴원/진급 안함 말고는
-     전부 '진급' 하나로만 본다 — 반이 실제로 바뀐지는 '가을학기 레벨'·
-     'ACE 진급레벨' 칸을 보면 된다. */
-  return `<span class="ca-wait" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">진급</span>`;
+  if(status==='promote'){
+    return `<span class="ca-ace" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">진급</span>`;
+  }
+  /* undecided — 색깔을 넣으면 '이미 확정된 것'처럼 보인다는 지적으로,
+     아직 아무것도 안 고른 상태는 색 없는 중립 배지로만 보여준다. */
+  return `<span style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700;background:var(--surface-2);color:var(--ink-3)">선택 전</span>`;
 }
 /* 진급여부 칸 — 직접 클릭해서 바로 바뀌는 대신(언제 눌러야 하는지 헷갈린다는
    지적), 퇴원 확정된 애 말고는 전부 '진급여부 선택' 버튼을 두고 팝업에서
@@ -3021,6 +3026,7 @@ function renderAceMoveBody(){
      계산이었기 때문. 버튼으로 직접 조작 가능한 숫자가 되게, '진급 안함으로
      표시해 둔 학생'(aceMoveStatusOf==='hold') 기준으로 바꿨다. */
   const testedNotPromoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && aceMoveTested(x.rec.studentId) && aceMoveStatusOf(x)==='hold').length;
+  const promoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && aceMoveStatusOf(x)==='promote').length;
   const early = ACE_MOVE_FULLLIST.filter(x=>x.early).length;
   const total = ACE_MOVE_FULLLIST.length;
   const rate = total? Math.round(early/total*1000)/10 : 0;
@@ -3030,9 +3036,10 @@ function renderAceMoveBody(){
       <h2>ACE 이관생</h2>
       <div class="sub">${isTeacherView?'내 반 · ':esc(getBranch(branchId).name)+' · '}초5 · 체스 → 에이스 이관 대상자 · ${esc(aceSemName(semId))}${cohortSemId!==semId?' (가을 '+esc(aceSemName(cohortSemId))+' 명단 기준)':''}</div>
     </div>
-    <div class="kpi-row c4">
+    <div class="kpi-row c5">
       ${kpiCard('이관 대상자', total, {unit:'명'})}
       ${kpiCard('전체 이관율', rate, {unit:'%'})}
+      ${kpiCard('진급으로 선택', promoted, {unit:'명'})}
       ${kpiCard('이관시험 안보고 퇴원', withdrawNoExam, {unit:'명'})}
       ${kpiCard('이관시험 보고 진급 안함', testedNotPromoted, {unit:'명'})}
     </div>`;
@@ -3045,7 +3052,7 @@ function renderAceMoveBody(){
 
   const teacherOpts = teachers.map(t=>`<option value="${esc(t)}" ${ACE_MOVE_FILTER.teacher===t?'selected':''}>${esc(t)}</option>`).join('');
   const levelOpts = levels.map(l=>`<option value="${esc(l)}" ${ACE_MOVE_FILTER.level===l?'selected':''}>${esc(l)}</option>`).join('');
-  const statusOpts = [['promote','진급'],['hold','진급 안함'],['withdraw','퇴원']]
+  const statusOpts = [['undecided','선택 전'],['promote','진급'],['hold','진급 안함'],['withdraw','퇴원']]
     .map(([v,l])=>`<option value="${v}" ${ACE_MOVE_FILTER.status===v?'selected':''}>${l}</option>`).join('');
   html += `
     <div class="acemv-filterbar">
