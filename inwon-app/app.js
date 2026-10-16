@@ -2849,7 +2849,13 @@ function aceMoveOutcomeCell(x){
     const outcome = ACE_MOVE_OUTCOMES[r.studentId];
     return `<span class="ca-early" title="${esc(outcome.reason)}" style="cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700" onclick="clearAceMoveHold('${r.studentId}','${x.cohortSemId}','${name}')">진급 안함 ↺</span>`;
   }
-  return `<span class="ca-ace" style="cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700" onclick="setAceMoveHold('${r.studentId}','${x.cohortSemId}','${esc(x.branchIdForSave)}','${name}')">진급</span>`;
+  /* 버튼을 안 눌렀으면(기본값) 전부 똑같이 '진급'(초록)으로 보여서, 실제로 반이
+     이미 바뀐 애(얼리버드)랑 아직 아무 결정도 안 된 애가 똑같이 '이미 확정된
+     것처럼' 보였다. 반이 진짜 에이스로 바뀐 애만 '이관완료'(확정, 클릭 불가),
+     아직인 애는 '진급 예정'(기본값, 회색, 클릭하면 여전히 진급 안함으로 표시
+     가능)으로 나눠서 한눈에 뭐가 진짜 끝난 건지 보이게 한다. */
+  if(x.early) return `<span class="ca-ace" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">이관완료</span>`;
+  return `<span class="ca-wait" title="클릭하면 '진급 안함'으로 표시" style="cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700" onclick="setAceMoveHold('${r.studentId}','${x.cohortSemId}','${esc(x.branchIdForSave)}','${name}')">진급 예정</span>`;
 }
 /* 필터 상태 — 명단 화면 들어올 때마다 초기화(이전에 걸어둔 필터가 다른 분원·학기에서
    그대로 남아있지 않게). 드롭다운·검색창은 re-fetch 없이 renderAceMoveBody만 다시 부른다. */
