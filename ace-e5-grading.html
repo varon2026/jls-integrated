@@ -67,7 +67,7 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
    보이지 않는 스페이서 칸이 가져가서 표가 항상 화면 폭에 꽉 맞고
    가로 스크롤이 안 생긴다. 요일·레벨/담임은 실제 가장 긴 값
    ("월수금 3부 · B(1-3)_E5", "Stephanie 최지영")을 직접 재서 안 잘리게 잡았다. */
-.ttgrid{display:grid;width:100%;grid-template-columns:30px 44px 44px 130px 84px 150px 120px 118px minmax(84px,140px) minmax(84px,140px) minmax(84px,140px) minmax(96px,150px) minmax(96px,150px) minmax(0,1fr)}
+.ttgrid{display:grid;width:100%;grid-template-columns:30px 44px 44px 130px 84px 150px 120px 118px minmax(84px,140px) minmax(84px,140px) minmax(84px,140px) minmax(96px,150px) minmax(96px,150px) 108px minmax(0,1fr)}
 /* .ttgrid>div(자식 결합자)는 안 된다 — .ttrow가 display:contents라
    실제 DOM에선 이 칸들이 .ttgrid의 '자식'이 아니라 '손자'라서 안 걸린다.
    그래서 셀마다 .gcell 클래스를 따로 붙이고 거리 상관없는 .ttgrid .gcell로 건다. */
@@ -95,6 +95,11 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.err{background:#c0392b}
 </style>
+<!-- 성적표(총점/레벨 탭)에 쓰는 로드맵 표 — 레벨테스트 쪽 거대한 표 그대로 가져다 쓴다
+     (손으로 옮겨적으면 오타 위험이라 파일 자체를 그대로 불러온다). LEVEL_STEPS/ROADMAP_TABLE
+     이름이 이 파일 다른 변수랑 안 겹쳐서 그대로 로드해도 안전하다. VOCAB_ITEMS/TRANS_ITEMS처럼
+     이름이 겹치는 common.js는 절대 이렇게 통째로 불러오면 안 된다(아래 성적표 함수들 설명 참고). -->
+<script src="leveltest/roadmap-data.js"></script>
 </head>
 <body>
 <div id="app" class="content">불러오는 중…</div>
@@ -571,6 +576,7 @@ function buildTotalGrid(){
     <div class="gcell gh">해석<br>/${tMax}</div>
     <div class="gcell gh">임시레벨<select onchange="onLevelFilterChange(this.value)"><option value="">전체</option>${filterOpts}</select></div>
     <div class="gcell gh">최종레벨</div>
+    <div class="gcell gh">성적표</div>
     <div class="gcell spacer"></div>`;
   let shown=0;
   const body = ROWS.map(r=>{
@@ -596,6 +602,7 @@ function buildTotalGrid(){
       <div class="gcell score">${ts}</div>
       <div class="gcell score big">${suggested}</div>
       <div class="gcell lvl"><select onchange="onLevelChange('${r.id}',this.value)">${opts}</select></div>
+      <div class="gcell"><button class="ghost mini" onclick="openReportCard('${r.id}')">성적표</button></div>
       <div class="gcell spacer"></div>
     </div>`;
   }).join('');
@@ -646,6 +653,292 @@ function onTransInput(id,no,v,max,inp){
   if(sc) sc.textContent = transScore(r)+'/'+transMax();
 }
 function onLevelChange(id,v){ const r=findRow(id); if(!r)return; r.finalLevel=v; }
+
+/* ============================================================================
+   성적표 — 레벨테스트(leveltest/common.js·general.js)가 쓰는 성적표를 그대로 가져온다.
+   파일을 통째로 불러오지 않는 이유: 거기도 VOCAB_ITEMS/TRANS_ITEMS를 같은 이름으로
+   선언해서, 이 파일 걸 덮어쓰려다 "이미 선언된 이름" 에러로 화면이 통째로 죽는다.
+   그래서 성적표를 "그리는" 함수들만 여기로 옮겨 적었다(점수 집계는 DOM이 아니라
+   이 화면의 ROWS 데이터에서 직접 만든다 — evaluateExam/evaluateVTExam은 원래
+   document.getElementById로 입력칸을 읽는데, 여기는 입력칸이 이미 r.obj/r.vocab/r.trans에
+   들어있어서 그걸 그대로 쓴다). 레벨테스트 쪽 원본을 고치면 여기는 저절로 안 따라오니,
+   만약 성적표 디자인 자체를 바꾸게 되면 거기도 같이 고쳐야 한다. */
+function percent(value,total){ if(!total) return 0; return Math.round((value/total)*100); }
+function todayIso(){ return new Date().toISOString().slice(0,10); }
+function formatDate(dateText){ return dateText || todayIso(); }
+function getDisplayLevel(assignedLevel){ return assignedLevel || "미배정"; }
+function aggregateBy(results,key){
+  const map={};
+  results.forEach(q=>{ if(!map[q[key]]) map[q[key]]={label:q[key],earned:0,possible:0,count:0};
+    map[q[key]].earned+=q.earned; map[q[key]].possible+=q.score; map[q[key]].count+=1; });
+  return Object.values(map).map(v=>({...v,rate:percent(v.earned,v.possible)})).sort((a,b)=>b.possible-a.possible);
+}
+function getTopFive(data){ return data.slice(0,5); }
+function getTermInfo(testDate){
+  const d=new Date(testDate); const y=d.getFullYear()||new Date().getFullYear(); const m=(d.getMonth()+1)||1;
+  if(m===12||m<=2) return {year:y,term:'1st'};
+  if(m>=3&&m<=5) return {year:y,term:'2nd'};
+  if(m>=6&&m<=8) return {year:y,term:'3rd'};
+  return {year:y,term:'4th'};
+}
+function getRoadmapStamp(testDate){ const info=getTermInfo(testDate); return `${info.year}  ${info.term}`; }
+function getRoadmapGradePrefix(grade){
+  const map={"초등6":"초6","중등1":"중1","중등2":"중2","중등3":"중3"};
+  return map[grade]||"";
+}
+function getRoadmapTimelineLabels(grade,currentLevel,testDate){
+  if(typeof LEVEL_STEPS==="undefined"||typeof ROADMAP_TABLE==="undefined") return [];
+  const steps=LEVEL_STEPS[grade]||[]; if(!steps.length) return [];
+  const prefix=getRoadmapGradePrefix(grade); const term=getTermInfo(testDate).term;
+  const effectiveLevel=steps.includes(currentLevel)?currentLevel:steps[0];
+  const rowKey=`${prefix}${effectiveLevel}${term}`; const row=ROADMAP_TABLE[rowKey]||{};
+  return steps.map(step=>{ if(step==='HM1'||step==='HM2'||step==='HM3') return '수능500'; return row[step]||''; });
+}
+/* 초5가 E6 시험을 보면(여기가 바로 그 경우) 로드맵은 '초등6' 트랙으로 봐야 한다 —
+   레벨테스트 쪽에 이미 있던 보정 그대로. */
+function getReportGradeForExam(studentGrade,examName){
+  const g=String(studentGrade||"").replace(/\s/g,""); const e=String(examName||"").replace(/\s/g,"");
+  if((g.includes("초5")||g.includes("초등5"))&&(e.includes("E6")||e==="")) return "초등6";
+  return studentGrade;
+}
+function buildRoadmapBars(grade,currentLevel="",testDate=todayIso(),title=""){
+  if(typeof LEVEL_STEPS==="undefined") return "";
+  const roadmapGrade=getReportGradeForExam(grade,title);
+  const steps=LEVEL_STEPS[roadmapGrade]||[]; if(!steps.length) return "";
+  const activeIndex=steps.indexOf(currentLevel);
+  const labels=getRoadmapTimelineLabels(roadmapGrade,currentLevel,testDate);
+  return `<div class="roadmap-bars">${steps.map((step,idx)=>{
+    const h=34+idx*24;
+    return `<div class="roadmap-bar-wrap"><div class="roadmap-bar ${activeIndex>=0&&idx<=activeIndex?'active':''}" style="height:${h}px;"><span>${step}</span></div><div class="roadmap-label">${labels[idx]||''}</div></div>`;
+  }).join('')}</div>`;
+}
+function donutSvg(rate,label,size=118,stroke=16,color="#13a6ee"){
+  const r=(size-stroke)/2; const c=2*Math.PI*r; const dash=(rate/100)*c;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#e5e7eb" stroke-width="${stroke}"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round"
+        stroke-dasharray="${dash} ${c-dash}" transform="rotate(-90 ${size/2} ${size/2})"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${Math.max(r-14,8)}" fill="#fff"/>
+      <text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-size="18" font-weight="800" fill="#334155">${rate}%</text>
+    </svg>`;
+}
+function radarSvg(items,title){
+  const size=176,center=88,radius=50; const levels=[20,40,60,80,100]; const angleStep=(Math.PI*2)/items.length;
+  function pt(rate,i,scale=1){ const ang=-Math.PI/2+angleStep*i; const rr=radius*scale*(rate/100); return [center+Math.cos(ang)*rr, center+Math.sin(ang)*rr]; }
+  const polys=levels.map(l=>items.map((_,i)=>pt(l,i,1)).map(p=>p.join(",")).join(" "));
+  const dataPts=items.map((it,i)=>pt(it.rate,i)).map(p=>p.join(",")).join(" ");
+  const axes=items.map((it,i)=>{ const p=pt(100,i,1.05); return `<line x1="${center}" y1="${center}" x2="${p[0]}" y2="${p[1]}" stroke="#cbd5e1" stroke-width="1"/>`; }).join("");
+  const labels=items.map((it,i)=>{ const p=pt(100,i,1.22);
+    return `<text x="${p[0]}" y="${p[1]}" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#475569">${it.label.replace(/영역/g,'')}</text>
+            <text x="${p[0]}" y="${p[1]+16}" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="800" fill="#0284c7">${it.rate}%</text>`; }).join("");
+  return `<div class="chart-card"><div class="chart-title">${title}</div>
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        ${polys.map((poly,idx)=>`<polygon points="${poly}" fill="none" stroke="${idx===levels.length-1?'#94a3b8':'#dbe4ee'}" stroke-width="${idx===levels.length-1?2:1}" stroke-dasharray="${idx===levels.length-1?'4 4':'0'}"/>`).join('')}
+        ${axes}
+        <polygon points="${dataPts}" fill="rgba(19,166,238,.55)" stroke="#13a6ee" stroke-width="2"/>
+        ${items.map((it,i)=>{ const p=pt(it.rate,i); return `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#0ea5e9"/>`; }).join('')}
+        ${labels}
+      </svg></div>`;
+}
+function getPaperGradeLabel(no){
+  if(no>=1&&no<=4) return '예비중1 영역'; if(no>=5&&no<=8) return '중1 영역'; if(no>=9&&no<=12) return '중2 영역';
+  if(no>=13&&no<=16) return '중3 영역'; if(no>=17&&no<=20) return '예비고1 영역'; if(no>=21&&no<=24) return '예비중1 영역';
+  if(no>=25&&no<=28) return '중1 영역'; if(no>=29&&no<=32) return '중2 영역'; if(no>=33&&no<=36) return '중3 영역';
+  if(no>=37&&no<=40) return '예비고1 영역'; return '-';
+}
+function computePaperGradeStats(results){
+  const rows=['예비중1 영역','중1 영역','중2 영역','중3 영역','예비고1 영역'];
+  const init=()=>Object.fromEntries(rows.map(label=>[label,{earned:0,possible:0,rate:0}]));
+  const listening=init(), reading=init(), total=init();
+  results.forEach(q=>{ const label=getPaperGradeLabel(q.no); if(!label||label==='-') return;
+    const target=q.area==='LC'?listening:reading;
+    target[label].earned+=q.earned||0; target[label].possible+=q.score||0;
+    total[label].earned+=q.earned||0; total[label].possible+=q.score||0; });
+  rows.forEach(label=>{ listening[label].rate=percent(listening[label].earned,listening[label].possible);
+    reading[label].rate=percent(reading[label].earned,reading[label].possible);
+    total[label].rate=percent(total[label].earned,total[label].possible); });
+  return {labels:rows,listening,reading,total};
+}
+function buildCoverPage(memberCode,name,school,grade,testDate,title,introText){
+  return `<section class="page cover-page"><div class="cover-inner">
+      <div style="text-align:center; margin-bottom:24px;">
+        <img src="leveltest/jls-logo.png" alt="정상어학원 로고" style="max-width:420px; width:100%; height:auto; object-fit:contain;">
+      </div>
+      <div class="page-head" style="justify-content:center; text-align:center; border-top:none; padding-top:0;">
+        <div><div style="font-size:34px; font-weight:800; color:var(--brand); line-height:1.2;">JLS Academic Achievement<br>Assessment Report</div></div>
+      </div>
+      <div class="cover-meta-grid">
+        <div class="cover-meta"><div class="kpi-label">회원코드</div><div class="kpi-value" style="font-size:20px;">${esc(memberCode||'-')}</div></div>
+        <div class="cover-meta"><div class="kpi-label">학생명</div><div class="kpi-value" style="font-size:22px;">${esc(name)}</div></div>
+        <div class="cover-meta"><div class="kpi-label">학교 / 학년</div><div class="kpi-value" style="font-size:18px;">${esc(school)} · ${esc(grade)}</div></div>
+        <div class="cover-meta"><div class="kpi-label">시험 본 날짜</div><div class="kpi-value" style="font-size:18px;">${esc(formatDate(testDate))}</div></div>
+        <div class="cover-meta" style="grid-column:1 / -1;"><div class="kpi-label">시험지명</div><div class="kpi-value" style="font-size:20px;">${esc(title)}</div></div>
+      </div>
+      ${introText}
+    </div></section>`;
+}
+function pageTemplate(title,subtitle,body){
+  return `<section class="page"><div class="page-head"><div><div class="page-label">${title}</div><div class="report-subtitle">${subtitle}</div></div>
+      <div class="badge">ACE Academic Assessment Report</div></div>${body}</section>`;
+}
+function renderGeneralReport(memberCode,name,school,grade,testDate,title,examData,evaluation,assignedLevel,reportGrade=grade){
+  const {results,total,areaStats,competencies,types}=evaluation;
+  const lc=areaStats.LC||{earned:0,possible:0,rate:0,correct:[],wrong:[]};
+  const rc=areaStats.RC||{earned:0,possible:0,rate:0,correct:[],wrong:[]};
+  const gradeStats=computePaperGradeStats(results);
+  const levelText=getDisplayLevel(assignedLevel);
+  const topComp=getTopFive(competencies), topTypes=getTopFive(types);
+  const introText=`<div class="intro-box" style="margin-top:16px;">
+      정상어학원은 학생들의 듣기와 독해 능력을 확인하는 지필 평가뿐만 아니라,<br>
+      중등 1학년부터 고등 수준의 문법 지식을 활용하여 문장을 정확하게 해석할 수 있는지 점검하는 해석 테스트와,<br>
+      초등부터 고등까지의 어휘 수준을 평가하기 위한 어휘 테스트를 함께 실시합니다.<br><br>
+      이를 바탕으로, 학생의 영어 학습의 강점과 약점을 파악하여 수능 1등급을 향한 뚜렷한 학습 로드맵을 제시합니다.
+    </div>`;
+  const whyBody=`<div class="fill-grid-dense"><div class="intro-box" style="margin-bottom:12px;">
+      <strong>Why? 수능 500</strong><br>
+      수능 500 프로젝트란,<br>
+      중3까지 수능 모의고사 1등급(최소 고2, 최대 고3)을 목표로 수능 영어 학습을 끝내기 위한 정상어학원의 중등 영어 학습 프로그램입니다.<br>
+      학기 중 내신 대비 기간과 각종 수행 평가 준비, 행사 참여 등으로 중학생에게 주어지는 영어 학습에 전념하는 순공(순수 공부) 시간은 대략 500일 정도입니다.<br>
+      수능 500 프로젝트는 중3에 끝내는 수능을 목표로, 수능에 집중할 수 있는 500일 기준으로 그 기간 내 학습 효율을 높이고 수능 1등급에 필요한 기본기를 탄탄히 하는 학습관리 프로그램입니다.
+    </div></div>`;
+  const summaryBody=`<div class="fill-grid-2 align-stretch">
+      <div class="hero-card achv1-card">
+        <div class="hero-title">Achievement Ⅰ</div>
+        <div class="hero-value">${total}<span style="font-size:18px; color:#64748b;"> / 100</span></div>
+        <div class="achv1-grid">
+          <div class="achv1-half"><div class="achv1-name">Listening</div>${donutSvg(lc.rate,"",96,12,"#13a6ee")}
+            <div class="achv1-score"><span class="big">${lc.earned}</span><span class="small">/ 40</span></div>
+            <div class="achv1-copy">중1-예비고1 수준의 다양한 유형의<br>듣기 이해도 점검</div></div>
+          <div class="achv1-half"><div class="achv1-name">Reading</div>${donutSvg(rc.rate,"",96,12,"#13a6ee")}
+            <div class="achv1-score"><span class="big">${rc.earned}</span><span class="small">/ 60</span></div>
+            <div class="achv1-copy">중1-예비고1 수준의 다양한 유형의<br>독해 이해도 점검</div></div>
+        </div>
+      </div>
+      <div class="roadmap-panel">
+        <div class="hero-title">JLS ACE Roadmap</div>
+        <div class="grid-2" style="gap:10px;">
+          <div class="kpi"><div class="kpi-label">Level</div><div class="kpi-value" style="font-size:20px;">${levelText}</div></div>
+          <div class="kpi"><div class="kpi-label">학습 시점</div><div class="kpi-value" style="font-size:16px;">${getRoadmapStamp(testDate)}</div></div>
+        </div>
+        ${buildRoadmapBars(reportGrade,levelText,testDate,title)}
+      </div>
+    </div>`;
+  const achv2Block=`<div class="fill-grid-3 achv2-block">
+      <div class="chart-card"><div class="page-label" style="display:inline-block; margin-bottom:10px;">Achievement Ⅱ</div>
+        <table class="meta-table"><tr><th>Grade</th><th>Listening</th></tr>
+          ${gradeStats.labels.map(label=>`<tr><td class="label">${label}</td><td>${gradeStats.listening[label].earned} / ${gradeStats.listening[label].possible} (${gradeStats.listening[label].rate}%)</td></tr>`).join("")}
+          <tr><td class="label">Total</td><td>${lc.earned} / 40 (${lc.rate}%)</td></tr></table>
+        ${radarSvg(gradeStats.labels.map(label=>({label,rate:gradeStats.listening[label].rate})),"Listening")}</div>
+      <div class="chart-card"><div class="page-label" style="display:inline-block; margin-bottom:10px;">Achievement Ⅱ</div>
+        <table class="meta-table"><tr><th>Grade</th><th>Reading</th></tr>
+          ${gradeStats.labels.map(label=>`<tr><td class="label">${label}</td><td>${gradeStats.reading[label].earned} / ${gradeStats.reading[label].possible} (${gradeStats.reading[label].rate}%)</td></tr>`).join("")}
+          <tr><td class="label">Total</td><td>${rc.earned} / 60 (${rc.rate}%)</td></tr></table>
+        ${radarSvg(gradeStats.labels.map(label=>({label,rate:gradeStats.reading[label].rate})),"Reading")}</div>
+      <div class="chart-card"><div class="page-label" style="display:inline-block; margin-bottom:10px;">Achievement Ⅱ</div>
+        <table class="meta-table"><tr><th>Grade</th><th>Total</th></tr>
+          ${gradeStats.labels.map(label=>`<tr><td class="label">${label}</td><td>${gradeStats.total[label].earned} / ${gradeStats.total[label].possible} (${gradeStats.total[label].rate}%)</td></tr>`).join("")}
+          <tr><td class="label">Total</td><td>${total} / 100 (${percent(total,100)}%)</td></tr></table>
+        ${radarSvg(gradeStats.labels.map(label=>({label,rate:gradeStats.total[label].rate})),"Total")}</div>
+    </div>`;
+  const detailLeftRows=results.slice(0,20).map(q=>`<tr><td>${q.no}</td><td>${q.area}</td><td class="left">${esc(q.type)}</td><td>${q.score}</td><td>${getPaperGradeLabel(q.no)}</td><td class="${q.correct?"status-ok":"status-no"}">${q.correct?"O":"X"}</td></tr>`).join("");
+  const detailRightRows=results.slice(20).map(q=>`<tr><td>${q.no}</td><td>${q.area}</td><td class="left">${esc(q.type)}</td><td>${q.score}</td><td>${getPaperGradeLabel(q.no)}</td><td class="${q.correct?"status-ok":"status-no"}">${q.correct?"O":"X"}</td></tr>`).join("");
+  const detailBody=`<div class="detail-split">
+      <div class="table-wrap"><table class="detail-table detail-table-general"><thead><tr><th>No.</th><th>영역</th><th>유형</th><th>배점</th><th>Grade</th><th>정오표</th></tr></thead><tbody>${detailLeftRows}</tbody></table></div>
+      <div class="table-wrap"><table class="detail-table detail-table-general"><thead><tr><th>No.</th><th>영역</th><th>유형</th><th>배점</th><th>Grade</th><th>정오표</th></tr></thead><tbody>${detailRightRows}</tbody></table></div>
+    </div>
+    <div class="compact-cards" style="margin-top:10px;">
+      <div class="mini-stat"><div class="kpi-label">LC 정답</div><div class="n">${lc.correct.length}</div></div>
+      <div class="mini-stat"><div class="kpi-label">RC 정답</div><div class="n">${rc.correct.length}</div></div>
+      <div class="mini-stat"><div class="kpi-label">총 오답</div><div class="n">${results.filter(q=>!q.correct).length}</div></div>
+      <div class="mini-stat"><div class="kpi-label">정답률</div><div class="n">${percent(total,100)}%</div></div>
+    </div>`;
+  const part1Cards=(topComp.length?topComp:[{label:"데이터 준비중",earned:0,possible:0,rate:0}]).map(item=>`<div class="chart-card"><div class="chart-title general-mini-title">${esc(item.label)}</div><div class="chart-sub">${item.earned} / ${item.possible}</div>${donutSvg(item.rate,"Achievement",68,9,"#12a9ef")}</div>`).join("");
+  const part2Cards=(topTypes.length?topTypes:[{label:"데이터 준비중",earned:0,possible:0,rate:0}]).map(item=>`<div class="chart-card"><div class="chart-title general-mini-title">${esc(item.label)}</div><div class="chart-sub">${item.earned} / ${item.possible}</div>${donutSvg(item.rate,"Achievement",68,9,"#12a9ef")}</div>`).join("");
+  const partBody=`<div class="card part1-card"><div class="page-label" style="display:inline-block; margin-bottom:10px;">Part 1. Competency</div><div class="part1-grid general-part-grid">${part1Cards}</div></div>
+    <div class="card" style="margin-top:10px;"><div class="page-label" style="display:inline-block; margin-bottom:10px;">Part 2. Type</div><div class="part1-grid general-part-grid">${part2Cards}</div></div>`;
+  return buildCoverPage(memberCode,name,school,grade,testDate,title,introText)+
+    pageTemplate("Achievement Ⅰ · Ⅱ","영역 요약 / 로드맵 / 영역 성취 분석",whyBody+summaryBody+achv2Block)+
+    pageTemplate("Achievement Ⅲ · Part Analysis","문항별 상세 분석 / 필수역량 · 문제유형 그래프",detailBody+partBody);
+}
+function renderVTReport(memberCode,name,school,grade,testDate,title,evaluation){
+  const {vocabGroups,vocabTotal,transResults}=evaluation;
+  const vocabRows=vocabGroups.map(g=>`<tr><td>${g.label}</td><td>${g.earned} / ${g.possible} ( ${g.rate.toFixed(1)}% )</td><td style="font-size:24px; color:#12a9ef; font-weight:800;">${g.letter}</td><td class="left">${g.comment}</td></tr>`).join("");
+  const transRows=transResults.map(item=>`<tr><td>${item.no}</td><td>${item.grade}</td><td>${item.earned} / ${item.max} ( ${item.rate.toFixed(1)}% )</td><td class="left">${esc(item.type)}</td></tr>`).join("");
+  const body=`<div class="card vt-vocab-card"><div class="page-label" style="display:inline-block; margin-bottom:10px;">Part 1. Vocabulary</div>
+      <div class="table-wrap"><table class="detail-table"><thead><tr><th>Grade</th><th>Listening</th><th>정오표</th><th>코멘트</th></tr></thead>
+        <tbody>${vocabRows}<tr><td>Total</td><td>${vocabTotal.earned} / ${vocabTotal.possible} ( ${vocabTotal.rate.toFixed(1)}% )</td><td>-</td><td class="left"></td></tr></tbody></table></div></div>
+    <div class="card vt-summary-card" style="margin-top:12px;"><div class="page-label" style="display:inline-block; margin-bottom:10px;">Part 2. Translation</div>
+      <div class="table-wrap" style="margin-top:10px;"><table class="detail-table"><thead><tr><th>No</th><th>Grade</th><th>Achievement</th><th>유형</th></tr></thead><tbody>${transRows}</tbody></table></div></div>`;
+  return pageTemplate("Voca & Translation Ⅰ","Vocabulary / Translation Summary",body);
+}
+/* 원본 evaluateExam은 document.getElementById로 입력칸을 읽는데, 여기는 이미 r.obj에
+   답이 다 들어있으니 거기서 바로 만든다 — 계산 로직 자체는 원본과 동일. */
+function buildExamEvaluation(row){
+  const results=E5_EXAM.map(q=>{ const user=String(row.obj[q.no]||''); const correct=user===String(q.ans); return {...q,user,correct,earned:correct?q.score:0}; });
+  const total=results.reduce((a,b)=>a+b.earned,0);
+  const areaStats=Object.fromEntries(['LC','RC'].map(area=>{
+    const items=results.filter(q=>q.area===area);
+    const possible=items.reduce((a,b)=>a+b.score,0), earned=items.reduce((a,b)=>a+b.earned,0);
+    return [area,{earned,possible,rate:percent(earned,possible),correct:items.filter(i=>i.correct).map(i=>i.no),wrong:items.filter(i=>!i.correct).map(i=>i.no)}];
+  }));
+  return {results,total,areaStats,competencies:aggregateBy(results,'competency'),types:aggregateBy(results,'type')};
+}
+const VOCAB_GROUP_COMMENTS={
+  "초3~4":{A:"초3~4학년 수준의 어휘를 이해하고 정확한 뜻을 쓸 수 있습니다. 다음 단계로 난이도를 올려 학습을 시작하세요.",B:"초3~4학년 수준의 어휘를 대체로 이해하고 있습니다. 반복 학습으로 정확도를 더 높여 주세요.",C:"초3~4학년 수준의 기본 어휘부터 다시 확인해 보세요. 쉬운 단어부터 차근차근 복습이 필요합니다."},
+  "초5~6":{A:"초5~6학년 수준의 어휘를 이해하고 정확한 뜻을 쓸 수 있습니다. 다음 단계로 난이도를 올려 학습을 시작하세요.",B:"초5~6학년 수준의 어휘를 대체로 이해하고 있습니다. 반복 학습으로 정확도를 더 높여 주세요.",C:"초5~6학년 수준의 핵심 어휘를 다시 점검해 보세요. 뜻을 정확히 연결하는 연습이 필요합니다."},
+  "중1":{A:"중1학년 수준의 어휘를 이해하고 정확한 뜻을 쓸 수 있습니다. 다음 단계로 난이도를 올려 학습을 시작하세요.",B:"중1학년 수준의 어휘를 다소 이해하고 뜻을 쓸 수 있습니다. 보다 철저한 학습을 통해 현재의 어휘 이해 수준을 높여 나가세요.",C:"중1학년 수준의 어휘 학습을 시작해보세요. 예문과 함께 학습하는 것을 추천합니다."},
+  "중2":{A:"중2학년 수준의 어휘를 이해하고 정확한 뜻을 쓸 수 있습니다. 다음 단계로 난이도를 올려 학습을 시작하세요.",B:"중2학년 수준의 어휘를 다소 이해하고 뜻을 쓸 수 있습니다. 보다 철저한 학습을 통해 현재의 어휘 이해 수준을 높여 나가세요.",C:"중2학년 수준의 어휘 학습을 시작해보세요. 예문과 함께 학습하는 것을 추천합니다."},
+  "중3":{A:"중3학년 수준의 어휘를 이해하고 정확한 뜻을 쓸 수 있습니다. 다음 단계로 난이도를 올려 학습을 시작하세요.",B:"중3학년 수준의 어휘를 다소 이해하고 뜻을 쓸 수 있습니다. 보다 철저한 학습을 통해 현재의 어휘 이해 수준을 높여 나가세요.",C:"중3학년 수준의 어휘 학습을 시작해보세요. 예문과 함께 학습하는 것을 추천합니다."},
+  "고1":{A:"고1학년 수준의 어휘를 이해하고 정확한 뜻을 쓸 수 있습니다. 다음 단계 학습도 충분히 가능합니다.",B:"고1학년 수준의 어휘를 다소 이해하고 뜻을 쓸 수 있습니다. 보다 철저한 학습을 통해 현재의 어휘 이해 수준을 높여 나가세요.",C:"고1학년 수준의 어휘 학습을 시작해보세요. 예문과 함께 학습하는 것을 추천합니다."},
+  "고2":{A:"고2학년 수준의 어휘를 이해하고 정확한 뜻을 쓸 수 있습니다. 다음 단계 학습도 충분히 가능합니다.",B:"고2학년 수준의 어휘를 다소 이해하고 뜻을 쓸 수 있습니다. 보다 철저한 학습을 통해 현재의 어휘 이해 수준을 높여 나가세요.",C:"고2학년 수준의 어휘 학습을 시작해보세요. 예문과 함께 학습하는 것을 추천합니다."},
+  "고3":{A:"고3학년 수준의 어휘를 이해하고 정확한 뜻을 쓸 수 있습니다. 다음 단계 학습도 충분히 가능합니다.",B:"고3학년 수준의 어휘를 다소 이해하고 뜻을 쓸 수 있습니다. 보다 철저한 학습을 통해 현재의 어휘 이해 수준을 높여 나가세요.",C:"고3학년 수준의 어휘 학습을 시작해보세요. 예문과 함께 학습하는 것을 추천합니다."}
+};
+function getVocabLetter(rate){ if(rate>=80) return 'A'; if(rate>=40) return 'B'; return 'C'; }
+function buildVTEvaluation(row){
+  const vocabGroupsOrder=["초3~4","초5~6","중1","중2","중3","고1","고2","고3"];
+  const vocabResults=VOCAB_ITEMS.map(item=>{ const raw=String(row.vocab[item.no]||''); const correct=raw==='1'; return {...item,user:raw,correct,earned:correct?1:0,possible:1}; });
+  const vocabGroups=vocabGroupsOrder.map(label=>{
+    const items=vocabResults.filter(item=>item.gradeGroup===label);
+    const earned=items.reduce((s,i)=>s+i.earned,0), possible=items.reduce((s,i)=>s+i.possible,0);
+    const rate=percent(earned,possible); const letter=getVocabLetter(rate);
+    return {label,earned,possible,rate,letter,comment:VOCAB_GROUP_COMMENTS[label]?.[letter]||''};
+  });
+  const vocabTotal={earned:vocabGroups.reduce((s,g)=>s+g.earned,0),possible:vocabGroups.reduce((s,g)=>s+g.possible,0)};
+  vocabTotal.rate=percent(vocabTotal.earned,vocabTotal.possible);
+  const transResults=TRANS_ITEMS.map(item=>{
+    const raw=row.trans[item.no]; const score=(raw===''||raw==null||isNaN(Number(raw)))?0:Number(raw);
+    return {...item,earned:score,rate:percent(score,item.max)};
+  });
+  const transTotal=transResults.reduce((s,i)=>s+i.earned,0), transPossible=transResults.reduce((s,i)=>s+i.max,0);
+  return {vocabResults,vocabGroups,vocabTotal,vocabPossible:vocabTotal.possible,transResults,transTotal,transPossible};
+}
+/* "성적표" 버튼 — 채점 중이던 화면(총점/레벨 탭)은 그대로 두고 새 탭에서 띄운다.
+   레벨테스트 쪽 style.css를 그대로 끌어다 써서(링크만) 인쇄 레이아웃까지 똑같이 나온다.
+   title을 'E6'로 두는 이유: 이 시험 내용 자체가 레벨테스트 E6 문제와 완전히 같아서
+   (문항·정답 100% 동일, 이 파일 만들 때 대조 확인함), 로드맵 보정 로직이
+   "초5가 E6 시험을 보면 초등6 로드맵으로 본다"는 조건을 그대로 타게 하려는 것. */
+function openReportCard(id){
+  const r=findRow(id); if(!r) return;
+  const evaluation=buildExamEvaluation(r);
+  const vtEvaluation=buildVTEvaluation(r);
+  const testDate='';
+  const mainReport=renderGeneralReport(r.code,r.name,r.school,r.grade||'초등5','','E6',E5_EXAM,evaluation,r.finalLevel,r.grade||'초등5');
+  const vtReport=renderVTReport(r.code,r.name,r.school,r.grade||'초등5','','Voca & Translation',vtEvaluation);
+  const base=location.href.replace(/[^\/]*$/,'');
+  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+    <title>${esc(r.name)} 성적표</title>
+    <base href="${base}">
+    <link rel="stylesheet" href="leveltest/style.css">
+    </head><body>
+    <div class="top-bar no-print sticky-actions">
+      <button onclick="window.print()">인쇄</button>
+    </div>
+    <div id="reportArea" class="report-scale-fix">${mainReport}${vtReport}</div>
+    </body></html>`;
+  const win=window.open('', '_blank');
+  if(!win){ toast('팝업이 막혔어요 — 브라우저에서 팝업 허용해주세요',false); return; }
+  win.document.open(); win.document.write(html); win.document.close();
+}
 
 window.addEventListener('DOMContentLoaded', boot);
 </script>
