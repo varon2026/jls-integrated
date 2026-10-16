@@ -919,37 +919,50 @@ function buildVTEvaluation(row){
    "초5가 E6 시험을 보면 초등6 로드맵으로 본다"는 조건을 그대로 타게 하려는 것. */
 function openReportCard(id){
   const r=findRow(id); if(!r) return;
-  const evaluation=buildExamEvaluation(r);
-  const vtEvaluation=buildVTEvaluation(r);
-  const testDate='';
-  const grade=r.grade||'초등5';
-  /* 화면에 보이는 시험지명은 'E5 진급 테스트'로 바꾸고 싶었지만, 로드맵 보정 로직
-     (getReportGradeForExam)은 시험지명에 'E6'가 들어있어야 "초5가 E6 시험을 봤으니
-     로드맵은 초등6 트랙"으로 잡아준다. 그래서 로드맵용 학년(reportGrade)은 'E6'로
-     먼저 미리 계산해서 넘기고, 화면에 보이는 title만 따로 'E5 진급 테스트'로 둔다 —
-     reportGrade가 이미 '초등6'이면 buildRoadmapBars 안에서 다시 보정할 때도
-     (학년이 이제 '초5'가 아니니) 그대로 통과돼서 문제없다. */
-  const reportGrade=getReportGradeForExam(grade,'E6');
-  const mainReport=renderGeneralReport(r.code,r.name,r.school,grade,'','E5 진급 테스트',E5_EXAM,evaluation,r.finalLevel,reportGrade);
-  const vtReport=renderVTReport(r.code,r.name,r.school,grade,'','Voca & Translation',vtEvaluation);
-  const base=location.href.replace(/[^\/]*$/,'');
-  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
-    <title>${esc(r.name)} 성적표</title>
-    <base href="${base}">
-    <link rel="stylesheet" href="leveltest/style.css">
-    <!-- leveltest/style.css는 안 건드리고(레벨테스트 쪽 성적표는 그대로 둬야 함),
-         이 페이지 안에서만 덮어쓴다. 표지 안내문(.intro-box) 줄바꿈이 원래 정해진
-         위치(<br>)에 비해 글씨가 커서 어색하게 끊겨 보인다는 지적 — 한 단계 줄임. */
-    <style>.intro-box{font-size:14px}</style>
-    </head><body>
-    <div class="top-bar no-print sticky-actions">
-      <button onclick="window.print()">인쇄</button>
-    </div>
-    <div id="reportArea" class="report-scale-fix">${mainReport}${vtReport}</div>
-    </body></html>`;
+  /* 클릭하자마자 바로 window.open부터 한다 — 성적표 HTML을 다 만든 다음에 열면
+     "클릭하고 조금 있다 열리는 창"이 되어서 일부 브라우저가 팝업으로 안 쳐주고
+     막아버릴 수 있다(사용자 클릭과 즉시 이어져야 안전하게 허용됨).
+     그 다음 내용을 채우다 에러가 나도, 빈 탭만 덩그러니 남기지 않고 이 탭 안에
+     에러 메시지를 그대로 써준다 — "눌렀더니 흰 화면만 뜬다"는 게 바로 이 경우라,
+     뭐가 문제인지 안 보이면 다음에도 똑같이 막막해진다. */
   const win=window.open('', '_blank');
   if(!win){ toast('팝업이 막혔어요 — 브라우저에서 팝업 허용해주세요',false); return; }
-  win.document.open(); win.document.write(html); win.document.close();
+  win.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>성적표 준비 중…</title></head><body style="font-family:sans-serif;padding:40px;color:#888">성적표를 만드는 중이에요…</body></html>');
+  try{
+    const evaluation=buildExamEvaluation(r);
+    const vtEvaluation=buildVTEvaluation(r);
+    const grade=r.grade||'초등5';
+    /* 화면에 보이는 시험지명은 'E5 진급 테스트'로 바꾸고 싶었지만, 로드맵 보정 로직
+       (getReportGradeForExam)은 시험지명에 'E6'가 들어있어야 "초5가 E6 시험을 봤으니
+       로드맵은 초등6 트랙"으로 잡아준다. 그래서 로드맵용 학년(reportGrade)은 'E6'로
+       먼저 미리 계산해서 넘기고, 화면에 보이는 title만 따로 'E5 진급 테스트'로 둔다 —
+       reportGrade가 이미 '초등6'이면 buildRoadmapBars 안에서 다시 보정할 때도
+       (학년이 이제 '초5'가 아니니) 그대로 통과돼서 문제없다. */
+    const reportGrade=getReportGradeForExam(grade,'E6');
+    const mainReport=renderGeneralReport(r.code,r.name,r.school,grade,'','E5 진급 테스트',E5_EXAM,evaluation,r.finalLevel,reportGrade);
+    const vtReport=renderVTReport(r.code,r.name,r.school,grade,'','Voca & Translation',vtEvaluation);
+    const base=location.href.replace(/[^\/]*$/,'');
+    const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+      <title>${esc(r.name)} 성적표</title>
+      <base href="${base}">
+      <link rel="stylesheet" href="leveltest/style.css">
+      <!-- leveltest/style.css는 안 건드리고(레벨테스트 쪽 성적표는 그대로 둬야 함),
+           이 페이지 안에서만 덮어쓴다. 표지 안내문(.intro-box) 줄바꿈이 원래 정해진
+           위치(<br>)에 비해 글씨가 커서 어색하게 끊겨 보인다는 지적 — 한 단계 줄임. */
+      <style>.intro-box{font-size:14px}</style>
+      </head><body>
+      <div class="top-bar no-print sticky-actions">
+        <button onclick="window.print()">인쇄</button>
+      </div>
+      <div id="reportArea" class="report-scale-fix">${mainReport}${vtReport}</div>
+      </body></html>`;
+    win.document.open(); win.document.write(html); win.document.close();
+  }catch(e){
+    win.document.open();
+    win.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>오류</title></head><body style="font-family:sans-serif;padding:40px;color:#c0392b">성적표를 만들다 오류가 났어요:<br><pre style="white-space:pre-wrap;font-size:13px">'+esc(String(e&&e.stack||e))+'</pre></body></html>');
+    win.document.close();
+    toast('성적표 생성 중 오류가 났어요: '+(e&&e.message||e),false);
+  }
 }
 
 window.addEventListener('DOMContentLoaded', boot);
