@@ -937,6 +937,10 @@ function openReportCard(id){
     <title>${esc(r.name)} 성적표</title>
     <base href="${base}">
     <link rel="stylesheet" href="leveltest/style.css">
+    <!-- leveltest/style.css는 안 건드리고(레벨테스트 쪽 성적표는 그대로 둬야 함),
+         이 페이지 안에서만 덮어쓴다. 표지 안내문(.intro-box) 줄바꿈이 원래 정해진
+         위치(<br>)에 비해 글씨가 커서 어색하게 끊겨 보인다는 지적 — 한 단계 줄임. */
+    <style>.intro-box{font-size:14px}</style>
     </head><body>
     <div class="top-bar no-print sticky-actions">
       <button onclick="window.print()">인쇄</button>
