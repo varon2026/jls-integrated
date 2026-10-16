@@ -2782,10 +2782,18 @@ async function aceMoveSetHoldBulk(studentIds, cohortSemId, branchId, reason){
   renderAceMoveBody(); /* renderAceMove()는 필터·검색·페이지를 초기화해서 쓰지 않는다 — ACE_MOVE_OUTCOMES는 이미 메모리에 반영됐으니 다시 불러올 필요도 없다 */
 }
 async function aceMoveClearHoldBulk(studentIds, cohortSemId){
-  const {error}=await sb.from('ace_move_outcomes').delete().eq('cohort_semester_id',cohortSemId).in('student_id',studentIds);
+  /* '진급 안함' 기록이 있던 학생만 실제로 지워진다 — 애초에 기본값(진급 예정)
+     이던 학생을 골라서 눌러도 지울 게 없어 0건이 지워진다. 그런데도 항상
+     "n명 되돌렸어요"라고 뜨면, 뭘 눌러도 똑같이 성공 토스트만 보이고 뱃지는
+     원래부터 그대로였을 뿐인데 "안 바뀐다"는 오해를 산다. 실제로 지워진
+     개수만큼만 숫자를 보여주고, 0건이면 다르게 안내한다. */
+  const already = studentIds.filter(id=>!ACE_MOVE_OUTCOMES[id]);
+  const {data,error}=await sb.from('ace_move_outcomes').delete().eq('cohort_semester_id',cohortSemId).in('student_id',studentIds).select('student_id');
   if(error){ toast('되돌리기 실패: '+error.message,'err'); return; }
+  const changedCount = data ? data.length : (studentIds.length-already.length);
   studentIds.forEach(id=>{ delete ACE_MOVE_OUTCOMES[id]; ACE_MOVE_SELECTED.delete(id); });
-  toast(`${studentIds.length}명 진급 예정으로 되돌렸어요`);
+  if(changedCount>0) toast(`${changedCount}명 진급 예정으로 되돌렸어요`);
+  else toast('선택한 학생은 이미 진급 예정 상태였어요(바뀐 게 없어요)');
   renderAceMoveBody();
 }
 /* 진급 여부 선택 팝업 — 한 명 클릭이든, 체크박스로 여러 명 고른 뒤 일괄 버튼이든
