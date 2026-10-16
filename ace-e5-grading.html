@@ -922,8 +922,16 @@ function openReportCard(id){
   const evaluation=buildExamEvaluation(r);
   const vtEvaluation=buildVTEvaluation(r);
   const testDate='';
-  const mainReport=renderGeneralReport(r.code,r.name,r.school,r.grade||'초등5','','E6',E5_EXAM,evaluation,r.finalLevel,r.grade||'초등5');
-  const vtReport=renderVTReport(r.code,r.name,r.school,r.grade||'초등5','','Voca & Translation',vtEvaluation);
+  const grade=r.grade||'초등5';
+  /* 화면에 보이는 시험지명은 'E5 진급 테스트'로 바꾸고 싶었지만, 로드맵 보정 로직
+     (getReportGradeForExam)은 시험지명에 'E6'가 들어있어야 "초5가 E6 시험을 봤으니
+     로드맵은 초등6 트랙"으로 잡아준다. 그래서 로드맵용 학년(reportGrade)은 'E6'로
+     먼저 미리 계산해서 넘기고, 화면에 보이는 title만 따로 'E5 진급 테스트'로 둔다 —
+     reportGrade가 이미 '초등6'이면 buildRoadmapBars 안에서 다시 보정할 때도
+     (학년이 이제 '초5'가 아니니) 그대로 통과돼서 문제없다. */
+  const reportGrade=getReportGradeForExam(grade,'E6');
+  const mainReport=renderGeneralReport(r.code,r.name,r.school,grade,'','E5 진급 테스트',E5_EXAM,evaluation,r.finalLevel,reportGrade);
+  const vtReport=renderVTReport(r.code,r.name,r.school,grade,'','Voca & Translation',vtEvaluation);
   const base=location.href.replace(/[^\/]*$/,'');
   const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
     <title>${esc(r.name)} 성적표</title>
