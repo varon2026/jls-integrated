@@ -2476,6 +2476,11 @@ function aceE5Src(){
   p.set('role', session.role||'admin');
   if(session.branchId) p.set('branch', session.branchId);
   if(session.role==='teacher' && session.teacherName) p.set('teacher', session.teacherName);
+  /* ace-e5-grading.html은 app.js(index.html에서 ?v=타임스탬프로 캐시 무효화)와 달리
+     이 iframe 주소엔 그런 장치가 없어서, 고쳐 배포해도 브라우저가 전에 열어본 옛 버전을
+     그대로 쓰는 일이 있었다(성적표 시험지명 바꿨는데 화면엔 계속 옛 글자가 뜨던 것).
+     타임스탬프를 붙여 매번 새 주소로 보이게 해서 캐시를 못 타게 한다. */
+  p.set('v', Date.now());
   return 'ace-e5-grading.html?'+p.toString();
 }
 function renderAceE5(b){
