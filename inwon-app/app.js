@@ -2767,26 +2767,67 @@ async function loadAceMoveOutcomes(cohortSemId){
   }catch(e){ ACE_MOVE_OUTCOMES={}; ACE_MOVE_OUTCOMES_OK=false; }
   ACE_MOVE_OUTCOMES_SEM=cohortSemId;
 }
-async function setAceMoveHold(studentId, cohortSemId, branchId, studentName){
+/* 진급 여부 — 한 명이든 여러 명이든 같은 팝업·같은 함수로 처리한다(체크박스로
+   여러 명 고른 다음 일괄로 눌러도 studentIds 배열만 커질 뿐 로직은 똑같다). */
+async function aceMoveSetHoldBulk(studentIds, cohortSemId, branchId, reason){
   if(!ACE_MOVE_OUTCOMES_OK){ toast('sql/ace_move_outcomes.sql을 먼저 실행해주세요','err'); return; }
-  const reason=prompt(`${studentName} 학생을 '진급 안함'으로 표시하는 사유를 적어주세요.`);
-  if(reason===null) return;
-  if(!reason.trim()){ toast('사유를 입력해야 해요','err'); return; }
-  const payload={id:'amo_'+cohortSemId+'_'+studentId, student_id:studentId, cohort_semester_id:cohortSemId,
-    branch_id:branchId, reason:reason.trim(), updated_by:(session.username||session.teacherName||''), updated_at:new Date().toISOString()};
+  const now=new Date().toISOString();
+  const payload=studentIds.map(studentId=>({id:'amo_'+cohortSemId+'_'+studentId, student_id:studentId, cohort_semester_id:cohortSemId,
+    branch_id:branchId, reason:reason.trim(), updated_by:(session.username||session.teacherName||''), updated_at:now}));
   const {error}=await sb.from('ace_move_outcomes').upsert(payload,{onConflict:'student_id,cohort_semester_id'});
   if(error){ toast('저장 실패: '+error.message,'err'); return; }
-  ACE_MOVE_OUTCOMES[studentId]=payload;
-  toast('진급 안함으로 표시했어요');
-  renderAceMove();
+  payload.forEach(p=>{ ACE_MOVE_OUTCOMES[p.student_id]=p; });
+  studentIds.forEach(id=>ACE_MOVE_SELECTED.delete(id));
+  toast(`${studentIds.length}명 진급 안함으로 표시했어요`);
+  renderAceMoveBody(); /* renderAceMove()는 필터·검색·페이지를 초기화해서 쓰지 않는다 — ACE_MOVE_OUTCOMES는 이미 메모리에 반영됐으니 다시 불러올 필요도 없다 */
 }
-async function clearAceMoveHold(studentId, cohortSemId, studentName){
-  if(!confirm(`${studentName} 학생을 다시 '진급'으로 되돌릴까요?`)) return;
-  const {error}=await sb.from('ace_move_outcomes').delete().eq('student_id',studentId).eq('cohort_semester_id',cohortSemId);
+async function aceMoveClearHoldBulk(studentIds, cohortSemId){
+  const {error}=await sb.from('ace_move_outcomes').delete().eq('cohort_semester_id',cohortSemId).in('student_id',studentIds);
   if(error){ toast('되돌리기 실패: '+error.message,'err'); return; }
-  delete ACE_MOVE_OUTCOMES[studentId];
-  toast('다시 진급으로 되돌렸어요');
-  renderAceMove();
+  studentIds.forEach(id=>{ delete ACE_MOVE_OUTCOMES[id]; ACE_MOVE_SELECTED.delete(id); });
+  toast(`${studentIds.length}명 진급 예정으로 되돌렸어요`);
+  renderAceMoveBody();
+}
+/* 진급 여부 선택 팝업 — 한 명 클릭이든, 체크박스로 여러 명 고른 뒤 일괄 버튼이든
+   똑같은 팝업으로 들어온다. '진급 안함'을 고르면 그 자리에서 사유를 받는다. */
+let ACE_MOVE_CHOICE_CTX=null;
+function openAceMoveChoice(studentIds, cohortSemId, branchId, label){
+  if(!studentIds.length) return;
+  ACE_MOVE_CHOICE_CTX={studentIds, cohortSemId, branchId};
+  openModal(`
+    <div class="modal-head"><div><h3>진급 여부 선택</h3><div class="mh-sub">${esc(label)}</div></div>
+      <button class="modal-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:10px">
+        <button class="btn" style="flex:1;padding:18px 10px;font-size:14px;font-weight:700" onclick="aceMoveChoicePick('promote')">진급 예정</button>
+        <button class="btn" style="flex:1;padding:18px 10px;font-size:14px;font-weight:700;background:var(--neg-s);color:var(--neg);border-color:#f0b6b8" onclick="aceMoveChoicePick('hold')">진급 안함</button>
+      </div>
+    </div>`);
+}
+function aceMoveChoicePick(choice){
+  const ctx=ACE_MOVE_CHOICE_CTX; if(!ctx) return;
+  if(choice==='promote'){ closeModal(); aceMoveClearHoldBulk(ctx.studentIds, ctx.cohortSemId); return; }
+  const reason=prompt(`${ctx.studentIds.length>1?ctx.studentIds.length+'명':'1명'} 학생을 '진급 안함'으로 표시하는 사유를 적어주세요.`);
+  if(reason===null) return;
+  if(!reason.trim()){ toast('사유를 입력해야 해요','err'); return; }
+  closeModal();
+  aceMoveSetHoldBulk(ctx.studentIds, ctx.cohortSemId, ctx.branchId, reason);
+}
+/* 체크박스 선택 — 퇴원 확정된 학생은 진급 여부 자체가 의미 없어서 선택 대상에서 뺀다. */
+let ACE_MOVE_SELECTED=new Set();
+function aceMoveToggleSelect(studentId, checked){
+  if(checked) ACE_MOVE_SELECTED.add(studentId); else ACE_MOVE_SELECTED.delete(studentId);
+  aceMoveRenderResults();
+}
+function aceMoveSelectAllVisible(){
+  aceMoveFiltered().forEach(x=>{ if(!x.withdrawn) ACE_MOVE_SELECTED.add(x.rec.studentId); });
+  aceMoveRenderResults();
+}
+function aceMoveClearSelection(){ ACE_MOVE_SELECTED.clear(); aceMoveRenderResults(); }
+function aceMoveBulkOpen(){
+  const ids=[...ACE_MOVE_SELECTED];
+  if(!ids.length) return;
+  openAceMoveChoice(ids, ACE_MOVE_FULLLIST.cohortSemId, (session.role==='teacher'?session.branchId:activeBranchId()), `선택한 ${ids.length}명 일괄 처리`);
 }
 function aceMoveSetPage(n){ state.aceMovePage=n; render(); }
 const ACE_MOVE_PER=15;
@@ -2836,9 +2877,8 @@ function aceMoveStatusOf(x){
   if(x.withdrawn) return 'withdraw';
   return ACE_MOVE_OUTCOMES[x.rec.studentId] ? 'hold' : 'promote';
 }
-function aceMoveOutcomeCell(x){
-  const r=x.rec, st=getStudent(r.studentId);
-  const name = esc(st?st.name:'');
+/* 상태 배지만(클릭 동작 없음) — 선택 버튼·일괄 처리 결과창에서 같이 쓴다. */
+function aceMoveStatusBadge(x){
   const status = aceMoveStatusOf(x);
   if(status==='withdraw'){
     const reasonCode = x.curRec && x.curRec.withdrawReason;
@@ -2846,16 +2886,30 @@ function aceMoveOutcomeCell(x){
     return `<span class="status-badge withdraw" title="${esc(reasonLabel)}">퇴원</span>`;
   }
   if(status==='hold'){
-    const outcome = ACE_MOVE_OUTCOMES[r.studentId];
-    return `<span class="ca-early" title="${esc(outcome.reason)}" style="cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700" onclick="clearAceMoveHold('${r.studentId}','${x.cohortSemId}','${name}')">진급 안함 ↺</span>`;
+    const outcome = ACE_MOVE_OUTCOMES[x.rec.studentId];
+    return `<span class="ca-early" title="${esc(outcome.reason)}" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">진급 안함</span>`;
   }
-  /* 버튼을 안 눌렀으면(기본값) 전부 똑같이 '진급'(초록)으로 보여서, 실제로 반이
+  /* 아무 버튼도 안 눌렀으면 전부 똑같이 '진급'(초록)으로 보여서, 실제로 반이
      이미 바뀐 애(얼리버드)랑 아직 아무 결정도 안 된 애가 똑같이 '이미 확정된
-     것처럼' 보였다. 반이 진짜 에이스로 바뀐 애만 '이관완료'(확정, 클릭 불가),
-     아직인 애는 '진급 예정'(기본값, 회색, 클릭하면 여전히 진급 안함으로 표시
-     가능)으로 나눠서 한눈에 뭐가 진짜 끝난 건지 보이게 한다. */
+     것처럼' 보였다. 반이 진짜 에이스로 바뀐 애만 '이관완료'(확정), 아직인 애는
+     '진급 예정'(기본값, 회색)으로 나눠서 뭐가 진짜 끝난 건지 보이게 한다. */
   if(x.early) return `<span class="ca-ace" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">이관완료</span>`;
-  return `<span class="ca-wait" title="클릭하면 '진급 안함'으로 표시" style="cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700" onclick="setAceMoveHold('${r.studentId}','${x.cohortSemId}','${esc(x.branchIdForSave)}','${name}')">진급 예정</span>`;
+  return `<span class="ca-wait" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">진급 예정</span>`;
+}
+/* 진급여부 칸 — 직접 클릭해서 바로 바뀌는 대신(언제 눌러야 하는지 헷갈린다는
+   지적), 퇴원 확정된 애 말고는 전부 '진급여부 선택' 버튼을 두고 팝업에서
+   진급예정/진급안함을 고르게 한다. 얼리버드로 이미 반이 바뀐 애도 나중에
+   되돌릴 일이 있을 수 있어 버튼은 똑같이 둔다. */
+function aceMoveOutcomeCell(x){
+  const r=x.rec, st=getStudent(r.studentId);
+  const name = esc(st?st.name:'');
+  const badge = aceMoveStatusBadge(x);
+  if(x.withdrawn) return badge;
+  return `<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+    ${badge}
+    <button class="btn sm" style="padding:3px 9px;height:auto;font-size:11px"
+      onclick="openAceMoveChoice(['${r.studentId}'],'${x.cohortSemId}','${esc(x.branchIdForSave)}','${name}')">진급여부 선택</button>
+  </div>`;
 }
 /* 필터 상태 — 명단 화면 들어올 때마다 초기화(이전에 걸어둔 필터가 다른 분원·학기에서
    그대로 남아있지 않게). 드롭다운·검색창은 re-fetch 없이 renderAceMoveBody만 다시 부른다. */
@@ -2902,7 +2956,10 @@ function aceMoveResultsHtml(isTeacherView, branchId, cohortSemId){
   const rows = pageList.map((x,i)=>{
     const r = x.rec, st = getStudent(r.studentId);
     const ex = ACE_EXAM_RESULTS[r.studentId];
+    const checkCell = x.withdrawn ? '<td></td>'
+      : `<td><input type="checkbox" ${ACE_MOVE_SELECTED.has(r.studentId)?'checked':''} onchange="aceMoveToggleSelect('${r.studentId}',this.checked)"></td>`;
     return `<tr>
+      ${checkCell}
       <td>${(pg-1)*ACE_MOVE_PER+i+1}</td>
       <td>${esc(st?st.name:'')}</td>
       ${isTeacherView?'':`<td>${esc(r.teacher)}</td>`}
@@ -2914,10 +2971,17 @@ function aceMoveResultsHtml(isTeacherView, branchId, cohortSemId){
     </tr>`;
   }).join('');
 
+  const selN = ACE_MOVE_SELECTED.size;
   return `
     <div class="sect-head"><h3>이관 대상자 명단</h3><span class="cnt">${list.length}명</span></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:9px 12px;margin-bottom:10px">
+      <span style="font-size:12.5px;font-weight:700;color:var(--ink-2)">선택 ${selN}명</span>
+      <button class="btn sm primary" ${selN?'':'disabled'} onclick="aceMoveBulkOpen()">선택한 학생 진급여부 일괄 선택</button>
+      <button class="btn sm" onclick="aceMoveSelectAllVisible()">보이는 학생 전체선택</button>
+      <button class="btn sm" onclick="aceMoveClearSelection()">선택 해제</button>
+    </div>
     <div class="table-wrap"><div class="table-scroll"><table class="grid">
-      <thead><tr><th style="width:44px">번호</th><th style="width:90px">이름</th>${isTeacherView?'':'<th style="width:110px">담임</th>'}<th style="width:110px">가을학기 레벨</th><th style="width:100px">ACE 진급레벨</th><th style="width:110px">점수</th><th style="width:80px">성적표</th><th style="width:100px">진급 여부</th></tr></thead>
+      <thead><tr><th style="width:34px"></th><th style="width:44px">번호</th><th style="width:90px">이름</th>${isTeacherView?'':'<th style="width:110px">담임</th>'}<th style="width:110px">가을학기 레벨</th><th style="width:100px">ACE 진급레벨</th><th style="width:110px">점수</th><th style="width:80px">성적표</th><th style="width:120px">진급 여부</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>${aceMovePager(pg, pgN, list.length)}</div>`;
 }
@@ -3018,6 +3082,7 @@ async function renderAceMove(){
   fullList.cohortSemId=cohortSemId; fullList.semId=semId;
   ACE_MOVE_FULLLIST=fullList;
   ACE_MOVE_FILTER={teacher:'',level:'',status:'',q:''};
+  ACE_MOVE_SELECTED.clear();
   state.aceMovePage=1;
 
   renderAceMoveBody();
