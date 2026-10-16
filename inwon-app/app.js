@@ -1409,6 +1409,13 @@ function aceMoveCandidates(branchId, semId){
   const cohortRecs = recordsOf(branchId, cohortSemId).filter(r=>{
     if(!isGradeE5(r.grade)) return false;
     if(isChess(r.className)) return true;
+    /* B레벨은 직전 학기 이력과 무관하게 조기 이관생으로 본다 — 초5 ACE
+       진급시험 화면(ace-e5-grading.html)과 같은 기준. 직전 학기 체스
+       이력으로만 판정하면, 직전 학기 기록이 아예 없는 신입생(전학·신규
+       등록 등)이 이번 학기에 바로 B레벨로 들어와도 명단에서 빠진다 —
+       그 화면 쪽은 이미 이 문제를 겪고 고쳐 둔 규칙이라 그대로 맞춘다.
+       (A1/A2처럼 원래부터 에이스인 레벨은 여기 안 들어와야 해서 B만 본다.) */
+    if(levelAlphaOf(r.className)==='B') return true;
     const prev = prevMap.get(r.studentId);
     return !!(prev && isChess(prev.className));
   });
