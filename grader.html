@@ -279,6 +279,10 @@ let SCORED_SECTIONS=new Set();  // 내신모의고사용 — "코드|레벨|영�
    낀 경우)을 사람이 학생 단위로 직접 지정. 표 없이도(SQL 안 돌렸어도) 안 죽게 빈 채로 둔다. */
 let NAESIN_OV={};
 let NAESIN_OV_OK=true;
+/* 시험(DT/AT/내신모의고사)별 명단 제외 — 퇴원은 아니지만 휴원이거나 그 시험만 안 보는
+   학생을 반 명단에서 빼되, 왜 뺐는지는 남긴다. 키는 "회원코드|시험종류". */
+let EXAM_REMOVALS={};
+let EXAM_RM_OK=true;
 
 /* ---- 재시험관리(Phase 2) 전역 상태 ----
    PAGE='exam'(기존 답안입력/정답등록) 또는 'retest'(새 화면). 사이드바 맨 아래 별도 메뉴로 들어감.
@@ -359,6 +363,9 @@ function isNaesin(r){
 /* AT는 '정답키에 있는 레벨(대괄호 베이스)'인 반만 대상 — 수능반·모의고사반 등 키 없는 반 제외 */
 function atHasKey(r){return variantsForBase(levelCode(r.className)).length>0;}
 function inScopeFor(exam,r){if(exam==='DT')return r.chess;if(exam==='AT')return !r.chess&&atHasKey(r);return isNaesin(r);}
+/* 퇴원은 아니지만(계속 재원) 이 시험만 빼기로 한 학생 — 담임이 '제외' 누른 경우.
+   isRemoved는 "시험 채점 명단"에서만 뺀다. 재원 여부(ROSTER 자체)는 안 건드린다. */
+function isExamRemoved(r,exam){return !!EXAM_REMOVALS[r.code+'|'+exam];}
 function normLv(s){return String(s||'').replace(/\s/g,'').toUpperCase();}
 /* 레벨 정렬: CHESS는 IS→DS→LS→MS 순, 그 안에서 A~D·1~2. 그 외(ACE/내신)는 이름순 */
 function lvSort(a,b){
@@ -398,7 +405,7 @@ async function loadAll(){
   const m={};all.forEach(r=>{if(r.status==='active')m[r.semester_id]=(m[r.semester_id]||0)+1;});
   SEM_IDS=Object.keys(m).sort((a,c)=>m[c]-m[a]);
   if(!SEM) SEM=SEM_IDS[0]||(SEMS[0]&&SEMS[0].id);
-  await Promise.all([loadRoster(),loadKeys(),loadConfig(),loadNaesinOverrides()]);
+  await Promise.all([loadRoster(),loadKeys(),loadConfig(),loadNaesinOverrides(),loadExamRemovals()]);
   await loadScored();
 }
 async function loadRoster(){
@@ -418,6 +425,14 @@ async function loadNaesinOverrides(){
   if(error){ NAESIN_OV_OK=false; NAESIN_OV={}; return; }
   NAESIN_OV_OK=true; NAESIN_OV={};
   (data||[]).forEach(r=>{ NAESIN_OV[r.student_code]=r.override; });
+}
+/* sql/exam_roster_removals.sql을 아직 안 돌린 사이트도 있을 수 있어서, 표가 없으면
+   그냥 빈 채로 두고 조용히 넘어간다 — 제외 기능만 꺼지고 나머지는 그대로 작동. */
+async function loadExamRemovals(){
+  const{data,error}=await sb.from('exam_roster_removals').select('*').eq('semester_id',SEM);
+  if(error){ EXAM_RM_OK=false; EXAM_REMOVALS={}; return; }
+  EXAM_RM_OK=true; EXAM_REMOVALS={};
+  (data||[]).forEach(r=>{ EXAM_REMOVALS[r.student_code+'|'+r.test_type]={reason:r.reason,removed_at:r.removed_at}; });
 }
 async function loadScored(){
   try{ const rows=await fetchAll('exam_scores','student_code,test_type,semester,section,key_name',q=>q.eq('test_type',EXAM).eq('semester',semName(SEM)));
@@ -863,7 +878,7 @@ async function rtToggleMakeup(type,code){
   render();
 }
 
-function scopedRoster(brOverride){const br=(brOverride===undefined)?BRANCH:brOverride;return ROSTER.filter(r=>(!br||r.branchId===br)&&(!TEACHER||String(r.teacher||'').split(',').some(t=>t.trim()===TEACHER))&&inScopeFor(EXAM,r));}
+function scopedRoster(brOverride){const br=(brOverride===undefined)?BRANCH:brOverride;return ROSTER.filter(r=>(!br||r.branchId===br)&&(!TEACHER||String(r.teacher||'').split(',').some(t=>t.trim()===TEACHER))&&inScopeFor(EXAM,r)&&!isExamRemoved(r,EXAM));}
 function levelsForExam(br){
   const m=new Map();
   scopedRoster(br).forEach(r=>{const code=EXAM==='내신모의고사'?naesinGrade(r):levelCode(r.className);if(!code)return;
@@ -889,11 +904,21 @@ function classesForExam(br){
        근데 목록 배지에 그대로 쓰면 반마다 다 'E6'만 찍혀서 뭐가 뭔지 구분이 안 된다
        (AT 입력처럼 A1/A2/B 같은 실제 레벨이 찍혀야 어느 반인지 알고 클릭할 수 있다).
        묶는 기준은 그대로 두고, 배지 표시용으로 실제 반 레벨을 따로 둔다. */
-    if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,dispCode:levelCode(r.className),chess:r.chess,branchName:r.branchName,recs:[],hasOverride:false});
+    if(!m.has(key))m.set(key,{key,className:r.className,classLabel:r.classLabel||r.className,levelCode:code,dispCode:levelCode(r.className),chess:r.chess,branchId:r.branchId,branchName:r.branchName,recs:[],hasOverride:false});
     if(NAESIN_OV[r.code])m.get(key).hasOverride=true;
     m.get(key).recs.push(r);
   });
   return [...m.values()].sort((a,b)=>lvSort(a.levelCode,b.levelCode)||a.className.localeCompare(b.className));
+}
+/* 이 반 소속인데 이번 시험 명단에서 빠진(제외된) 학생 — scopedRoster가 이미 걸러내서
+   cls.recs엔 안 보이니, ROSTER 원본에서 따로 다시 찾는다. */
+function removedStudentsFor(cls){
+  return ROSTER.filter(r=>{
+    if(r.branchId!==cls.branchId || r.className!==cls.className) return false;
+    if(!inScopeFor(EXAM,r)) return false;
+    if(EXAM==='내신모의고사' && naesinGrade(r)!==cls.levelCode) return false;
+    return isExamRemoved(r,EXAM);
+  });
 }
 /* 반 이름에서 요일·담임 등 세부 표기만 뽑아 보기 좋게 (레벨 대괄호는 뺌) */
 function classDetail(cn){return String(cn||'').replace(/^\s*\[[^\]\/]*\]?\s*/,'').trim()||cn;}
@@ -1131,6 +1156,56 @@ function renderAnswerView(){
 function toggleDD(){const l=$('ddList');l.style.display=l.style.display==='none'?'':'none';}
 function pickClass(key){CURCLASS=key;CURTAB=EXAM==='내신모의고사'?'지필평가':'독해';renderAnswerView();}
 
+/* ---------- 시험 명단 제외 — 퇴원 아님, 이 시험(DT/AT/내신모의고사) 명단에서만 뺀다 ----------
+   담임은 못 건드린다. 사유 없이는 못 빼게 prompt()로 받는다(빈 값·취소면 중단).
+   빼도 안 지워지고 그 반 화면 안에 "제외된 학생"으로 남아서 왜 뺐는지·누가 뺐는지 보이고
+   되돌릴 수 있다. */
+function examRemoveBtn(code){
+  if(ROLE==='teacher') return '';
+  return `<button class="ghost mini danger" style="margin-top:4px" onclick="removeFromRoster('${esc(code)}')">제외</button>`;
+}
+async function removeFromRoster(code){
+  if(ROLE==='teacher')return;
+  if(!EXAM_RM_OK){toast('sql/exam_roster_removals.sql을 먼저 실행해주세요',false);return;}
+  const name=(ROSTER.find(r=>r.code===code)||{}).name||'';
+  const reason=prompt(`${name} 학생을 ${EXAM} 명단에서 빼는 사유를 적어주세요.\n(퇴원 처리가 아니라 이 시험 채점 명단에서만 빠집니다 — 휴원·시험 미응시 등)`);
+  if(reason===null) return;
+  if(!reason.trim()){ toast('사유를 입력해야 빠져요',false); return; }
+  const payload={id:'xrm_'+SEM+'_'+EXAM+'_'+code,student_code:code,test_type:EXAM,semester_id:SEM,reason:reason.trim(),removed_by:(CURUSER||TEACHER||''),removed_at:new Date().toISOString()};
+  const{error}=await sb.from('exam_roster_removals').upsert(payload,{onConflict:'student_code,test_type,semester_id'});
+  if(error){toast('저장 실패: '+error.message,false);return;}
+  EXAM_REMOVALS[code+'|'+EXAM]={reason:payload.reason,removed_at:payload.removed_at};
+  toast('명단에서 뺐어요 ✓');
+  renderAnswerView();
+}
+async function restoreToRoster(code){
+  if(ROLE==='teacher')return;
+  if(!confirm('이 학생을 다시 명단에 넣을까요?'))return;
+  const{error}=await sb.from('exam_roster_removals').delete().eq('student_code',code).eq('test_type',EXAM).eq('semester_id',SEM);
+  if(error){toast('복구 실패: '+error.message,false);return;}
+  delete EXAM_REMOVALS[code+'|'+EXAM];
+  toast('명단에 다시 넣었어요 ✓');
+  renderAnswerView();
+}
+function examRemovedPanel(cls){
+  if(ROLE==='teacher') return '';
+  if(!EXAM_RM_OK) return `<div class="card" style="padding:12px 16px;margin-bottom:12px;background:var(--warn-s);color:var(--warn);font-weight:700;font-size:13px">명단 제외 기록 표가 아직 없어요 — sql/exam_roster_removals.sql을 Supabase에서 한 번 실행해주세요.</div>`;
+  const removed=removedStudentsFor(cls);
+  if(!removed.length) return '';
+  const rows=removed.map(r=>{
+    const info=EXAM_REMOVALS[r.code+'|'+EXAM]||{};
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line2)">
+      <div style="flex:1;font-size:13px"><b>${esc(r.name)}</b> <span style="color:var(--ink3);font-size:12px">${esc(r.code||'')}</span>
+        <div style="color:var(--ink3);font-size:12px;margin-top:2px">사유: ${esc(info.reason||'')}</div></div>
+      <button class="ghost mini" onclick="restoreToRoster('${esc(r.code)}')">복구</button>
+    </div>`;
+  }).join('');
+  return `<details class="card" style="padding:12px 16px;margin-bottom:12px;border-color:var(--neg-s)">
+    <summary style="cursor:pointer;font-weight:800;font-size:13.5px;color:var(--ink2)">이 반에서 뺀 학생 (${removed.length}명)</summary>
+    <div style="margin-top:10px">${rows}</div>
+  </details>`;
+}
+
 function curClassObj(){return classesForExam().find(c=>c.key===CURCLASS);}
 function buildGrid(){
   const area=$('gradeArea');
@@ -1148,7 +1223,7 @@ function buildGrid(){
       ${isTeacherRO()?'':`<button class="ghost mini ${isOff?'':'danger'}" onclick="toggleOff('${esc(code)}')">${isOff?'✓ 미응시 해제':'✕ 이 레벨 시험없음(미응시)'}</button>
       ${key&&!isOff?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
       <label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">답안 엑셀↑<input type="file" accept=".xlsx,.xls" hidden onchange="uploadAns(this)"></label>
-      <button class="btn mini" onclick="saveScores()">채점 결과 저장</button>`:''}`}</div>`;
+      <button class="btn mini" onclick="saveScores()">채점 결과 저장</button>`:''}`}</div>`+examRemovedPanel(cls);
   if(isOff){area.innerHTML=head+`<div class="card"><div class="hint">이 레벨은 <b>미응시</b>로 표시돼 있어요.</div></div>`;return;}
   if(!studs.length){area.innerHTML=head+`<div class="card"><div class="hint">이 레벨에 학생이 없어요.</div></div>`;return;}
   // 정답키 없어도 명단은 보여줌
@@ -1171,7 +1246,7 @@ function buildGrid(){
     ans.forEach((a,ci)=>{const sa=a.type==='sa';
       cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="numeric" maxlength="1" ${sa?'placeholder="1/0"':''} ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?'주관식: 맞으면 1, 틀리면 0 입력':'객관식: 1~5'}" oninput="onCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
     parts.forEach(p=>{cells+=`<td class="sc" data-part="${esc(p)}">0</td>`;});
-    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}</td>`;
+    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}${examRemoveBtn(r.code)}</td>`;
     body+=`<tr data-sid="${r.studentId}" data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   area.innerHTML=head+`
@@ -1415,6 +1490,7 @@ function buildAceArea(){
       <div style="margin-top:10px;display:flex;gap:8px">${tabs}</div>
       ${CURTAB!=='총점'?`<div style="margin-top:10px">${cutlineChip()}</div>`:''}
     </div>
+    ${examRemovedPanel(cls)}
     <div id="aceContent">${content}</div>`;
   if(CURTAB==='총점')loadAceSummary(); else loadAceSaved(CURTAB).then(applyAceCutline);
 }
@@ -1429,7 +1505,7 @@ function buildAceGrid(section){
   studs.forEach((r,ri)=>{
     let cells=`<td class="stu"><b>${esc(r.name)}</b><div class="c">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
     ans.forEach((a,ci)=>{const sa=a.type==='sa';cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="${sa?'decimal':'numeric'}" ${sa?'':'maxlength="1"'} ${sa?`placeholder="0~${a.pt||2}"`:''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?`주관식: 획득 점수 입력 (0~${a.pt||2}, 부분점수 가능)`:'객관식: 1~5'}" oninput="onAceCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
-    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}</td>`;
+    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}${examRemoveBtn(r.code)}</td>`;
     body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   return `<div class="legend">
@@ -1595,6 +1671,7 @@ function buildNaesinArea(){
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${tabs}</div>
     </div>
     ${naesinOvPanel(cls)}
+    ${examRemovedPanel(cls)}
     <div id="naesinContent">${content}</div>`;
   if(CURTAB==='총점')loadNaesinSummary(); else loadNaesinSaved(CURTAB);
 }
@@ -1614,7 +1691,7 @@ function buildNaesinGrid(section){
   studs.forEach((r,ri)=>{
     let cells=`<td class="stu" style="${NAESIN_STU_W}"><b>${esc(r.name)}</b><div class="c" style="white-space:normal">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
     ans.forEach((a,ci)=>{const sa=a.type==='sa';cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="${sa?'decimal':'numeric'}" ${sa?'':'maxlength="1"'} ${sa?`placeholder="0~${a.pt||0}"`:''} ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?`직접채점: 획득 점수 입력 (0~${a.pt||0}, 부분점수 가능)`:'객관식: 1~5'}" oninput="onNaesinCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
-    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}</td>`;
+    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}${examRemoveBtn(r.code)}</td>`;
     body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   const hasSa=ans.some(a=>a.type==='sa');
@@ -1652,7 +1729,7 @@ function buildNaesinPerfGrid(){
     cells+=`<td class="sc" data-sub="Speaking">0</td>`;
     wrt.forEach(a=>{cells+=naesinPerfCell(a,ri,ci);ci++;});
     cells+=`<td class="sc" data-sub="Writing">0</td>`;
-    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}</td>`;
+    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}${examRemoveBtn(r.code)}</td>`;
     body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   return `<div class="legend">
