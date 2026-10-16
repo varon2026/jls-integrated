@@ -681,6 +681,15 @@ table.grid.award-tbl th,
 table.grid.award-tbl td{text-align:center}
 .ca-early{background:var(--warn-soft);color:#a05f18}
 .ca-wait{background:var(--surface-1);color:var(--ink-3)}
+/* ACE 이관생 — 점수칸이 숫자만 있어서 안 들어온다는 지적으로 알약 모양 추가.
+   초5 ACE 진급시험 채점 화면(ace-e5-grading.html)의 .scorepill과 같은 느낌으로 맞춤. */
+.acemv-scorepill{display:inline-flex;align-items:baseline;gap:3px;font-weight:800;padding:3px 9px;border-radius:9px;background:var(--surface-2);color:var(--ink-2);font-size:12.5px;white-space:nowrap}
+.acemv-scorepill .max{font-size:9.5px;font-weight:700;color:var(--ink-3)}
+.acemv-scorepill.good{background:var(--pos-soft);color:var(--pos)}
+.acemv-scorepill.low{background:var(--neg-soft);color:var(--neg)}
+.acemv-filterbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.acemv-filterbar select,.acemv-filterbar input[type=text]{font:inherit;font-size:12.5px;font-weight:700;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--surface);color:var(--ink)}
+.acemv-filterbar input[type=text]{min-width:160px;font-weight:400}
 .closing-ca .clos-ca td{background:var(--surface-1);font-size:12px}
 .closing-ca .clos-ca-cell{color:var(--ink-2)}
 .clos-catag{font-size:11px;font-weight:700;text-align:center;white-space:nowrap}

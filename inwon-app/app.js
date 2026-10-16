@@ -2797,11 +2797,20 @@ function aceMovePager(pg, pgN, total){
   for(let i=1;i<=pgN;i++){ if(i===1||i===pgN||Math.abs(i-pg)<=2) mid+=btn(i,i,false); else if(mid.slice(-3)!=='...') mid+='<span style="color:var(--ink-3);padding:0 2px">...</span>'; }
   return `<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:14px 4px;flex-wrap:wrap">${btn(pg-1,'← 이전',pg<=1)}${mid}${btn(pg+1,'다음 →',pg>=pgN)}</div>`;
 }
+function aceMoveScorePill(value,max,tierUp,tierDown){
+  if(value==null) return '<span style="color:var(--ink-3);font-size:12px">-</span>';
+  const pct = max? Math.round(value/max*100) : 0;
+  const tier = pct>=(tierUp!=null?tierUp:70)?'good':(pct<(tierDown!=null?tierDown:40)?'low':'');
+  return `<span class="acemv-scorepill ${tier}">${value}<span class="max">/${max}</span></span>`;
+}
 function aceMoveScoreCell(studentId){
   const ex = ACE_EXAM_RESULTS[studentId];
   if(!ex) return '<span style="color:var(--ink-3);font-size:12px">미응시</span>';
-  const n=v=>(v==null?'-':v);
-  return `<div style="font-size:11.5px;line-height:1.5;color:var(--ink-2)">객관식 ${n(ex.obj_score)}<br>단어 ${n(ex.vocab_score)}<br>해석 ${n(ex.trans_score)}</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">
+    <span>${aceMoveScorePill(ex.obj_score,100)}</span>
+    <span>${aceMoveScorePill(ex.vocab_score,40)}</span>
+    <span>${aceMoveScorePill(ex.trans_score,100)}</span>
+  </div>`;
 }
 function aceMoveReportLink(branchId, semId, role, studentCode){
   const p=new URLSearchParams();
@@ -2809,58 +2818,93 @@ function aceMoveReportLink(branchId, semId, role, studentCode){
   if(studentCode) p.set('report',studentCode);
   return `../ace-e5-grading.html?${p.toString()}`;
 }
+/* 진급여부 — 통합 상태값 3가지로 정리(퇴원/진급 안함/진급), 필터·배지 둘 다 이걸로 */
+function aceMoveStatusOf(x){
+  if(x.withdrawn) return 'withdraw';
+  return ACE_MOVE_OUTCOMES[x.rec.studentId] ? 'hold' : 'promote';
+}
 function aceMoveOutcomeCell(x){
   const r=x.rec, st=getStudent(r.studentId);
   const name = esc(st?st.name:'');
-  if(x.withdrawn) return '<span class="status-badge withdraw">퇴원</span>';
-  const outcome = ACE_MOVE_OUTCOMES[r.studentId];
-  if(outcome){
+  const status = aceMoveStatusOf(x);
+  if(status==='withdraw'){
+    const reasonCode = x.curRec && x.curRec.withdrawReason;
+    const reasonLabel = reasonCode ? (wdReasonLabel(reasonCode)||reasonCode) : '';
+    return `<span class="status-badge withdraw" title="${esc(reasonLabel)}">퇴원</span>`;
+  }
+  if(status==='hold'){
+    const outcome = ACE_MOVE_OUTCOMES[r.studentId];
     return `<span class="ca-early" title="${esc(outcome.reason)}" style="cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700" onclick="clearAceMoveHold('${r.studentId}','${x.cohortSemId}','${name}')">진급 안함 ↺</span>`;
   }
   return `<span class="ca-ace" style="cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700" onclick="setAceMoveHold('${r.studentId}','${x.cohortSemId}','${esc(x.branchIdForSave)}','${name}')">진급</span>`;
 }
-async function renderAceMove(){
+/* 필터 상태 — 명단 화면 들어올 때마다 초기화(이전에 걸어둔 필터가 다른 분원·학기에서
+   그대로 남아있지 않게). 드롭다운·검색창은 re-fetch 없이 renderAceMoveBody만 다시 부른다. */
+let ACE_MOVE_FILTER={teacher:'',level:'',status:'',q:''};
+let ACE_MOVE_FULLLIST=[];
+function aceMoveSetFilter(key,v){ ACE_MOVE_FILTER[key]=v; state.aceMovePage=1; renderAceMoveBody(); }
+function aceMoveFiltered(){
+  const f=ACE_MOVE_FILTER;
+  return ACE_MOVE_FULLLIST.filter(x=>{
+    if(f.teacher && x.rec.teacher!==f.teacher) return false;
+    if(f.level && (x.fallRec.classLabel||x.fallRec.className)!==f.level) return false;
+    if(f.status && aceMoveStatusOf(x)!==f.status) return false;
+    if(f.q){
+      const st=getStudent(x.rec.studentId);
+      if(!st || !String(st.name).includes(f.q)) return false;
+    }
+    return true;
+  });
+}
+function renderAceMoveBody(){
   const isTeacherView = session.role==='teacher';
   const branchId = isTeacherView ? session.branchId : activeBranchId();
-  const b = getBranch(branchId);
-  const semId = state.semId;
-  crumbs(isTeacherView ? [{label:'ACE 이관생'}] : [{label:`${b.name} Dashboard`, go:'branch'},{label:'ACE 이관생'}]);
+  const cohortSemId = ACE_MOVE_FULLLIST.cohortSemId;
+  const semId = ACE_MOVE_FULLLIST.semId;
 
-  if(!aceMoveSeasonOn(semId)){
-    el('content').innerHTML = `<div class="page-head"><h2>ACE 이관생</h2><div class="sub">${esc(aceSemName(semId))}</div></div>`
-      + emptyState('가을·겨울학기에만 보여요', '이관은 가을학기 이관테스트를 거쳐 겨울학기부터 반영되는 절차라, 그 외 학기엔 대상자가 없습니다.');
-    return;
-  }
+  const teachers=[...new Set(ACE_MOVE_FULLLIST.map(x=>x.rec.teacher).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  const levels=[...new Set(ACE_MOVE_FULLLIST.map(x=>x.fallRec.classLabel||x.fallRec.className).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
 
-  el('content').innerHTML = `<div class="page-head"><h2>ACE 이관생</h2><div class="sub">불러오는 중…</div></div>`;
-  const cohortSemId = aceMoveCohortSemId(semId);
-  await Promise.all([loadAceExamResults(cohortSemId), loadAceMoveOutcomes(cohortSemId)]);
+  const list = aceMoveFiltered().sort((a,b)=>{
+    const an=(getStudent(a.rec.studentId)||{}).name||'', bn=(getStudent(b.rec.studentId)||{}).name||'';
+    return an.localeCompare(bn,'ko');
+  });
 
-  let fullList = aceMoveCandidates(branchId, semId);
-  if(isTeacherView) fullList = fullList.filter(x=>x.rec.teacher===session.teacherName);
-  fullList.forEach(x=>{ x.cohortSemId=cohortSemId; x.branchIdForSave=branchId; });
-
-  const list = fullList.filter(x=>!x.withdrawn);
-  const withdrawnList = fullList.filter(x=>x.withdrawn);
-  const early = fullList.filter(x=>x.early).length;
-  const total = fullList.length;
+  const withdrawNoExam = ACE_MOVE_FULLLIST.filter(x=>aceMoveStatusOf(x)==='withdraw' && !ACE_EXAM_RESULTS[x.rec.studentId]).length;
+  const testedNotPromoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && !x.early && ACE_EXAM_RESULTS[x.rec.studentId]).length;
+  const early = ACE_MOVE_FULLLIST.filter(x=>x.early).length;
+  const total = ACE_MOVE_FULLLIST.length;
   const rate = total? Math.round(early/total*1000)/10 : 0;
 
   let html = `
     <div class="page-head">
       <h2>ACE 이관생</h2>
-      <div class="sub">${isTeacherView?'내 반 · ':esc(b.name)+' · '}초5 · 체스 → 에이스 이관 대상자 · ${esc(aceSemName(semId))}${cohortSemId!==semId?' (가을 '+esc(aceSemName(cohortSemId))+' 명단 기준)':''}</div>
+      <div class="sub">${isTeacherView?'내 반 · ':esc(getBranch(branchId).name)+' · '}초5 · 체스 → 에이스 이관 대상자 · ${esc(aceSemName(semId))}${cohortSemId!==semId?' (가을 '+esc(aceSemName(cohortSemId))+' 명단 기준)':''}</div>
     </div>
-    <div class="kpi-row c2">
+    <div class="kpi-row c4">
       ${kpiCard('이관 대상자', total, {unit:'명'})}
       ${kpiCard('전체 이관율', rate, {unit:'%'})}
+      ${kpiCard('이관시험 안보고 퇴원', withdrawNoExam, {unit:'명'})}
+      ${kpiCard('이관시험 보고 진급 안함', testedNotPromoted, {unit:'명'})}
     </div>`;
 
-  if(fullList.length===0){
+  if(ACE_MOVE_FULLLIST.length===0){
     html += emptyState('대상자가 없습니다', isTeacherView?'내 반에는 초5 체스 이관 대상 학생이 없습니다.':'이 분원에는 초5 체스 이관 대상 학생이 없습니다.');
     el('content').innerHTML = html;
     return;
   }
+
+  const teacherOpts = teachers.map(t=>`<option value="${esc(t)}" ${ACE_MOVE_FILTER.teacher===t?'selected':''}>${esc(t)}</option>`).join('');
+  const levelOpts = levels.map(l=>`<option value="${esc(l)}" ${ACE_MOVE_FILTER.level===l?'selected':''}>${esc(l)}</option>`).join('');
+  const statusOpts = [['promote','진급'],['hold','진급 안함'],['withdraw','퇴원']]
+    .map(([v,l])=>`<option value="${v}" ${ACE_MOVE_FILTER.status===v?'selected':''}>${l}</option>`).join('');
+  html += `
+    <div class="acemv-filterbar">
+      ${isTeacherView?'':`<select onchange="aceMoveSetFilter('teacher',this.value)"><option value="">담임 전체</option>${teacherOpts}</select>`}
+      <select onchange="aceMoveSetFilter('level',this.value)"><option value="">가을학기 레벨 전체</option>${levelOpts}</select>
+      <select onchange="aceMoveSetFilter('status',this.value)"><option value="">진급여부 전체</option>${statusOpts}</select>
+      <input type="text" placeholder="이름 검색" value="${esc(ACE_MOVE_FILTER.q)}" oninput="aceMoveSetFilter('q',this.value)">
+    </div>`;
 
   const pgN=Math.max(1, Math.ceil(list.length/ACE_MOVE_PER));
   const pg=Math.min(Math.max(1, state.aceMovePage||1), pgN);
@@ -2884,12 +2928,12 @@ async function renderAceMove(){
 
   html += `
     <div class="sect-head"><h3>이관 대상자 명단</h3><span class="cnt">${list.length}명</span></div>
-    <div class="table-wrap"><table class="grid">
+    <div class="table-wrap"><div class="table-scroll"><table class="grid">
       <thead><tr><th style="width:44px">번호</th><th style="width:90px">이름</th>${isTeacherView?'':'<th style="width:110px">담임</th>'}<th style="width:110px">가을학기 레벨</th><th style="width:100px">ACE 진급레벨</th><th style="width:110px">점수</th><th style="width:80px">성적표</th><th style="width:100px">진급 여부</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>${aceMovePager(pg, pgN, list.length)}</div>`;
+    </table></div>${aceMovePager(pg, pgN, list.length)}</div>`;
 
-  const earlyList = list.filter(x=>x.early);
+  const earlyList = ACE_MOVE_FULLLIST.filter(x=>x.early);
   if(earlyList.length){
     const hrows = earlyList.map(x=>{
       const r=x.rec, st=getStudent(r.studentId);
@@ -2902,36 +2946,40 @@ async function renderAceMove(){
     }).join('');
     html += `
       <div class="sect-head" style="margin-top:22px"><h3>이관 이력</h3><span class="cnt">직전 학기 대비 반이 체스→에이스로 바뀐 학생 · ${earlyList.length}명</span></div>
-      <div class="table-wrap"><table class="grid">
+      <div class="table-wrap"><div class="table-scroll"><table class="grid">
         <thead><tr><th>이름</th><th>이전 반</th><th>현재 반</th>${isTeacherView?'':'<th>담임</th>'}</tr></thead>
         <tbody>${hrows}</tbody>
-      </table></div>`;
-  }
-
-  if(withdrawnList.length){
-    /* 9월(가을) 코호트엔 있었지만 그 사이 퇴원한 학생 — 운영자 요청: "9월 기준으로
-       이관율을 잰다면서 그때 퇴원한 애들은 왜 명단에 없냐"는 지적으로 추가.
-       명단에서 빼지 않고 맨 아래에 따로 보여준다. */
-    const wrows = withdrawnList.map(x=>{
-      const r=x.rec, st=getStudent(r.studentId);
-      const reasonCode = x.curRec && x.curRec.withdrawReason;
-      const reasonLabel = reasonCode ? (wdReasonLabel(reasonCode)||reasonCode) : '';
-      return `<tr>
-        <td>${esc(st?st.name:'')}</td>
-        ${isTeacherView?'':`<td>${esc(r.teacher)}</td>`}
-        <td><span class="ca-chess" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(x.fallRec.classLabel||x.fallRec.className)}</span></td>
-        <td>${esc(reasonLabel)}</td>
-      </tr>`;
-    }).join('');
-    html += `
-      <div class="sect-head" style="margin-top:22px"><h3>퇴원한 학생</h3><span class="cnt">가을 코호트 소속이었지만 그 사이 퇴원 · ${withdrawnList.length}명</span></div>
-      <div class="table-wrap"><table class="grid">
-        <thead><tr><th>이름</th>${isTeacherView?'':'<th>담임</th>'}<th>가을학기 레벨</th><th>퇴원 사유</th></tr></thead>
-        <tbody>${wrows}</tbody>
-      </table></div>`;
+      </table></div></div>`;
   }
 
   el('content').innerHTML = html;
+}
+async function renderAceMove(){
+  const isTeacherView = session.role==='teacher';
+  const branchId = isTeacherView ? session.branchId : activeBranchId();
+  const b = getBranch(branchId);
+  const semId = state.semId;
+  crumbs(isTeacherView ? [{label:'ACE 이관생'}] : [{label:`${b.name} Dashboard`, go:'branch'},{label:'ACE 이관생'}]);
+
+  if(!aceMoveSeasonOn(semId)){
+    el('content').innerHTML = `<div class="page-head"><h2>ACE 이관생</h2><div class="sub">${esc(aceSemName(semId))}</div></div>`
+      + emptyState('가을·겨울학기에만 보여요', '이관은 가을학기 이관테스트를 거쳐 겨울학기부터 반영되는 절차라, 그 외 학기엔 대상자가 없습니다.');
+    return;
+  }
+
+  el('content').innerHTML = `<div class="page-head"><h2>ACE 이관생</h2><div class="sub">불러오는 중…</div></div>`;
+  const cohortSemId = aceMoveCohortSemId(semId);
+  await Promise.all([loadAceExamResults(cohortSemId), loadAceMoveOutcomes(cohortSemId)]);
+
+  let fullList = aceMoveCandidates(branchId, semId);
+  if(isTeacherView) fullList = fullList.filter(x=>x.rec.teacher===session.teacherName);
+  fullList.forEach(x=>{ x.cohortSemId=cohortSemId; x.branchIdForSave=branchId; });
+  fullList.cohortSemId=cohortSemId; fullList.semId=semId;
+  ACE_MOVE_FULLLIST=fullList;
+  ACE_MOVE_FILTER={teacher:'',level:'',status:'',q:''};
+  state.aceMovePage=1;
+
+  renderAceMoveBody();
 }
 
 /* ============================================================================
