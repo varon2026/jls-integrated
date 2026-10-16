@@ -2796,6 +2796,22 @@ async function aceMoveSetDecisionBulk(studentIds, cohortSemId, branchId, decisio
   toast(`${changed.length}명 ${label}으로 표시했어요`);
   renderAceMoveBody(); /* renderAceMove()는 필터·검색·페이지를 초기화해서 쓰지 않는다 — ACE_MOVE_OUTCOMES는 이미 메모리에 반영됐으니 다시 불러올 필요도 없다 */
 }
+/* 진급/진급안함을 잘못(또는 임시로) 눌렀을 때 아예 '선택 전'으로 되돌리는 것 —
+   진급으로 다시 누르는 것과 다르다(그건 '진급'으로 명시적으로 저장하는 것이고,
+   이건 아예 기록 자체를 지워서 기본 상태로 돌리는 것). */
+async function aceMoveClearDecisionBulk(studentIds, cohortSemId){
+  const target = studentIds.filter(id=>!!ACE_MOVE_OUTCOMES[id]);
+  if(!target.length){
+    toast('선택한 학생은 이미 선택 전 상태였어요(바뀐 게 없어요)');
+    ACE_MOVE_SELECTED.clear(); renderAceMoveBody();
+    return;
+  }
+  const {error}=await sb.from('ace_move_outcomes').delete().eq('cohort_semester_id',cohortSemId).in('student_id',target);
+  if(error){ toast('되돌리기 실패: '+error.message,'err'); return; }
+  studentIds.forEach(id=>{ delete ACE_MOVE_OUTCOMES[id]; ACE_MOVE_SELECTED.delete(id); });
+  toast(`${target.length}명 선택 전으로 되돌렸어요`);
+  renderAceMoveBody();
+}
 /* 진급 여부 선택 팝업 — 한 명 클릭이든, 체크박스로 여러 명 고른 뒤 일괄 버튼이든
    똑같은 팝업으로 들어온다. '진급 안함'을 고르면 그 자리에서 사유를 받는다. */
 let ACE_MOVE_CHOICE_CTX=null;
@@ -2810,11 +2826,13 @@ function openAceMoveChoice(studentIds, cohortSemId, branchId, label){
         <button class="btn" style="flex:1;padding:18px 10px;font-size:14px;font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center" onclick="aceMoveChoicePick('promote')">진급</button>
         <button class="btn" style="flex:1;padding:18px 10px;font-size:14px;font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;background:var(--neg-s);color:var(--neg);border-color:#f0b6b8" onclick="aceMoveChoicePick('hold')">진급 안함</button>
       </div>
+      <button class="btn" style="width:100%;margin-top:10px;padding:10px;font-size:12.5px;color:var(--ink-3)" onclick="aceMoveChoicePick('clear')">선택 취소 (다시 '선택 전'으로)</button>
     </div>`);
 }
 function aceMoveChoicePick(choice){
   const ctx=ACE_MOVE_CHOICE_CTX; if(!ctx) return;
   if(choice==='promote'){ closeModal(); aceMoveSetDecisionBulk(ctx.studentIds, ctx.cohortSemId, ctx.branchId, 'promote', null); return; }
+  if(choice==='clear'){ closeModal(); aceMoveClearDecisionBulk(ctx.studentIds, ctx.cohortSemId); return; }
   const reason=prompt(`${ctx.studentIds.length>1?ctx.studentIds.length+'명':'1명'} 학생을 '진급 안함'으로 표시하는 사유를 적어주세요.`);
   if(reason===null) return;
   if(!reason.trim()){ toast('사유를 입력해야 해요','err'); return; }
