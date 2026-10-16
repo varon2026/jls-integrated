@@ -919,15 +919,14 @@ function buildVTEvaluation(row){
    "초5가 E6 시험을 보면 초등6 로드맵으로 본다"는 조건을 그대로 타게 하려는 것. */
 function openReportCard(id){
   const r=findRow(id); if(!r) return;
-  /* 클릭하자마자 바로 window.open부터 한다 — 성적표 HTML을 다 만든 다음에 열면
-     "클릭하고 조금 있다 열리는 창"이 되어서 일부 브라우저가 팝업으로 안 쳐주고
-     막아버릴 수 있다(사용자 클릭과 즉시 이어져야 안전하게 허용됨).
-     그 다음 내용을 채우다 에러가 나도, 빈 탭만 덩그러니 남기지 않고 이 탭 안에
-     에러 메시지를 그대로 써준다 — "눌렀더니 흰 화면만 뜬다"는 게 바로 이 경우라,
-     뭐가 문제인지 안 보이면 다음에도 똑같이 막막해진다. */
-  const win=window.open('', '_blank');
-  if(!win){ toast('팝업이 막혔어요 — 브라우저에서 팝업 허용해주세요',false); return; }
-  win.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>성적표 준비 중…</title></head><body style="font-family:sans-serif;padding:40px;color:#888">성적표를 만드는 중이에요…</body></html>');
+  /* window.open('', '_blank') 후 win.document.write로 채워넣는 방식은 — 탭 제목은
+     "OOO 성적표"로 바뀌는데 화면은 계속 흰 화면(about:blank)인 증상으로 실패했다.
+     GitHub Pages가 보내는 교차출처 격리 헤더(COOP) 때문에, 같은 사이트인데도
+     열어놓은 창의 document에 바깥에서 글을 쓰는 게 막히는 걸로 보인다(제목만
+     먼저 반영되고 본문 write는 조용히 무시됨 — 흔한 증상).
+     그래서 아예 다른 창의 document를 건드리지 않는 방식으로 바꾼다: 성적표 HTML을
+     Blob으로 만들어 그 Blob 자체의 주소(blob: URL)로 새 탭을 '연다' — 이러면
+     새 탭은 자기 자신의 문서를 읽는 것뿐이라 저 문제를 아예 안 겪는다. */
   try{
     const evaluation=buildExamEvaluation(r);
     const vtEvaluation=buildVTEvaluation(r);
@@ -956,11 +955,14 @@ function openReportCard(id){
       </div>
       <div id="reportArea" class="report-scale-fix">${mainReport}${vtReport}</div>
       </body></html>`;
-    win.document.open(); win.document.write(html); win.document.close();
+    const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    /* window.open(blobUrl,'_blank')는 브라우저에 따라 그래도 팝업으로 걸러질 수 있어서,
+       그 대신 보이지 않는 <a target="_blank">를 만들어 직접 클릭시킨다 — 진짜 링크
+       클릭으로 인식돼서 팝업 차단에 거의 안 걸린다(다운로드·새 탭 열기에 흔히 쓰는 방식). */
+    const a=document.createElement('a');
+    a.href=blobUrl; a.target='_blank'; a.rel='noopener';
+    document.body.appendChild(a); a.click(); a.remove();
   }catch(e){
-    win.document.open();
-    win.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>오류</title></head><body style="font-family:sans-serif;padding:40px;color:#c0392b">성적표를 만들다 오류가 났어요:<br><pre style="white-space:pre-wrap;font-size:13px">'+esc(String(e&&e.stack||e))+'</pre></body></html>');
-    win.document.close();
     toast('성적표 생성 중 오류가 났어요: '+(e&&e.message||e),false);
   }
 }
