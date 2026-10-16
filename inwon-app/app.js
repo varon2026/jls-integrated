@@ -2856,17 +2856,17 @@ function aceMoveOutcomeCell(x){
 let ACE_MOVE_FILTER={teacher:'',level:'',status:'',q:''};
 let ACE_MOVE_FULLLIST=[];
 function aceMoveSetFilter(key,v){ ACE_MOVE_FILTER[key]=v; state.aceMovePage=1; renderAceMoveBody(); }
-/* 검색창 한글 입력 — renderAceMoveBody()가 매번 input을 통째로 다시 그리다 보니,
-   한글 입력 중(조합 중)에 다시 그려서 입력 요소가 통째로 바뀌면 IME 조합이
-   끊겨서 글자가 하나도 안 써졌다. 조합이 끝났을 때만 반영하고, 다시 그린 뒤엔
-   검색창에 포커스·커서 위치를 되돌려준다. */
+/* 검색창 한글 입력 — compositionstart/compositionend로 조합 중 렌더를 미루고
+   포커스를 되돌려주는 걸로는 안 됐다(조합 세션이 글자 단위로 끊기는 IME가
+   있어서, 다시 그릴 때마다 input DOM이 바뀌는 것 자체가 문제였다 — 새 노드로
+   포커스를 옮기면 그 사이 IME 조합 상태가 깨져 자음·모음이 안 합쳐지고
+   낱자로 떨어졌다). 그래서 검색어를 바꿀 때는 입력창이 있는 필터바는 그대로
+   두고, 명단 표(#acemv-results)만 따로 다시 그린다 — input 자체는 한 번도
+   다시 만들어지지 않으니 IME가 안 끊긴다. KPI는 전체 인원 기준이라 검색에
+   영향 안 받아서 같이 다시 그릴 필요도 없다. */
 function aceMoveSearchInput(elm){
-  if(elm.dataset.composing==='1') return;
-  const pos=elm.selectionStart;
   ACE_MOVE_FILTER.q=elm.value; state.aceMovePage=1;
-  renderAceMoveBody();
-  const elm2=document.querySelector('.acemv-filterbar input[type=text]');
-  if(elm2){ elm2.focus(); try{ elm2.setSelectionRange(pos,pos); }catch(e){} }
+  aceMoveRenderResults();
 }
 function aceMoveFiltered(){
   const f=ACE_MOVE_FILTER;
@@ -2881,6 +2881,47 @@ function aceMoveFiltered(){
     return true;
   });
 }
+/* '이관 대상자 명단' 표 하나만 — 검색어가 바뀔 때 이 함수만 다시 불러서
+   #acemv-results 안쪽만 갈아끼운다(필터바·검색창은 그대로 둔 채). */
+function aceMoveResultsHtml(isTeacherView, branchId, cohortSemId){
+  const list = aceMoveFiltered().sort((a,b)=>{
+    const an=(getStudent(a.rec.studentId)||{}).name||'', bn=(getStudent(b.rec.studentId)||{}).name||'';
+    return an.localeCompare(bn,'ko');
+  });
+  const pgN=Math.max(1, Math.ceil(list.length/ACE_MOVE_PER));
+  const pg=Math.min(Math.max(1, state.aceMovePage||1), pgN);
+  state.aceMovePage=pg;
+  const pageList=list.slice((pg-1)*ACE_MOVE_PER, pg*ACE_MOVE_PER);
+
+  const rows = pageList.map((x,i)=>{
+    const r = x.rec, st = getStudent(r.studentId);
+    const ex = ACE_EXAM_RESULTS[r.studentId];
+    return `<tr>
+      <td>${(pg-1)*ACE_MOVE_PER+i+1}</td>
+      <td>${esc(st?st.name:'')}</td>
+      ${isTeacherView?'':`<td>${esc(r.teacher)}</td>`}
+      <td><span class="ca-chess" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(x.fallRec.classLabel||x.fallRec.className)}</span></td>
+      <td>${ex&&ex.final_level?esc(ex.final_level):'<span style="color:var(--ink-3)">-</span>'}</td>
+      <td>${aceMoveScoreCell(r.studentId)}</td>
+      <td><a href="${aceMoveReportLink(branchId, cohortSemId, session.role, st?st.code:'')}" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:var(--brand)">성적표 ↗</a></td>
+      <td>${aceMoveOutcomeCell(x)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="sect-head"><h3>이관 대상자 명단</h3><span class="cnt">${list.length}명</span></div>
+    <div class="table-wrap"><div class="table-scroll"><table class="grid">
+      <thead><tr><th style="width:44px">번호</th><th style="width:90px">이름</th>${isTeacherView?'':'<th style="width:110px">담임</th>'}<th style="width:110px">가을학기 레벨</th><th style="width:100px">ACE 진급레벨</th><th style="width:110px">점수</th><th style="width:80px">성적표</th><th style="width:100px">진급 여부</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>${aceMovePager(pg, pgN, list.length)}</div>`;
+}
+function aceMoveRenderResults(){
+  const isTeacherView = session.role==='teacher';
+  const branchId = isTeacherView ? session.branchId : activeBranchId();
+  const cohortSemId = ACE_MOVE_FULLLIST.cohortSemId;
+  const target = document.getElementById('acemv-results');
+  if(target) target.innerHTML = aceMoveResultsHtml(isTeacherView, branchId, cohortSemId);
+}
 function renderAceMoveBody(){
   const isTeacherView = session.role==='teacher';
   const branchId = isTeacherView ? session.branchId : activeBranchId();
@@ -2889,11 +2930,6 @@ function renderAceMoveBody(){
 
   const teachers=[...new Set(ACE_MOVE_FULLLIST.map(x=>x.rec.teacher).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
   const levels=[...new Set(ACE_MOVE_FULLLIST.map(x=>x.fallRec.classLabel||x.fallRec.className).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
-
-  const list = aceMoveFiltered().sort((a,b)=>{
-    const an=(getStudent(a.rec.studentId)||{}).name||'', bn=(getStudent(b.rec.studentId)||{}).name||'';
-    return an.localeCompare(bn,'ko');
-  });
 
   const withdrawNoExam = ACE_MOVE_FULLLIST.filter(x=>aceMoveStatusOf(x)==='withdraw' && !aceMoveTested(x.rec.studentId)).length;
   const testedNotPromoted = ACE_MOVE_FULLLIST.filter(x=>!x.withdrawn && !x.early && aceMoveTested(x.rec.studentId)).length;
@@ -2928,38 +2964,9 @@ function renderAceMoveBody(){
       ${isTeacherView?'':`<select onchange="aceMoveSetFilter('teacher',this.value)"><option value="">담임 전체</option>${teacherOpts}</select>`}
       <select onchange="aceMoveSetFilter('level',this.value)"><option value="">가을학기 레벨 전체</option>${levelOpts}</select>
       <select onchange="aceMoveSetFilter('status',this.value)"><option value="">진급여부 전체</option>${statusOpts}</select>
-      <input type="text" placeholder="이름 검색" value="${esc(ACE_MOVE_FILTER.q)}"
-        oninput="aceMoveSearchInput(this)"
-        oncompositionstart="this.dataset.composing='1'"
-        oncompositionend="this.dataset.composing='';aceMoveSearchInput(this)">
-    </div>`;
-
-  const pgN=Math.max(1, Math.ceil(list.length/ACE_MOVE_PER));
-  const pg=Math.min(Math.max(1, state.aceMovePage||1), pgN);
-  state.aceMovePage=pg;
-  const pageList=list.slice((pg-1)*ACE_MOVE_PER, pg*ACE_MOVE_PER);
-
-  const rows = pageList.map((x,i)=>{
-    const r = x.rec, st = getStudent(r.studentId);
-    const ex = ACE_EXAM_RESULTS[r.studentId];
-    return `<tr>
-      <td>${(pg-1)*ACE_MOVE_PER+i+1}</td>
-      <td>${esc(st?st.name:'')}</td>
-      ${isTeacherView?'':`<td>${esc(r.teacher)}</td>`}
-      <td><span class="ca-chess" style="padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700">${esc(x.fallRec.classLabel||x.fallRec.className)}</span></td>
-      <td>${ex&&ex.final_level?esc(ex.final_level):'<span style="color:var(--ink-3)">-</span>'}</td>
-      <td>${aceMoveScoreCell(r.studentId)}</td>
-      <td><a href="${aceMoveReportLink(branchId, cohortSemId, session.role, st?st.code:'')}" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:var(--brand)">성적표 ↗</a></td>
-      <td>${aceMoveOutcomeCell(x)}</td>
-    </tr>`;
-  }).join('');
-
-  html += `
-    <div class="sect-head"><h3>이관 대상자 명단</h3><span class="cnt">${list.length}명</span></div>
-    <div class="table-wrap"><div class="table-scroll"><table class="grid">
-      <thead><tr><th style="width:44px">번호</th><th style="width:90px">이름</th>${isTeacherView?'':'<th style="width:110px">담임</th>'}<th style="width:110px">가을학기 레벨</th><th style="width:100px">ACE 진급레벨</th><th style="width:110px">점수</th><th style="width:80px">성적표</th><th style="width:100px">진급 여부</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>${aceMovePager(pg, pgN, list.length)}</div>`;
+      <input type="text" placeholder="이름 검색" value="${esc(ACE_MOVE_FILTER.q)}" oninput="aceMoveSearchInput(this)">
+    </div>
+    <div id="acemv-results">${aceMoveResultsHtml(isTeacherView, branchId, cohortSemId)}</div>`;
 
   const earlyList = ACE_MOVE_FULLLIST.filter(x=>x.early);
   if(earlyList.length){
