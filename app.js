@@ -538,7 +538,7 @@ function renderDashHome(c){
     /* ACE 이관 — 본사 관리자만. 분원은 사이드바 '현황 > ACE 이관생'(inwon-app)에서 본다.
        분원 계정도 이 탭으로 들어오면 안 되니 반개설현황과 같이 admin 전용으로 둔다. */
     +((session&&session.role)==='admin'
-      ? '<button onclick="setDashView(\'acemove\')" style="'+btn(state.dashView==='acemove')+'">ACE 이관</button>' : '')
+      ? '<button onclick="setDashView(\'acemove\')" style="'+btn(state.dashView==='acemove')+'">ACE 진급</button>' : '')
     +'</div><div id="dashBody"></div>';
   const body=$('dashBody');
   if(state.dashView==='mgmt') renderMgmtDash(body);
@@ -861,7 +861,7 @@ function renderAceMoveDash(c){
   const early = perBranch.reduce((s,x)=>s+x.mv.early,0);
   const rate = total? Math.round(early/total*1000)/10 : 0;
 
-  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('clip',24)}</span><span class="em">ACE 이관 현황</span></h2><p>${esc(semName(semId))} · 전체 분원 기준</p></div></div>`;
+  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('clip',24)}</span><span class="em">ACE 진급 현황</span></h2><p>${esc(semName(semId))} · 전체 분원 기준</p></div></div>`;
 
   if(!aceMoveSeasonOn(semId)){
     h+=`<div class="twrap" style="padding:24px;text-align:center;color:#6b6385;font-size:13.5px">가을·겨울학기에만 집계됩니다. 이관은 가을학기 이관테스트를 거쳐 겨울학기부터 반영되는 절차라, 그 외 학기엔 대상자가 없습니다.</div>`;
