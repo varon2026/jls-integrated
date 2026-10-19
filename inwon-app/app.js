@@ -1867,7 +1867,7 @@ function buildShell(){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
       <div class="sb-item" data-nav="myclasses">${I.dash}<span>내 반 현황</span></div>
-      ${aceMoveSeasonOn(state.semId)?`<div class="sb-item" data-nav="acemove">${I.roster}<span>ACE 이관생</span></div>`:''}
+      ${aceMoveSeasonOn(state.semId)?`<div class="sb-item" data-nav="acemove">${I.roster}<span>ACE 진급생</span></div>`:''}
       <div class="sb-item" data-nav="segments">${I.seg}<span>세그먼트</span></div>
       ${canRetest()?`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`:''}
       <div class="sb-item" onclick="openMyGrading()">${I.closing}<span>시험채점</span></div>
@@ -1888,7 +1888,7 @@ function buildShell(){
       <div class="sb-sect">현황</div>`;
       if(P.roster)  nv+=`<div class="sb-item" data-nav="roster">${I.roster}<span>신규·퇴원 명단</span></div>`;
       if(P.closing) nv+=`<div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>`;
-      if(P.closing && aceMoveSeasonOn(state.semId)) nv+=`<div class="sb-item" data-nav="acemove">${I.roster}<span>ACE 이관생</span></div>`;
+      if(P.closing && aceMoveSeasonOn(state.semId)) nv+=`<div class="sb-item" data-nav="acemove">${I.roster}<span>ACE 진급생</span></div>`;
     }
     if(P.students) nv+=`<div class="sb-sect">학생</div><div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>`;
     if(canRetest() && (P.retest||P.retestUp)){
@@ -2717,7 +2717,7 @@ function renderBranchDashboard(){
       ${kpiCard('전출', hc.transfer, {unit:'명', ca:hc.ca.transfer})}
       ${kpiCard('현 재원생', hc.active, {unit:'명', accent:true, ca:hc.ca.active})}
       ${aceMoveSeasonOn(semId) ? (()=>{ const mv=aceMoveStats(branchId, semId);
-        return kpiCard('이관 (체스→에이스)', mv.total, {unit:'명',
+        return kpiCard('진급 (체스→에이스)', mv.total, {unit:'명',
           badgesHtml:`<span class="ca-early">얼리버드 ${mv.early}</span><span class="ca-wait">대상 ${mv.waiting}</span>${mv.withdrawn?`<span class="status-badge withdraw">퇴원 ${mv.withdrawn}</span>`:''}`}); })() : ''}
     </div>
     ${stuSearchPanelHTML()}
@@ -3017,7 +3017,7 @@ function aceMoveResultsHtml(isTeacherView, branchId, cohortSemId){
 
   const selN = ACE_MOVE_SELECTED.size;
   return `
-    <div class="sect-head"><h3>이관 대상자 명단</h3><span class="cnt">${list.length}명</span></div>
+    <div class="sect-head"><h3>진급 대상자 명단</h3><span class="cnt">${list.length}명</span></div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:9px 12px;margin-bottom:10px">
       <span style="font-size:12.5px;font-weight:700;color:var(--ink-2)">선택 ${selN}명</span>
       <button class="btn sm primary" ${selN?'':'disabled'} onclick="aceMoveBulkOpen()">선택한 학생 진급여부 일괄 선택</button>
@@ -3063,19 +3063,19 @@ function renderAceMoveBody(){
 
   let html = `
     <div class="page-head">
-      <h2>ACE 이관생</h2>
-      <div class="sub">${isTeacherView?'내 반 · ':esc(getBranch(branchId).name)+' · '}초5 · 체스 → 에이스 이관 대상자 · ${esc(aceSemName(semId))}${cohortSemId!==semId?' (가을 '+esc(aceSemName(cohortSemId))+' 명단 기준)':''}</div>
+      <h2>ACE 진급생</h2>
+      <div class="sub">${isTeacherView?'내 반 · ':esc(getBranch(branchId).name)+' · '}초5 · 체스 → 에이스 진급 대상자 · ${esc(aceSemName(semId))}${cohortSemId!==semId?' (가을 '+esc(aceSemName(cohortSemId))+' 명단 기준)':''}</div>
     </div>
     <div class="kpi-row c5">
-      ${kpiCard('이관 대상자', total, {unit:'명'})}
-      ${kpiCard('전체 이관율', rate, {unit:'%'})}
+      ${kpiCard('진급 대상자', total, {unit:'명'})}
+      ${kpiCard('전체 진급률', rate, {unit:'%'})}
       ${kpiCard('진급으로 선택', promoted, {unit:'명'})}
-      ${kpiCard('이관시험 안보고 퇴원', withdrawNoExam, {unit:'명'})}
-      ${kpiCard('이관시험 보고 진급 안함', testedNotPromoted, {unit:'명'})}
+      ${kpiCard('진급시험 안보고 퇴원', withdrawNoExam, {unit:'명'})}
+      ${kpiCard('진급시험 보고 진급 안함', testedNotPromoted, {unit:'명'})}
     </div>`;
 
   if(ACE_MOVE_FULLLIST.length===0){
-    html += emptyState('대상자가 없습니다', isTeacherView?'내 반에는 초5 체스 이관 대상 학생이 없습니다.':'이 분원에는 초5 체스 이관 대상 학생이 없습니다.');
+    html += emptyState('대상자가 없습니다', isTeacherView?'내 반에는 초5 체스 진급 대상 학생이 없습니다.':'이 분원에는 초5 체스 진급 대상 학생이 없습니다.');
     el('content').innerHTML = html;
     return;
   }
@@ -3105,7 +3105,7 @@ function renderAceMoveBody(){
       </tr>`;
     }).join('');
     html += `
-      <div class="sect-head" style="margin-top:22px"><h3>이관 이력</h3><span class="cnt">직전 학기 대비 반이 체스→에이스로 바뀐 학생 · ${earlyList.length}명</span></div>
+      <div class="sect-head" style="margin-top:22px"><h3>진급 이력</h3><span class="cnt">직전 학기 대비 반이 체스→에이스로 바뀐 학생 · ${earlyList.length}명</span></div>
       <div class="table-wrap"><div class="table-scroll"><table class="grid">
         <thead><tr><th>이름</th><th>이전 반</th><th>현재 반</th>${isTeacherView?'':'<th>담임</th>'}</tr></thead>
         <tbody>${hrows}</tbody>
@@ -3119,15 +3119,15 @@ async function renderAceMove(){
   const branchId = isTeacherView ? session.branchId : activeBranchId();
   const b = getBranch(branchId);
   const semId = state.semId;
-  crumbs(isTeacherView ? [{label:'ACE 이관생'}] : [{label:`${b.name} Dashboard`, go:'branch'},{label:'ACE 이관생'}]);
+  crumbs(isTeacherView ? [{label:'ACE 진급생'}] : [{label:`${b.name} Dashboard`, go:'branch'},{label:'ACE 진급생'}]);
 
   if(!aceMoveSeasonOn(semId)){
-    el('content').innerHTML = `<div class="page-head"><h2>ACE 이관생</h2><div class="sub">${esc(aceSemName(semId))}</div></div>`
-      + emptyState('가을·겨울학기에만 보여요', '이관은 가을학기 이관테스트를 거쳐 겨울학기부터 반영되는 절차라, 그 외 학기엔 대상자가 없습니다.');
+    el('content').innerHTML = `<div class="page-head"><h2>ACE 진급생</h2><div class="sub">${esc(aceSemName(semId))}</div></div>`
+      + emptyState('가을·겨울학기에만 보여요', '진급은 가을학기 진급테스트를 거쳐 겨울학기부터 반영되는 절차라, 그 외 학기엔 대상자가 없습니다.');
     return;
   }
 
-  el('content').innerHTML = `<div class="page-head"><h2>ACE 이관생</h2><div class="sub">불러오는 중…</div></div>`;
+  el('content').innerHTML = `<div class="page-head"><h2>ACE 진급생</h2><div class="sub">불러오는 중…</div></div>`;
   const cohortSemId = aceMoveCohortSemId(semId);
   await Promise.all([loadAceExamResults(cohortSemId), loadAceMoveOutcomes(cohortSemId)]);
 

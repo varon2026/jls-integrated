@@ -864,18 +864,18 @@ function renderAceMoveDash(c){
   let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('clip',24)}</span><span class="em">ACE 진급 현황</span></h2><p>${esc(semName(semId))} · 전체 분원 기준</p></div></div>`;
 
   if(!aceMoveSeasonOn(semId)){
-    h+=`<div class="twrap" style="padding:24px;text-align:center;color:#6b6385;font-size:13.5px">가을·겨울학기에만 집계됩니다. 이관은 가을학기 이관테스트를 거쳐 겨울학기부터 반영되는 절차라, 그 외 학기엔 대상자가 없습니다.</div>`;
+    h+=`<div class="twrap" style="padding:24px;text-align:center;color:#6b6385;font-size:13.5px">가을·겨울학기에만 집계됩니다. 진급은 가을학기 진급테스트를 거쳐 겨울학기부터 반영되는 절차라, 그 외 학기엔 대상자가 없습니다.</div>`;
     c.innerHTML=h; return;
   }
 
   h+=`<div class="kpis" style="grid-template-columns:repeat(3,1fr)">
-    <div class="kpi"><div class="l"><span class="kdot" style="background:var(--brand)"></span>전체 이관 대상자</div><div class="v num">${fmt(total)}<span class="unit">명</span></div></div>
+    <div class="kpi"><div class="l"><span class="kdot" style="background:var(--brand)"></span>전체 진급 대상자</div><div class="v num">${fmt(total)}<span class="unit">명</span></div></div>
     <div class="kpi"><div class="l"><span class="kdot" style="background:var(--warn)"></span>얼리버드</div><div class="v num">${fmt(early)}<span class="unit">명</span></div></div>
-    <div class="kpi"><div class="l"><span class="kdot" style="background:var(--pos)"></span>전체 이관율</div><div class="v num">${rate}<span class="unit">%</span></div></div>
+    <div class="kpi"><div class="l"><span class="kdot" style="background:var(--pos)"></span>전체 진급률</div><div class="v num">${rate}<span class="unit">%</span></div></div>
   </div>`;
 
-  h+=`<div class="twrap"><div class="tw-h"><div class="t">분원별 이관 현황</div></div>
-    <table class="grid"><thead><tr><th style="width:140px">분원</th><th>대상자</th><th>얼리버드</th><th>이관율</th></tr></thead><tbody>`;
+  h+=`<div class="twrap"><div class="tw-h"><div class="t">분원별 진급 현황</div></div>
+    <table class="grid"><thead><tr><th style="width:140px">분원</th><th>대상자</th><th>얼리버드</th><th>진급률</th></tr></thead><tbody>`;
   perBranch.forEach(x=>{
     h+=`<tr><td>${esc(x.b.name)}</td><td style="text-align:center">${x.mv.total}</td><td style="text-align:center">${x.mv.early}</td><td style="text-align:center">${x.mv.rate}%</td></tr>`;
   });
@@ -898,7 +898,7 @@ function renderAceMoveDash(c){
   state.aceMovePage=pg;
   const pageList=flatList.slice((pg-1)*ACE_MOVE_PER, pg*ACE_MOVE_PER);
 
-  h+=`<div class="twrap"><div class="tw-h"><div class="t">이관 대상자 명단</div><div class="leg"><span style="font-size:12px;color:#6b6385;font-weight:700">${flatList.length}명</span></div></div>
+  h+=`<div class="twrap"><div class="tw-h"><div class="t">진급 대상자 명단</div><div class="leg"><span style="font-size:12px;color:#6b6385;font-weight:700">${flatList.length}명</span></div></div>
     <table class="grid"><thead><tr><th style="width:100px">분원</th><th style="width:90px">이름</th><th style="width:130px">담임</th><th>현재 반</th><th style="width:80px">학년</th><th style="width:90px">상태</th></tr></thead><tbody>`;
   pageList.forEach(({b,item})=>{
     const r=item.rec, st=getStudent(r.studentId);
@@ -909,7 +909,7 @@ function renderAceMoveDash(c){
     </tr>`;
   });
   h+=`</tbody></table>${aceMovePager(pg, pgN, flatList.length)}</div>
-  <div style="font-size:12px;color:#9a93b0;margin-top:8px">점수(E6·단어·해석)와 자동 레벨 칸은 이관테스트 시험지 형식이 정해지면 추가됩니다. 최종 레벨은 분원이 정하고, 본사는 조회만 합니다.</div>`;
+  <div style="font-size:12px;color:#9a93b0;margin-top:8px">점수(E6·단어·해석)와 자동 레벨 칸은 진급테스트 시험지 형식이 정해지면 추가됩니다. 최종 레벨은 분원이 정하고, 본사는 조회만 합니다.</div>`;
 
   c.innerHTML=h;
 }
