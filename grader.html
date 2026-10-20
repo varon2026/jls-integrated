@@ -1997,8 +1997,9 @@ async function exportQappExcel(){
 
     /* 헤더에 적는 "만점" 숫자는 큐앱에 원래 등록된 숫자가 아니라, 이번 학기 정답키(exam_keys)에서
        직접 계산한 진짜 배점이다 — 큐앱 등록값과 실제가 다른 학기가 있었기 때문(2026 4th Term 확인).
-       "알맞은 응답"은 세 번째 세부영역(세부정보·추론·중심내용파악)에 안 들어간 나머지로 계산해서,
-       그 항목 자체가 없는 학기엔 0점으로 자동으로 맞춰진다. */
+       "알맞은 응답"은 세 번째 세부영역(세부정보·추론·중심내용파악)에 안 들어간 나머지로 계산한다.
+       그리고 배점(만점)이 0으로 나오는 항목 — 즉 이번 시험엔 아예 없는 항목 — 은 칸 자체를 뺀다.
+       같은 이유로 다른 학기에 다른 세부영역이 비어도 똑같이 자동으로 빠진다. */
     const ptOf=(arr,f)=>Math.round(arr.filter(f).reduce((s,a)=>s+(a.pt||0),0)*10)/10;
     const wSub=sub=>ptOf(wAns,a=>(a.sub||'')===sub);
     const lSub=sub=>ptOf(lAns,a=>(a.sub||'')===sub);
@@ -2010,30 +2011,36 @@ async function exportQappExcel(){
     const itemMax=n=>{const it=NAESIN_PERF_ITEMS.find(a=>a.n===n);return it?it.pt:0;};
     const spkMax=pMax(101,104), wrtMax=pMax(201,204);
     const totalMax=Math.round((wMaxTotal+lMaxTotal+spkMax+wrtMax)*10)/10;
+    const lOtherVal=l=>l?Math.round((l.got-(l.subG['중심 내용 파악']||0)-(l.subG['세부 정보']||0)-(l.subG['추론']||0))*10)/10:'';
+
+    /* 점수 칸 정의 — max가 0이면 그 칸은 통째로 안 만든다(filter). 고정 칸(No~등급)은 항상 유지. */
+    const scoreCols=[
+      {label:`지필평가 \n(만점 ${wMaxTotal}점) `, max:wMaxTotal, w:8, get:c=>c.w?c.w.got:''},
+      {label:`지필평가 \n(만점 ${wMcMax}점) \n(객관식) `, max:wMcMax, w:8, get:c=>c.w?Math.round((c.w.got-(c.w.subG['서술형']||0))*10)/10:''},
+      {label:`지필평가 \n(만점 ${wSub('표현/의사소통')}점) \n(표현/의사소통) `, max:wSub('표현/의사소통'), w:10, get:c=>c.w?(c.w.subG['표현/의사소통']||0):''},
+      {label:`지필평가 \n(만점 ${wSub('지문이해')}점) \n(지문이해) `, max:wSub('지문이해'), w:8, get:c=>c.w?(c.w.subG['지문이해']||0):''},
+      {label:`지필평가 \n(만점 ${wSub('어휘')}점) \n(어휘) `, max:wSub('어휘'), w:8, get:c=>c.w?(c.w.subG['어휘']||0):''},
+      {label:`지필평가 \n(만점 ${wSub('어법')}점) \n(어법) `, max:wSub('어법'), w:8, get:c=>c.w?(c.w.subG['어법']||0):''},
+      {label:`지필평가 \n(만점 ${wSaMax}점) \n(서술형) `, max:wSaMax, w:8, get:c=>c.w?(c.w.subG['서술형']||0):''},
+      {label:`듣기평가 \n(만점 ${lMaxTotal}점) `, max:lMaxTotal, w:8, get:c=>c.l?c.l.got:''},
+      {label:`듣기평가 \n(만점 ${lSub('중심 내용 파악')}점) \n(중심내용파악) `, max:lSub('중심 내용 파악'), w:10, get:c=>c.l?(c.l.subG['중심 내용 파악']||0):''},
+      {label:`듣기평가 \n(만점 ${lSub('세부 정보')}점) \n(세부정보) `, max:lSub('세부 정보'), w:8, get:c=>c.l?(c.l.subG['세부 정보']||0):''},
+      {label:`듣기평가 \n(만점 ${lSub('추론')}점) \n(추론) `, max:lSub('추론'), w:8, get:c=>c.l?(c.l.subG['추론']||0):''},
+      {label:`듣기평가 \n(만점 ${lOtherMax}점) \n(알맞은응답) `, max:lOtherMax, w:10, get:c=>lOtherVal(c.l)},
+      {label:`수행평가 \n(만점 ${spkMax}점) \n(말하기) `, max:spkMax, w:8, get:c=>c.spkTot},
+      {label:`수행평가 \n(만점 ${itemMax(101)}점) \n(내용 적절성) `, max:itemMax(101), w:10, get:c=>c.perf?(c.perf[101]||0):''},
+      {label:`수행평가 \n(만점 ${itemMax(102)}점) \n(내용 전달성) `, max:itemMax(102), w:10, get:c=>c.perf?(c.perf[102]||0):''},
+      {label:`수행평가 \n(만점 ${itemMax(103)}점) \n(1분 시간 준수) `, max:itemMax(103), w:10, get:c=>c.perf?(c.perf[103]||0):''},
+      {label:`수행평가 \n(만점 ${itemMax(104)}점) \n(발표와 태도) `, max:itemMax(104), w:10, get:c=>c.perf?(c.perf[104]||0):''},
+      {label:`수행평가 \n(만점 ${wrtMax}점) \n(쓰기) `, max:wrtMax, w:8, get:c=>c.wrtTot},
+      {label:`수행평가 \n(만점 ${itemMax(201)}점) \n(글의 주제 적합성) `, max:itemMax(201), w:12, get:c=>c.perf?(c.perf[201]||0):''},
+      {label:`수행평가 \n(만점 ${itemMax(202)}점) \n(언어 사용 및 문장 완성도) `, max:itemMax(202), w:10, get:c=>c.perf?(c.perf[202]||0):''},
+      {label:`수행평가 \n(만점 ${itemMax(203)}점) \n(문법 및 표현조건) `, max:itemMax(203), w:12, get:c=>c.perf?(c.perf[203]||0):''},
+      {label:`수행평가 \n(만점 ${itemMax(204)}점) \n(지문길이와 문장 수 조건) `, max:itemMax(204), w:12, get:c=>c.perf?(c.perf[204]||0):''},
+    ].filter(cdef=>cdef.max>0);
 
     const headerRow=['No','학생코드','학생이름','학교명/학년','레벨','수업요일','담임선생님','학년구분',
-      `점수 \n(만점 ${totalMax}점) `,'등급',
-      `지필평가 \n(만점 ${wMaxTotal}점) `, `지필평가 \n(만점 ${wMcMax}점) \n(객관식) `,
-      `지필평가 \n(만점 ${wSub('표현/의사소통')}점) \n(표현/의사소통) `,
-      `지필평가 \n(만점 ${wSub('지문이해')}점) \n(지문이해) `,
-      `지필평가 \n(만점 ${wSub('어휘')}점) \n(어휘) `,
-      `지필평가 \n(만점 ${wSub('어법')}점) \n(어법) `,
-      `지필평가 \n(만점 ${wSaMax}점) \n(서술형) `,
-      `듣기평가 \n(만점 ${lMaxTotal}점) `,
-      `듣기평가 \n(만점 ${lSub('중심 내용 파악')}점) \n(중심내용파악) `,
-      `듣기평가 \n(만점 ${lSub('세부 정보')}점) \n(세부정보) `,
-      `듣기평가 \n(만점 ${lSub('추론')}점) \n(추론) `,
-      `듣기평가 \n(만점 ${lOtherMax}점) \n(알맞은응답) `,
-      `수행평가 \n(만점 ${spkMax}점) \n(말하기) `,
-      `수행평가 \n(만점 ${itemMax(101)}점) \n(내용 적절성) `,
-      `수행평가 \n(만점 ${itemMax(102)}점) \n(내용 전달성) `,
-      `수행평가 \n(만점 ${itemMax(103)}점) \n(1분 시간 준수) `,
-      `수행평가 \n(만점 ${itemMax(104)}점) \n(발표와 태도) `,
-      `수행평가 \n(만점 ${wrtMax}점) \n(쓰기) `,
-      `수행평가 \n(만점 ${itemMax(201)}점) \n(글의 주제 적합성) `,
-      `수행평가 \n(만점 ${itemMax(202)}점) \n(언어 사용 및 문장 완성도) `,
-      `수행평가 \n(만점 ${itemMax(203)}점) \n(문법 및 표현조건) `,
-      `수행평가 \n(만점 ${itemMax(204)}점) \n(지문길이와 문장 수 조건) `];
+      `점수 \n(만점 ${totalMax}점) `,'등급', ...scoreCols.map(cdef=>cdef.label)];
 
     const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     const rows=[headerRow];
@@ -2047,26 +2054,18 @@ async function exportQappExcel(){
       const complete=w&&l&&perf;
       const total=complete?Math.round((w.got+l.got+spkTot+wrtTot)*10)/10:'';
       const grade=complete?(total>89?'A':total>79?'B':total>69?'C':total>59?'D':total>19?'E':''):'';
-      const lOtherVal=l?Math.round((l.got-(l.subG['중심 내용 파악']||0)-(l.subG['세부 정보']||0)-(l.subG['추론']||0))*10)/10:'';
+      const ctx={w,l,perf,spkTot,wrtTot};
       rows.push([
         i+1, r.code, r.name, (r.school||'')+'/'+(r.grade||''), cls.dispCode||code,
         naesinDayLabel(r.className||cls.className), r.teacher||cls.teacher||'', cls.chess?'CHESS':'ACE',
         total, grade,
-        w?w.got:'', w?Math.round((w.got-(w.subG['서술형']||0))*10)/10:'',
-        w?(w.subG['표현/의사소통']||0):'', w?(w.subG['지문이해']||0):'', w?(w.subG['어휘']||0):'', w?(w.subG['어법']||0):'', w?(w.subG['서술형']||0):'',
-        l?l.got:'', l?(l.subG['중심 내용 파악']||0):'', l?(l.subG['세부 정보']||0):'', l?(l.subG['추론']||0):'', lOtherVal,
-        spkTot, perf?(perf[101]||0):'', perf?(perf[102]||0):'', perf?(perf[103]||0):'', perf?(perf[104]||0):'',
-        wrtTot, perf?(perf[201]||0):'', perf?(perf[202]||0):'', perf?(perf[203]||0):'', perf?(perf[204]||0):'',
+        ...scoreCols.map(cdef=>cdef.get(ctx))
       ]);
     });
 
     const ws=XLSX.utils.aoa_to_sheet(rows);
     ws['!cols']=[{wch:4},{wch:12},{wch:10},{wch:22},{wch:8},{wch:10},{wch:14},{wch:10},
-      {wch:8},{wch:6},
-      {wch:8},{wch:8},{wch:10},{wch:8},{wch:8},{wch:8},{wch:8},
-      {wch:8},{wch:10},{wch:8},{wch:8},{wch:10},
-      {wch:8},{wch:10},{wch:10},{wch:10},{wch:10},
-      {wch:8},{wch:10},{wch:12},{wch:10},{wch:12}];
+      {wch:8},{wch:6}, ...scoreCols.map(cdef=>({wch:cdef.w}))];
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'성적표');
     const fname=('큐앱_'+noDays(cls.dispCode||code)+'_'+classDetail(cls.className)+'_'+semName(SEM)).replace(/[\\/:*?"<>|]/g,'_');
