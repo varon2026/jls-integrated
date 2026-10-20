@@ -1995,18 +1995,45 @@ async function exportQappExcel(){
     const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('key_name',code));
     const idx={}; data.forEach(r=>_latest(idx, r.student_code+'|'+r.section, r));
 
+    /* 헤더에 적는 "만점" 숫자는 큐앱에 원래 등록된 숫자가 아니라, 이번 학기 정답키(exam_keys)에서
+       직접 계산한 진짜 배점이다 — 큐앱 등록값과 실제가 다른 학기가 있었기 때문(2026 4th Term 확인).
+       "알맞은 응답"은 세 번째 세부영역(세부정보·추론·중심내용파악)에 안 들어간 나머지로 계산해서,
+       그 항목 자체가 없는 학기엔 0점으로 자동으로 맞춰진다. */
+    const ptOf=(arr,f)=>Math.round(arr.filter(f).reduce((s,a)=>s+(a.pt||0),0)*10)/10;
+    const wSub=sub=>ptOf(wAns,a=>(a.sub||'')===sub);
+    const lSub=sub=>ptOf(lAns,a=>(a.sub||'')===sub);
+    const wMaxTotal=ptOf(wAns,()=>true), wMcMax=ptOf(wAns,a=>a.type!=='sa'), wSaMax=ptOf(wAns,a=>a.type==='sa');
+    const lMaxTotal=ptOf(lAns,()=>true);
+    const lKnownMax=Math.round((lSub('중심 내용 파악')+lSub('세부 정보')+lSub('추론'))*10)/10;
+    const lOtherMax=Math.round((lMaxTotal-lKnownMax)*10)/10;
+    const pMax=(n1,n2)=>Math.round(NAESIN_PERF_ITEMS.filter(a=>a.n>=n1&&a.n<=n2).reduce((s,a)=>s+(a.pt||0),0)*10)/10;
+    const itemMax=n=>{const it=NAESIN_PERF_ITEMS.find(a=>a.n===n);return it?it.pt:0;};
+    const spkMax=pMax(101,104), wrtMax=pMax(201,204);
+    const totalMax=Math.round((wMaxTotal+lMaxTotal+spkMax+wrtMax)*10)/10;
+
     const headerRow=['No','학생코드','학생이름','학교명/학년','레벨','수업요일','담임선생님','학년구분',
-      '점수 \n(만점 100점) ','등급',
-      '지필평가 \n(만점 60점) ','지필평가 \n(만점 30점) \n(객관식) ','지필평가 \n(만점 10.5점) \n(표현/의사소통) ',
-      '지필평가 \n(만점 9점) \n(지문이해) ','지필평가 \n(만점 3점) \n(어휘) ','지필평가 \n(만점 7.5점) \n(어법) ',
-      '지필평가 \n(만점 30점) \n(서술형) ',
-      '듣기평가 \n(만점 10점) ','듣기평가 \n(만점 2점) \n(중심내용파악) ','듣기평가 \n(만점 4.5점) \n(세부정보) ',
-      '듣기평가 \n(만점 2.5점) \n(추론) ','듣기평가 \n(만점 1점) \n(말맞은응답) ',
-      '수행평가 \n(만점 15점) \n(말하기) ','수행평가 \n(만점 4점) \n(내용 적절성) ','수행평가 \n(만점 4점) \n(내용 전달성) ',
-      '수행평가 \n(만점 4점) \n(1분 시간 준수) ','수행평가 \n(만점 3점) \n(발표와 태도) ',
-      '수행평가 \n(만점 15점) \n(쓰기) ','수행평가 \n(만점 4점) \n(글의 주제 적합성) ',
-      '수행평가 \n(만점 4점) \n(언어 사용 및 문장 완성도) ','수행평가 \n(만점 4점) \n(문법 및 표현조건) ',
-      '수행평가 \n(만점 3점) \n(지문길이와 문장 수 조건) '];
+      `점수 \n(만점 ${totalMax}점) `,'등급',
+      `지필평가 \n(만점 ${wMaxTotal}점) `, `지필평가 \n(만점 ${wMcMax}점) \n(객관식) `,
+      `지필평가 \n(만점 ${wSub('표현/의사소통')}점) \n(표현/의사소통) `,
+      `지필평가 \n(만점 ${wSub('지문이해')}점) \n(지문이해) `,
+      `지필평가 \n(만점 ${wSub('어휘')}점) \n(어휘) `,
+      `지필평가 \n(만점 ${wSub('어법')}점) \n(어법) `,
+      `지필평가 \n(만점 ${wSaMax}점) \n(서술형) `,
+      `듣기평가 \n(만점 ${lMaxTotal}점) `,
+      `듣기평가 \n(만점 ${lSub('중심 내용 파악')}점) \n(중심내용파악) `,
+      `듣기평가 \n(만점 ${lSub('세부 정보')}점) \n(세부정보) `,
+      `듣기평가 \n(만점 ${lSub('추론')}점) \n(추론) `,
+      `듣기평가 \n(만점 ${lOtherMax}점) \n(알맞은응답) `,
+      `수행평가 \n(만점 ${spkMax}점) \n(말하기) `,
+      `수행평가 \n(만점 ${itemMax(101)}점) \n(내용 적절성) `,
+      `수행평가 \n(만점 ${itemMax(102)}점) \n(내용 전달성) `,
+      `수행평가 \n(만점 ${itemMax(103)}점) \n(1분 시간 준수) `,
+      `수행평가 \n(만점 ${itemMax(104)}점) \n(발표와 태도) `,
+      `수행평가 \n(만점 ${wrtMax}점) \n(쓰기) `,
+      `수행평가 \n(만점 ${itemMax(201)}점) \n(글의 주제 적합성) `,
+      `수행평가 \n(만점 ${itemMax(202)}점) \n(언어 사용 및 문장 완성도) `,
+      `수행평가 \n(만점 ${itemMax(203)}점) \n(문법 및 표현조건) `,
+      `수행평가 \n(만점 ${itemMax(204)}점) \n(지문길이와 문장 수 조건) `];
 
     const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     const rows=[headerRow];
@@ -2020,13 +2047,14 @@ async function exportQappExcel(){
       const complete=w&&l&&perf;
       const total=complete?Math.round((w.got+l.got+spkTot+wrtTot)*10)/10:'';
       const grade=complete?(total>89?'A':total>79?'B':total>69?'C':total>59?'D':total>19?'E':''):'';
+      const lOtherVal=l?Math.round((l.got-(l.subG['중심 내용 파악']||0)-(l.subG['세부 정보']||0)-(l.subG['추론']||0))*10)/10:'';
       rows.push([
         i+1, r.code, r.name, (r.school||'')+'/'+(r.grade||''), cls.dispCode||code,
         naesinDayLabel(r.className||cls.className), r.teacher||cls.teacher||'', cls.chess?'CHESS':'ACE',
         total, grade,
         w?w.got:'', w?Math.round((w.got-(w.subG['서술형']||0))*10)/10:'',
         w?(w.subG['표현/의사소통']||0):'', w?(w.subG['지문이해']||0):'', w?(w.subG['어휘']||0):'', w?(w.subG['어법']||0):'', w?(w.subG['서술형']||0):'',
-        l?l.got:'', l?(l.subG['중심 내용 파악']||0):'', l?(l.subG['세부 정보']||0):'', l?(l.subG['추론']||0):'', l?0:'',
+        l?l.got:'', l?(l.subG['중심 내용 파악']||0):'', l?(l.subG['세부 정보']||0):'', l?(l.subG['추론']||0):'', lOtherVal,
         spkTot, perf?(perf[101]||0):'', perf?(perf[102]||0):'', perf?(perf[103]||0):'', perf?(perf[104]||0):'',
         wrtTot, perf?(perf[201]||0):'', perf?(perf[202]||0):'', perf?(perf[203]||0):'', perf?(perf[204]||0):'',
       ]);
