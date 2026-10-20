@@ -1145,7 +1145,6 @@ function renderAnswerView(){
           ${Object.keys(BRANCHES).map(id=>`<option value="${id}" ${id===BRANCH?'selected':''}>${esc(BRANCHES[id])}</option>`).join('')}
         </select></span>`:''}
       <button class="btn mini" onclick="exportScoresBulk()">📊 ${EXAM} 성적 엑셀 일괄 다운로드</button>
-      ${EXAM==='내신모의고사'?`<label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">📤 큐앱 양식에 채워넣기<input type="file" accept=".xlsx,.xls" hidden onchange="fillQappExcel(this)"></label>`:''}
       <span class="hint">정답키가 등록된 레벨만 · 미응시 노랑 · 재시험 초록</span>
     </div>
     <div class="dd" style="margin-bottom:16px">
@@ -1681,6 +1680,7 @@ function buildNaesinArea(){
         <div style="font-size:16px;font-weight:800">${esc(noDays(cls.dispCode||code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}${cls.teacher?' · 담임 '+esc(cls.teacher):''}</span></div>
         <div style="flex:1"></div>
         <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>
+        <button class="ghost mini" onclick="exportQappExcel()">📥 큐앱 엑셀↓</button>
         ${CURTAB!=='총점'?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
         <label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">답안 엑셀↑<input type="file" accept=".xlsx,.xls" hidden onchange="uploadAns(this)"></label>
         <button class="btn mini" onclick="saveNaesin()">${CURTAB} 채점 저장</button>`:''}
@@ -1958,111 +1958,93 @@ function naesinSheetFor(code,recs,idx){
   });
   return {name:code,header,rows,widths:[11,12,15,7,13,9,9,9,9]};
 }
+/* 반 이름에서 요일 표기를 찾아 한글 라벨로 — app.js의 banDayCode·BAN_DAY_LABEL과 같은 규칙.
+   큐앱 "수업요일" 칸에 쓸 것이라 여기 grader.html에도 같은 규칙을 따로 둔다. */
+const NAESIN_DAY_LABEL={MWF:'월수금',TT:'화목',MW:'월수',WF:'수금',MWTF:'월화수금',MTWTF:'매일'};
+function naesinDayLabel(className){
+  const segs=String(className||'').split(/[\/,]/);
+  for(const seg of segs){
+    const s=seg.replace(/[\s.·ㆍ&-]/g,'').toUpperCase();
+    if(/^(MWF|MONWEDFRI|월수금)$/.test(s))return NAESIN_DAY_LABEL.MWF;
+    if(/^(TT|TTH|TTHS|TUTH|TUETHU|TUESTHURS|화목)$/.test(s))return NAESIN_DAY_LABEL.TT;
+    if(/^(MW|월수)$/.test(s))return NAESIN_DAY_LABEL.MW;
+    if(/^(WF|수금)$/.test(s))return NAESIN_DAY_LABEL.WF;
+    if(/^(MWTF|월화수금)$/.test(s))return NAESIN_DAY_LABEL.MWTF;
+    if(/^(MTWTF|매일)$/.test(s))return NAESIN_DAY_LABEL.MTWTF;
+  }
+  return '';
+}
 /* ============================================================================
-   큐앱(학습관리) 업로드 양식 채우기 — 운영자가 큐앱에서 받은 빈 엑셀(학생 명단·반 정보가
-   이미 채워진 상태)을 그대로 올리면, 열 제목을 보고 알아서 맞는 칸에 점수만 채워 넣는다.
-   열 순서·칸 구조는 절대 안 건드리고 큐앱이 준 양식 그대로 유지한다(운영자 요청).
+   큐앱(학습관리) 업로드용 엑셀을 직접 만들어서 다운로드 — 지금 보고 있는 반 학생들로
+   큐앱이 받는 열 구조(순서 그대로) 그대로 만든다. 큐앱에서 빈 양식을 먼저 받아올 필요 없음.
    소항목 배점(예: 표현/의사소통 10.5점)은 학기마다 실제 시험 구성이 달라질 수 있어서
-   (2026 4th Term 때 확인됨 — 어휘·어법·지문이해 실제 배점이 양식 숫자와 다름, "알맞은 응답"
-   항목 자체가 없던 학기도 있었음) 양식에 적힌 숫자는 안 믿고, 그 학기 정답키(exam_keys)에
-   실제로 달린 세부영역(sub) 이름으로만 매칭한다. 정답키에 없는 세부영역(예: 알맞은 응답)은
-   0으로 채운다. 수행평가 항목별(내용 적절성 등) 점수는 computeAce의 sub 합산으로는 못 뽑아서
-   (Speaking/Writing 전체 합만 나옴) naesinPerfItemGains로 문항(n) 단위로 따로 뽑는다. */
-function fillQappExcel(inp){
-  const f=inp.files[0]; if(!f)return;
-  const label=inp.closest('label'); const orig=label.innerHTML;
-  label.innerHTML='📤 읽는 중…';
-  const fail=(msg)=>{toast(msg,false);label.innerHTML=orig;inp.value='';};
-  const rd=new FileReader();
-  rd.onload=async()=>{
-    try{
-      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사'));
-      const idx={}; data.forEach(r=>_latest(idx, r.student_code+'|'+r.section, r));
+   (2026 4th Term 때 확인됨 — 어휘·어법·지문이해 실제 배점이 큐앱 등록값과 다름, "알맞은 응답"
+   항목 자체가 없던 학기도 있었음) 그 학기 정답키(exam_keys)에 실제로 달린 세부영역(sub)
+   이름으로만 채운다(큐앱에 등록된 "만점" 숫자는 안 봄). 수행평가 항목별(내용 적절성 등)
+   점수는 computeAce의 sub 합산으로는 못 뽑아서(Speaking/Writing 전체 합만 나옴)
+   naesinPerfItemGains로 문항(n) 단위로 따로 뽑는다.
+   세 영역(지필·듣기·수행)이 다 채점된 학생만 총점·등급을 채운다 — 하나라도 빠졌는데
+   총점을 내면 미채점 상태를 다 채점된 것처럼 큐앱에 올리게 된다. */
+async function exportQappExcel(){
+  const cls=curClassObj(); if(!cls){toast('반을 먼저 선택하세요',false);return;}
+  const code=cls.levelCode;
+  const wAns=naesinAns('지필평가',code), lAns=naesinAns('듣기평가',code);
+  if(!wAns.length&&!lAns.length){toast('이 반(학년) 정답키가 없어요 — 정답등록에서 먼저 올려주세요',false);return;}
+  toast('큐앱 엑셀 만드는 중…');
+  try{
+    const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('key_name',code));
+    const idx={}; data.forEach(r=>_latest(idx, r.student_code+'|'+r.section, r));
 
-      const wb=XLSX.read(new Uint8Array(rd.result),{type:'array',cellStyles:true});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const ref=XLSX.utils.decode_range(ws['!ref']);
+    const headerRow=['No','학생코드','학생이름','학교명/학년','레벨','수업요일','담임선생님','학년구분',
+      '점수 \n(만점 100점) ','등급',
+      '지필평가 \n(만점 60점) ','지필평가 \n(만점 30점) \n(객관식) ','지필평가 \n(만점 10.5점) \n(표현/의사소통) ',
+      '지필평가 \n(만점 9점) \n(지문이해) ','지필평가 \n(만점 3점) \n(어휘) ','지필평가 \n(만점 7.5점) \n(어법) ',
+      '지필평가 \n(만점 30점) \n(서술형) ',
+      '듣기평가 \n(만점 10점) ','듣기평가 \n(만점 2점) \n(중심내용파악) ','듣기평가 \n(만점 4.5점) \n(세부정보) ',
+      '듣기평가 \n(만점 2.5점) \n(추론) ','듣기평가 \n(만점 1점) \n(말맞은응답) ',
+      '수행평가 \n(만점 15점) \n(말하기) ','수행평가 \n(만점 4점) \n(내용 적절성) ','수행평가 \n(만점 4점) \n(내용 전달성) ',
+      '수행평가 \n(만점 4점) \n(1분 시간 준수) ','수행평가 \n(만점 3점) \n(발표와 태도) ',
+      '수행평가 \n(만점 15점) \n(쓰기) ','수행평가 \n(만점 4점) \n(글의 주제 적합성) ',
+      '수행평가 \n(만점 4점) \n(언어 사용 및 문장 완성도) ','수행평가 \n(만점 4점) \n(문법 및 표현조건) ',
+      '수행평가 \n(만점 3점) \n(지문길이와 문장 수 조건) '];
 
-      const hdr={}; let codeCol=-1;
-      for(let c=ref.s.c;c<=ref.e.c;c++){
-        const cell=ws[XLSX.utils.encode_cell({r:ref.s.r,c})];
-        const v=(cell&&cell.v!=null?String(cell.v):'').replace(/\s+/g,'');
-        if(!v)continue;
-        const has=(...subs)=>subs.every(s=>v.includes(s));
-        const maxIs=(n)=>v.includes('만점'+n+'점');
-        if(/^학생코드$/.test(v)){codeCol=c;continue;}
-        if(/^등급$/.test(v)){hdr[c]='grade';continue;}
-        if(has('점수')&&maxIs('100')){hdr[c]='total';continue;}
-        if(has('지필평가')&&maxIs('60')){hdr[c]='w_total';continue;}
-        if(has('지필평가','객관식')){hdr[c]='w_mc';continue;}
-        if(has('지필평가','표현')){hdr[c]='w_sub:표현/의사소통';continue;}
-        if(has('지필평가','지문이해')){hdr[c]='w_sub:지문이해';continue;}
-        if(has('지필평가','어휘')){hdr[c]='w_sub:어휘';continue;}
-        if(has('지필평가','어법')){hdr[c]='w_sub:어법';continue;}
-        if(has('지필평가','서술형')){hdr[c]='w_sub:서술형';continue;}
-        if(has('듣기평가')&&maxIs('10')){hdr[c]='l_total';continue;}
-        if(has('듣기평가','중심')){hdr[c]='l_sub:중심 내용 파악';continue;}
-        if(has('듣기평가','세부')){hdr[c]='l_sub:세부 정보';continue;}
-        if(has('듣기평가','추론')){hdr[c]='l_sub:추론';continue;}
-        if(has('듣기평가')&&v.includes('맞은응답')){hdr[c]='l_sub:__zero__';continue;}
-        if(has('수행평가','말하기')){hdr[c]='spk_total';continue;}
-        if(has('수행평가','적절성')){hdr[c]='perf:101';continue;}
-        if(has('수행평가','전달성')){hdr[c]='perf:102';continue;}
-        if(has('수행평가','시간')){hdr[c]='perf:103';continue;}
-        if(has('수행평가','발표')){hdr[c]='perf:104';continue;}
-        if(has('수행평가','쓰기')){hdr[c]='wrt_total';continue;}
-        if(has('수행평가','주제')){hdr[c]='perf:201';continue;}
-        if(has('수행평가','문장완성도')){hdr[c]='perf:202';continue;}
-        if(has('수행평가','문법')){hdr[c]='perf:203';continue;}
-        if(has('수행평가','지문길이')){hdr[c]='perf:204';continue;}
-      }
-      if(codeCol<0){fail('"학생코드" 열을 못 찾았어요 — 큐앱 원본 양식이 맞는지 확인해주세요');return;}
+    const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    const rows=[headerRow];
+    studs.forEach((r,i)=>{
+      const wRec=idx[r.code+'|지필평가'], lRec=idx[r.code+'|듣기평가'], pRec=idx[r.code+'|수행평가'];
+      const w=wRec?computeAce(wRec.responses,wAns):null;
+      const l=lRec?computeAce(lRec.responses,lAns):null;
+      const perf=pRec?naesinPerfItemGains(pRec.responses):null;
+      const spkTot=perf?Math.round(((perf[101]||0)+(perf[102]||0)+(perf[103]||0)+(perf[104]||0))*10)/10:'';
+      const wrtTot=perf?Math.round(((perf[201]||0)+(perf[202]||0)+(perf[203]||0)+(perf[204]||0))*10)/10:'';
+      const complete=w&&l&&perf;
+      const total=complete?Math.round((w.got+l.got+spkTot+wrtTot)*10)/10:'';
+      const grade=complete?(total>89?'A':total>79?'B':total>69?'C':total>59?'D':total>19?'E':''):'';
+      rows.push([
+        i+1, r.code, r.name, (r.school||'')+'/'+(r.grade||''), cls.dispCode||code,
+        naesinDayLabel(r.className||cls.className), r.teacher||cls.teacher||'', cls.chess?'CHESS':'ACE',
+        total, grade,
+        w?w.got:'', w?Math.round((w.got-(w.subG['서술형']||0))*10)/10:'',
+        w?(w.subG['표현/의사소통']||0):'', w?(w.subG['지문이해']||0):'', w?(w.subG['어휘']||0):'', w?(w.subG['어법']||0):'', w?(w.subG['서술형']||0):'',
+        l?l.got:'', l?(l.subG['중심 내용 파악']||0):'', l?(l.subG['세부 정보']||0):'', l?(l.subG['추론']||0):'', l?0:'',
+        spkTot, perf?(perf[101]||0):'', perf?(perf[102]||0):'', perf?(perf[103]||0):'', perf?(perf[104]||0):'',
+        wrtTot, perf?(perf[201]||0):'', perf?(perf[202]||0):'', perf?(perf[203]||0):'', perf?(perf[204]||0):'',
+      ]);
+    });
 
-      const miss=[]; let filled=0;
-      for(let r=ref.s.r+1;r<=ref.e.r;r++){
-        const codeCell=ws[XLSX.utils.encode_cell({r,c:codeCol})];
-        const code=codeCell&&codeCell.v!=null?String(codeCell.v).trim():'';
-        if(!code)continue;
-        const wRec=idx[code+'|지필평가'], lRec=idx[code+'|듣기평가'], pRec=idx[code+'|수행평가'];
-        if(!wRec&&!lRec&&!pRec){
-          const nameCell=ws[XLSX.utils.encode_cell({r,c:codeCol+1})];
-          miss.push((nameCell&&nameCell.v)?String(nameCell.v):code);
-          continue;
-        }
-        const w=wRec?computeAce(wRec.responses,naesinAns('지필평가',wRec.key_name)):null;
-        const l=lRec?computeAce(lRec.responses,naesinAns('듣기평가',lRec.key_name)):null;
-        const perf=pRec?naesinPerfItemGains(pRec.responses):{};
-        const spkTot=Math.round(((perf[101]||0)+(perf[102]||0)+(perf[103]||0)+(perf[104]||0))*10)/10;
-        const wrtTot=Math.round(((perf[201]||0)+(perf[202]||0)+(perf[203]||0)+(perf[204]||0))*10)/10;
-        const total=Math.round(((w?w.got:0)+(l?l.got:0)+spkTot+wrtTot)*10)/10;
-        const grade=total>89?'A':total>79?'B':total>69?'C':total>59?'D':total>19?'E':'';
-
-        Object.keys(hdr).forEach(ck=>{
-          const c=parseInt(ck,10); const key=hdr[ck];
-          if(key==='grade'){ if(grade)ws[XLSX.utils.encode_cell({r,c})]={t:'s',v:grade}; return; }
-          let val=0;
-          if(key==='total')val=total;
-          else if(key==='w_total')val=w?w.got:0;
-          else if(key==='w_mc')val=w?Math.round((w.got-(w.subG['서술형']||0))*10)/10:0;
-          else if(key.indexOf('w_sub:')===0)val=w?(w.subG[key.slice(6)]||0):0;
-          else if(key==='l_total')val=l?l.got:0;
-          else if(key==='l_sub:__zero__')val=0;
-          else if(key.indexOf('l_sub:')===0)val=l?(l.subG[key.slice(6)]||0):0;
-          else if(key==='spk_total')val=spkTot;
-          else if(key==='wrt_total')val=wrtTot;
-          else if(key.indexOf('perf:')===0)val=perf[parseInt(key.slice(5),10)]||0;
-          ws[XLSX.utils.encode_cell({r,c})]={t:'n',v:val};
-        });
-        filled++;
-      }
-
-      const outName=f.name.replace(/\.xlsx?$/i,'')+'_채점완료.xlsx';
-      XLSX.writeFile(wb,outName);
-      toast(`큐앱 양식 ${filled}명 채움 · "${outName}" 다운로드 완료`+(miss.length?` · 매칭 안 됨 ${miss.length}명: ${miss.join(', ')}`:''), miss.length===0);
-    }catch(e){console.error(e);fail('엑셀 처리 실패: '+(e.message||e));return;}
-    label.innerHTML=orig; inp.value='';
-  };
-  rd.readAsArrayBuffer(f);
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:4},{wch:12},{wch:10},{wch:22},{wch:8},{wch:10},{wch:14},{wch:10},
+      {wch:8},{wch:6},
+      {wch:8},{wch:8},{wch:10},{wch:8},{wch:8},{wch:8},{wch:8},
+      {wch:8},{wch:10},{wch:8},{wch:8},{wch:10},
+      {wch:8},{wch:10},{wch:10},{wch:10},{wch:10},
+      {wch:8},{wch:10},{wch:12},{wch:10},{wch:12}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'성적표');
+    const fname=('큐앱_'+noDays(cls.dispCode||code)+'_'+classDetail(cls.className)+'_'+semName(SEM)).replace(/[\\/:*?"<>|]/g,'_');
+    XLSX.writeFile(wb,fname+'.xlsx');
+    toast(`큐앱 엑셀 다운로드 완료 ✓ (${studs.length}명)`);
+  }catch(e){console.error(e);toast('엑셀 생성 실패: '+(e.message||e),false);}
 }
 async function writeXlsxColored(sheets,filename){
   const thin={style:'thin',color:{argb:XL_LINE}};const border={top:thin,left:thin,bottom:thin,right:thin};
