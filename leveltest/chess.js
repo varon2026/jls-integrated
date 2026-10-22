@@ -556,7 +556,7 @@ function chessRenderWritingPartCardHTMLV2(part, itemRows) {
 }
 /* 성적표의 Writing 섹션(V2) — rubrics.writing = {type, grades(실제 채점값 배열)} 을 받아서
    문항별 실제 결과 그대로 그린다(목업처럼 데이터에 박힌 데모 등급이 아니라 진짜 채점값). */
-function renderChessReportWritingV2(writingState, studentName) {
+function renderChessReportWritingV2(writingState, studentName, forceBreak) {
   const n = writingState && writingState.type;
   const grades = (writingState && writingState.grades) || [];
   if (!n || !WRITING_DATA[n]) return "";
@@ -574,7 +574,7 @@ function renderChessReportWritingV2(writingState, studentName) {
   }).join("");
 
   return `
-    <div class="chess-report-combined-section">
+    <div class="chess-report-combined-section${forceBreak || ""}">
       <div class="chess-report-section-title">TEST03. Writing · ${esc(TYPE_DESC[n])}</div>
       ${cards}
       <div class="chess-report-feedback-box">
@@ -2000,8 +2000,14 @@ const grammarLabels = CHESS_GRAMMAR_LABELS[
 /* rubrics.writing.type이 있으면(숫자 1~5) 탕정분원 신규 Writing(문항별 실채점) 데이터,
    없으면 기존 분원들이 쓰는 홀리스틱 A~D 루브릭 — 값의 "모양"으로 구분해서 isChessV2()를
    다시 안 물어봐도 안전하다. */
+/* Speaking 카드 6개 이상(D2 이상)이면 TEST02만으로 한 페이지가 이미 꽉 차서
+   TEST03 Writing은 새 페이지에서 시작해야 깔끔하다(운영자 요청). 카드 4개짜리
+   (I1·D1)는 내용이 적어서 억지로 새 페이지를 만들면 표지+3페이지(마지막 장
+   거의 빈 페이지)가 돼버려서, "항상 새 페이지"가 아니라 카드 수로만 강제한다
+   — 목업에서 그대로 가져온 기준(.scratch_mockup/chess-pt-mockup.html). */
+const writingForceBreak = profile.speaking.length >= 6 ? " force-break" : "";
 const writingSection = rubrics?.writing?.type
-  ? renderChessReportWritingV2(rubrics.writing, name)
+  ? renderChessReportWritingV2(rubrics.writing, name, writingForceBreak)
   : writingCards ? `
   <div class="chess-report-combined-section">
     <div class="chess-report-section-title">

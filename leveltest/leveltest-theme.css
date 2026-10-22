@@ -311,5 +311,38 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-writing-rubric {
     page-break-inside: avoid; break-inside: avoid;
   }
-  .chess-report-combined-section .chess-report-card-title--top { page-break-after: avoid; break-after: avoid; }
+  /* .chess-report-card-title--top, .chess-report-subcopy는 Grammar·구버전 Writing
+     카드에서도 쓰는 공용 클래스라 그냥 쓰면 다른 분원 성적표까지 건드린다.
+     이 파일에 이미 있는 방식(:has로 TEST03 Grammar 표만 집는 규칙)을 그대로 따라
+     ":has(.chess-writing-rubric)"로 새 Writing(TEST03 V2) 묶음만 집는다. */
+  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-card-title--top {
+    page-break-after: avoid; break-after: avoid;
+  }
+
+  /* Speaking 카드 6개 이상(D2 이상)은 TEST02만으로 한 페이지가 이미 꽉 차서 TEST03을
+     새 페이지에서 시작시킨다. 카드 4개짜리(I1·D1)는 내용이 적어 억지로 새 페이지를
+     만들면 표지+3페이지(마지막 장 거의 빈 페이지)가 되므로, chess.js가 Speaking
+     카드 수로 계산해서 붙여주는 이 클래스가 있을 때만 강제한다 — 목업 그대로. */
+  .chess-report-combined-section.force-break { page-break-before: always; break-before: page; }
+
+  /* TEST03 Writing 전용 한 번 더 압축 — 문법시험이 없어져 Writing이 TEST03 하나로
+     합쳐지면서 15문항 + 기준표 3개 + Overall Feedback까지 한 페이지(I1·D1은 표지+1장)에
+     맞춰야 한다는 운영자 요청. 목업에서 실제 PDF로 떠서 한 페이지에 들어가는 것까지
+     확인한 수치 그대로 가져옴. .chess-report-item-row/-feedback-box/lt-count-box는
+     이 Writing 섹션에만 쓰는 클래스라 범위를 안 좁혀도 안전함. */
+  .chess-writing-rubric { font-size: 8px; }
+  .chess-writing-rubric .chess-report-criteria-grade { width: 18px; padding: 1.5px 3px; font-size: 8px; }
+  .chess-writing-rubric .chess-report-criteria-desc { padding: 1.5px 3px; font-size: 8px; line-height: 1.1; }
+  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-card-title--top { font-size: 11px; margin-bottom: 3px; }
+  .chess-report-item-row { padding: 1px 0; }
+  .chess-report-item-no { width: 16px; height: 16px; font-size: 8px; }
+  .chess-report-item-word { font-size: 9.5px; line-height: 1.1; }
+  .chess-report-item-desc { font-size: 8px; line-height: 1.1; margin-top: 0; }
+  .chess-report-item-dot { width: 14px; height: 14px; font-size: 6.5px; }
+  .chess-report-combined-section:has(.chess-writing-rubric) { margin-top: 6px; }
+  .chess-report-feedback-box { padding: 4px 6px; margin-top: 3px; }
+  .chess-report-feedback-title { font-size: 9px; margin-bottom: 3px; }
+  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-subcopy { font-size: 9px; line-height: 1.25; margin-bottom: 0; }
+  .lt-count-box .c { padding: 3px 2px; }
+  .lt-count-box .c b { font-size: 14px; }
 }
