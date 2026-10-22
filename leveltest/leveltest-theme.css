@@ -382,7 +382,11 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-page:has(.chess-writing-rubric) .chess-report-title-wrap { margin-bottom: 8px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-kicker { font-size: 13px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-title { font-size: 20px; margin-top: 1px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-intro { font-size: 10px; line-height: 1.35; margin-bottom: 6px; padding-bottom: 6px; }
+  /* 안내문("정상어학원은 어휘나 문법에 대한...") 자체를 인쇄에서 뺀다 — 10px로
+     줄여도 자리를 꽤 차지해서, 운영자 요청대로 통째로 지우고 그만큼 아래 내용을
+     위로 당겨 올린다(2026-10-24: "저 문구를 다 삭제 시켜. 저 만큼 당겨 올리면
+     잘 들어가겠지?"). 화면(성적표 미리보기)에는 그대로 두고 인쇄할 때만 뺀다. */
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-intro { display: none; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-info-box { margin-bottom: 6px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-info-cell { padding: 10px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-info-value { font-size: 14px; margin-top: 4px; }
