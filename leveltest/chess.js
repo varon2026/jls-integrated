@@ -2046,16 +2046,20 @@ function renderChessReport() {
        D1(2영역)·D2(3영역) 전부 기존과 똑같은 결과가 나오는 걸 확인했고, 영역 수와
        무관하게 일반화한 것이라 분원 구분 없이 적용해도 안전하다. */
     /* totalScore는 0~100 "맞은 비율"이고 row.base는 그 영역의 실제 배점(원점수)이다.
-       D1(49+51=100)·D2(46+36+18=100)는 배점 합이 우연히 100이라 totalScore를 그대로
-       나머지 계산에 썼어도 맞았지만, I1(15+12+6=33)처럼 배점 합이 100이 아닌 시험지는
-       나머지를 totalScore가 아니라 "배점 합(totalBase)" 기준으로 채워야 한다. */
+       ⚠️ "배점 합(totalBase)에서 나머지를 채운다"고 고쳤던 게 또 다른 버그였다 —
+       답을 하나도 안 썼을 때(totalScore=0)도 마지막 영역에 totalBase 전체를 그대로
+       몰아줘서, 예를 들어 D1(49+51=100)은 Reading란에 점수 100·성취율 196.1%처럼
+       터무니없는 값이 떴다(다른 분원 운영자 지적, 2026-10-24 — "점수도 이상하고
+       성취율도 이상해"). 마지막 영역도 "전체 배점(totalBase)에서 totalScore 비율만큼
+       실제로 받은 점수"를 기준으로 나머지를 채워야 한다 — totalBase 자체가 아니라. */
     const totalBase = profile.test01Rows.reduce((a, row) => a + row.base, 0);
+    const overallEarned = Math.round((totalScore / 100) * totalBase);
     const earned = profile.test01Rows.map((row, idx) => {
       if (idx === profile.test01Rows.length - 1) return null; // 마지막은 나머지로 뒤에서 채움
       return Math.round((totalScore / 100) * row.base);
     });
     const usedSum = earned.reduce((a, b) => a + (b || 0), 0);
-    earned[earned.length - 1] = totalBase - usedSum;
+    earned[earned.length - 1] = overallEarned - usedSum;
 
     test01RowsHtml = profile.test01Rows.map((row, idx) => {
       const score = earned[idx];
