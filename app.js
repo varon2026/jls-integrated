@@ -3239,6 +3239,9 @@ function examLabel(r){
 }
 /* 시험 종류 카탈로그 (학년별로 정해진 시험지) */
 const EXAM_META=[
+  /* I1은 탕정분원(아산탕정분원) 신규 CHESS에서만 나오는 시험지. 다른 분원엔 안 나오니
+     여기 추가해도 전형현황 집계에 빈 칸만 하나 더 생길 뿐 다른 분원 숫자는 안 바뀐다. */
+  {k:'I1',g:'초등1~5',t:'chess'},
   {k:'D1',g:'초등1~5',t:'chess'},{k:'D2',g:'초등1~5',t:'chess'},{k:'D3',g:'초등1~5',t:'chess'},{k:'D4',g:'초등1~5',t:'chess'},
   {k:'L1',g:'초등1~5',t:'chess'},{k:'L2',g:'초등1~5',t:'chess'},{k:'L3',g:'초등1~5',t:'chess'},{k:'L4',g:'초등1~5',t:'chess'},
   {k:'E6',g:'초등6',t:'ace'},{k:'Voca & Translation',g:'초등6·중등1',t:'ace'},
@@ -3250,7 +3253,7 @@ function scoreOf(r){ const res=ltResults[r.id]; let s=(res&&res.total_score!=nul
 function levelOf(r){ const res=ltResults[r.id]; return (res&&res.assigned_level)||r.test_level||''; }
 function gradeKey(g){ g=String(g||'').trim(); let m; if(m=g.match(/중\s*등?\s*(\d)/))return '중'+m[1]; if(m=g.match(/초\s*등?\s*(\d)/))return '초'+m[1]; if(m=g.match(/고\s*(\d)/))return '고'+m[1]; if(m=g.match(/^(\d)$/))return '초'+m[1]; return g||'기타'; }
 const GRADE_ORDER=['초1','초2','초3','초4','초5','초6','중1','중2','중3','고1','고2','고3'];
-const CHESS_LV_ORDER=['D1','D2','D3','D4','L1','L2','L3','L4'];
+const CHESS_LV_ORDER=['I1','D1','D2','D3','D4','L1','L2','L3','L4'];
 let anLastRows=[];   // 엑셀 내보내기용
 
 function renderLtAnalysis(){

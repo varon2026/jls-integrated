@@ -472,8 +472,23 @@ function openSelectedPaper() {
     L3: "./PDF/L3.pdf",
     L4: "./PDF/L4.pdf"
   };
+  /* 탕정분원 신규 CHESS 시험지 PDF — 기존 파일(D1.pdf 등)은 다른 분원이 계속 써야 해서
+     안 건드리고, 새 파일은 "_v2" 붙은 이름으로 따로 올렸다(leveltest/PDF/*_v2.pdf).
+     I1은 완전 신규라 원래 CHESS_PAPER_MAP에 없어서 여기서만 추가. */
+  const CHESS_PAPER_MAP_V2 = {
+    I1: "./PDF/I1_v2.pdf",
+    D1: "./PDF/D1_v2.pdf",
+    D2: "./PDF/D2_v2.pdf",
+    D3: "./PDF/D3_v2.pdf",
+    D4: "./PDF/D4_v2.pdf",
+    L1: "./PDF/L1_v2.pdf",
+    L2: "./PDF/L2_v2.pdf",
+    L3: "./PDF/L3_v2.pdf",
+    L4: "./PDF/L4_v2.pdf"
+  };
+  const chessV2Active = typeof isChessV2 === "function" && isChessV2();
 
-  const file = PAPER_FILE_MAP[title] || CHESS_PAPER_MAP[title];
+  const file = PAPER_FILE_MAP[title] || (chessV2Active ? CHESS_PAPER_MAP_V2[title] : CHESS_PAPER_MAP[title]);
 
   if (!file) {
     alert("PDF 연결 안됨");
@@ -1723,7 +1738,7 @@ function getExamOptionsByGrade(grade) {
   const g = String(grade || "").replace(/\s/g, "");
 
   if (g === "초등1" || g === "초등2" || g === "초등3" || g === "초등4" || g === "초등5") {
-    return [
+    const list = [
       { value: "D1", label: "D1" },
       { value: "D2", label: "D2" },
       { value: "D3", label: "D3" },
@@ -1733,6 +1748,10 @@ function getExamOptionsByGrade(grade) {
       { value: "L3", label: "L3" },
       { value: "L4", label: "L4" }
     ];
+    /* I1은 탕정분원(아산탕정분원) 신규 CHESS에서만 고를 수 있다 — 다른 분원 드롭다운엔
+       이 함수가 그대로라 안 뜬다. isChessV2()는 leveltest/chess.js에 정의돼 있다. */
+    if (typeof isChessV2 === "function" && isChessV2()) list.unshift({ value: "I1", label: "I1" });
+    return list;
   }
 
   if (g === "초등6") {
@@ -1800,7 +1819,9 @@ function goNext() {
     alert("이름/학교/학년/시험 본 날짜/시험지명을 입력하세요.");
     return;
   }
-  const chessTests = ["D1", "D2", "D3", "D4", "L1", "L2", "L3", "L4"];
+  /* I1은 탕정분원 드롭다운에서만 나올 수 있는 값이라(getExamOptionsByGrade 참고)
+     다른 분원은 이 값을 애초에 선택할 수 없다 — 여기 추가해도 안전하다. */
+  const chessTests = ["I1", "D1", "D2", "D3", "D4", "L1", "L2", "L3", "L4"];
 
   if (chessTests.includes(examName)) {
     if (typeof renderChessInput !== "function") {
@@ -2789,13 +2810,21 @@ function updatePaperButtons() {
     L3: "./PDF/L3.pdf",
     L4: "./PDF/L4.pdf"
   };
+  /* 탕정분원 신규 CHESS 시험지 PDF — openSelectedPaper()와 같은 이유로 "_v2" 별도 파일. */
+  const CHESS_PAPER_MAP_V2 = {
+    I1: "./PDF/I1_v2.pdf",
+    D1: "./PDF/D1_v2.pdf",
+    D2: "./PDF/D2_v2.pdf",
+    D3: "./PDF/D3_v2.pdf",
+    D4: "./PDF/D4_v2.pdf",
+    L1: "./PDF/L1_v2.pdf",
+    L2: "./PDF/L2_v2.pdf",
+    L3: "./PDF/L3_v2.pdf",
+    L4: "./PDF/L4_v2.pdf"
+  };
+  const chessV2Active = typeof isChessV2 === "function" && isChessV2();
 
-  
-
-
-
-
-  const filePath = PAPER_FILE_MAP[selectedExam] || CHESS_PAPER_MAP[selectedExam];
+  const filePath = PAPER_FILE_MAP[selectedExam] || (chessV2Active ? CHESS_PAPER_MAP_V2[selectedExam] : CHESS_PAPER_MAP[selectedExam]);
 
   if (!selectedExam) {
     questionBtn.disabled = true;
@@ -2815,7 +2844,7 @@ function updatePaperButtons() {
 
   answerBtn.disabled = false;
 
-const chessTests = ["D1", "D2", "D3", "D4", "L1", "L2", "L3", "L4"];
+const chessTests = ["I1", "D1", "D2", "D3", "D4", "L1", "L2", "L3", "L4"];
 
   if (chessTests.includes(selectedExam)) {
     answerBtn.onclick = () => {

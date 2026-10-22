@@ -1,4 +1,7 @@
 const CHESS_CONFIG = {
+  /* I1은 탕정분원 신규 CHESS에서만 고를 수 있다(다른 분원 드롭다운엔 아예 안 뜸) —
+     그래도 여기 새 키로만 추가하는 거라 다른 분원 D1~L4 설정은 한 글자도 안 바뀐다. */
+  I1: { type: "I_BASIC", speakingMode: "D1", hasGrammar: false, hasWriting: false, hasSpeaking: true },
   D1: { type: "D_BASIC", speakingMode: "D1", hasGrammar: false, hasWriting: false, hasSpeaking: true },
   D2: { type: "D_BASIC", speakingMode: "D2", hasGrammar: false, hasWriting: false, hasSpeaking: true },
   D3: { type: "D_GRAMMAR", speakingMode: "GENERAL", hasGrammar: true, hasWriting: false, hasSpeaking: true },
@@ -89,6 +92,99 @@ function chessAnswerMatches(user, correct, alts) {
   return u === normalizeChessAnswer(correct) || (alts || []).some(a => u === normalizeChessAnswer(a));
 }
 
+/* ============================================================================
+   CHESS 신규 시험지(I1 신설 + D1~L4 정답 전면 교체) — 탕정분원(아산탕정분원, br_22jcktj) 전용.
+   다른 분원은 이 블록을 아예 안 타고 위의 CHESS_ANSWER_KEY·CHESS_LEVEL_RULES·CHESS_CONFIG를
+   그대로 쓴다 — 그래서 다른 분원 D1~L4는 한 줄도 안 바뀐다.
+   브랜치 판정은 leveltest/integration.js가 셋업하는 window.__LT_ENTRY.branch(쿼리 ?branch=)를 본다.
+   ============================================================================ */
+const CHESS_V2_BRANCH_ID = "br_22jcktj";
+function isChessV2() {
+  try {
+    /* 저장된 성적표를 나중에 열람할 때(?view=)는 "지금 보는 사람이 어느 분원이냐"가 아니라
+       "그 성적표가 채점될 때 어느 버전으로 채점됐냐"가 맞아야 한다 — 안 그러면 과거에
+       v1으로 본 시험이 나중에 분원 설정이 바뀌거나 다른 맥락에서 열람될 때 v2 정답/레벨표로
+       잘못 다시 그려질 수 있다("과거 응시자 성적표는 절대 바뀌면 안 됩니다"). 그래서
+       채점이 끝나 dataVersion이 찍힌 뒤에는 그 값을 우선한다 — 응시 중(아직 안 채점)에는
+       현재 분원(window.__LT_ENTRY.branch)으로 판단한다. */
+    if (LAST_CHESS_SESSION && LAST_CHESS_SESSION.dataVersion) {
+      return LAST_CHESS_SESSION.dataVersion === "v2";
+    }
+    return !!(window.__LT_ENTRY && window.__LT_ENTRY.branch === CHESS_V2_BRANCH_ID);
+  } catch (e) {
+    return false;
+  }
+}
+/* CHESS_ANSWER_KEY 등 "분원 공용" 테이블을 조회할 때 쓰는 실제 키.
+   I1은 완전 신규라 겹칠 게 없어서 그대로 "I1"을 쓰고, D1~L4는 탕정분원일 때만
+   "D1__V2" 같은 별도 키로 돌려서 기존 D1~L4(다른 분원용) 데이터는 그대로 둔다. */
+function chessDataKey(examName) {
+  const k = String(examName || "").toUpperCase();
+  if (k === "I1") return "I1";
+  return isChessV2() ? (k + "__V2") : k;
+}
+
+/* 새 정답 — CHESS Placement Test 2026 개편안 원본 PDF/해설지에서 추출, 목업(chess-pt-mockup)에서
+   실제 데이터로 검증 완료. 순서: I1 → D1 → D2 → D3 → D4 → L1 → L2 → L3 → L4, 전부 33문항. */
+const CHESS_ANSWER_KEY_I1 = ["2","1","3","a","u","i,e","2","3","cr","bl","3","3","2","4","2","2","3","3","4","4","1","4","2","2","3","4","1","2","4","1","1","1","3"];
+const CHESS_ANSWER_KEY_V2 = {
+  D1: ["1","4","1","3","3","4","1","2","3","1","2","2","2","3","1","1","1","2","4","3","2","3","4","2","4","1","3","2","3","4","1","4","3"],
+  D2: ["i,e","2","1","1","3","4","3","2","1","3","2","4","3","1","2","3","1","1","2","3","4","1","2","3","2","1","4","2","1","2","1","3","4"],
+  D3: ["1","2","3","3","4","2","2","1","2","4","3","1","3","4","4","2","3","2","3","4","2","1","4","2","2","1","1","3","3","2","4","are","was"],
+  D4: ["3","3","3","4","2","4","2","1","2","3","1","3","4","2","2","3","2","4","4","3","3","1","3","2","2","4","3","4","4","3","4","4","I have a science test tomorrow."],
+  L1: ["4","3","1","2","4","1","3","4","3","2","4","1","3","2","4","1","3","2","4","2","3","1","2","4","1","3","4","2","3","1","4","2","3"],
+  L2: ["2","1","3","2","4","1","2","3","4","3","1","2","1","2","4","3","3","1","4","3","4","2","1","3","2","1","4","2","3","2","4","1","3"],
+  L3: ["2","4","3","2","4","1","3","1","4","2","3","4","3","2","1","4","3","2","3","1","4","2","1","3","2","3","4","2","3","1","1","4","2"],
+  L4: ["2","4","3","2","4","1","3","3","1","4","1","4","2","1","3","4","2","2","4","4","3","2","3","1","2","1","4","2","3","1","2","3","4"]
+};
+Object.keys(CHESS_ANSWER_KEY_V2).forEach(k => { CHESS_ANSWER_KEY_V2[k + "__V2"] = CHESS_ANSWER_KEY_V2[k]; delete CHESS_ANSWER_KEY_V2[k]; });
+
+/* 새 레벨 배정표 — "분원공유용_CHESS New PT 배정기준표_202402.xlsx"의 성적처리(반배정)기준표
+   시트 그대로. 점수 구간이 아니라 "이 점수 이상이면 이 레벨" 식 커트라인 누적 방식
+   (CLAUDE.md 학원 업무 흐름의 레벨 표기 — IS1·IS2·DSA1·DSA2…와 동일한 코드 체계). */
+const CHESS_LEVEL_TABLE_V2 = {
+  I1: [[0, "미배정"], [40, "IS1"], [55, "IS2"], [91, "DSA1"]],
+  D1: [[0, "미배정"], [55, "DSA1"], [67, "DSA2"], [79, "DSB1"]],
+  D2: [[0, "미배정"], [55, "DSB1"], [67, "DSB2"], [79, "DSC1"]],
+  D3: [[0, "미배정"], [55, "DSC1"], [67, "DSC2"], [79, "DSD1"]],
+  D4: [[0, "미배정"], [55, "DSD1"], [67, "DSD2"], [79, "LSA1"]],
+  L1: [[0, "미배정"], [55, "LSA1"], [67, "LSA2"], [79, "LSB1"]],
+  L2: [[0, "미배정"], [55, "LSB1"], [67, "LSB2"], [79, "LSC1"]],
+  L3: [[0, "미배정"], [55, "LSC1"], [67, "LSC2"], [79, "LSD1"]],
+  L4: [[0, "미배정"], [61, "LSD1"], [76, "LSD2"], [91, "MSA1"]]
+};
+/* 레벨 수정 드롭다운용 전체 레벨 순서(CLAUDE.md 학원 업무 흐름 그대로) + 자동배정 앞뒤로
+   2단계씩 보여주는 슬라이딩 윈도 — 탕정 CHESS 전용(기존 CHESS는 getLevelOptions의
+   10단계 목록을 그대로 쓴다, 안 건드림). */
+const CHESS_V2_GLOBAL_LEVELS = [
+  "IS1","IS2","DSA1","DSA2","DSB1","DSB2","DSC1","DSC2","DSD1","DSD2",
+  "LSA1","LSA2","LSB1","LSB2","LSC1","LSC2","LSD1","LSD2","MSA1","MSA2","MSB1","MSB2"
+];
+function chessV2LevelOptions(autoLevel) {
+  if (autoLevel === "미배정") return ["미배정"];
+  const idx = CHESS_V2_GLOBAL_LEVELS.indexOf(autoLevel);
+  if (idx === -1) return [autoLevel];
+  const start = Math.max(0, idx - 2);
+  const end = Math.min(CHESS_V2_GLOBAL_LEVELS.length, idx + 2);
+  return CHESS_V2_GLOBAL_LEVELS.slice(start, end);
+}
+/* I1·D1~L4 공통 "정답 조회" 창구. 기존 CHESS_ANSWER_KEY[examName] 직접 참조를
+   전부 이걸로 바꿔서, 탕정분원일 때만 새 정답(CHESS_ANSWER_KEY_I1/_V2)을 돌려주고
+   다른 분원은 예전처럼 CHESS_ANSWER_KEY(원본, 안 건드림)를 그대로 받는다. */
+function chessAnswerKeyFor(examName) {
+  const t = String(examName || "").toUpperCase();
+  if (t === "I1") return CHESS_ANSWER_KEY_I1;
+  if (isChessV2()) return CHESS_ANSWER_KEY_V2[t + "__V2"] || CHESS_ANSWER_KEY[t];
+  return CHESS_ANSWER_KEY[t];
+}
+function getChessLevelV2(score, examName) {
+  const table = CHESS_LEVEL_TABLE_V2[String(examName || "").toUpperCase()];
+  if (!table) return "미배정";
+  let lv = table[0][1];
+  for (const [min, label] of table) { if (score >= min) lv = label; }
+  return lv;
+}
+
 const CHESS_GRAMMAR_KEY = {
   D: [
     "studies",
@@ -150,6 +246,10 @@ function getChessLevel(score, testType) {
 
   if (Number.isNaN(s)) return "미배정";
 
+  /* I1은 신규라 기존 등급표에 아예 없고, 탕정분원이면 D1~L4도 새 등급표를 쓴다.
+     다른 분원은 이 if를 안 타므로 기존 CHESS_LEVEL_RULES 그대로. */
+  if (t === "I1" || isChessV2()) return getChessLevelV2(s, t);
+
   const rules = CHESS_LEVEL_RULES[t];
   if (!rules) return "미배정";
 
@@ -183,23 +283,27 @@ function markAllChess() {
 
 function getChessMeta(examName) {
   const t = String(examName || "").toUpperCase();
+  /* 새 시험지는 서술형 문법 10문항이 없어졌다(CLAUDE.md "지금 하는 일" 참고) — 탕정분원일
+     때만 hasGrammar를 꺼서 입력화면·채점·성적표에서 그 섹션이 통째로 안 보이게 한다.
+     다른 분원은 이 조건이 false라 예전 그대로 서술형 문법이 나온다. */
+  const grammarOff = t === "I1" || isChessV2();
   return {
     isDType: /^D[1-4]$/.test(t),
     isLType: /^L[1-4]$/.test(t),
-    hasGrammar: t === "D3" || t === "D4" || /^L[1-4]$/.test(t),
+    hasGrammar: !grammarOff && (t === "D3" || t === "D4" || /^L[1-4]$/.test(t)),
     grammarType: (t === "D3" || t === "D4") ? "D" : (/^L[1-4]$/.test(t) ? "L" : null)
   };
 }
 
 function getChessQuestionCount(examName) {
-  const list = CHESS_ANSWER_KEY[String(examName || "").toUpperCase()];
+  const list = chessAnswerKeyFor(examName);
   return Array.isArray(list) ? list.length : 0;
 }
 
 function buildChessAnswerInputs(examName) {
   const count = getChessQuestionCount(examName);
   if (!count) return `<p class="muted">답안 데이터가 없습니다.</p>`;
-  const key = CHESS_ANSWER_KEY[String(examName || "").toUpperCase()] || [];
+  const key = chessAnswerKeyFor(examName) || [];
   const hasGrammar = getChessMeta(examName).hasGrammar;
 
   return `
@@ -263,7 +367,7 @@ function buildChessRubricInputs(examName) {
 
   const cleanKey = String(examName || "")
     .toUpperCase()
-    .match(/[DL][1-4]/)?.[0] || "";
+    .match(/[IDL][1-4]/)?.[0] || "";
 
   const phonicsRow = `
     <div class="answer-row">
@@ -409,7 +513,7 @@ function buildChessRubricInputs(examName) {
   `;
 
   let speakingRows = generalRows;
-  if (cleanKey === "D1") speakingRows = d1Rows;
+  if (cleanKey === "D1" || cleanKey === "I1") speakingRows = d1Rows;
   if (cleanKey === "D2") speakingRows = d2Rows;
 
   const speakingHtml = `
@@ -531,7 +635,7 @@ function showChessAnswerSheet() {
     return;
   }
 
-  const key = CHESS_ANSWER_KEY[examKey];
+  const key = chessAnswerKeyFor(examKey);
 
   if (!Array.isArray(key) || !key.length) {
     alert("답안 데이터 없음");
@@ -618,10 +722,10 @@ function renderChessInput(student) {
   const { memberCode, name, school, grade, testDate, examName } = student;
 CURRENT_CHESS_EXAM_KEY = String(examName || "")
   .toUpperCase()
-  .match(/[DL][1-4]/)?.[0] || "";
+  .match(/[IDL][1-4]/)?.[0] || "";
   const cleanKey = String(examName || "")
   .toUpperCase()
-  .match(/[DL][1-4]/)?.[0] || "";
+  .match(/[IDL][1-4]/)?.[0] || "";
 
 CURRENT_CHESS_EXAM_KEY = cleanKey;
 
@@ -668,7 +772,7 @@ function collectChessAnswers(examName) {
 }
 
 function evaluateChessObjective(examName, userAnswers) {
-  const key = CHESS_ANSWER_KEY[String(examName || "").toUpperCase()] || [];
+  const key = chessAnswerKeyFor(examName) || [];
   const results = key.map((correctAnswer, idx) => {
     const user = userAnswers[idx] || "";
     const correct = chessAnswerMatches(user, correctAnswer, chessAltFor(examName, idx));
@@ -768,7 +872,10 @@ function checkChessExam() {
   const rubrics = collectChessRubrics(examName);
 
   const totalScore = objective.rate;
+  /* dataVersion을 찍기 전에 레벨부터 계산 — 이 시점의 isChessV2()는 아직 dataVersion이
+     없으니 branch 기준으로 정확히 판단한다(위 isChessV2 주석 참고). */
   const assignedLevel = getChessLevel(totalScore, examName);
+  const dataVersion = (String(examName || "").toUpperCase() === "I1" || isChessV2()) ? "v2" : "v1";
 
   const chessEvaluation = {
     ...LAST_CHESS_SESSION,
@@ -777,7 +884,8 @@ function checkChessExam() {
     assignedLevel,
     objective,
     grammar,
-    rubrics
+    rubrics,
+    dataVersion
   };
 
   LAST_CHESS_SESSION = chessEvaluation;
@@ -815,7 +923,9 @@ function renderChessReview(data) {
     </div>
   ` : "";
 
-   const chessLevelOpts = getLevelOptions("", examName);
+   const chessLevelOpts = (examName.toUpperCase() === "I1" || isChessV2())
+     ? chessV2LevelOptions(assignedLevel)
+     : getLevelOptions("", examName);
   const chessLevelSelect = chessLevelOpts.map(lv =>
     `<option value="${lv}" ${lv === assignedLevel ? "selected" : ""}>${lv}</option>`
   ).join("");
@@ -903,9 +1013,66 @@ function renderChessReport() {
 
   const cleanKey = String(examName || "")
     .toUpperCase()
-    .match(/[DL][1-4]/)?.[0] || "";
+    .match(/[IDL][1-4]/)?.[0] || "";
 
   function getProfile() {
+    if (cleanKey === "I1") {
+      /* I1은 신규 시험지라 TEST01 영역이 D1(듣기/읽기 2영역)과 다르게 3영역으로 나뉜다
+         — 분원공유용 CHESS New PT 배정기준표 원본 그대로(Phonics 15 / Vocabulary & Expression
+         12 / TPR 6 = 33점). 말하기 루브릭(Speaking)은 D1과 같은 4개 항목을 그대로 쓴다. */
+      return {
+        test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
+        test01Rows: [
+          { label: "Phonics", base: 15 },
+          { label: "Vocabulary & Expression", base: 12 },
+          { label: "TPR", base: 6 }
+        ],
+        speaking: [
+          {
+            key: "listening",
+            title: "Listening 청취력",
+            grades: {
+              A: "대부분 질문에 대해 잘 알아듣고 이해합니다.",
+              B: "대부분 질문을 알아듣지만 가끔 확인이 필요합니다.",
+              C: "질문을 잘 이해하지 못해 추가 설명이 필요합니다.",
+              D: "질문을 거의 알아듣지 못합니다."
+            }
+          },
+          {
+            key: "vocabulary",
+            title: "Vocabulary 어휘 수준",
+            grades: {
+              A: "풍부한 어휘를 알고 있으며 적절히 잘 사용합니다.",
+              B: "어휘는 잘 알고 있으나 상황에 맞지 않게 사용하는 경우가 있습니다.",
+              C: "어휘를 어느 정도 알고 있으나 제한된 수준입니다.",
+              D: "어휘력이 부족해 표현하기 힘듭니다."
+            }
+          },
+          {
+            key: "complexity",
+            title: "Complexity 문장 수준",
+            grades: {
+              A: "질문에 대하여 다양하고 완전한 문장으로 대답합니다.",
+              B: "문장으로 대답하려 시도하나 문장이 불완전합니다.",
+              C: "단어로 답하거나 짧고 간단하게 대답합니다.",
+              D: "전혀 대답하지 못합니다."
+            }
+          },
+          {
+            key: "phonics",
+            title: "Phonics 파닉스",
+            grades: {
+              A: "Phonics 규칙을 알고 문장을 유창하게 읽습니다.",
+              B: "잘 읽지만 몇몇 단어 발음에 오류가 있습니다.",
+              C: "읽으려 하나 Phonics가 부족하여 읽기에 어려움이 있습니다.",
+              D: "Phonics 학습의 시작 단계입니다."
+            }
+          }
+        ],
+        showGrammar: false,
+        writingType: null
+      };
+    }
     if (cleanKey === "D1") {
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
@@ -1283,30 +1450,24 @@ function renderChessReport() {
   const profile = getProfile();
 
   let test01RowsHtml = "";
-  if (profile.test01Rows.length === 3) {
-    const listen = Math.round(totalScore * 0.46);
-    const read = Math.round(totalScore * 0.36);
-    const vocab = totalScore - listen - read;
-    const earned = [listen, read, vocab];
-
-    test01RowsHtml = profile.test01Rows.map((row, idx) => {
-      const score = earned[idx];
-      const rate = ((score / row.base) * 100).toFixed(1);
-      return `
-        <tr>
-          <td>${row.label}</td>
-          <td class="center">${row.base}</td>
-          <td class="center">${score}</td>
-          <td class="center">${rate}%</td>
-        </tr>
-      `;
-    }).join("");
-  } else {
-    const firstBase = profile.test01Rows[0].base;
-    const firstScore = Math.round(totalScore * (firstBase / 100));
-    const secondScore = totalScore - firstScore;
-
-    const earned = [firstScore, secondScore];
+  {
+    /* 영역별(TEST01) 점수를 totalScore에서 역산할 때, 각 영역의 실제 배점(base) 비율대로
+       나눈다 — 마지막 영역만 나머지로 채워서 합이 totalScore와 정확히 맞게 한다.
+       예전엔 영역이 3개일 때만 46%/36%를 하드코딩해서, 그 숫자가 우연히 D2의 배점(46/36/18)과
+       같아 D2는 멀쩡해 보였지만 다른 3영역 시험지(I1: 15/12/6)엔 그대로 쓰면 틀린 값이 나왔다.
+       D1(2영역)·D2(3영역) 전부 기존과 똑같은 결과가 나오는 걸 확인했고, 영역 수와
+       무관하게 일반화한 것이라 분원 구분 없이 적용해도 안전하다. */
+    /* totalScore는 0~100 "맞은 비율"이고 row.base는 그 영역의 실제 배점(원점수)이다.
+       D1(49+51=100)·D2(46+36+18=100)는 배점 합이 우연히 100이라 totalScore를 그대로
+       나머지 계산에 썼어도 맞았지만, I1(15+12+6=33)처럼 배점 합이 100이 아닌 시험지는
+       나머지를 totalScore가 아니라 "배점 합(totalBase)" 기준으로 채워야 한다. */
+    const totalBase = profile.test01Rows.reduce((a, row) => a + row.base, 0);
+    const earned = profile.test01Rows.map((row, idx) => {
+      if (idx === profile.test01Rows.length - 1) return null; // 마지막은 나머지로 뒤에서 채움
+      return Math.round((totalScore / 100) * row.base);
+    });
+    const usedSum = earned.reduce((a, b) => a + (b || 0), 0);
+    earned[earned.length - 1] = totalBase - usedSum;
 
     test01RowsHtml = profile.test01Rows.map((row, idx) => {
       const score = earned[idx];
