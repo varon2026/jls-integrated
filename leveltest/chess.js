@@ -582,9 +582,9 @@ function renderChessReportWritingV2(writingState, studentName, compact) {
     <div class="chess-report-combined-section">
       <div class="chess-report-section-title">TEST03. Writing · ${esc(TYPE_DESC[n])}</div>
       ${cards}
-      <div class="chess-report-feedback-box">
+      <div class="chess-report-feedback-box${compact ? " chess-feedback-compact" : ""}">
         <div class="chess-report-feedback-title">Overall Feedback</div>
-        <div class="lt-count-box" style="margin-bottom:14px">
+        <div class="lt-count-box"${compact ? "" : ' style="margin-bottom:14px"'}>
           <div class="c cA"><b>${c.A}</b><span>A</span></div>
           <div class="c cB"><b>${c.B}</b><span>B</span></div>
           <div class="c cC"><b>${c.C}</b><span>C</span></div>
@@ -2128,12 +2128,13 @@ const grammarLabels = CHESS_GRAMMAR_LABELS[
    스크린샷, 2026-10-24: "여백이 많으면 최대한 한장으로 끝낼수있게"). 실제 인쇄용
    압축 CSS를 그대로 적용해서 진짜 렌더링 높이를 재고 판단한다 — chessMeasurePrintBreaks()
    가 이 함수가 app.innerHTML에 다 그려진 뒤에 실행된다. */
-/* I1에서 Writing Type2·3(15문항·3파트, 긴 쪽)를 고르면 TEST02(카드 4개뿐이라
-   원래도 2x2로 하면 페이지 절반이 빈다)를 한 줄로 눕히고, Writing 문항도 2열로
-   펼쳐서 세로를 더 줄인다 — 운영자 요청: "테스트2번 네모칸을 한줄로" +
-   "빈공간이 생기면 테스트 3를 꾸역꾸역 넣어볼 생각을 했어야지"(2026-10-24).
-   I1 전용이고, Type1(기본값)·Type4·Type5를 고르면 원래 레이아웃 그대로다. */
-const i1LongWriting = cleanKey === "I1" && (rubrics?.writing?.type === 2 || rubrics?.writing?.type === 3);
+/* I1에서 Writing Type2·3·4를 고르면 TEST02(카드 4개뿐이라 원래도 2x2로 하면
+   페이지 절반이 빈다)를 한 줄로 눕히고, Writing 문항도 2열로 펼쳐서 세로를 더
+   줄인다 — 운영자 요청: "테스트2번 네모칸을 한줄로" + "빈공간이 생기면 테스트 3를
+   꾸역꾸역 넣어볼 생각을 했어야지" + "타입2,3,4 디자인을 바꿔서라도 한장에 넣으셈"
+   (2026-10-24). Type4는 처음엔 안 넣었다가, 똑같이 빈 공간이 많이 남아서 추가함.
+   I1 전용이고, Type1(기본값)·Type5를 고르면 원래 레이아웃 그대로다. */
+const i1LongWriting = cleanKey === "I1" && [2, 3, 4].includes(rubrics?.writing?.type);
 const writingSection = rubrics?.writing?.type
   ? renderChessReportWritingV2(rubrics.writing, name, i1LongWriting)
   : writingCards ? `

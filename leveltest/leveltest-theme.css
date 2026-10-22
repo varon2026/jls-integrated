@@ -461,4 +461,50 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-combined-section:has(.chess-items-2col) .chess-report-subcopy {
     font-size: 8px; line-height: 1.15;
   }
+
+  /* Overall Feedback 박스 — 제목 아래 A/B/C 개수칸(가로 한 줄) + 글 문단(여러 줄)을
+     위아래로 쌓다 보니 그것만으로 130px 가까이 먹어서, 2열(세로 2줄)로 줄여도
+     60~70px이 모자랐다(운영자 — "피드백 박스를 디자인을 바꿔서라도 한장에 넣으셈").
+     그래서 이 박스만 따로 — A/B/C 개수칸을 왼쪽에 세로로 작게 쌓고, 글 문단은
+     오른쪽에 두는 2단 구성으로 바꿔서 세로 한 줄만큼 줄인다. */
+  .chess-report-feedback-box.chess-feedback-compact {
+    display: grid;
+    grid-template-columns: 62px 1fr;
+    column-gap: 8px;
+    row-gap: 1px;
+    align-items: start;
+    padding: 2px 4px !important;
+    margin-top: 0 !important;
+  }
+  .chess-feedback-compact .chess-report-feedback-title {
+    grid-column: 1 / -1;
+    margin-bottom: 1px !important;
+  }
+  .chess-feedback-compact .lt-count-box {
+    grid-column: 1;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .chess-feedback-compact .lt-count-box .c {
+    flex-direction: row;
+    justify-content: center;
+    align-items: baseline;
+    gap: 3px;
+    padding: 0 2px;
+  }
+  .chess-feedback-compact .lt-count-box .c b {
+    font-size: 10px;
+  }
+  .chess-feedback-compact .lt-count-box .c span {
+    font-size: 7px;
+  }
+  .chess-feedback-compact .chess-report-subcopy {
+    grid-column: 2;
+    margin-top: 0;
+    font-size: 7px !important;
+    line-height: 1.05 !important;
+  }
+  .chess-feedback-compact .chess-report-subcopy .ln {
+    margin-bottom: 0 !important;
+  }
 }
