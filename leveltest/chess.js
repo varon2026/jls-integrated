@@ -622,21 +622,24 @@ function chessMeasurePrintBreaks() {
   document.head.appendChild(styleEl);
 
   try {
-    const PAGE_BUDGET_PX = (297 - 7 - 7 - 7 - 8) * (96 / 25.4); // A4(7mm 여백) 안에서 .chess-report-page 자체 패딩(7mm+8mm)까지 뺀, 실제 글이 들어갈 수 있는 세로 길이
+    /* pageTop(.chess-report-page 테두리 맨 위)부터 재니까 그 안의 위쪽 패딩(7mm)은
+       이미 측정값에 포함돼 있다 — A4 인쇄 가능 영역(297-7-7=283mm)에서 밑에 남길
+       여백(8mm)만 한 번 더 빼면 된다. 처음엔 위쪽 패딩을 두 번 빼서(283-7-8=268mm)
+       기준이 57px(≈15mm)이나 더 좁았다 — 실제로 들어갈 공간이 있는데도 다음 페이지로
+       넘겨버린 원인(운영자 지적: "빈공간에 다 들어갈수있음에도 불구하고 넘기고있네"). */
+    const PAGE_BUDGET_PX = (297 - 7 - 7 - 8) * (96 / 25.4);
 
     const pageTop = page.getBoundingClientRect().top;
-    const test02Grid = document.querySelector(".chess-report-test02-grid");
-    const beforeWritingBottom = test02Grid
-      ? (test02Grid.getBoundingClientRect().bottom - pageTop)
-      : (writingSection.getBoundingClientRect().top - pageTop);
-
     const parts = Array.from(writingSection.querySelectorAll(".chess-writing-part-card"));
     const feedbackBox = writingSection.querySelector(".chess-report-feedback-box");
     const writingTop = writingSection.getBoundingClientRect().top - pageTop;
     const writingBottom = (feedbackBox || writingSection).getBoundingClientRect().bottom - pageTop;
     const writingHeight = writingBottom - writingTop;
 
-    const fitsRightAfterTest02 = (beforeWritingBottom + writingHeight) <= PAGE_BUDGET_PX;
+    /* writingBottom은 TEST03이 지금(= force-break 적용 전, TEST02 바로 뒤) 자연스럽게
+       놓인 상태의 실제 끝 위치라서, TEST02와의 간격(margin)까지 이미 포함돼 있다
+       — 따로 더하지 않고 이 값을 그대로 기준과 비교한다. */
+    const fitsRightAfterTest02 = writingBottom <= PAGE_BUDGET_PX;
     writingSection.classList.toggle("force-break", !fitsRightAfterTest02);
 
     const fitsOnFreshPage = writingHeight <= PAGE_BUDGET_PX;
@@ -648,6 +651,24 @@ function chessMeasurePrintBreaks() {
     styleEl.remove();
   }
 }
+
+/* 성적표가 그려지자마자(renderChessReport 끝에서) chessMeasurePrintBreaks()를 한 번
+   불러두지만, 그 시점엔 Pretendard 웹폰트가 아직 안 끝나 있을 수 있다(jsdelivr에서
+   받아오는 중) — 그 상태로 재면 대체 폰트로 더 넓게/길게 잡혀서 실제로는 한 페이지에
+   들어갈 내용도 "안 들어간다"고 잘못 판단해 억지로 다음 페이지로 넘겼다(운영자 지적:
+   "빈공간에 다 들어갈수있음에도 불구하고 넘기고있네", 2026-10-24). 그래서 인쇄 버튼을
+   누르는 "진짜 인쇄하는 순간"에 폰트가 다 뜬 뒤(document.fonts.ready) 한 번 더 재서
+   확정한다. Ctrl+P로 바로 인쇄할 때도 같은 걸 타게 beforeprint에도 걸어 둔다. */
+async function chessPrintReport() {
+  if (document.querySelector(".chess-writing-rubric")) {
+    try { await document.fonts.ready; } catch (e) {}
+    chessMeasurePrintBreaks();
+  }
+  window.print();
+}
+window.addEventListener("beforeprint", () => {
+  if (document.querySelector(".chess-writing-rubric")) chessMeasurePrintBreaks();
+});
 
 /* 새 레벨 배정표 — "분원공유용_CHESS New PT 배정기준표_202402.xlsx"의 성적처리(반배정)기준표
    시트 그대로. 점수 구간이 아니라 "이 점수 이상이면 이 레벨" 식 커트라인 누적 방식
@@ -2081,7 +2102,7 @@ const writingSection = rubrics?.writing?.type
   app.innerHTML = `
     <div class="top-bar no-print sticky-actions">
       <button class="secondary" onclick="renderChessReview(LAST_CHESS_SESSION)">채점결과로 돌아가기</button>
-      <button onclick="window.print()">인쇄</button>
+      <button onclick="chessPrintReport()">인쇄</button>
       <button class="secondary" onclick="document.body.classList.remove('bulk-mode'); renderHome()">처음으로</button>
     </div>
 
