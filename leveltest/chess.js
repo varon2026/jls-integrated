@@ -540,8 +540,13 @@ function chessRenderReportItemRowV2(serial, it, grade) {
   </div>`;
 }
 /* PART 카드 — SCORE 박스(파트 대표 등급) 없음. 파트 하나를 등급 하나로 평균 내지 않는다
-   (레벨 판정은 Type 전체 A개수로만 한다) — 목업 그대로. */
-function chessRenderWritingPartCardHTMLV2(part, itemRows) {
+   (레벨 판정은 Type 전체 A개수로만 한다) — 목업 그대로.
+   compact(I1 + Writing Type2·3 전용)면 문항을 2열로 배치해서 세로를 더 줄인다 —
+   TEST02를 한 줄로 눕혀도 여전히 1페이지 아래가 많이 비어서(운영자 스크린샷,
+   2026-10-24: "그러면 저렇게 큰 빈공간이 생기면 테스트 3를 한번 꾸역꾸역
+   넣어볼 생각을 했어야지"), 글자를 더 줄이는 대신(가독성 떨어짐) 문항 15개를
+   가로로 펼쳐서 세로 길이를 줄이는 쪽을 택했다. */
+function chessRenderWritingPartCardHTMLV2(part, itemRows, compact) {
   return `<div class="chess-report-card chess-writing-part-card">
     <div class="chess-report-card-title chess-report-card-title--top">${esc(part.label)}</div>
     <table class="chess-report-criteria-table chess-report-criteria-table--fixed chess-writing-rubric">
@@ -551,12 +556,12 @@ function chessRenderWritingPartCardHTMLV2(part, itemRows) {
         <tr><td class="chess-report-criteria-grade">C</td><td class="chess-report-criteria-desc">${esc(part.rubric.C)}</td></tr>
       </tbody>
     </table>
-    <div style="margin-top:8px">${itemRows}</div>
+    <div style="margin-top:8px" class="${compact ? "chess-items-2col" : ""}">${itemRows}</div>
   </div>`;
 }
 /* 성적표의 Writing 섹션(V2) — rubrics.writing = {type, grades(실제 채점값 배열)} 을 받아서
    문항별 실제 결과 그대로 그린다(목업처럼 데이터에 박힌 데모 등급이 아니라 진짜 채점값). */
-function renderChessReportWritingV2(writingState, studentName) {
+function renderChessReportWritingV2(writingState, studentName, compact) {
   const n = writingState && writingState.type;
   const grades = (writingState && writingState.grades) || [];
   if (!n || !WRITING_DATA[n]) return "";
@@ -570,7 +575,7 @@ function renderChessReportWritingV2(writingState, studentName) {
       serial++;
       return row;
     }).join("");
-    return chessRenderWritingPartCardHTMLV2(part, itemRows);
+    return chessRenderWritingPartCardHTMLV2(part, itemRows, compact);
   }).join("");
 
   return `
@@ -2094,8 +2099,14 @@ const grammarLabels = CHESS_GRAMMAR_LABELS[
    스크린샷, 2026-10-24: "여백이 많으면 최대한 한장으로 끝낼수있게"). 실제 인쇄용
    압축 CSS를 그대로 적용해서 진짜 렌더링 높이를 재고 판단한다 — chessMeasurePrintBreaks()
    가 이 함수가 app.innerHTML에 다 그려진 뒤에 실행된다. */
+/* I1에서 Writing Type2·3(15문항·3파트, 긴 쪽)를 고르면 TEST02(카드 4개뿐이라
+   원래도 2x2로 하면 페이지 절반이 빈다)를 한 줄로 눕히고, Writing 문항도 2열로
+   펼쳐서 세로를 더 줄인다 — 운영자 요청: "테스트2번 네모칸을 한줄로" +
+   "빈공간이 생기면 테스트 3를 꾸역꾸역 넣어볼 생각을 했어야지"(2026-10-24).
+   I1 전용이고, Type1(기본값)·Type4·Type5를 고르면 원래 레이아웃 그대로다. */
+const i1LongWriting = cleanKey === "I1" && (rubrics?.writing?.type === 2 || rubrics?.writing?.type === 3);
 const writingSection = rubrics?.writing?.type
-  ? renderChessReportWritingV2(rubrics.writing, name)
+  ? renderChessReportWritingV2(rubrics.writing, name, i1LongWriting)
   : writingCards ? `
   <div class="chess-report-combined-section">
     <div class="chess-report-section-title">
@@ -2217,20 +2228,10 @@ const writingSection = rubrics?.writing?.type
           </div>
         </div>
 
-${(() => {
-  /* I1에서 Writing Type2·3(15문항·3파트, 긴 쪽)를 고르면 TEST02(카드 4개뿐이라
-     원래도 2x2로 하면 페이지 절반이 빈다)를 한 줄로 눕혀서 그만큼 TEST03이 올라갈
-     공간을 더 만든다 — 운영자 요청: "i1 시험지에 라이팅 타입 2,3 넣을거면 테스트2번
-     네모칸을 한줄로... 다른 시험지는 그냥 두고, I1만, 그리고 Type2·3 골랐을 때만."
-     그래서 I1 전용이고, Type1(기본값)·Type4·Type5를 고르면 원래 2x2 그대로다. */
-  const wType = rubrics?.writing?.type;
-  const oneLine = cleanKey === "I1" && (wType === 2 || wType === 3);
-  return `
 <div class="chess-report-section-title">TEST02 표현 능력 평가 득점 현황 (Speaking / Reading)</div>
-<div class="chess-report-test02-grid${oneLine ? " chess-test02-oneline" : ""}">
+<div class="chess-report-test02-grid${i1LongWriting ? " chess-test02-oneline" : ""}">
   ${speakingCards}
-</div>`;
-})()}
+</div>
 
 ${grammarSection}
 ${writingSection}
