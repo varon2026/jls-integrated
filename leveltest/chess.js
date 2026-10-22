@@ -697,16 +697,15 @@ function chessMeasurePrintBreaks() {
    불러두지만, 그 시점엔 Pretendard 웹폰트가 아직 안 끝나 있을 수 있다(jsdelivr에서
    받아오는 중) — 그 상태로 재면 대체 폰트로 더 넓게/길게 잡혀서 실제로는 한 페이지에
    들어갈 내용도 "안 들어간다"고 잘못 판단해 억지로 다음 페이지로 넘겼다(운영자 지적:
-   "빈공간에 다 들어갈수있음에도 불구하고 넘기고있네", 2026-10-24). 그래서 인쇄 버튼을
-   누르는 "진짜 인쇄하는 순간"에 폰트가 다 뜬 뒤(document.fonts.ready) 한 번 더 재서
-   확정한다. Ctrl+P로 바로 인쇄할 때도 같은 걸 타게 beforeprint에도 걸어 둔다. */
-async function chessPrintReport() {
-  if (document.querySelector(".chess-writing-rubric")) {
-    try { await document.fonts.ready; } catch (e) {}
-    chessMeasurePrintBreaks();
-  }
-  window.print();
-}
+   "빈공간에 다 들어갈수있음에도 불구하고 넘기고있네", 2026-10-24). 폰트가 실제로 뜨면
+   (document.fonts.ready) 한 번 더 재서 확정한다.
+   ⚠️ 인쇄 버튼의 onclick은 반드시 window.print()를 그대로 둬야 한다 — integration.js의
+   injectSaveBtn()이 onclick 글자에 "print()"가 있는 버튼 옆에 "레벨 수정"·"결과 저장"
+   버튼을 끼워 넣는데, 한 번 chessPrintReport() 같은 다른 이름으로 바꿨다가 그 글자가
+   없어져서 전 분원 성적표에서 두 버튼이 통째로 사라졌었다(운영자 지적: "전분원 성적표
+   저장하기 버튼이 사라졌어", 2026-10-24). 그래서 버튼은 그대로 두고 beforeprint
+   이벤트(Ctrl+P도 포함)로만 건다 — async로 폰트를 기다릴 순 없지만, 렌더 직후에도
+   한 번 미리 기다렸다가 재두면(아래) 보통 그때 이미 폰트가 와 있어서 실용적으로 충분하다. */
 window.addEventListener("beforeprint", () => {
   if (document.querySelector(".chess-writing-rubric")) chessMeasurePrintBreaks();
 });
@@ -2149,7 +2148,7 @@ const writingSection = rubrics?.writing?.type
   app.innerHTML = `
     <div class="top-bar no-print sticky-actions">
       <button class="secondary" onclick="renderChessReview(LAST_CHESS_SESSION)">채점결과로 돌아가기</button>
-      <button onclick="chessPrintReport()">인쇄</button>
+      <button onclick="window.print()">인쇄</button>
       <button class="secondary" onclick="document.body.classList.remove('bulk-mode'); renderHome()">처음으로</button>
     </div>
 
@@ -2270,7 +2269,13 @@ ${writingSection}
     </div>
   `;
 
-  if (rubrics?.writing?.type) chessMeasurePrintBreaks();
+  if (rubrics?.writing?.type) {
+    chessMeasurePrintBreaks();
+    /* 지금은 폰트가 덜 왔을 수 있어서(위 주석) 한 번 더 — 폰트가 실제로 뜨는 순간
+       재확정한다. 사용자가 인쇄 버튼을 찾아 누르기 전에 보통 끝나 있어서,
+       beforeprint 때는 이미 맞는 값으로 다시 재는 셈. */
+    document.fonts.ready.then(() => chessMeasurePrintBreaks()).catch(() => {});
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
