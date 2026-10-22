@@ -325,6 +325,12 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-item-row {
     page-break-inside: avoid; break-inside: avoid;
   }
+  /* 1파트짜리(I1·D1 등)는 이제 조금 넘쳐도(80px 이내) 새 페이지를 안 만들고 그냥
+     이어 붙인다(chess.js OVERFLOW_TOLERANCE_PX) — 그러다 Overall Feedback 박스
+     중간에서 잘리면 안 되니 여기만 따로 묶어 둔다. */
+  .chess-report-feedback-box {
+    page-break-inside: avoid; break-inside: avoid;
+  }
   .chess-writing-rubric {
     page-break-inside: avoid; break-inside: avoid;
   }

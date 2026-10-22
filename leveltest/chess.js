@@ -628,6 +628,12 @@ function chessMeasurePrintBreaks() {
        기준이 57px(≈15mm)이나 더 좁았다 — 실제로 들어갈 공간이 있는데도 다음 페이지로
        넘겨버린 원인(운영자 지적: "빈공간에 다 들어갈수있음에도 불구하고 넘기고있네"). */
     const PAGE_BUDGET_PX = (297 - 7 - 7 - 8) * (96 / 25.4);
+    /* I1·D1(1파트)처럼 10~34px 정도로 살짝만 넘칠 때도 새 페이지를 통째로 만들면
+       그 페이지는 절반 넘게 비어 보인다 — 손해가 훨씬 크다(운영자 — "원점 복귀야").
+       이 정도 여유(픽셀 단위 측정이라 완전히 정확하지도 않다)는 그냥 이어 붙이고,
+       Overall Feedback 박스만 안 잘리게 묶어서(아래 .chess-report-feedback-box
+       avoid) 혹시 살짝 넘치더라도 박스 째로 다음 페이지로 가게 한다. */
+    const OVERFLOW_TOLERANCE_PX = 80;
 
     const pageTop = page.getBoundingClientRect().top;
     const parts = Array.from(writingSection.querySelectorAll(".chess-writing-part-card"));
@@ -639,7 +645,7 @@ function chessMeasurePrintBreaks() {
     /* writingBottom은 TEST03이 지금(= force-break 적용 전, TEST02 바로 뒤) 자연스럽게
        놓인 상태의 실제 끝 위치라서, TEST02와의 간격(margin)까지 이미 포함돼 있다
        — 따로 더하지 않고 이 값을 그대로 기준과 비교한다. */
-    const fitsRightAfterTest02 = writingBottom <= PAGE_BUDGET_PX;
+    const fitsRightAfterTest02 = writingBottom <= (PAGE_BUDGET_PX + OVERFLOW_TOLERANCE_PX);
     writingSection.classList.toggle("force-break", !fitsRightAfterTest02);
 
     const fitsOnFreshPage = writingHeight <= PAGE_BUDGET_PX;
