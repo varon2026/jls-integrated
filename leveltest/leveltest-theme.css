@@ -203,3 +203,17 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 @media (max-width: 680px) {
   .review-grid, .review-grid.compact-review-grid { grid-template-columns: 1fr !important; }
 }
+
+/* 주관식(노란 강조) 칸 — 탕정분원 신규 CHESS 시험지에서만 붙는 클래스라
+   다른 분원 화면엔 안 나온다. style.css 안에 고치면 안 되는 이유가 있다 —
+   원본 style.css는 뒤쪽 @media print 블록 중괄호가 안 맞아서(기존부터 있던 문제,
+   확인만 하고 손은 안 댔다) 그 뒤에 적은 규칙은 브라우저가 아예 못 읽는다.
+   그래서 여기(leveltest-theme.css, 제일 마지막에 로드됨)에 적는다. */
+.chess-section .answer-row.chess-subj {
+  background: #fff8e1 !important;
+  border: 2px solid #f0c330 !important;
+}
+.chess-section .answer-row.chess-subj .answer-input {
+  background: #fffdf5 !important;
+  border-color: #f0c330 !important;
+}

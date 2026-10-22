@@ -85,7 +85,13 @@ const CHESS_ANSWER_ALT = {
 };
 function chessAltFor(examName, idx) {
   const m = CHESS_ANSWER_ALT[String(examName || "").toUpperCase()];
-  return (m && m[idx]) || [];
+  const alts = (m && m[idx]) || [];
+  /* 탕정분원 새 시험지의 주관식 칸은 "1"이라고만 써도 정답 처리 — chessIsSubjV2/isChessV2는
+     아래쪽에 있지만 함수 선언이라 호이스팅돼서 여기서 먼저 불러도 된다. */
+  if ((String(examName || "").toUpperCase() === "I1" || isChessV2()) && chessIsSubjV2(examName, idx)) {
+    return [...alts, "1"];
+  }
+  return alts;
 }
 function chessAnswerMatches(user, correct, alts) {
   const u = normalizeChessAnswer(user);
@@ -138,6 +144,450 @@ const CHESS_ANSWER_KEY_V2 = {
   L4: ["2","4","3","2","4","1","3","3","1","4","1","4","2","1","3","4","2","2","4","4","3","2","3","1","2","1","4","2","3","1","2","3","4"]
 };
 Object.keys(CHESS_ANSWER_KEY_V2).forEach(k => { CHESS_ANSWER_KEY_V2[k + "__V2"] = CHESS_ANSWER_KEY_V2[k]; delete CHESS_ANSWER_KEY_V2[k]; });
+
+/* 주관식(서술형 단답) 문항 — 정답을 그대로 적어도 되지만, 채점하는 사람이 그냥 "1"이라고만
+   적어도 정답 처리한다(운영자 요청). 목업에서 노란 테두리로 강조해서 보여주기로 한 칸들
+   그대로(0부터 세는 인덱스). D1·L1~L4는 주관식 문항이 없다. */
+const CHESS_SUBJ_V2 = { D2: [0], D3: [31, 32], D4: [32], I1: [3, 4, 5, 8, 9] };
+function chessIsSubjV2(examName, idx) {
+  const t = String(examName || "").toUpperCase();
+  return (CHESS_SUBJ_V2[t] || []).includes(idx);
+}
+
+/* ============================================================================
+   라이팅(Writing) Type1~5 문항별 채점 — 탕정분원 신규 CHESS 전용(L1~L4).
+   운영자가 실제 Writing Type1~5 PDF/채점표/피드백 문장뱅크(최부장님 샘플)를 보고
+   목업에서 전부 검증한 데이터를 그대로 옮겼다. 다른 분원은 L-시리즈 쓰기 루브릭이
+   예전 그대로(buildChessRubricInputs의 generalRows writingHtml)라 영향 없다.
+   ============================================================================ */
+const PART_ABILITY = {
+  1:["철자 규칙"], 2:["낱말 철자","문장 구조화","텍스트 이해"], 3:["문장 구조화","문장 생산","텍스트 이해"],
+  4:["텍스트 이해","문단 구성"], 5:["담화 구성"],
+};
+const TYPE_TITLE = {1:"단어 쓰기",2:"문장 배열",3:"질문에 답하기",4:"문단 쓰기",5:"에세이 쓰기"};
+/* 최부장님 샘플의 CLOSE_P 그대로 — 학부모용 피드백 맨 끝에 붙는 마무리 격려 한 줄.
+   수행률(맞은 비율) 구간별로 다른 뱅크에서 고른다: 70%↑=up · 40~69%=mid · 40%미만=down */
+const CLOSE_P = {
+  up:["이번 평가에서 보여 준 수준이 아주 인상적이에요. 아이의 강점을 자주 언급해 주시면 좋아요.","글쓰기의 기초다지가 탄탄하게 갖춰져 있어요. 지금 수준을 유지하며 나아가 주겠어요.","쓰기에 대한 자신감이 이미 만들어져 있어요. 폭넓은 활동으로 이어 가 주겠어요.","수행의 안정성이 돋보이는 결과예요. 좋은 흐름을 함께 이어 가 주세요.","관찰된 능력을 바탕으로 앞의 학습을 설계하면 아이가 큰 재미를 느낄 거예요."],
+  mid:["지금 수준을 정확히 확인하는 데 이 평가가 좋은 기준이 되었어요. 그 기준선에서 함께 나아가 주겠어요.","잘되는 영역과 보완할 영역이 분명히 드러나서, 앞으로의 학습 방향을 잡기에 좋은 결과예요.","평가 결과를 바탕으로 아이에게 맞는 학습 계획을 세워 나가면 충분합니다.","이번 결과는 시작점으로서 아주 의미가 있어요. 이 기준에서 함께 발전시켜 가 주세요.","관찰된 수행을 바탕으로 맞춤 학습을 이어 가 주겠어요. 좋은 출발이에요."],
+  down:["이번 평가는 아이의 현재 수준을 정확히 파악하는 데 목적이 있었어요. 결과를 바탕으로 맞는 학습을 시작하겠어요.","수준 파악이 정확히 이루어졌으니, 아이에게 맞는 시작점에서 학습을 이어 가면 충분합니다.","이 결과는 부족함이 아니라 출발점을 알려 준 자료예요. 맞는 수준에서 즐겁게 시작해 주세요.","현재 수준에 맞는 학습부터 시작하면 아이가 자연스럽게 흥미를 갖게 될 거예요.","평가 목적은 판정이 아니라 파악이었어요. 파악된 정보로 좋은 시작을 설계하겠어요."],
+};
+/* 최부장님 샘플(writing-score-report_sample.html)의 EXPERT 뱅크를 그대로 포팅 — 문장 축약 없이 변형 전부 유지.
+   stP/gwP(학부모용)는 지금 화면엔 안 쓰지만, 나중에 학부모 모드 넣을 때 다시 베껴올 필요 없도록 같이 둠. */
+const EXPERT = {
+  "1-0":{
+    stP:["낱말의 소리를 글자로 정확히 연결하는 힘이 자라고 있어요.","알파벳 순서와 대소문자 짝을 정확히 알고, 소리대로 쓰는 철자 감각이 눈에 띄어요.","소리를 들으면 바로 글자가 떠오르는 소리-철자 연결이 잘 되어 있어요.","모르는 단어도 소리를 분석해 스스로 철자를 만들어 내려는 태도가 돋보여요.","한 글자 한 글자를 성실하게 쓰려는 자세가 철자 정확도로 이어졌어요.","받침 소리까지 놓치지 않고 글자로 옮기는 세심함이 눈에 띄어요."],
+    gwP:["이중자음(ch)이나 magic e처럼 규칙이 있는 철자는 소리 내어 읽으며 익히면 훨씬 익숙해져요.","매일 5분 받아쓰기로 소리-철자 연결을 탄탄히 다져 주면 좋아요.","규칙 철자는 단어 카드로 놀이하듯 반복하면 자연스럽게 익혀요.","틀린 철자는 그 단어를 직접 소리 내어 세 번 읽고 세 번 써 보게 해 주세요.","짧은 단어부터 성공 경험을 쌓아 가면 긴 단어에도 자신감이 붙어요.","쓴 단어를 소리 내어 읽으며 스스로 고치는 점검 습관을 길러 주세요."],
+    stT:["소리-철자 대응 및 파닉스 규칙 적용이 정확함","소리 구조 분석에 기반한 철자 산출이 안정적"],
+    gwT:["규칙 철자의 자동화를 위한 반복 산출 연습 병행 필요","받아쓰기 기반 철자 자동화 강화 필요"]
+  },
+  "2-0":{
+    stP:["낱말 속 소리를 정확히 철자로 옮기는 힘이 자라고 있어요.","짧은 단어부터 이중모음 단어까지, 소리대로 쓰는 철자력이 눈에 띄어요.","힌트 없이도 단어의 철자를 스스로 완성하는 밑천이 생겼어요.","단어의 소리 구조를 먼저 분석하고 쓰는 좋은 쓰기 전략을 갖고 있어요.","모음과 자음을 구분해 듣고 쓰는 소리 인식이 정확해요."],
+    gwP:["소리 내어 읽고 받아쓰는 짧은 습관이 철자 자동화에 큰 도움이 돼요.","틀린 철자를 모아 '나만의 단어장'으로 다시 써 보면 확실히 익혀요.","글자를 세어 보며 철자를 자가 점검하는 습관을 길러 주세요.","매주 몇 개씩 새 단어를 받아쓰기 목록에 더해 가면 좋아요.","단어를 보고 한 번에 쓰기보다, 소리로 떠올려 쓰는 연습을 도와 주세요."],
+    stT:["소리 구조 분석에 기반한 철자 산출이 안정적","청각적 분석 기반 철자 산출 능력이 형성됨"],
+    gwT:["받아쓰기 기반 철자 자동화 강화 필요","철자 자가 검토 단계 도입 필요"]
+  },
+  "2-1":{
+    stP:["어순 감각이 안정적이라 단어를 문장으로 자연스럽게 조립해요.","평서문과 의문문의 구조 차이를 이해하고 있어요.","단어 카드를 문장으로 완성하는 어순 논리가 뚜렷해요.","질문문과 말하는 문장을 구분해 배열하는 눈이 생겼어요.","문장 틀을 크게 잡고 단어를 끼워 넣는 전략을 쓰고 있어요."],
+    gwP:["첫 글자 대문자와 마침표·물음표까지 챙기는 마무리 습관을 함께 길러 주겠어요.","쓴 문장을 소리 내어 읽으며 문장부호를 스스로 점검하는 연습을 도와 주세요.","문장을 쓴 뒤 '처음 글자는 대문자? 끝에 점이나 물음표?' 두 가지만 확인하는 습관을 들여 주세요.","배열한 문장을 따박따박 받아쓰면 문장 감각이 몸에 배어요.","완성한 문장에 자기 단어를 하나 더 붙여 확장해 보게 해 주세요."],
+    stT:["어순 및 문장부호 운용이 정확함","문형별 구조를 구분해 배열함"],
+    gwT:["문장부호 자가 검토 단계를 거치는 습관 형성 필요","문장 완성 후 자가 점검 루틴 필요"]
+  },
+  "2-2":{
+    stP:["짧은 글을 읽고 질문에 맞는 정보를 정확히 찾아내요.","글 속에서 근거를 찾아 답하는 독해 전략이 자라고 있어요.","질문의 유형(누가·언제·어디)을 파악하고 글에서 해당하는 부분을 찾아요.","글을 두 번 읽으며 근거 문장을 표시하는 습관이 보여요.","필요한 정보를 골라내는 눈이 빠르고 정확해요."],
+    gwP:["찾은 내용을 주어-동사가 이어진 완전한 문장으로 옮기는 연습이 필요해요.","답한 문장을 소리 내어 읽으며 스스로 확인하는 습관을 길러 주세요.","찾은 내용을 그대로 쓰지 말고 주어를 붙여 문장으로 만들어 보게 해 주세요.","답을 쓰기 전 질문을 한 번 소리 내어 읽는 습관을 들여 주세요.","글에서 찾은 문장을 자기 말로 바꿔 쓰는 연습을 함께해 주세요."],
+    stT:["텍스트에서 요구 정보를 정확히 추출함","질문 유형별 근거 탐색 전략을 활용함"],
+    gwT:["어구 나열을 완전문으로 확장하는 산출 연습 필요","정보 재구성 후 완전문 산출 단계 강화 필요"]
+  },
+  "3-0":{
+    stP:["문장 구조를 이해해 단어를 바르게 배열할 수 있어요.","문장을 크게 읽으며 어순을 확인하는 힘이 자라고 있어요.","주어-동사 뼈대를 먼저 찾고 배열하는 전략을 쓰고 있어요.","긴 문장도 끊어 읽으며 어순을 짚어 내요.","문장 조각들을 매끄럽게 이어 붙이는 감각이 생겼어요."],
+    gwP:["대문자·마침표·물음표까지 한 번에 점검하는 검토 습관을 길러 주세요.","바르게 배열한 문장을 받아쓰기로 다시 써 보면 문장 감각이 단단해져요.","문장 끝표지(마침표·물음표)를 먼저 확인하고 배열을 시작하게 해 주세요.","완성한 문장을 세 번 읽어 보며 스스로 고쳐 쓰게 해 주세요.","배열 문장에 자기 내용을 덧붙여 새 문장을 만들어 보게 해 주세요."],
+    stT:["어순 및 문장부호 운용이 정확함","문장 구조 인식 기반 배열이 안정적"],
+    gwT:["문장부호 자가 검토 습관 형성 필요","배열 후 자가 교정 단계 도입 필요"]
+  },
+  "3-1":{
+    stP:["질문의 시제에 맞춰 문장을 만들어 내는 생산력이 좋아요.","자기 경험을 완전한 문장으로 표현하는 힘이 자라고 있어요.","묻는 말의 시제를 곧바로 알아채고 문장을 고쳐 만들어요.","자기 이야기를 문장으로 풀어 내는 표현력이 풍부해요.","정해진 답이 아니라 자기 생각으로 답하는 적극성이 돋보여요."],
+    gwP:["이유를 덧붙이는 연결 표현(because, so)을 더 자주 써 보게 해 주세요.","한 문장을 두 문장으로 확장해 쓰는 연습으로 표현의 폭을 넓혀 주세요.","답할 때 '언제·어디서' 같은 정보를 하나 더 넣어 보게 해 주세요.","집에서도 오늘 한 일을 영어 한 문장으로 써 보는 습관을 함께해 주세요.","질문을 듣고 먼저 시제를 확인한 뒤 답하는 순서를 함께 연습해 주세요."],
+    stT:["시제 일치를 지킨 완전한 문장 생산이 가능함","자발적 담화 산출 능력이 나타남"],
+    gwT:["연결 표현(because/so) 활용 확장 연습 필요","문장 확장(정보 추가) 연습 필요"]
+  },
+  "3-2":{
+    stP:["글을 읽고 질문에 맞는 완전한 문장으로 답하는 힘이 좋아요.","글의 시제를 그대로 살려 답하는 세심함이 돋보여요.","글 속 근거를 골라 자기 문장으로 재구성해요.","질문 의도를 정확히 파악하고 거기에 맞춰 답해요.","긴 글에서도 핵심 문장을 찾아내는 눈이 있어요."],
+    gwP:["답을 쓸 때 주어(She/He)를 잊지 않도록 문두 확인 습관을 길러 주세요.","글에서 찾은 내용을 자기 말로 다시 배열해 쓰는 연습을 도와 주세요.","답을 쓴 뒤 주어와 동사가 빠지지 않았는지 함께 확인해 주세요.","근거 문장을 표시한 뒤 답을 쓰는 두 단계 습관을 길러 주세요.","답 문장을 소리 내어 읽고 자연스러운지 스스로 평가하게 해 주세요."],
+    stT:["주어를 갖춘 완전문으로 산출함","근거 기반 문장 재구성 능력이 나타남"],
+    gwT:["주어 확인 후 산출하는 검토 습관 형성 필요","산출 문장의 완결성 자가 점검 필요"]
+  },
+  "4-0":{
+    stP:["글을 읽고 주어를 갖춘 완전한 문장으로 답해요.","What/Why 같은 질문 유형에 맞는 답 구조를 이해하고 있어요.","질문 유형에 따라 답의 형태가 달라진다는 것을 알고 있어요.","글의 내용을 자기 문장으로 정확히 옮겨 와요.","왜(Why) 질문에 이유를 담아 성실하게 답해요."],
+    gwP:["질문의 시제를 그대로 살려 답하는 연습을 더해 주면 좋겠어요.","답 앞뒤에 한 문장씩 붙여 두 문장으로 말하는 확장 연습을 도와 주세요.","질문을 읽고 시제를 먼저 짚은 뒤 답하는 순서를 함께해 주세요.","답에 'because'를 붙여 이유까지 완성하는 연습을 해 주세요.","답한 문장 두 개를 이어 한 단락으로 만들어 보는 연습을 도와 주세요."],
+    stT:["질문 유형에 맞는 완전문 산출 및 시제 운용이 정확함","질문 의도에 부합하는 답변 구조화 능력이 안정적"],
+    gwT:["질문 시제 일치 검토 습관 형성 필요","답변 확장(이유·덧붙임) 연습 필요"]
+  },
+  "4-1":{
+    stP:["주제 하나로 문장을 일관되게 이어 가는 문단 구성력이 좋아요.","연결어를 활용해 문장 사이를 자연스럽게 잇고 있어요.","처음-중간-끝 흐름이 있는 글을 스스로 완성해요.","생각을 순서대로 펼치는 글의 뼈대가 잡혀 있어요.","문장 길이와 시작을 다양하게 바꿔 쓰려는 노력이 보여요."],
+    gwP:["누구와, 언제, 어디서처럼 구체적인 내용을 더해 문장을 채우는 연습을 해 주세요.","쓴 문장마다 마침표를 스스로 확인하는 마무리 점검 습관을 길러 주세요.","first, next, finally를 써 넣으며 순서 글을 쓰는 연습을 함께해 주세요.","주제 문장 하나를 정하고 그에 맞는 문장만 고르게 하는 연습을 도와 주세요.","쓴 글을 읽어 주며 어디가 어색한지 함께 찾아 보세요."],
+    stT:["주제 일관성과 연결어 활용이 안정적","문단 단위 담화 전개 능력이 형성됨"],
+    gwT:["구체적 예시 추가를 통한 문장 확장 연습 필요","완결 문장 비율 제고를 위한 자가 점검 필요"]
+  },
+  "5-0":{
+    stP:["서론-본론-결론의 틀을 갖춘 글을 완성해요.","주장과 근거를 구분해 배열하는 담화 구성력이 자라고 있어요.","자기 주장을 명확히 내세우고 근거로 뒷받침해요.","글 전체를 설계한 뒤 쓰는 계획적인 쓰기 태도가 보여요.","독자를 설득하려는 의식이 글에 담겨 있어요."],
+    gwP:["근거마다 구체적인 예시나 자기 경험을 한 문장씩 덧붙이는 연습을 도와 주세요.","결론이 서론의 주장을 다시 짚도록 마무리 문장을 함께 다듬어 주세요.","쓰기 전에 서론·본론·결론 짜임을 한 줄로 메모하는 계획 습관을 길러 주세요.","근거를 두 개 이상 준비한 뒤 쓰기 시작하게 해 주세요.","쓴 글을 소리 내어 읽으며 주장이 분명히 전달되는지 함께 확인해 주세요."],
+    stT:["3단 구성과 근거 제시가 모두 갖춰짐","주장-근거 구조화 능력이 안정적"],
+    gwT:["근거별 구체화(예시·경험) 및 결론 환수 연습 필요","사전 개요(planning) 단계 도입 필요"]
+  },
+};
+/* 원본의 pick()/chessHashSeed() 그대로 — 같은 학생·같은 영역이면 항상 같은 변형이 나오지만(새로고침해도 안 바뀜),
+   영역이나 채점 결과가 다르면 다른 변형이 나와 매번 똑같은 문장만 반복되지 않음 */
+function chessHashSeed(c, key, name){
+  let s = c.total*7 + c.B*3 + c.C*5 + c.marked*17;
+  const salt = (name || "") + "|" + (key || "");
+  for(let i=0;i<salt.length;i++) s = (s*31 + salt.charCodeAt(i)) % 100003;
+  return i => (s + i*7919) % 9973;
+}
+function chessPick(arr, c, key, name){
+  const h = chessHashSeed(c, key || "", name);
+  return arr[h(arr.length) % arr.length];
+}
+
+/* 최부장님 Writing Answer Key(채점표) 원문 그대로 — 문항 설명 + PART별 채점기준 + 유의사항 */
+const WRITING_DATA = {
+  1:{ parts:[
+    { label:"정답 쓰기 1~10", note:"3번은 순서대로 이어 쓰기 · 6·7번은 네모 칸 2개 채우기 · 글씨가 4선을 벗어나도 알아볼 수 있으면 감점 없음",
+      rubric:{A:"철자·대소문자 모두 정확",B:"철자 1개 오류 또는 대소문자만 혼동",C:"철자 2개 이상 오류 · 다른 단어 · 미응답"},
+      items:[
+        {w:"b",d:"대문자 B → 소문자로 쓰기 (대소문자 매칭)",g:"A",s:"대소문자 바꿔 쓰기",sd:"대문자를 소문자로, 소문자를 대문자로 바꿔 쓸 수 있어요."},
+        {w:"G",d:"소문자 g → 대문자로 쓰기 (대소문자 매칭)",g:"A",s:"대소문자 바꿔 쓰기",sd:"대문자를 소문자로, 소문자를 대문자로 바꿔 쓸 수 있어요."},
+        {w:"Ll",d:"알파벳 짝꿍 순서대로 이어 쓰기 — Jj, Kk 다음 (Ll이 정답)",g:"B",s:"알파벳 순서 이어 쓰기",sd:"알파벳 순서를 알고, 대·소문자 짝꿍을 순서대로 써요."},
+        {w:"fish",d:"그림 보고 단어 쓰기 — 물고기",g:"A",s:"그림 보고 단어 쓰기",sd:"그림을 보고 낱말의 철자를 스스로 완성해요."},
+        {w:"cat",d:"그림 보고 단어 쓰기 — 고양이",g:"A",s:"그림 보고 단어 쓰기",sd:"그림을 보고 낱말의 철자를 스스로 완성해요."},
+        {w:"pen",d:"빠진 철자 채우기 — p + e, n",g:"A",s:"빠진 철자 채우기",sd:"단어에서 빠진 글자를 소리에 맞춰 스스로 채워요."},
+        {w:"cup",d:"빠진 철자 채우기 — 앞의 c, u를 스스로 채움",g:"A",s:"빠진 철자 채우기",sd:"단어에서 빠진 글자를 소리에 맞춰 스스로 채워요."},
+        {w:"chick",d:"이중자음 ch 쓰기 — ch를 써야 A, 다른 철자면 C",g:"A",s:"이중자음(ch) 규칙 쓰기",sd:"두 글자가 만나 한 소리를 내는 철자 규칙(ch)을 알고 단어로 써요."},
+        {w:"cake",d:"Magic e · a, e — a와 끝의 e를 모두 쓰면 A, 하나만 맞으면 B",g:"B",s:"Magic e(a_e) 규칙 쓰기",sd:"모음 뒤에 붙는 e가 모음 소리를 바꾸는 규칙을 알고 단어로 써요."},
+        {w:"boat",d:"이중모음 oa 쓰기 — oa를 써야 A, 다른 철자면 C",g:"A",s:"이중모음(oa) 규칙 쓰기",sd:"모음 두 글자가 만나 한 소리를 내는 철자 규칙(oa)을 알고 써요."},
+      ]}
+  ], judge:(c)=>{ if(c.total>=8) return {result:"한 단계 위 · Type2 수준",why:"A "+c.total+"개 — 8개 이상"}; if(c.total>=4) return {result:"Type1 수준 (적정)",why:"A "+c.total+"개 — 4~7개"}; return {result:"한 단계 아래 · phonics 기초",why:"A "+c.total+"개 — 3개 이하"}; } },
+
+  2:{ parts:[
+    { label:"PART 1 · 단어 쓰기 (1~5 · 난이도 상승)", note:"3번은 ch, 5번은 oa를 써야 A",
+      rubric:{A:"철자·대소문자 모두 정확",B:"철자 1개 오류(4번은 a·e 중 하나만 맞음)",C:"철자 2개 이상 · 다른 단어 · 미응답"},
+      items:[
+        {w:"cup",d:"끝 글자 p 제시 · 단모음",g:"A",s:"빠진 철자 채우기",sd:"단어에서 빠진 글자를 소리에 맞춰 스스로 채워요."},
+        {w:"cat",d:"힌트 없음 · CVC",g:"A",s:"힌트 없이 단어 쓰기",sd:"힌트 없이 낱말의 철자를 스스로 완성해요."},
+        {w:"chick",d:"이중자음 ch",g:"B",s:"이중자음(ch) 규칙 쓰기",sd:"두 글자가 만나 한 소리를 내는 철자 규칙(ch)을 알고 써요."},
+        {w:"cake",d:"Magic e · a, e",g:"A",s:"Magic e(a_e) 규칙 쓰기",sd:"모음 뒤에 붙는 e가 모음 소리를 바꾸는 규칙을 알고 써요."},
+        {w:"boat",d:"이중모음 oa",g:"A",s:"이중모음(oa) 규칙 쓰기",sd:"모음 두 글자가 만나 한 소리를 내는 철자 규칙(oa)을 알고 써요."},
+      ]},
+    { label:"PART 2 · 문장 배열 (6~10)", note:"7·9·10번은 물음표까지 맞아야 A",
+      rubric:{A:"어순 + 첫 단어 대문자 + 마침표·물음표 정확",B:"어순은 맞지만 대문자·문장부호만 틀림",C:"어순 오류 · 미응답"},
+      items:[
+        {w:"This is a cat.",d:"평서문 배열",g:"A",s:"평서문 배열하기",sd:"단어 순서를 바르게 배열하고 대문자·마침표까지 완성해요."},
+        {w:"Is this your bag?",d:"의문문 배열 · 물음표 포함",g:"B",s:"의문문 배열하기",sd:"질문 문장을 바르게 배열하고 물음표까지 완성해요."},
+        {w:"My sister is a student.",d:"평서문 배열",g:"A",s:"평서문 배열하기",sd:"단어 순서를 바르게 배열하고 대문자·마침표까지 완성해요."},
+        {w:"Do you like pizza?",d:"의문문 배열 · 물음표 포함",g:"A",s:"의문문 배열하기",sd:"질문 문장을 바르게 배열하고 물음표까지 완성해요."},
+        {w:"Can you swim?",d:"의문문 배열 · 물음표 포함",g:"A",s:"의문문 배열하기",sd:"질문 문장을 바르게 배열하고 물음표까지 완성해요."},
+      ]},
+    { label:"PART 3 · 읽고 답하기 「Tom's Farm」 (11~15)", note:"12번 Amy, 13번 near the river만 써도 A로 인정",
+      rubric:{A:"글에서 맞는 어구를 찾아 철자까지 정확",B:"일부만 씀(예: the cows만) 또는 철자 1~2개 오류",C:"질문과 맞지 않는 어구 · 미응답"},
+      items:[
+        {w:"He feeds the cows and the chickens.",d:"What — 소들이 먹는 것",g:"A",s:"글 읽고 답하기 — What",sd:"짧은 글을 읽고 '무엇을'에 해당하는 내용을 찾아 답해요."},
+        {w:"His sister (Amy) helps him.",d:"Who — 누가 돕는지",g:"A",s:"글 읽고 답하기 — Who",sd:"짧은 글을 읽고 '누가'에 해당하는 내용을 찾아 답해요."},
+        {w:"He lives on a small farm (near the river).",d:"Where — 사는 곳",g:"C",s:"글 읽고 답하기 — Where",sd:"짧은 글을 읽고 '어디에' 해당하는 내용을 찾아 답해요."},
+        {w:"He gets up at six o'clock.",d:"When — 기상 시간",g:"A",s:"글 읽고 답하기 — When",sd:"짧은 글을 읽고 '언제'에 해당하는 내용을 찾아 답해요."},
+        {w:"He likes it because it is quiet and beautiful.",d:"Why — 이유 (because)",g:"B",s:"글 읽고 답하기 — Why",sd:"짧은 글을 읽고 '왜'에 해당하는 이유를 찾아 답해요."},
+      ]},
+  ], judge:(c)=>{ if(c.total>=12) return {result:"한 단계 위 · Type3 수준",why:"A "+c.total+"개 — 12개 이상"}; if(c.total>=6) return {result:"Type2 수준 (적정)",why:"A "+c.total+"개 — 6~11개"}; return {result:"한 단계 아래 · Type1 수준",why:"A "+c.total+"개 — 5개 이하"}; } },
+
+  3:{ parts:[
+    { label:"PART 1 · 문장 배열 (1~5)", note:"2·4·5번은 물음표까지 맞아야 A",
+      rubric:{A:"어순 + 첫 단어 대문자 + 마침표·물음표 정확",B:"어순은 맞지만 대문자·문장부호만 틀림",C:"어순 오류 · 미응답"},
+      items:[
+        {w:"This is a cat.",d:"평서문 배열",g:"A",s:"평서문 배열하기",sd:"단어 순서를 바르게 배열하고 대문자·마침표까지 완성해요."},
+        {w:"Is this your bag?",d:"의문문 배열",g:"A",s:"의문문 배열하기",sd:"질문 문장을 바르게 배열하고 물음표까지 완성해요."},
+        {w:"My sister is a student.",d:"평서문 배열",g:"A",s:"평서문 배열하기",sd:"단어 순서를 바르게 배열하고 대문자·마침표까지 완성해요."},
+        {w:"Do you like pizza?",d:"의문문 배열",g:"A",s:"의문문 배열하기",sd:"질문 문장을 바르게 배열하고 물음표까지 완성해요."},
+        {w:"Can you swim?",d:"의문문 배열",g:"B",s:"의문문 배열하기",sd:"질문 문장을 바르게 배열하고 물음표까지 완성해요."},
+      ]},
+    { label:"PART 2 · 질문에 답하기 (6~10)", note:"내용이 달라도 질문에 맞으면 A",
+      rubric:{A:"완전한 문장 · 시제 정확 · 9·10번은 이유까지",B:"시제·주어·철자 오류 1~2개 또는 이유 누락",C:"단어만 씀 · 질문과 무관 · 미응답"},
+      items:[
+        {w:"My name is Mina.",d:"My name is ~ — 자기소개",g:"A",s:"자기소개 문장 쓰기",sd:"질문에 맞는 완전한 문장으로 자신을 소개해요."},
+        {w:"I visited my grandparents last weekend.",d:"과거시제 — 주말에 한 일",g:"A",s:"지난 일 말하기 (과거시제)",sd:"지난 일을 과거 시제로 바르게 써요."},
+        {w:"I am going to learn how to ski.",d:"be going to — 미래 계획",g:"A",s:"앞으로의 계획 말하기",sd:"앞으로 할 일을 미래 표현으로 바르게 써요."},
+        {w:"I have never ridden a horse. I want to try it because it looks fun.",d:"have never + because — 경험·이유",g:"B",s:"경험과 이유 말하기",sd:"해 본 적 없는 일을 표현하고, 그 이유까지 덧붙여 써요."},
+        {w:"I would fly because I could travel anywhere.",d:"would + 이유 — 가정문 답변",g:"A",s:"상상과 이유 말하기",sd:"'만약 ~라면' 질문에 자기 생각과 이유를 들어 답해요."},
+      ]},
+    { label:"PART 3 · 읽고 답하기 「Mia's First Garden」 (11~15)", note:"12번은 had never had, 14번은 so (that) ~ would — because she wanted them to grow도 A · 15번은 두 질문 모두 답해야 A",
+      rubric:{A:"글과 맞고 She/He로 시작하는 완전한 문장",B:"어구만 씀 또는 시제·대명사 오류",C:"글과 다른 내용 · 미응답"},
+      items:[
+        {w:"She lived in a tall apartment building in the city.",d:"Where — 살았던 곳",g:"A",s:"글 읽고 답하기 — Where",sd:"짧은 글을 읽고 '어디에' 해당하는 내용을 완전한 문장으로 써요."},
+        {w:"She had never had a garden because there was no yard.",d:"Why · 과거완료",g:"A",s:"글 읽고 답하기 — Why",sd:"'왜'에 해당하는 이유를 글에서 찾아 완전한 문장으로 써요."},
+        {w:"He gave her a small box of seeds.",d:"What — 할아버지가 준 것",g:"A",s:"글 읽고 답하기 — What",sd:"'무엇을'에 해당하는 내용을 완전한 문장으로 써요."},
+        {w:"She watered them so they would grow big and strong.",d:"Why · so ~ would",g:"C",s:"글 읽고 답하기 — Why",sd:"행동의 이유를 글에서 찾아 완전한 문장으로 써요."},
+        {w:"She was so excited. She ran to show her grandfather.",d:"How + What — 기분과 행동 두 가지",g:"A",s:"글 읽고 답하기 — How + What",sd:"기분과 행동, 두 가지를 모두 문장으로 써요."},
+      ]},
+  ], judge:(c)=>{ if(c.total>=12) return {result:"한 단계 위 · Type4 수준",why:"A "+c.total+"개 — 12개 이상"}; if(c.total>=6) return {result:"Type3 수준 (적정)",why:"A "+c.total+"개 — 6~11개"}; return {result:"한 단계 아래 · Type2 수준",why:"A "+c.total+"개 — 5개 이하"}; } },
+
+  4:{ parts:[
+    { label:"PART 1 · 읽고 답하기 「Mia's First Garden」 (1~5)", note:"She/He로 시작하는 완전한 문장 · 질문의 시제 사용 여부를 봅니다",
+      rubric:{A:"글과 맞고 She/He로 시작하는 완전한 문장 · 질문의 시제 사용",B:"어구만 씀 또는 시제·대명사 오류",C:"글과 다른 내용 · 미응답"},
+      items:[
+        {w:"She lived in a tall apartment building in the city.",d:"Where — 살았던 곳",g:"A",s:"글 읽고 답하기 — Where",sd:"'어디에' 해당하는 내용을 주어(She)를 갖춘 완전한 문장으로 써요."},
+        {w:"She had never had a garden because there was no yard.",d:"Why · 과거완료",g:"A",s:"글 읽고 답하기 — Why",sd:"이유를 글에서 찾고, 질문에 맞는 시제로 써요."},
+        {w:"He gave her a small box of seeds.",d:"What — 받은 것",g:"A",s:"글 읽고 답하기 — What",sd:"'무엇을' 해당하는 내용을 완전한 문장으로 써요."},
+        {w:"She watered them so they would grow big and strong.",d:"Why · so ~ would",g:"A",s:"글 읽고 답하기 — Why",sd:"행동의 이유를 글에서 찾아 써요."},
+        {w:"She was so excited. She ran to show her grandfather.",d:"How + What — 두 질문 모두",g:"B",s:"글 읽고 답하기 — How + What",sd:"기분과 행동, 두 가지를 모두 문장으로 써요."},
+      ]},
+    { label:"PART 2 · 문단 쓰기 평가 관점 (①~④)", note:"모범답안 「My Favorite Thing」 10문장 · 연결어 first, then, because — 「My Day」도 같은 기준으로 판정",
+      rubric:{A:"각 관점의 A 기준 충족",B:"일부 충족",C:"기준 미달"},
+      items:[
+        {w:"① 주제에 맞는 내용",d:"A: 전체가 주제에 맞음 / B: 일부가 벗어남 / C: 주제와 무관",g:"A",s:"주제에 맞는 내용 쓰기",sd:"글 전체가 하나의 주제에 맞게 이어지는지 봐요."},
+        {w:"② 문장 수 (10개 정도)",d:"A: 9~11개 / B: 6~8개 / C: 5개 이하",g:"A",s:"문장 수",sd:"10문장 정도의 길이를 갖추어 썼는지 봐요."},
+        {w:"③ 연결어 사용",d:"A: 2개 이상 (first, because…) / B: 1개 / C: 없음",g:"B",s:"연결어 사용",sd:"first, because 같은 연결어로 문장을 자연스럽게 이었는지 봐요."},
+        {w:"④ 문장이 완결됨",d:"A: 대문자 시작·마침표 끝 모두 지킴 / B: 대부분 지킴 / C: 절반 이상 미완결",g:"A",s:"문장 완결성",sd:"대문자로 시작해 마침표로 끝나는 완전한 문장을 지켰는지 봐요."},
+      ]},
+  ], judge:(c)=>{ const p1=c.partA[0]||0,p2=c.partA[1]||0; if(p1>=4&&p2>=3) return {result:"한 단계 위 · Type5 수준",why:"PART1 A "+p1+"개(4↑) + PART2 A "+p2+"개(3↑)"}; if(p1<=2||p2===0) return {result:"한 단계 아래 · Type3 수준",why:"PART1 A "+p1+"개(2↓) 또는 PART2 A "+p2+"개(0)"}; return {result:"Type4 수준 (적정)",why:"PART1 A "+p1+"개 · PART2 A "+p2+"개"}; } },
+
+  5:{ parts:[
+    { label:"평가 관점 (①~④)", note:"모범답안 「School Uniforms · 찬성」 12문장 — 「My Most Memorable Day」도 같은 기준 · 반대 입장 글도 이유 2개만 갖추면 A",
+      rubric:{A:"각 관점의 A 기준 충족",B:"일부 충족",C:"기준 미달"},
+      items:[
+        {w:"① 구조 (intro-body-conclusion)",d:"A: 3구간 모두 갖춤 / B: 2구간만 / C: 구분 없음",g:"A",s:"글의 구조",sd:"서론–본론–결론 3부분이 구분되는지 봐요."},
+        {w:"② 문장 수 (12개 안팎)",d:"A: 10~14개 / B: 7~9개 / C: 6개 이하",g:"A",s:"문장 수",sd:"12문장 안팎의 길이를 갖추었는지 봐요."},
+        {w:"③ 내용 (이유·근거)",d:"A: 이유 2개 이상, 구체적 / B: 이유 1개만 / C: 근거 없음",g:"B",s:"이유·근거 제시",sd:"자기 주장에 대해 이유를 2개 이상 들고 구체적으로 설명하는지 봐요."},
+        {w:"④ 문장이 완결됨",d:"A: 대부분 완결된 문장 / B: 일부 미완결 / C: 절반 이상 불완전",g:"A",s:"문장 완결성",sd:"대부분의 문장이 완전하게 끝맺었는지 봐요."},
+      ]},
+  ], judge:(c)=>{ if(c.total>=3) return {result:"한 단계 위 · 심화 에세이 수준",why:"관점 A "+c.total+"개 — 3개 이상"}; if(c.total>=1) return {result:"Type5 수준 (적정)",why:"관점 A "+c.total+"개 — 1~2개"}; return {result:"한 단계 아래 · Type4 수준",why:"관점 A "+c.total+"개 — 0개"}; } },
+};
+const TYPE_PARTS = {1:[10],2:[5,5,5],3:[5,5,5],4:[5,4],5:[4]};
+const TYPE_DESC = {
+  1:"Type1 · 단어 쓰기 · 10문항 (1파트)",
+  2:"Type2 · 문장 배열 · 15문항 (3파트)",
+  3:"Type3 · 질문에 답하기 · 15문항 (3파트)",
+  4:"Type4 · 문단 쓰기 · 9문항 (2파트)",
+  5:"Type5 · 에세이 쓰기 · 관점 4개 (1파트)",
+};
+
+/* ---------- 라이팅 Type 선택 + 문항별 채점 입력화면(V2 전용) ---------- */
+/* L1~L4 레벨이 올라갈수록 더 어려운 Type을 본다고 보고 임의로 매핑했다 — 실제로
+   "1차 인터뷰에서 정한 Type"을 넘겨받는 경로가 아직 없어서(이 화면엔 그 정보가
+   안 들어온다), 선생님이 직접 맞는 Type으로 바꿀 수 있게 버튼을 다 열어 둔다.
+   이 매핑이 틀렸으면 아래 한 줄만 고치면 된다. */
+function chessWritingDefaultType(examKey) {
+  const m = { L1: 2, L2: 3, L3: 4, L4: 5 };
+  return m[String(examKey || "").toUpperCase()] || 2;
+}
+let CHESS_WRITING_TYPE = null;
+
+function buildChessWritingSection(examKey, savedType, savedGrades) {
+  CHESS_WRITING_TYPE = savedType || chessWritingDefaultType(examKey);
+  const typeBtns = [1, 2, 3, 4, 5].map(n =>
+    `<button type="button" class="chess-wtype-btn${n === CHESS_WRITING_TYPE ? " active" : ""}" onclick="chessPickWritingType(${n})">Type${n} · ${esc(TYPE_TITLE[n])}</button>`
+  ).join("");
+  return `
+    <div class="chess-section">
+      <h3>Writing 평가 — Type 선택 (1차 인터뷰에서 정한 Type으로 바꿔서 채점하세요)</h3>
+      <p class="muted" id="chess-wtype-desc">${esc(TYPE_DESC[CHESS_WRITING_TYPE])}</p>
+      <div class="chess-wtype-row" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">${typeBtns}</div>
+      <div id="chess-writing-items"></div>
+      <p class="muted" id="chess-writing-counts" style="margin-top:10px; font-weight:700;"></p>
+    </div>
+  `;
+}
+function chessPickWritingType(n) {
+  CHESS_WRITING_TYPE = n;
+  document.querySelectorAll(".chess-wtype-btn").forEach((b, i) => b.classList.toggle("active", i + 1 === n));
+  const descEl = document.getElementById("chess-wtype-desc");
+  if (descEl) descEl.textContent = TYPE_DESC[n];
+  renderChessWritingItems(n);
+}
+function renderChessWritingItems(n, savedGrades) {
+  const mount = document.getElementById("chess-writing-items");
+  if (!mount) return;
+  let serial = 0, html = "";
+  WRITING_DATA[n].parts.forEach(part => {
+    let rows = "";
+    part.items.forEach(it => {
+      serial++;
+      const g = (savedGrades && savedGrades[serial - 1]) || "";
+      rows += `<tr class="wr-item" data-grade="${g}">
+        <td class="no">${serial}</td>
+        <td class="content"><span class="word">${esc(it.w)}</span><span class="desc">${esc(it.d)}</span></td>
+        <td><div class="wr-opts">
+          ${["A", "B", "C"].map(gr => `<button type="button" class="wr-opt ${gr}${g === gr ? " sel" : ""}" onclick="chessPickWritingGrade(this,'${gr}')">${gr}</button>`).join("")}
+        </div></td>
+      </tr>`;
+    });
+    html += `<div class="wr-part">
+      <div class="wr-banner">채점 영역 — ${esc(part.label)}</div>
+      <div class="wr-crit3">
+        <div class="cell cA"><b>A 스스로 해냄</b>${esc(part.rubric.A)}</div>
+        <div class="cell cB"><b>B 부분적으로 함</b>${esc(part.rubric.B)}</div>
+        <div class="cell cC"><b>C 못함</b>${esc(part.rubric.C)}</div>
+      </div>
+      ${part.note ? `<div class="wr-part-note">※ ${esc(part.note)}</div>` : ""}
+      <table class="wr-item-table"><tbody>${rows}</tbody></table>
+    </div>`;
+  });
+  mount.innerHTML = html;
+  chessUpdateWritingCounts();
+}
+function chessPickWritingGrade(btn, g) {
+  const item = btn.closest(".wr-item");
+  item.setAttribute("data-grade", g);
+  item.querySelectorAll(".wr-opt").forEach(o => o.classList.remove("sel"));
+  btn.classList.add("sel");
+  chessUpdateWritingCounts();
+}
+function chessWritingCountsFromGrades(n, gradesArr) {
+  const c = { A: 0, B: 0, C: 0, total: 0, marked: 0, partA: [], byGrade: { A: [], B: [], C: [] } };
+  let idx = 0;
+  (TYPE_PARTS[n] || []).forEach(len => {
+    let pa = 0;
+    for (let i = 0; i < len; i++) {
+      const v = gradesArr[idx] || "";
+      const no = String(idx + 1);
+      idx++;
+      if (v) { c[v]++; c.marked++; c.byGrade[v].push(no); if (v === "A") { c.total++; pa++; } }
+    }
+    c.partA.push(pa);
+  });
+  return c;
+}
+function collectChessWritingGrades() {
+  const items = Array.from(document.querySelectorAll("#chess-writing-items .wr-item"));
+  const grades = items.map(el => el.getAttribute("data-grade") || "");
+  return { type: CHESS_WRITING_TYPE, grades };
+}
+function chessUpdateWritingCounts() {
+  const el = document.getElementById("chess-writing-counts");
+  if (!el) return;
+  const { grades } = collectChessWritingGrades();
+  const c = chessWritingCountsFromGrades(CHESS_WRITING_TYPE, grades);
+  el.textContent = c.marked ? `A ${c.A} · B ${c.B} · C ${c.C}` : "문항마다 A/B/C를 표시하면 집계가 나와요.";
+}
+
+/* ---------- 성적표 Writing 영역(V2) — 문항별 실제 채점 결과 그대로 보여준다.
+   feedbackLinesHTML 원본 포팅. STUDENT_NAME(목업 전역) 대신 studentName 인자를 쓴다. ---------- */
+function chessWritingFeedbackHTML(n, c, mode, studentName){
+  const P = mode==='parent';
+  const ab = PART_ABILITY[n];
+  let best=-1,bestR=-1,worst=-1,worstR=2;
+  TYPE_PARTS[n].forEach((len,i)=>{
+    const a=c.partA[i], r=a/len;
+    if(r>bestR){bestR=r;best=i;}
+    if(len-a>0 && r<worstR){worstR=r;worst=i;}
+  });
+  const evid = c.byGrade.C.concat(c.byGrade.B).slice(0,3);
+  const evidTxt = (!P && evid.length) ? " ("+evid.join(",")+"번)" : "";
+  const total = TYPE_PARTS[n].reduce((a,b)=>a+b,0);
+  const pct = Math.round(c.total/c.marked*100);
+  const seedKey = "t"+n;
+
+  if(P){
+    const title = TYPE_TITLE[n];
+    let l1 = chessPick([
+      studentName+" 학생은 이번 '"+title+"' 평가에서 총 "+total+"문항 중 "+c.total+"문항을 혼자 힘으로 완성했어요.",
+      studentName+" 학생은 이번 '"+title+"' 평가에 참여해 "+total+"문항 가운데 "+c.total+"문항에서 좋은 결과를 보여 주었어요.",
+      studentName+" 학생은 이번 '"+title+"' 평가에서 "+total+"문항 중 "+c.total+"문항을 스스로 해내는 모습을 보여 주었어요.",
+      studentName+" 학생의 이번 '"+title+"' 평가에서 보여 준 노력이 "+total+"문항 중 "+c.total+"문항의 좋은 결과로 이어졌어요.",
+      studentName+" 학생은 이번 '"+title+"' 평가 "+total+"문항 중 "+c.total+"문항에서 자기 힘으로 문제를 풀어 냈어요.",
+      studentName+" 학생의 이번 '"+title+"' 평가 결과는 "+total+"문항 중 "+c.total+"문항을 혼자 완성할 수 있을 만큼 준비가 되어 있음을 보여 주었어요."
+    ], c, "s1");
+    if(c.B || c.C) l1 += " (B "+c.B+"개 · C "+c.C+"개)";
+    l1 = "<span class=\"ln\">"+l1+"</span>";
+
+    let l2 = (TYPE_PARTS[n].length > 1 && best>=0 && bestR>0)
+      ? "<span class=\"ln\"><b>강점</b> '"+ab[best]+"' — "+chessPick(EXPERT[n+"-"+best].stP, c, seedKey+"stP"+best)+"</span>" : "";
+
+    let l3;
+    if(worst>=0){
+      const lead = chessPick([
+        "한편 '"+ab[worst]+"' 부분은 이 평가에서 드러난 발전 지점이에요. ",
+        "한편 '"+ab[worst]+"' 부분에서 조금만 더 나아지면 좋겠어요. ",
+        "앞으로 '"+ab[worst]+"' 부분을 함께 발전시켜 보면 좋겠어요. ",
+        "'"+ab[worst]+"' 부분은 지금 채워 나가면 가장 효과가 큰 영역이에요. ",
+        "앞으로 '"+ab[worst]+"' 부분에 조금 더 힘을 실어 주면 좋겠어요. "
+      ], c, "w1");
+      l3 = "<span class=\"ln\"><b>보완</b> "+lead+chessPick(EXPERT[n+"-"+worst].gwP, c, seedKey+"gwP"+worst)+"</span>";
+    }else{
+      l3 = "<span class=\"ln\">"+chessPick(["모든 영역에서 골고루 좋은 모습을 보여 주었어요!","어떤 영역에서도 흔들림 없는 수행을 보여 주었어요.","전 영역에서 안정적으로 자기 힘을 발휘했어요!"], c, "n1")+"</span>";
+    }
+
+    const ratio = c.marked ? c.total/c.marked : 0;
+    const closeCls = ratio >= 0.7 ? "up" : (ratio >= 0.4 ? "mid" : "down");
+    const l4 = "<span class=\"ln\">"+chessPick(CLOSE_P[closeCls], c, "close")+"</span>";
+
+    return [l1,l2,l3,l4].filter(Boolean).join("");
+  }
+
+  let l1 = "<span class=\"ln\">수행률 "+pct+"% — 총 "+total+"문항 중 <b>A</b> "+c.total+" <b>B</b> "+c.B+" <b>C</b> "+c.C+"</span>";
+  let l2 = (TYPE_PARTS[n].length > 1 && best>=0 && bestR>0)
+    ? "<span class=\"ln\"><b>강점</b> '"+ab[best]+"' — "+chessPick(EXPERT[n+"-"+best].stT, c, seedKey+"stT"+best)+"</span>" : "";
+  let l3 = (worst>=0)
+    ? "<span class=\"ln\"><b>보완</b> '"+ab[worst]+"'"+evidTxt+" — "+chessPick(EXPERT[n+"-"+worst].gwT, c, seedKey+"gwT"+worst)+"</span>"
+    : "<span class=\"ln\">"+chessPick(["전 영역에서 안정적인 수행을 보였습니다.","전 영역에 걸쳐 일관된 수행 수준이 확인되었습니다."], c, "nT")+"</span>";
+  return [l1,l2,l3].filter(Boolean).join("");
+}
+
+function chessRenderReportItemRowV2(serial, it, grade) {
+  return `<div class="chess-report-item-row">
+    <div class="chess-report-item-no">${serial}</div>
+    <div><div class="chess-report-item-word">${esc(it.s || it.w)}</div><div class="chess-report-item-desc">${esc(it.sd || it.d)}</div></div>
+    <div class="chess-report-item-grades">
+      ${["A", "B", "C"].map(g => `<div class="chess-report-item-dot${grade === g ? " sel " + g : ""}">${g}</div>`).join("")}
+    </div>
+  </div>`;
+}
+/* PART 카드 — SCORE 박스(파트 대표 등급) 없음. 파트 하나를 등급 하나로 평균 내지 않는다
+   (레벨 판정은 Type 전체 A개수로만 한다) — 목업 그대로. */
+function chessRenderWritingPartCardHTMLV2(part, itemRows) {
+  return `<div class="chess-report-card chess-writing-part-card">
+    <div class="chess-report-card-title chess-report-card-title--top">${esc(part.label)}</div>
+    <table class="chess-report-criteria-table chess-report-criteria-table--fixed chess-writing-rubric">
+      <tbody>
+        <tr><td class="chess-report-criteria-grade">A</td><td class="chess-report-criteria-desc">${esc(part.rubric.A)}</td></tr>
+        <tr><td class="chess-report-criteria-grade">B</td><td class="chess-report-criteria-desc">${esc(part.rubric.B)}</td></tr>
+        <tr><td class="chess-report-criteria-grade">C</td><td class="chess-report-criteria-desc">${esc(part.rubric.C)}</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:8px">${itemRows}</div>
+  </div>`;
+}
+/* 성적표의 Writing 섹션(V2) — rubrics.writing = {type, grades(실제 채점값 배열)} 을 받아서
+   문항별 실제 결과 그대로 그린다(목업처럼 데이터에 박힌 데모 등급이 아니라 진짜 채점값). */
+function renderChessReportWritingV2(writingState, studentName) {
+  const n = writingState && writingState.type;
+  const grades = (writingState && writingState.grades) || [];
+  if (!n || !WRITING_DATA[n]) return "";
+  const c = chessWritingCountsFromGrades(n, grades);
+
+  let serial = 0;
+  const cards = WRITING_DATA[n].parts.map(part => {
+    const itemRows = part.items.map(it => {
+      const g = grades[serial] || "";
+      const row = chessRenderReportItemRowV2(serial + 1, it, g);
+      serial++;
+      return row;
+    }).join("");
+    return chessRenderWritingPartCardHTMLV2(part, itemRows);
+  }).join("");
+
+  return `
+    <div class="chess-report-combined-section">
+      <div class="chess-report-section-title">TEST04. Writing · ${esc(TYPE_DESC[n])}</div>
+      ${cards}
+      <div class="chess-report-feedback-box">
+        <div class="chess-report-feedback-title">Overall Feedback</div>
+        <div class="lt-count-box" style="margin-bottom:14px">
+          <div class="c cA"><b>${c.A}</b><span>A</span></div>
+          <div class="c cB"><b>${c.B}</b><span>B</span></div>
+          <div class="c cC"><b>${c.C}</b><span>C</span></div>
+        </div>
+        <div class="chess-report-subcopy" style="margin-bottom:0">${chessWritingFeedbackHTML(n, c, "parent", studentName).replace(/<span class="ln">/g, '<span class="ln" style="display:block;margin-bottom:4px">')}</div>
+      </div>
+    </div>`;
+}
 
 /* 새 레벨 배정표 — "분원공유용_CHESS New PT 배정기준표_202402.xlsx"의 성적처리(반배정)기준표
    시트 그대로. 점수 구간이 아니라 "이 점수 이상이면 이 레벨" 식 커트라인 누적 방식
@@ -305,11 +755,17 @@ function buildChessAnswerInputs(examName) {
   if (!count) return `<p class="muted">답안 데이터가 없습니다.</p>`;
   const key = chessAnswerKeyFor(examName) || [];
   const hasGrammar = getChessMeta(examName).hasGrammar;
+  const v2Active = String(examName || "").toUpperCase() === "I1" || isChessV2();
+  const hasAnySubj = v2Active && Array.from({ length: count }).some((_, i) => chessIsSubjV2(examName, i));
 
   return `
+    ${hasAnySubj ? `
+    <p class="muted" style="background:#fff8e1; border:1px solid #f5d365; border-radius:10px; padding:8px 12px; margin-bottom:10px;">
+      💡 노란 테두리 칸(주관식)은 정답을 그대로 입력해도, 그냥 "1"이라고만 입력해도 정답으로 인정돼요.
+    </p>` : ""}
     <div class="answer-list">
       ${Array.from({ length: count }).map((_, i) => `
-        <div class="answer-row simple">
+        <div class="answer-row simple${v2Active && chessIsSubjV2(examName, i) ? " chess-subj" : ""}">
           <div class="question-no">${i + 1}</div>
           <input
             id="chess-q-${i + 1}"
@@ -529,7 +985,9 @@ function buildChessRubricInputs(examName) {
 
 let writingHtml = "";
 
-if (meta.isLType) {
+if (meta.isLType && isChessV2()) {
+  writingHtml = buildChessWritingSection(cleanKey, null, null);
+} else if (meta.isLType) {
   const isL34 = cleanKey === "L3" || cleanKey === "L4";
 
   if (isL34) {
@@ -762,6 +1220,9 @@ const config = CHESS_CONFIG[cleanKey];
   window.scrollTo({ top: 0, behavior: "smooth" });
   document.getElementById("chess-q-1")?.focus();
   markAllChess();
+  /* buildChessWritingSection은 문항 표가 들어갈 빈 mount(#chess-writing-items)만
+     HTML 문자열로 돌려준다 — 그 안쪽 내용은 실제로 DOM에 붙은 뒤에야(여기서) 채울 수 있다. */
+  if (document.getElementById("chess-writing-items")) renderChessWritingItems(CHESS_WRITING_TYPE);
 }
 
 function collectChessAnswers(examName) {
@@ -845,7 +1306,9 @@ speaking: {
     writing: null
   };
 
-  if (meta.isLType) {
+  if (meta.isLType && isChessV2()) {
+    rubrics.writing = collectChessWritingGrades();
+  } else if (meta.isLType) {
     rubrics.writing = {
       task: document.getElementById("chess-write-task")?.value || "",
       topic: document.getElementById("chess-write-topic")?.value || "",
@@ -1530,7 +1993,12 @@ const grammarLabels = CHESS_GRAMMAR_LABELS[
   </div>
 ` : "";
 
-const writingSection = writingCards ? `
+/* rubrics.writing.type이 있으면(숫자 1~5) 탕정분원 신규 Writing(문항별 실채점) 데이터,
+   없으면 기존 분원들이 쓰는 홀리스틱 A~D 루브릭 — 값의 "모양"으로 구분해서 isChessV2()를
+   다시 안 물어봐도 안전하다. */
+const writingSection = rubrics?.writing?.type
+  ? renderChessReportWritingV2(rubrics.writing, name)
+  : writingCards ? `
   <div class="chess-report-combined-section">
     <div class="chess-report-section-title">
       ${profile.writingType === "SUMMARY" ? "TEST04. Summary Writing" : "TEST04. Paragraph Writing"}
