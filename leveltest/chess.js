@@ -374,7 +374,7 @@ const TYPE_DESC = {
    안 들어온다), 선생님이 직접 맞는 Type으로 바꿀 수 있게 버튼을 다 열어 둔다.
    이 매핑이 틀렸으면 아래 한 줄만 고치면 된다. */
 function chessWritingDefaultType(examKey) {
-  const m = { L1: 2, L2: 3, L3: 4, L4: 5 };
+  const m = { I1: 1, D1: 1, D2: 2, D3: 2, D4: 3, L1: 3, L2: 4, L3: 4, L4: 5 };
   return m[String(examKey || "").toUpperCase()] || 2;
 }
 let CHESS_WRITING_TYPE = null;
@@ -981,11 +981,15 @@ function buildChessRubricInputs(examName) {
     </div>
   `;
 
-  if (!meta.isLType) return speakingHtml;
+  /* 탕정분원 신규 시험지는 I1~L4 전부 Writing이 있다("I1~L4까지 싹다 라이팅" — 운영자 확인).
+     예전 체스는 D1~D4엔 Writing이 없어서(hasWriting:false) 여기서 바로 return 했는데,
+     V2는 그 early return을 건너뛰고 전부 Writing 섹션을 붙인다. 다른 분원은 이 조건이
+     false라 D1~D4는 예전처럼 Writing 없이 그대로. */
+  if (!meta.isLType && !isChessV2()) return speakingHtml;
 
 let writingHtml = "";
 
-if (meta.isLType && isChessV2()) {
+if (isChessV2()) {
   writingHtml = buildChessWritingSection(cleanKey, null, null);
 } else if (meta.isLType) {
   const isL34 = cleanKey === "L3" || cleanKey === "L4";
@@ -1306,7 +1310,7 @@ speaking: {
     writing: null
   };
 
-  if (meta.isLType && isChessV2()) {
+  if (isChessV2()) {
     rubrics.writing = collectChessWritingGrades();
   } else if (meta.isLType) {
     rubrics.writing = {
