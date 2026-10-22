@@ -299,9 +299,16 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .lt-count-box .cB{background:var(--wr-warn-bg);} .lt-count-box .cB b,.lt-count-box .cB span{color:var(--wr-warn);}
 .lt-count-box .cC{background:var(--wr-bad-bg);} .lt-count-box .cC b,.lt-count-box .cC span{color:var(--wr-bad);}
 
-/* 인쇄(성적표 PDF) — 카드·문항줄이 페이지 중간에서 잘리지 않게 */
+/* 인쇄(성적표 PDF) — 목업(.scratch_mockup) 그대로.
+   A/B/C 채점기준표(.chess-writing-rubric, 3줄짜리)는 페이지 경계에 걸리면 A행만
+   이쪽에 남고 B·C행은 다음 장으로 넘어가 쪼개졌다 — "중간에서 잘리는거 싫음"
+   (운영자 요청)이라 이 표만 안 쪼개지게 하고, 제목도 표에서 안 떨어지게 묶는다.
+   문항 한 줄(.chess-report-item-row)과 PART 카드 전체(.chess-writing-part-card)는
+   일부러 안 묶는다 — 묶으면(예전 방식) 15문항짜리 PART 전체가 다음 페이지로
+   통째로 넘어가면서 앞 페이지에 큰 빈 공간이 생기는 문제가 재발한다.
+   잘못 포함시켰다가 바로 다음 수정에서 뺌(2026-10-22, 운영자 스크린샷으로 확인). */
 @media print {
-  .chess-report-item-row, .chess-report-card.chess-writing-part-card, .chess-writing-rubric, .chess-report-feedback-box {
+  .chess-writing-rubric {
     page-break-inside: avoid; break-inside: avoid;
   }
   .chess-report-combined-section .chess-report-card-title--top { page-break-after: avoid; break-after: avoid; }

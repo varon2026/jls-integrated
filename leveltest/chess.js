@@ -575,7 +575,7 @@ function renderChessReportWritingV2(writingState, studentName) {
 
   return `
     <div class="chess-report-combined-section">
-      <div class="chess-report-section-title">TEST04. Writing · ${esc(TYPE_DESC[n])}</div>
+      <div class="chess-report-section-title">TEST03. Writing · ${esc(TYPE_DESC[n])}</div>
       ${cards}
       <div class="chess-report-feedback-box">
         <div class="chess-report-feedback-title">Overall Feedback</div>
