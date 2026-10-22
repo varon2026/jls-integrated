@@ -345,4 +345,41 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-subcopy { font-size: 9px; line-height: 1.25; margin-bottom: 0; }
   .lt-count-box .c { padding: 3px 2px; }
   .lt-count-box .c b { font-size: 14px; }
+
+  /* TEST01 위 "JLS Placement Test / Evaluation Sheet" 안내문 + 상단 정보칸은
+     실제 production(chess-report.css)에 이미 있는 2단계 압축(40px→22px 제목,
+     16px 정보값 등)으로는 D1·L4처럼 TEST02 카드가 적어도 Grammar가 길면 어떻게든
+     맞았는데, Grammar가 아예 없어진 신규 시험지(I1·D1 V2)는 안내문·정보칸이 아직도
+     커서 표지+1장에 다 안 들어가고 TEST03(특히 Overall Feedback 박스)만 억지로
+     다음 장으로 밀려 쪼개졌다 — 운영자 스크린샷으로 확인(2026-10-23).
+     목업이 바로 이 문제 때문에 한 단계 더 줄인 값을 그대로 가져온다. 다른 분원
+     성적표(.chess-writing-rubric이 없음)는 이 선택자에 전혀 안 걸려서 안전함. */
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-title-wrap { margin-bottom: 8px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-kicker { font-size: 13px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-title { font-size: 20px; margin-top: 1px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-intro { font-size: 10px; line-height: 1.35; margin-bottom: 6px; padding-bottom: 6px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-info-box { margin-bottom: 6px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-info-cell { padding: 10px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-info-value { font-size: 14px; margin-top: 4px; }
+
+  /* TEST02 Speaking 카드(보통 4~7장)도 목업과 같은 flex 2열로 바꿔서 한 단계 더 압축.
+     grid는 Chromium 인쇄 엔진이 페이지 넘길 때 잘 못 쪼개서(카드 2장만 올리고 밑에
+     자리가 남아도 통째로 다음 장으로 넘겨버림) flex-wrap으로 바꾼다 — 목업 그대로.
+     이것도 .chess-writing-rubric이 있는 성적표(=탕정 V2)에서만 걸리게 범위를 좁혀서
+     다른 분원 TEST02 카드 배치(grid)는 그대로 둔다. */
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid {
+    display: flex; flex-wrap: wrap; gap: 5px 8px; align-items: flex-start;
+  }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card {
+    margin-bottom: 0; flex: 0 0 calc(50% - 5px); padding: 6px 8px;
+  }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-title--top { font-size: 12px; margin-bottom: 3px; line-height: 1.15; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-inner--fixed { grid-template-columns: 56px minmax(0, 1fr); gap: 6px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-left--fixed { width: 56px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed { min-height: 46px; padding: 3px; border-width: 2px; border-radius: 9px; gap: 2px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed .chess-report-grade-label { font-size: 8px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed .chess-report-grade-value { font-size: 14px; line-height: 1; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed { font-size: 8.5px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-grade { width: 20px; padding: 2px; font-size: 8px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-desc { padding: 2px 4px; font-size: 8.5px; line-height: 1; word-break: keep-all; }
 }
