@@ -406,4 +406,21 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed { font-size: 8.5px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-grade { width: 20px; padding: 2px; font-size: 8px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-desc { padding: 2px 4px; font-size: 8.5px; line-height: 1; word-break: keep-all; }
+
+  /* I1에서 Writing Type2·3(15문항·3파트)를 고를 때만 — TEST02 카드가 4개뿐이라
+     2x2로 두면 페이지 절반이 비는데, 한 줄(4칸)로 눕히면 그만큼 TEST03이 올라갈
+     공간이 생긴다(운영자 요청, 2026-10-24). chess.js가 I1 + Type2·3일 때만
+     .chess-test02-oneline을 붙여줘서 다른 시험지·다른 Type은 원래 2열 그대로.
+     바로 위 2열 규칙과 선택자 앞부분을 똑같이 맞춰야 한다 — 안 그러면 이 규칙이
+     더 나중에 와도 상단 규칙(클래스 4개)이 상세도에서 이겨서 안 먹힌다. */
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-oneline .chess-report-card {
+    flex: 0 0 calc(25% - 6px);
+  }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-oneline .chess-report-card-inner--fixed {
+    grid-template-columns: 1fr; gap: 4px;
+  }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-oneline .chess-report-card-left--fixed { width: auto; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-oneline .chess-report-grade-box--fixed {
+    display: flex; align-items: center; justify-content: center; gap: 4px; min-height: auto; padding: 2px;
+  }
 }

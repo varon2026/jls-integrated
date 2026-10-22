@@ -2217,10 +2217,20 @@ const writingSection = rubrics?.writing?.type
           </div>
         </div>
 
+${(() => {
+  /* I1에서 Writing Type2·3(15문항·3파트, 긴 쪽)를 고르면 TEST02(카드 4개뿐이라
+     원래도 2x2로 하면 페이지 절반이 빈다)를 한 줄로 눕혀서 그만큼 TEST03이 올라갈
+     공간을 더 만든다 — 운영자 요청: "i1 시험지에 라이팅 타입 2,3 넣을거면 테스트2번
+     네모칸을 한줄로... 다른 시험지는 그냥 두고, I1만, 그리고 Type2·3 골랐을 때만."
+     그래서 I1 전용이고, Type1(기본값)·Type4·Type5를 고르면 원래 2x2 그대로다. */
+  const wType = rubrics?.writing?.type;
+  const oneLine = cleanKey === "I1" && (wType === 2 || wType === 3);
+  return `
 <div class="chess-report-section-title">TEST02 표현 능력 평가 득점 현황 (Speaking / Reading)</div>
-<div class="chess-report-test02-grid">
+<div class="chess-report-test02-grid${oneLine ? " chess-test02-oneline" : ""}">
   ${speakingCards}
-</div>
+</div>`;
+})()}
 
 ${grammarSection}
 ${writingSection}
