@@ -556,7 +556,7 @@ function chessRenderWritingPartCardHTMLV2(part, itemRows) {
 }
 /* 성적표의 Writing 섹션(V2) — rubrics.writing = {type, grades(실제 채점값 배열)} 을 받아서
    문항별 실제 결과 그대로 그린다(목업처럼 데이터에 박힌 데모 등급이 아니라 진짜 채점값). */
-function renderChessReportWritingV2(writingState, studentName, forceBreak) {
+function renderChessReportWritingV2(writingState, studentName) {
   const n = writingState && writingState.type;
   const grades = (writingState && writingState.grades) || [];
   if (!n || !WRITING_DATA[n]) return "";
@@ -574,7 +574,7 @@ function renderChessReportWritingV2(writingState, studentName, forceBreak) {
   }).join("");
 
   return `
-    <div class="chess-report-combined-section${forceBreak || ""}">
+    <div class="chess-report-combined-section">
       <div class="chess-report-section-title">TEST03. Writing · ${esc(TYPE_DESC[n])}</div>
       ${cards}
       <div class="chess-report-feedback-box">
@@ -587,6 +587,66 @@ function renderChessReportWritingV2(writingState, studentName, forceBreak) {
         <div class="chess-report-subcopy" style="margin-bottom:0">${chessWritingFeedbackHTML(n, c, "parent", studentName).replace(/<span class="ln">/g, '<span class="ln" style="display:block;margin-bottom:4px">')}</div>
       </div>
     </div>`;
+}
+
+/* 성적표가 실제로 몇 페이지에 걸치는지는 여기서 짐작하지 않는다(Speaking 카드 수 같은
+   고정 기준으론 L4처럼 카드는 많아도 Writing이 짧은 시험지가 억지로 새 페이지로 밀려
+   페이지가 거의 통째로 비는 문제가 생겼다 — 운영자 요청: "여백이 많으면 최대한
+   한장으로 끝낼수있게"). 대신 인쇄용 압축 CSS를 그대로 화면에 적용해서 진짜 렌더링
+   높이를 재고, A4 한 페이지(7mm 여백) 분량과 비교해서 그때그때 판단한다.
+   1) TEST02 뒤에 TEST03이 바로 이어 붙어도 한 페이지에 다 들어오면 — 아무것도 안 건드림.
+   2) 안 들어오면 TEST03을 새 페이지에서 시작시킨다(force-break).
+   3) 그래도(새 페이지에서 시작해도) 다 안 들어오면 — 마지막 PART만 그 안에서 한 번 더
+      다음 페이지로 넘긴다(운영자 요청: "한장으로 안끝내지면 파트쓰리는 다음장으로"). */
+function chessMeasurePrintBreaks() {
+  const page = document.querySelector(".chess-report-page:not(.chess-report-cover)");
+  const writingSection = document.querySelector(".chess-report-combined-section:has(.chess-writing-rubric)");
+  if (!page || !writingSection) return;
+
+  let printCssText = "";
+  for (const sheet of document.styleSheets) {
+    let rules;
+    try { rules = sheet.cssRules; } catch (e) { continue; }
+    if (!rules) continue;
+    for (const rule of rules) {
+      if (rule.media && /print/i.test(rule.conditionText || rule.media.mediaText || "")) {
+        for (const inner of rule.cssRules) printCssText += inner.cssText + "\n";
+      }
+    }
+  }
+  const styleEl = document.createElement("style");
+  styleEl.textContent = printCssText + `
+    html, body { width: 210mm !important; }
+    .chess-report-page { min-height: auto !important; padding: 7mm 7mm 8mm !important; box-sizing: border-box; width: 210mm !important; }
+  `;
+  document.head.appendChild(styleEl);
+
+  try {
+    const PAGE_BUDGET_PX = (297 - 7 - 7 - 7 - 8) * (96 / 25.4); // A4(7mm 여백) 안에서 .chess-report-page 자체 패딩(7mm+8mm)까지 뺀, 실제 글이 들어갈 수 있는 세로 길이
+
+    const pageTop = page.getBoundingClientRect().top;
+    const test02Grid = document.querySelector(".chess-report-test02-grid");
+    const beforeWritingBottom = test02Grid
+      ? (test02Grid.getBoundingClientRect().bottom - pageTop)
+      : (writingSection.getBoundingClientRect().top - pageTop);
+
+    const parts = Array.from(writingSection.querySelectorAll(".chess-writing-part-card"));
+    const feedbackBox = writingSection.querySelector(".chess-report-feedback-box");
+    const writingTop = writingSection.getBoundingClientRect().top - pageTop;
+    const writingBottom = (feedbackBox || writingSection).getBoundingClientRect().bottom - pageTop;
+    const writingHeight = writingBottom - writingTop;
+
+    const fitsRightAfterTest02 = (beforeWritingBottom + writingHeight) <= PAGE_BUDGET_PX;
+    writingSection.classList.toggle("force-break", !fitsRightAfterTest02);
+
+    const fitsOnFreshPage = writingHeight <= PAGE_BUDGET_PX;
+    parts.forEach(p => p.classList.remove("chess-part-break"));
+    if (parts.length >= 2 && !fitsRightAfterTest02 && !fitsOnFreshPage) {
+      parts[parts.length - 1].classList.add("chess-part-break");
+    }
+  } finally {
+    styleEl.remove();
+  }
 }
 
 /* 새 레벨 배정표 — "분원공유용_CHESS New PT 배정기준표_202402.xlsx"의 성적처리(반배정)기준표
@@ -2000,14 +2060,15 @@ const grammarLabels = CHESS_GRAMMAR_LABELS[
 /* rubrics.writing.type이 있으면(숫자 1~5) 탕정분원 신규 Writing(문항별 실채점) 데이터,
    없으면 기존 분원들이 쓰는 홀리스틱 A~D 루브릭 — 값의 "모양"으로 구분해서 isChessV2()를
    다시 안 물어봐도 안전하다. */
-/* Speaking 카드 6개 이상(D2 이상)이면 TEST02만으로 한 페이지가 이미 꽉 차서
-   TEST03 Writing은 새 페이지에서 시작해야 깔끔하다(운영자 요청). 카드 4개짜리
-   (I1·D1)는 내용이 적어서 억지로 새 페이지를 만들면 표지+3페이지(마지막 장
-   거의 빈 페이지)가 돼버려서, "항상 새 페이지"가 아니라 카드 수로만 강제한다
-   — 목업에서 그대로 가져온 기준(.scratch_mockup/chess-pt-mockup.html). */
-const writingForceBreak = profile.speaking.length >= 6 ? " force-break" : "";
+/* TEST03을 새 페이지에서 시작할지는 "Speaking 카드 6개 이상이면 무조건"처럼 고정
+   기준으로 정하지 않는다 — L4(Type5·4문항)처럼 Speaking 카드는 많아도(6개) Writing이
+   짧으면 TEST02 뒤에 그냥 이어 붙어도 한 페이지에 다 들어가는데, 고정 기준으론
+   그런 경우까지 억지로 새 페이지로 밀어서 페이지 전체가 거의 비어버렸다(운영자
+   스크린샷, 2026-10-24: "여백이 많으면 최대한 한장으로 끝낼수있게"). 실제 인쇄용
+   압축 CSS를 그대로 적용해서 진짜 렌더링 높이를 재고 판단한다 — chessMeasurePrintBreaks()
+   가 이 함수가 app.innerHTML에 다 그려진 뒤에 실행된다. */
 const writingSection = rubrics?.writing?.type
-  ? renderChessReportWritingV2(rubrics.writing, name, writingForceBreak)
+  ? renderChessReportWritingV2(rubrics.writing, name)
   : writingCards ? `
   <div class="chess-report-combined-section">
     <div class="chess-report-section-title">
@@ -2141,6 +2202,7 @@ ${writingSection}
     </div>
   `;
 
+  if (rubrics?.writing?.type) chessMeasurePrintBreaks();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
