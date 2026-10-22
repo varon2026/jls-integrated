@@ -461,7 +461,7 @@ function startAutoRefresh(){
 const BK_BRANCH_BY_NAME = {
   '남동탄':'namdongtanjls', '수원':'suwon_jls', '장안':'suwonjls2009',
   '서수원':'seosuwonjls', '운정1':'unjeongjls', '운정2':'unjeongjls2',
-  '아산탕정':'asantangjeongjls'
+  '아산탕정':'asantangjeongjls', '탕정':'asantangjeongjls'
 };
 function bkBranchCode(branchId){
   const b=getBranch(branchId); if(!b) return null;

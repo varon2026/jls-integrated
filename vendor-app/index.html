@@ -166,6 +166,8 @@ const sb=supabase.createClient(SB_URL,SB_KEY);
 
 const CAT_OPTIONS=['에어컨','정수기','전기·조명','승강기','CCTV·보안','방역·위생','기타'];
 const BRANCH_OPTIONS=['전분원','바론 본사','서수원','장안','수원','운정1','운정2','남동탄','아산탕정'];
+const BRANCH_LABELS={'아산탕정':'탕정분원'};
+function branchLabel(value){ return BRANCH_LABELS[value]||value; }
 
 let vendors = [];
 let loadError = null;
@@ -257,7 +259,7 @@ function renderVendorTable(){
   document.getElementById('vendor-table-body').innerHTML = vendors.length ? vendors.map(v=>`
     <tr style="cursor:pointer" onclick="openVendor(${v.id})">
       <td class="chk-cell" onclick="event.stopPropagation()"><input type="checkbox" class="vendors-check" value="${v.id}" ${vendorsSelected.has(v.id)?'checked':''} onchange="onVendorsCheckChange(this)"></td>
-      <td><div class="vname">${esc(v.name)}</div><div class="vmeta">${esc(v.branch)}</div></td>
+      <td><div class="vname">${esc(v.name)}</div><div class="vmeta">${esc(branchLabel(v.branch))}</div></td>
       <td><span class="badge-cat">${esc(v.category)}</span></td>
       <td>${esc(v.manager||'—')}</td>
       <td class="tabnum">${esc(v.phone)}</td>
@@ -448,7 +450,7 @@ function openVendor(id){
         <div class="kv"><span>담당자</span><span>${esc(v.manager||'—')}</span></div>
         <div class="kv"><span>연락처</span><span class="tabnum">${esc(v.phone)}</span></div>
         <div class="kv"><span>사업자등록번호</span><span class="tabnum" style="font-family:var(--font-mono)">${esc(v.biz_no||'—')}</span></div>
-        <div class="kv"><span>담당 지점</span><span>${esc(v.branch)}</span></div>
+        <div class="kv"><span>담당 지점</span><span>${esc(branchLabel(v.branch))}</span></div>
 
         <div>
           <div style="margin-bottom:8px;font-size:12px;font-weight:600;color:var(--ink-2)">보관 서류</div>
@@ -515,7 +517,7 @@ function openAddVendor(editId){
             <select id="nf-cat">${CAT_OPTIONS.map(c=>`<option ${v&&v.category===c?'selected':''}>${c}</option>`).join('')}</select>
           </div>
           <div class="field"><label>담당 지점</label>
-            <select id="nf-branch">${BRANCH_OPTIONS.map(b=>`<option ${v&&v.branch===b?'selected':''}>${b}</option>`).join('')}</select>
+            <select id="nf-branch">${BRANCH_OPTIONS.map(b=>`<option value="${b}" ${v&&v.branch===b?'selected':''}>${esc(branchLabel(b))}</option>`).join('')}</select>
           </div>
         </div>
         <div class="field-row">

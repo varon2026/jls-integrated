@@ -7,7 +7,7 @@ var GUIDE_BRANCH_NAMES = {
   'br_suwon':          '수원',
   'br_unjeong1':       '운정1',
   'br_unjeong2':       '운정2',
-  'br_22jcktj':        '아산탕정'
+  'br_22jcktj':        '탕정분원'
 };
 
 var GUIDE_BLOG_URLS = {

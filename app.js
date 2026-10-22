@@ -2343,7 +2343,7 @@ function renderDashboard(c){
     </select></div></div>`;
 
   // 분원별 표의 CHESS/ACE 뱃지 옆에 "총원 대비 몇 %"를 소수점 한 자리로 붙여준다.
-  // 총원이 0이면(아산탕정처럼 아직 학생이 없는 분원) 나눗셈이 안 되니 비워둔다.
+  // 총원이 0이면(탕정분원처럼 아직 학생이 없는 분원) 나눗셈이 안 되니 비워둔다.
   const caPct=(n,total)=>total?`<span class="ca-pct">${(n/total*100).toFixed(1)}%</span>`:'';
   // KPI 카드 (CHESS/ACE 포함)
   const caCard=(label,dot,ca)=>`<div class="kpi"><div class="l"><span class="kdot" style="background:${dot}"></span>${label}</div>
@@ -3239,7 +3239,7 @@ function examLabel(r){
 }
 /* 시험 종류 카탈로그 (학년별로 정해진 시험지) */
 const EXAM_META=[
-  /* I1은 탕정분원(아산탕정분원) 신규 CHESS에서만 나오는 시험지. 다른 분원엔 안 나오니
+  /* I1은 탕정분원 전용 신규 CHESS에서만 나오는 시험지. 다른 분원엔 안 나오니
      여기 추가해도 전형현황 집계에 빈 칸만 하나 더 생길 뿐 다른 분원 숫자는 안 바뀐다. */
   {k:'I1',g:'초등1~5',t:'chess'},
   {k:'D1',g:'초등1~5',t:'chess'},{k:'D2',g:'초등1~5',t:'chess'},{k:'D3',g:'초등1~5',t:'chess'},{k:'D4',g:'초등1~5',t:'chess'},
@@ -4432,7 +4432,7 @@ function onAcBranchChange(v){
   accView.branch=v; renderAccounts($('content'));
 }
 async function addBranchPrompt(){
-  const name=(prompt('추가할 분원 이름을 입력하세요 (예: 아산탕정분원)')||'').trim();
+  const name=(prompt('추가할 분원 이름을 입력하세요 (예: 탕정분원)')||'').trim();
   if(!name){ renderAccounts($('content')); return; }                 // 취소 → 드롭다운 원상복구
   const dup=(db.branches||[]).find(b=>b.name===name);
   if(dup){ toast('이미 있는 분원이에요'); accView.branch=dup.id; renderAccounts($('content')); return; }

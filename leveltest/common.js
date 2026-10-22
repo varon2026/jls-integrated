@@ -1748,7 +1748,7 @@ function getExamOptionsByGrade(grade) {
       { value: "L3", label: "L3" },
       { value: "L4", label: "L4" }
     ];
-    /* I1은 탕정분원(아산탕정분원) 신규 CHESS에서만 고를 수 있다 — 다른 분원 드롭다운엔
+    /* I1은 탕정분원 전용 신규 CHESS에서만 고를 수 있다 — 다른 분원 드롭다운엔
        이 함수가 그대로라 안 뜬다. isChessV2()는 leveltest/chess.js에 정의돼 있다. */
     if (typeof isChessV2 === "function" && isChessV2()) list.unshift({ value: "I1", label: "I1" });
     return list;
