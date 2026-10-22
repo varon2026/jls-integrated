@@ -599,10 +599,13 @@ function renderChessReportWritingV2(writingState, studentName, compact) {
    페이지가 거의 통째로 비는 문제가 생겼다 — 운영자 요청: "여백이 많으면 최대한
    한장으로 끝낼수있게"). 대신 인쇄용 압축 CSS를 그대로 화면에 적용해서 진짜 렌더링
    높이를 재고, A4 한 페이지(7mm 여백) 분량과 비교해서 그때그때 판단한다.
-   1) TEST02 뒤에 TEST03이 바로 이어 붙어도 한 페이지에 다 들어오면 — 아무것도 안 건드림.
-   2) 안 들어오면 TEST03을 새 페이지에서 시작시킨다(force-break).
-   3) 그래도(새 페이지에서 시작해도) 다 안 들어오면 — 마지막 PART만 그 안에서 한 번 더
-      다음 페이지로 넘긴다(운영자 요청: "한장으로 안끝내지면 파트쓰리는 다음장으로"). */
+
+   "TEST03이 전부 들어가냐 아니냐"로만 보지 않는다 — 그렇게 하면 TEST02 뒤에
+   자리가 많이 남아도 하나도 못 쓰고 TEST03 전체를 새 페이지로 보내버렸다
+   (운영자 지적: "테스트 3을 줄였으면 저 위쪽 빈공간에 넣어야지"). 대신 제목+파트1을
+   한 덩어리로, 그다음 파트들과 Overall Feedback 박스를 각각 하나의 덩어리로 보고
+   순서대로 "자리가 되는 데까지" 채우다가, 안 들어가는 첫 덩어리부터만 다음 페이지로
+   넘긴다. 자세한 내용은 아래 try 블록 안 주석. */
 function chessMeasurePrintBreaks() {
   const page = document.querySelector(".chess-report-page:not(.chess-report-cover)");
   const writingSection = document.querySelector(".chess-report-combined-section:has(.chess-writing-rubric)");
@@ -633,31 +636,58 @@ function chessMeasurePrintBreaks() {
        기준이 57px(≈15mm)이나 더 좁았다 — 실제로 들어갈 공간이 있는데도 다음 페이지로
        넘겨버린 원인(운영자 지적: "빈공간에 다 들어갈수있음에도 불구하고 넘기고있네"). */
     const PAGE_BUDGET_PX = (297 - 7 - 7 - 8) * (96 / 25.4);
-    /* I1·D1(1파트)처럼 10~34px 정도로 살짝만 넘칠 때도 새 페이지를 통째로 만들면
-       그 페이지는 절반 넘게 비어 보인다 — 손해가 훨씬 크다(운영자 — "원점 복귀야").
-       이 정도 여유(픽셀 단위 측정이라 완전히 정확하지도 않다)는 그냥 이어 붙이고,
-       Overall Feedback 박스만 안 잘리게 묶어서(아래 .chess-report-feedback-box
-       avoid) 혹시 살짝 넘치더라도 박스 째로 다음 페이지로 가게 한다. */
-    const OVERFLOW_TOLERANCE_PX = 80;
 
     const pageTop = page.getBoundingClientRect().top;
     const parts = Array.from(writingSection.querySelectorAll(".chess-writing-part-card"));
     const feedbackBox = writingSection.querySelector(".chess-report-feedback-box");
-    const writingTop = writingSection.getBoundingClientRect().top - pageTop;
-    const writingBottom = (feedbackBox || writingSection).getBoundingClientRect().bottom - pageTop;
-    const writingHeight = writingBottom - writingTop;
+    const titleEl = writingSection.querySelector(".chess-report-section-title");
 
-    /* writingBottom은 TEST03이 지금(= force-break 적용 전, TEST02 바로 뒤) 자연스럽게
-       놓인 상태의 실제 끝 위치라서, TEST02와의 간격(margin)까지 이미 포함돼 있다
-       — 따로 더하지 않고 이 값을 그대로 기준과 비교한다. */
-    const fitsRightAfterTest02 = writingBottom <= (PAGE_BUDGET_PX + OVERFLOW_TOLERANCE_PX);
-    writingSection.classList.toggle("force-break", !fitsRightAfterTest02);
-
-    const fitsOnFreshPage = writingHeight <= PAGE_BUDGET_PX;
+    /* 이전 판정을 지우고 "안 끊긴 원래 모양"부터 다시 잰다 — 끊김 클래스는 실제
+       인쇄(페이지 나눔) 때만 효과가 있어서, 이렇게 평범하게 쌓인 화면에서 재는
+       동안은 어차피 위치에 영향이 없다. */
+    writingSection.classList.remove("force-break");
     parts.forEach(p => p.classList.remove("chess-part-break"));
-    if (parts.length >= 2 && !fitsRightAfterTest02 && !fitsOnFreshPage) {
-      parts[parts.length - 1].classList.add("chess-part-break");
+    if (feedbackBox) feedbackBox.classList.remove("chess-part-break");
+
+    const test02Grid = document.querySelector(".chess-report-test02-grid");
+    const afterTest02 = test02Grid
+      ? (test02Grid.getBoundingClientRect().bottom - pageTop)
+      : (writingSection.getBoundingClientRect().top - pageTop);
+    const y = el => el.getBoundingClientRect().top - pageTop;
+    const yb = el => el.getBoundingClientRect().bottom - pageTop;
+
+    /* TEST03을 "전부 들어가냐 아니냐" 하나로만 보지 않는다 — 그러면 TEST02 뒤에
+       자리가 많이 남아도 그 자리를 하나도 못 쓰고 TEST03 전체를 새 페이지로
+       보내버렸다(운영자 지적: "테스트 3을 줄였으면 저 위쪽 빈공간에 넣어야지").
+       대신 제목+파트1을 한 덩어리로, 그 뒤 파트·피드백 박스는 하나씩 순서대로
+       "지금까지 채운 만큼 + 이 덩어리"가 한 페이지 분량을 넘는지 봐서, 넘는
+       첫 덩어리부터만 다음 페이지로 보낸다 — 들어가는 데까지는 채우는 방식.
+       제목이 파트1 없이 혼자 이쪽 페이지에 남는 "고아 줄"을 막으려고 제목은
+       항상 파트1과 한 덩어리로 묶는다. */
+    const chunks = [];
+    if (parts.length) {
+      chunks.push({ el: parts[0], top: y(titleEl), bottom: yb(parts[0]) });
+      for (let i = 1; i < parts.length; i++) chunks.push({ el: parts[i], top: y(parts[i]), bottom: yb(parts[i]) });
     }
+    if (feedbackBox) chunks.push({ el: feedbackBox, top: y(feedbackBox), bottom: yb(feedbackBox) });
+
+    let cursor = afterTest02;
+    let sectionForced = false;
+    chunks.forEach((chunk, i) => {
+      const height = chunk.bottom - chunk.top;
+      const gap = Math.max(0, i === 0 ? (chunk.top - afterTest02) : (chunk.top - chunks[i - 1].bottom));
+      if (cursor + gap + height > PAGE_BUDGET_PX) {
+        if (i === 0) {
+          sectionForced = true; // 제목+파트1조차 안 들어가면 TEST03 전체를 새 페이지로
+        } else {
+          chunk.el.classList.add("chess-part-break"); // 이 덩어리부터만 새 페이지로
+        }
+        cursor = height; // 새 페이지에서 이 덩어리로 다시 시작
+      } else {
+        cursor += gap + height;
+      }
+    });
+    writingSection.classList.toggle("force-break", sectionForced);
   } finally {
     styleEl.remove();
   }

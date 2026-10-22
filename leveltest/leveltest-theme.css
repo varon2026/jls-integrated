@@ -316,7 +316,8 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    기준으로 밀어서 페이지가 거의 비는 문제가 있었다(2026-10-24, "여백이 많으면
    최대한 한장으로"). */
 @media print {
-  .chess-writing-part-card.chess-part-break {
+  .chess-writing-part-card.chess-part-break,
+  .chess-report-feedback-box.chess-part-break {
     page-break-before: always !important; break-before: page !important;
   }
   .chess-report-card.chess-writing-part-card {
