@@ -530,10 +530,18 @@ function chessWritingFeedbackHTML(n, c, mode, studentName){
   return [l1,l2,l3].filter(Boolean).join("");
 }
 
+/* 2026-10-24 — 부장님: "볼드체 밑에 적힌 작은 글씨 때문에 글씨를 못 키우는
+   거면, 그걸 옆으로 적어달라"(인쇄물에 손글씨로 표시해서 전달받음). 전엔 제목
+   (word, 볼드)과 설명(desc, 작은 글씨)이 위아래로 두 줄이었다 — 그래서 문항
+   한 줄 높이가 늘 두 줄 몫이었고, 그만큼 전체가 자주 넘쳐서 zoom이 많이
+   줄었다. .chess-report-item-text에 flex-wrap을 걸어서 제목 뒤에 설명이
+   같은 줄로 바로 이어 붙게(한 줄에 안 들어가면 그때만 다음 줄로) 바꿨다 —
+   문항 한 줄이 대부분 한 줄 높이로 줄어서, 같은 예산 안에서 글자를 덜
+   줄여도(zoom이 덜 걸려도) 된다. */
 function chessRenderReportItemRowV2(serial, it, grade) {
   return `<div class="chess-report-item-row">
     <div class="chess-report-item-no">${serial}</div>
-    <div><div class="chess-report-item-word">${esc(it.s || it.w)}</div><div class="chess-report-item-desc">${esc(it.sd || it.d)}</div></div>
+    <div class="chess-report-item-text"><span class="chess-report-item-word">${esc(it.s || it.w)}</span><span class="chess-report-item-desc">${esc(it.sd || it.d)}</span></div>
     <div class="chess-report-item-grades">
       ${["A", "B", "C"].map(g => `<div class="chess-report-item-dot${grade === g ? " sel " + g : ""}">${g}</div>`).join("")}
     </div>

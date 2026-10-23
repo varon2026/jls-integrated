@@ -281,8 +281,11 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .chess-report-item-row{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed #e3dfd3;}
 .chess-report-item-row:first-child{border-top:none;}
 .chess-report-item-no{width:28px;height:28px;border-radius:50%;background:#eef6fb;color:#1f5d96;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:12.5px;}
+/* 2026-10-24 부장님 요청 — 제목(볼드)과 설명을 위아래 두 줄이 아니라 한 줄에
+   이어 붙인다(안 들어갈 때만 다음 줄로). chess.js 쪽 주석 참고. */
+.chess-report-item-text{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px;row-gap:0;}
 .chess-report-item-word{font-weight:700;color:#222;font-size:13px;}
-.chess-report-item-desc{font-size:11px;color:#6b7f95;margin-top:1px;}
+.chess-report-item-desc{font-size:11px;color:#6b7f95;}
 .chess-report-item-grades{display:flex;gap:4px;}
 .chess-report-item-dot{width:24px;height:24px;border-radius:50%;border:1px solid #d7e3f0;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:#b9b4a4;background:#fff;}
 .chess-report-item-dot.sel.A{background:var(--wr-good);border-color:var(--wr-good);color:#fff;}
@@ -368,21 +371,27 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
      있었는데(69%), 기준 글자를 키운 만큼 줄어든 뒤 크기도 같이 커진다. Type1·4·5도
      이번엔 zoom이 걸릴 수 있다(여유가 2~16%뿐이었음) — 그래도 다 같이 커진
      글자의 비율 축소라 전체적으로는 키우기 전보다 작아지지 않는다. */
-  .chess-writing-rubric { font-size: 16px; }
-  .chess-writing-rubric .chess-report-criteria-grade { width: 26px; padding: 5px 6px; font-size: 16px; }
-  .chess-writing-rubric .chess-report-criteria-desc { padding: 5px 8px; font-size: 16px; line-height: 1.45; }
-  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-card-title--top { font-size: 19px; margin-bottom: 6px; }
+  /* ⚠️ 2026-10-24 추가 — 부장님이 인쇄물에 손글씨로: "볼드체 밑에 적힌 작은 글씨
+     때문에 글씨를 못 키우는 거면, 그걸 옆으로 적어달라". 문항 제목+설명을 위아래
+     2줄에서 한 줄(.chess-report-item-text, chess.js에서 같이 수정)로 바꿔서
+     문항 한 줄 높이가 거의 반으로 줄었다 — 그만큼 여유가 생겨서 글자를 한 번 더
+     키웠다(Type1·4·5는 zoom 100%로 전혀 안 줄고, Type2·3도 60%→76%로 훨씬
+     덜 줄어든다, 즉 실제 보이는 글자가 더 커진다). */
+  .chess-writing-rubric { font-size: 18px; }
+  .chess-writing-rubric .chess-report-criteria-grade { width: 26px; padding: 5px 6px; font-size: 18px; }
+  .chess-writing-rubric .chess-report-criteria-desc { padding: 5px 8px; font-size: 18px; line-height: 1.45; }
+  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-card-title--top { font-size: 21px; margin-bottom: 6px; }
   .chess-report-item-row { padding: 6px 0; }
-  .chess-report-item-no { width: 24px; height: 24px; font-size: 13px; }
-  .chess-report-item-word { font-size: 17px; line-height: 1.4; }
-  .chess-report-item-desc { font-size: 15px; line-height: 1.4; margin-top: 2px; }
-  .chess-report-item-dot { width: 20px; height: 20px; font-size: 12px; }
+  .chess-report-item-no { width: 24px; height: 24px; font-size: 14px; }
+  .chess-report-item-word { font-size: 19px; line-height: 1.4; }
+  .chess-report-item-desc { font-size: 17px; line-height: 1.4; }
+  .chess-report-item-dot { width: 20px; height: 20px; font-size: 13px; }
   .chess-report-combined-section:has(.chess-writing-rubric) { margin-top: 10px; }
   .chess-report-feedback-box { padding: 10px 12px; margin-top: 8px; }
-  .chess-report-feedback-title { font-size: 18px; margin-bottom: 6px; }
-  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-subcopy { font-size: 16px; line-height: 1.55; margin-bottom: 0; }
+  .chess-report-feedback-title { font-size: 20px; margin-bottom: 6px; }
+  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-subcopy { font-size: 18px; line-height: 1.55; margin-bottom: 0; }
   .lt-count-box .c { padding: 8px 4px; }
-  .lt-count-box .c b { font-size: 28px; }
+  .lt-count-box .c b { font-size: 30px; }
 
   /* TEST01 위 "JLS Placement Test / Evaluation Sheet" 안내문 + 상단 정보칸은
      실제 production(chess-report.css)에 이미 있는 2단계 압축(40px→22px 제목,
