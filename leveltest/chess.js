@@ -671,12 +671,15 @@ function chessMeasurePrintBreaks() {
     }
     if (feedbackBox) chunks.push({ el: feedbackBox, top: y(feedbackBox), bottom: yb(feedbackBox) });
 
+    /* 소수점 아래 반올림 오차 때문에 실제로는 들어가는데(0.1~0.2px 차이) 넘친다고
+       판정되는 경우가 있었다 — 아주 작은 여유(2px)를 둬서 그런 가짜 초과는 무시한다. */
+    const ROUNDING_TOLERANCE_PX = 2;
     let cursor = afterTest02;
     let sectionForced = false;
     chunks.forEach((chunk, i) => {
       const height = chunk.bottom - chunk.top;
       const gap = Math.max(0, i === 0 ? (chunk.top - afterTest02) : (chunk.top - chunks[i - 1].bottom));
-      if (cursor + gap + height > PAGE_BUDGET_PX) {
+      if (cursor + gap + height > PAGE_BUDGET_PX + ROUNDING_TOLERANCE_PX) {
         if (i === 0) {
           sectionForced = true; // 제목+파트1조차 안 들어가면 TEST03 전체를 새 페이지로
         } else {
