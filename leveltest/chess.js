@@ -594,20 +594,16 @@ function renderChessReportWritingV2(writingState, studentName, compact) {
     </div>`;
 }
 
-/* 2026-10-24 — TEST03(Writing)은 TEST02 뒤에 자리가 남아도 더 이상 이어 붙이지
-   않는다. 운영자 요청대로 "TEST03은 무조건 다음 페이지"로 고정했다(엑셀로
-   직접 그려서 보여준 틀 — TEST01·02는 항상 1페이지, TEST03은 항상 새 페이지부터).
-   예전엔 TEST02 뒤 남은 자리를 최대한 활용하려고 "들어가면 이어 붙이고 안
-   들어가면 새 페이지"로 그때그때 쟀는데, 그 판단 자체를 없앴다 — TEST01·02가
-   Speaking 카드 수(4·6·7개)와 무관하게 항상 1페이지에 들어오도록 TEST02 카드
-   배치를 따로 손봤으니(4열로 눕힘), TEST03 쪽은 "무조건 새 페이지, 그 안에서는
-   들어가는 데까지 채우기"로 단순화해도 된다.
-
-   TEST03 안에서는 여전히 "전부 들어가냐 아니냐"로만 안 본다 — 제목+파트1을
-   한 덩어리로, 그다음 파트들과 Overall Feedback 박스를 각각 하나의 덩어리로 보고
-   순서대로 "자리가 되는 데까지" 채우다가, 안 들어가는 첫 덩어리부터만 또 다음
-   페이지로 넘긴다(파트가 많은 Type2·3처럼 TEST03 자체가 여러 페이지에 걸칠 때도
-   빈 공간 안 남기려는 것). 자세한 내용은 아래 try 블록 안 주석. */
+/* 2026-10-24 — TEST03(Writing)은 무조건 다음 페이지에서 시작하고, 그 페이지
+   "딱 한 장"에 전부 들어가야 한다(운영자: "테스트3은 무조건 다음장에 한장으로
+   나올수있게 해"). 예전엔 파트+피드백을 덩어리로 쪼개 안 들어가는 것부터 다음
+   페이지로 넘겼는데, Type2·3처럼 파트가 3개라 부장님이 키운 글자 크기로는
+   그 자체가 한 페이지 예산(1039px)을 넘어서(실측 3파트만 해도 1074px) 아무리
+   쪼개도 2페이지가 됐다. 그래서 쪼개는 대신 "한 페이지에 들어갈 비율만큼
+   화면을 통째로 줄인다"로 바꿨다 — CSS zoom(레이아웃을 실제로 다시 흘려서
+   계산하는 축소라 인쇄에 안전. transform:scale은 자리만 차지하고 안 줄어서 못 씀)을
+   원래 높이/예산 비율로 걸어서, 짧은 내용(Type1·4·5)은 100%(안 줄임) 그대로,
+   긴 내용(Type2·3)만 필요한 만큼만 줄여서 어떤 Type이 와도 항상 정확히 1페이지. */
 function chessMeasurePrintBreaks() {
   const page = document.querySelector(".chess-report-page:not(.chess-report-cover)");
   const writingSection = document.querySelector(".chess-report-combined-section:has(.chess-writing-rubric)");
@@ -634,52 +630,29 @@ function chessMeasurePrintBreaks() {
   try {
     /* pageTop(.chess-report-page 테두리 맨 위)부터 재니까 그 안의 위쪽 패딩(7mm)은
        이미 측정값에 포함돼 있다 — A4 인쇄 가능 영역(297-7-7=283mm)에서 밑에 남길
-       여백(8mm)만 한 번 더 빼면 된다. 처음엔 위쪽 패딩을 두 번 빼서(283-7-8=268mm)
-       기준이 57px(≈15mm)이나 더 좁았다 — 실제로 들어갈 공간이 있는데도 다음 페이지로
-       넘겨버린 원인(운영자 지적: "빈공간에 다 들어갈수있음에도 불구하고 넘기고있네"). */
+       여백(8mm)만 한 번 더 빼면 된다. */
     const PAGE_BUDGET_PX = (297 - 7 - 7 - 8) * (96 / 25.4);
 
-    const pageTop = page.getBoundingClientRect().top;
-    const parts = Array.from(writingSection.querySelectorAll(".chess-writing-part-card"));
+    /* 전에 걸어둔 축소율을 지우고 "원래 크기(zoom:1)"부터 다시 잰다 — 안 지우면
+       이미 줄어든 상태를 기준으로 비율을 또 곱해서 계속 작아진다. */
+    writingSection.style.removeProperty("--chess-writing-zoom");
+    writingSection.classList.remove("force-break");
+    writingSection.querySelectorAll(".chess-part-break").forEach(el => el.classList.remove("chess-part-break"));
+
+    const parts = writingSection.querySelectorAll(".chess-writing-part-card");
     const feedbackBox = writingSection.querySelector(".chess-report-feedback-box");
     const titleEl = writingSection.querySelector(".chess-report-section-title");
+    const lastEl = feedbackBox || parts[parts.length - 1];
+    if (!titleEl || !lastEl) return;
 
-    /* 이전 판정을 지우고 "안 끊긴 원래 모양"부터 다시 잰다 — 끊김 클래스는 실제
-       인쇄(페이지 나눔) 때만 효과가 있어서, 이렇게 평범하게 쌓인 화면에서 재는
-       동안은 어차피 위치에 영향이 없다. */
-    writingSection.classList.remove("force-break");
-    parts.forEach(p => p.classList.remove("chess-part-break"));
-    if (feedbackBox) feedbackBox.classList.remove("chess-part-break");
-
-    const y = el => el.getBoundingClientRect().top - pageTop;
-    const yb = el => el.getBoundingClientRect().bottom - pageTop;
-
-    /* 제목+파트1을 한 덩어리로(제목이 혼자 남는 "고아 줄" 방지), 그 뒤 파트들과
-       Overall Feedback 박스를 각각 하나의 덩어리로 보고, TEST03이 시작되는 새
-       페이지의 맨 위부터 순서대로 "지금까지 채운 만큼 + 이 덩어리"가 한 페이지
-       분량을 넘는지 봐서, 넘는 첫 덩어리부터만 또 다음 페이지로 보낸다 — 파트가
-       많은 Type2·3도 빈 공간 없이 들어가는 데까지 채우는 방식. */
-    const chunks = [];
-    if (parts.length) {
-      chunks.push({ el: parts[0], top: y(titleEl), bottom: yb(parts[0]) });
-      for (let i = 1; i < parts.length; i++) chunks.push({ el: parts[i], top: y(parts[i]), bottom: yb(parts[i]) });
-    }
-    if (feedbackBox) chunks.push({ el: feedbackBox, top: y(feedbackBox), bottom: yb(feedbackBox) });
-
-    /* 소수점 아래 반올림 오차 때문에 실제로는 들어가는데(0.1~0.2px 차이) 넘친다고
-       판정되는 경우가 있었다 — 아주 작은 여유(2px)를 둬서 그런 가짜 초과는 무시한다. */
-    const ROUNDING_TOLERANCE_PX = 2;
-    let cursor = 0; // TEST03은 항상 새 페이지 맨 위부터 시작(운영자 요청)
-    chunks.forEach((chunk, i) => {
-      const height = chunk.bottom - chunk.top;
-      const gap = i === 0 ? 0 : Math.max(0, chunk.top - chunks[i - 1].bottom);
-      if (i > 0 && cursor + gap + height > PAGE_BUDGET_PX + ROUNDING_TOLERANCE_PX) {
-        chunk.el.classList.add("chess-part-break"); // 이 덩어리부터만 새 페이지로
-        cursor = height; // 새 페이지에서 이 덩어리로 다시 시작
-      } else {
-        cursor += gap + height;
-      }
-    });
+    const naturalHeight = lastEl.getBoundingClientRect().bottom - titleEl.getBoundingClientRect().top;
+    /* zoom은 브라우저가 적용할 때 안/밖 요소의 border·padding을 각 배율에서 다시
+       정수 픽셀로 스냅해서, 비율을 정확히 계산해도 실제로는 몇 px씩 더 길게 나올
+       때가 있다(실측: 비율 그대로 걸었더니 예산보다 4px 더 길었음). 그래서 예산에서
+       SAFETY_PX만큼 미리 빼고 비율을 구해 이 오차를 흡수한다. */
+    const SAFETY_PX = 10;
+    const zoom = Math.min(1, (PAGE_BUDGET_PX - SAFETY_PX) / naturalHeight);
+    writingSection.style.setProperty("--chess-writing-zoom", zoom.toFixed(4));
     writingSection.classList.add("force-break"); // TEST03은 무조건 새 페이지
   } finally {
     styleEl.remove();
@@ -2125,16 +2098,12 @@ const grammarLabels = CHESS_GRAMMAR_LABELS[
    스크린샷, 2026-10-24: "여백이 많으면 최대한 한장으로 끝낼수있게"). 실제 인쇄용
    압축 CSS를 그대로 적용해서 진짜 렌더링 높이를 재고 판단한다 — chessMeasurePrintBreaks()
    가 이 함수가 app.innerHTML에 다 그려진 뒤에 실행된다. */
-/* 2026-10-24 — TEST03(Writing)은 이제 무조건 다음 페이지(운영자: "테스트3는
-   무조건 다음장에 들어가야돼"). 그 대신 TEST01+TEST02는 Speaking 카드가
-   4개든 6개든 7개든 항상 1페이지 안에 깔끔히 들어와야 한다("여백이 너무
-   많으면 안돼") — 그래서 TEST02 카드를 2열이 아니라 4열로 눕힌다(기존엔
-   I1 전용이었는데, D2(7개)는 2열이면 이미 그 자체로 1페이지를 꽉 채워서
-   TEST03을 위한 새 페이지와 무관하게도 빠듯했다 — 실측: 1039px 예산에 1040px,
-   이미 초과). 4열이면 4개=1줄, 6개=2줄(4+2), 7개=2줄(4+3)로 줄어든다.
-   isV2Report는 모든 V2 성적표(탕정)에 걸리고, 다른 분원은 .chess-writing-rubric
-   자체가 없어서 안 걸린다. */
-const isV2Report = !!rubrics?.writing?.type;
+/* 2026-10-24 — TEST03(Writing)은 무조건 다음 페이지에서 시작하고(운영자: "테스트3는
+   무조건 다음장에 들어가야돼"), 그 한 페이지 안에 전부 들어가야 한다("한장으로
+   나올수있게 해" — 파트가 페이지를 넘어가며 쪼개지면 안 됨). TEST02는 카드를
+   4열로 눕히는 것(한 줄로 만드는 것)을 운영자가 반려함 — "테스트2 한줄로 하지마.
+   여백 없게 꽉꽉 채워" — 그래서 2열(기존 방식)로 되돌린다. 카드 수가 4·6·7개로
+   다양해도 2열 자체는 이미 production이 오래 써 온 방식이라 안전하다. */
 const writingSection = rubrics?.writing?.type
   ? renderChessReportWritingV2(rubrics.writing, name, false)
   : writingCards ? `
@@ -2259,7 +2228,7 @@ const writingSection = rubrics?.writing?.type
         </div>
 
 <div class="chess-report-section-title">TEST02 표현 능력 평가 득점 현황 (Speaking / Reading)</div>
-<div class="chess-report-test02-grid${isV2Report ? " chess-test02-oneline" : ""}">
+<div class="chess-report-test02-grid">
   ${speakingCards}
 </div>
 

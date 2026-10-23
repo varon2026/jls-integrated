@@ -303,22 +303,20 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    PART 카드 하나(제목+A/B/C 채점기준표+문항 목록, D2 기준 5문항씩)는 통째로 안
    쪼개지게 한다 — 운영자 요청: "파트 3는 무조건 다음장으로 넘겨"(파트3 제목+기준표만
    이쪽 페이지 끝에 혼자 남고 문항 11~15는 다음 페이지로 넘어가는 건 안 됨, 2026-10-23
-   스크린샷으로 확인). 파트가 Type1의 10문항짜리 하나만 빼면 전부 5문항 안팎으로
-   작아서, 카드 전체를 묶어도 큰 빈 공간은 안 생긴다(목업에서 이미 확인된 값).
-   문항 한 줄(.chess-report-item-row)도 같이 묶어서 한 줄이 반으로 안 잘리게 한다.
+   스크린샷으로 확인). 문항 한 줄(.chess-report-item-row)도 같이 묶어서 한 줄이
+   반으로 안 잘리게 한다.
 
-   ⚠️ page-break-inside:avoid만으로는 실제로 안 먹혔다(2026-10-23, 두 번째 스크린샷) —
-   avoid는 크롬이 "최대한 지켜보는" 힌트일 뿐이라 이 중첩 구조(카드 안에 표+문항줄)
-   에서는 무시된 것으로 보인다. 그래서 TEST03 Grammar 표에 이미 쓰고 있던 더 확실한
-   방법(무조건 page-break)을 가져오되, "항상 세 번째 파트"가 아니라 chess.js의
-   chessMeasurePrintBreaks()가 실제로 안 들어갈 때만 붙여주는 .chess-part-break
-   클래스로 건다 — Speaking 카드는 많아도 Writing이 짧은 시험지(L4 등)까지 고정
-   기준으로 밀어서 페이지가 거의 비는 문제가 있었다(2026-10-24, "여백이 많으면
-   최대한 한장으로"). */
+   ⚠️ 2026-10-24 재작업 — "테스트3은 무조건 다음장에 한장으로 나올수있게 해"라는
+   요청으로, 안 들어가는 파트부터 다음 페이지로 "쪼개던" 방식(.chess-part-break)을
+   버렸다. Type2·3(파트 3개)은 부장님이 키운 글자 크기로는 3파트만 해도 한 페이지
+   예산(1039px)을 넘어서, 쪼개도 결국 2페이지가 됐다. 그래서 쪼개지 않고 그 대신
+   chess.js의 chessMeasurePrintBreaks()가 실측 비율로 TEST03 전체를 CSS zoom으로
+   줄인다(--chess-writing-zoom) — 짧은 내용(Type1·4·5)은 1(안 줄임), 긴 내용은
+   필요한 만큼만 줄어서 항상 정확히 1페이지에 들어간다. zoom은 transform과 달리
+   레이아웃을 실제로 다시 흘려서 계산하기 때문에 인쇄에 그대로 반영된다. */
 @media print {
-  .chess-writing-part-card.chess-part-break,
-  .chess-report-feedback-box.chess-part-break {
-    page-break-before: always !important; break-before: page !important;
+  .chess-report-combined-section:has(.chess-writing-rubric) {
+    zoom: var(--chess-writing-zoom, 1);
   }
   .chess-report-card.chess-writing-part-card {
     page-break-inside: avoid; break-inside: avoid;
@@ -343,19 +341,16 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
     page-break-after: avoid; break-after: avoid;
   }
 
-  /* TEST02 뒤에 TEST03이 이어 붙으면 한 페이지에 안 들어갈 때만 새 페이지에서
-     시작시킨다. chess.js의 chessMeasurePrintBreaks()가 실제 인쇄 압축 크기로
-     직접 재서 안 들어갈 때만 이 클래스를 붙여준다 — "Speaking 카드 N개 이상"
-     같은 고정 기준이 아니다(2026-10-24, 고정 기준 때문에 짧은 Writing도 억지로
-     새 페이지로 밀려 페이지가 거의 비는 문제가 있었다). */
+  /* TEST03은 운영자 요청대로 항상 TEST02 뒤가 아니라 새 페이지에서 시작한다
+     (chess.js가 항상 이 클래스를 붙임 — 조건 판단 없음). */
   .chess-report-combined-section.force-break { page-break-before: always; break-before: page; }
 
   /* ⚠️ 2026-10-24 부장님 검토 — "인쇄했을 때 글자가 너무 작고 줄간격이 너무 좁다,
      글씨 키우고 줄간격 넓혀라"는 지적을 받았다. 그동안 "한 페이지에 다 넣어라"는
      요청 때문에 여기 전부 7~9px까지 줄였었는데, 이제는 페이지 수보다 읽기 편한 게
-     우선이다 — 그래서 글자·여백을 다시 넉넉하게 키운다. 대신 페이지가 늘어나는 건
-     chessMeasurePrintBreaks()가 알아서 처리한다(파트·피드백 박스를 필요한 만큼
-     다음 페이지로 보내줌) — 이 틀 자체는 다시 안 만들어도 된다. */
+     우선이다 — 그래서 글자·여백을 다시 넉넉하게 키운다. 글자 자체는 이 크기 그대로
+     유지하고, 그래도 안 들어가는 긴 내용(Type2·3)은 위의 zoom으로 통째로 축소해서
+     1페이지에 맞춘다(chessMeasurePrintBreaks()). */
   .chess-writing-rubric { font-size: 11px; }
   .chess-writing-rubric .chess-report-criteria-grade { width: 26px; padding: 5px 6px; font-size: 11px; }
   .chess-writing-rubric .chess-report-criteria-desc { padding: 5px 8px; font-size: 11px; line-height: 1.45; }
@@ -413,22 +408,10 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-grade { width: 24px; padding: 4px; font-size: 10.5px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-desc { padding: 4px 6px; font-size: 10.5px; line-height: 1.3; word-break: keep-all; }
 
-  /* I1에서 Writing Type2·3(15문항·3파트)를 고를 때만 — TEST02 카드가 4개뿐이라
-     2x2로 두면 페이지 절반이 비는데, 한 줄(4칸)로 눕히면 그만큼 TEST03이 올라갈
-     공간이 생긴다(운영자 요청, 2026-10-24). chess.js가 I1 + Type2·3일 때만
-     .chess-test02-oneline을 붙여줘서 다른 시험지·다른 Type은 원래 2열 그대로.
-     바로 위 2열 규칙과 선택자 앞부분을 똑같이 맞춰야 한다 — 안 그러면 이 규칙이
-     더 나중에 와도 상단 규칙(클래스 4개)이 상세도에서 이겨서 안 먹힌다. */
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-oneline .chess-report-card {
-    flex: 0 0 calc(25% - 6px);
-  }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-oneline .chess-report-card-inner--fixed {
-    grid-template-columns: 1fr; gap: 4px;
-  }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-oneline .chess-report-card-left--fixed { width: auto; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-oneline .chess-report-grade-box--fixed {
-    display: flex; align-items: center; justify-content: center; gap: 4px; min-height: auto; padding: 2px;
-  }
+  /* ⚠️ 2026-10-24 운영자 철회 — TEST02를 한 줄(4칸)로 눕혀서 빈 공간을 줄이려던
+     것("I1처럼 카드 4개뿐이면 2x2 밑이 빈다")을 "테스트2 한줄로 하지마"라는
+     요청으로 되돌렸다. 이제 TEST02는 항상 위의 2열 그대로이고, 대신 TEST03 쪽을
+     zoom으로 통째로 줄여서 1페이지에 맞춘다(위 force-break 옆 설명 참조). */
 
   /* ⚠️ 2026-10-24 부장님 검토 이후 철회 — 문항을 2열로 펼쳐서 세로를 줄이던 기능.
      글자를 다시 키우고 나니(바로 위) 2열 안에 큰 글자를 욱여넣으면 줄바꿈이 심해져
