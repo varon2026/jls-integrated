@@ -318,6 +318,13 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-combined-section:has(.chess-writing-rubric) {
     zoom: var(--chess-writing-zoom, 1);
   }
+  /* 페이지1(제목~TEST02+Grammar) 묶음도 같은 방식 — 운영자 요청대로 요약(TOTAL
+     SCORE+TEST01)을 세로로 쌓은 뒤로 TEST02 카드가 많은 시험(D2 7개)이 겹치면
+     1페이지 예산을 넘는 게 실측으로 확인됐다(chess.js 주석 참고). 안 넘치면
+     zoom 기본값 1이라 다른 시험·다른 분원엔 영향 없음. */
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-page1-block {
+    zoom: var(--chess-page1-zoom, 1);
+  }
   .chess-report-card.chess-writing-part-card {
     page-break-inside: avoid; break-inside: avoid;
   }
@@ -387,16 +394,26 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-page:has(.chess-writing-rubric) .chess-report-info-cell { padding: 10px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-info-value { font-size: 14px; margin-top: 4px; }
 
-  /* TEST02 Speaking 카드(보통 4~7장)도 목업과 같은 flex 2열로 바꿔서 한 단계 더 압축.
-     grid는 Chromium 인쇄 엔진이 페이지 넘길 때 잘 못 쪼개서(카드 2장만 올리고 밑에
-     자리가 남아도 통째로 다음 장으로 넘겨버림) flex-wrap으로 바꾼다 — 목업 그대로.
-     이것도 .chess-writing-rubric이 있는 성적표(=탕정 V2)에서만 걸리게 범위를 좁혀서
-     다른 분원 TEST02 카드 배치(grid)는 그대로 둔다. */
+  /* TEST02 Speaking 카드(보통 4~7장)는 목업과 같은 flex 2열이 기본이다 — grid는
+     Chromium 인쇄 엔진이 페이지 넘길 때 잘 못 쪼개서(카드 몇 장만 올리고 밑에
+     자리가 남아도 통째로 다음 장으로 넘겨버림) flex-wrap으로 쓴다 — 목업 그대로.
+     이것도 .chess-writing-rubric이 있는 성적표(=탕정 V2)에서만 걸리게 범위를
+     좁혀서 다른 분원 TEST02 카드 배치(grid)는 그대로 둔다. */
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid {
     display: flex; flex-wrap: wrap; gap: 5px 8px; align-items: flex-start;
   }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card {
     margin-bottom: 0; flex: 0 0 calc(50% - 5px); padding: 8px 10px;
+  }
+
+  /* 운영자 요청(2026-10-24): "한줄에 2개씩 적지말고 한줄당 박스 하나씩 해서
+     빈여백을 최대한 없애줘" — 2열이면 카드 수가 홀수(D2 7장)일 때 마지막 줄에
+     빈칸이 하나 남아 허전했다. 근데 1열로 모든 카드 수에 다 적용하면 카드 많은
+     시험(D2 7개, D3~L4 6개)은 실측으로 TEST01+TEST02가 1페이지 예산(1039px)을
+     245~410px나 넘긴다 — 그래서 카드 4개 이하일 때만(chess.js가 .chess-test02-single을
+     붙여줌, I1·D1) 1열로 바꾸고, 그보다 많으면 위 2열 그대로 둔다. */
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-single .chess-report-card {
+    flex: 0 0 100%;
   }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-title--top { font-size: 13.5px; margin-bottom: 5px; line-height: 1.25; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-inner--fixed { grid-template-columns: 62px minmax(0, 1fr); gap: 8px; }

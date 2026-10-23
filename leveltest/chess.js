@@ -607,6 +607,7 @@ function renderChessReportWritingV2(writingState, studentName, compact) {
 function chessMeasurePrintBreaks() {
   const page = document.querySelector(".chess-report-page:not(.chess-report-cover)");
   const writingSection = document.querySelector(".chess-report-combined-section:has(.chess-writing-rubric)");
+  const page1Block = document.querySelector(".chess-report-page1-block");
   if (!page || !writingSection) return;
 
   let printCssText = "";
@@ -654,6 +655,18 @@ function chessMeasurePrintBreaks() {
     const zoom = Math.min(1, (PAGE_BUDGET_PX - SAFETY_PX) / naturalHeight);
     writingSection.style.setProperty("--chess-writing-zoom", zoom.toFixed(4));
     writingSection.classList.add("force-break"); // TEST03은 무조건 새 페이지
+
+    /* 페이지1(제목~TEST02+Grammar) 쪽도 같은 방식으로 — 요약(TOTAL SCORE+TEST01)을
+       세로로 쌓고(운영자 요청) TEST02 카드가 많은 시험(D2 7개)이 겹치면 1페이지
+       예산을 넘는 경우가 실측으로 확인됐다(1155px, 116px 초과). TEST03과 똑같이
+       "넘칠 때만 비율만큼 축소"로 처리해서, 카드 적은 시험(4·6개, 예산 안)은
+       100% 그대로, D2 같은 경우만 살짝 줄어든다. */
+    if (page1Block) {
+      page1Block.style.removeProperty("--chess-page1-zoom");
+      const p1Height = page1Block.getBoundingClientRect().height;
+      const p1Zoom = Math.min(1, (PAGE_BUDGET_PX - SAFETY_PX) / p1Height);
+      page1Block.style.setProperty("--chess-page1-zoom", p1Zoom.toFixed(4));
+    }
   } finally {
     styleEl.remove();
   }
@@ -2101,9 +2114,13 @@ const grammarLabels = CHESS_GRAMMAR_LABELS[
 /* 2026-10-24 — TEST03(Writing)은 무조건 다음 페이지에서 시작하고(운영자: "테스트3는
    무조건 다음장에 들어가야돼"), 그 한 페이지 안에 전부 들어가야 한다("한장으로
    나올수있게 해" — 파트가 페이지를 넘어가며 쪼개지면 안 됨). TEST02는 카드를
-   4열로 눕히는 것(한 줄로 만드는 것)을 운영자가 반려함 — "테스트2 한줄로 하지마.
-   여백 없게 꽉꽉 채워" — 그래서 2열(기존 방식)로 되돌린다. 카드 수가 4·6·7개로
-   다양해도 2열 자체는 이미 production이 오래 써 온 방식이라 안전하다. */
+   4열로 눕히는 것(한 줄로 만드는 것)을 운영자가 한 번 반려했다가("테스트2 한줄로
+   하지마"), 바로 다음 요청으로 "한줄에 2개씩 말고 한줄당 박스 하나씩"(1열)으로
+   또 바뀌었다 — 근데 1열은 카드가 많은 시험(D2 7개·D3~L4 6개)에선 실측으로
+   1039px 예산을 410px(D2)·245px(6개)나 넘겨서 TEST01+TEST02가 1페이지 안에
+   못 들어간다. 그래서 "카드 적을 때만 1열"로 절충했다(운영자 선택) —
+   실측상 4개(I1·D1)는 1열이어도 예산 안(1001~1026px)이라 .chess-test02-single을
+   붙이고, 6·7개는 기존 2열을 유지한다(둘 다 예산 안에 확인된 값). */
 const writingSection = rubrics?.writing?.type
   ? renderChessReportWritingV2(rubrics.writing, name, false)
   : writingCards ? `
@@ -2152,6 +2169,13 @@ const writingSection = rubrics?.writing?.type
   </div>
 
           <div class="chess-report-page">
+        <!-- chess-report-page1-block: 제목~TEST02(+Grammar) 묶음 — TEST03(Writing V2)은
+             항상 다음 페이지로 따로 넘어가니(force-break) 여기까지가 "진짜 페이지 1"이다.
+             요약(TOTAL SCORE+TEST01)을 세로로 쌓고(운영자 요청) TEST02 카드 수가 많으면
+             (D2 7개) 그 합이 1페이지 예산을 넘는 경우가 생겨서, chessMeasurePrintBreaks()가
+             이 블록 전체를 필요한 만큼만 zoom으로 줄여 항상 1페이지에 들어오게 한다 —
+             TEST03에 쓰는 것과 같은 방식, 범위만 다르다. -->
+        <div class="chess-report-page1-block">
         <div class="chess-report-title-wrap">
           <div>
 
@@ -2228,11 +2252,12 @@ const writingSection = rubrics?.writing?.type
         </div>
 
 <div class="chess-report-section-title">TEST02 표현 능력 평가 득점 현황 (Speaking / Reading)</div>
-<div class="chess-report-test02-grid">
+<div class="chess-report-test02-grid${profile.speaking.length <= 4 ? " chess-test02-single" : ""}">
   ${speakingCards}
 </div>
 
 ${grammarSection}
+        </div>
 ${writingSection}
 
       </div>

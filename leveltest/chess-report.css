@@ -616,6 +616,28 @@
   margin-bottom: 8px;
 }
 
+/* 탕정분원(V2 Writing 신규 시험지, .chess-writing-rubric로 식별)만 — 운영자 요청:
+   "토탈스코어/엔드레벨 밑에 테스트1 넣고 그 밑에 테스트2 넣어, 토탈스코어 옆에
+   테스트1으로 된거 하지마". 이 파일은 전 분원이 같이 쓰는 공용 CSS라 바로 위
+   .chess-report-summary-grid(가로 2단)를 그대로 고치면 다른 분원까지 세로로
+   바뀐다 — 그래서 :has(.chess-writing-rubric)로 범위를 탕정 성적표로만 좁혀서
+   1단(세로 스택: TOTAL SCORE/LEVEL → 그 밑에 TEST01)으로 덮어쓴다. 화면·인쇄
+   둘 다(이 규칙은 @media 밖에 있어서 공통 적용) 세 군데 기존 2단 규칙(미디어 쿼리
+   포함)보다 선택자가 더 구체적이라(:has 포함 클래스 3개) 항상 이긴다. */
+.chess-report-page:has(.chess-writing-rubric) .chess-report-summary-grid {
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+/* 탕정분원 성적표 화면 미리보기에서도 TEST02를 1열(한 줄에 카드 하나)로 —
+   운영자 요청: "한줄에 2개씩 적지말고 한줄당 박스 하나씩". 단, 카드가 많은
+   시험(6·7개)은 1열이면 TEST01+TEST02가 1페이지를 넘겨서(실측 245~410px 초과)
+   카드 4개 이하일 때만(chess.js가 .chess-test02-single을 붙여줌) 적용한다.
+   인쇄 쪽은 leveltest-theme.css의 같은 범위 규칙(flex-basis 100%)이 담당한다. */
+.chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-single {
+  grid-template-columns: 1fr;
+}
+
 /* score / level 박스 축소 */
 .chess-report-score-box {
   min-height: 86px;
