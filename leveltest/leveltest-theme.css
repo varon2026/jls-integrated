@@ -355,24 +355,28 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   /* ⚠️ 2026-10-24 부장님 검토 — "인쇄했을 때 글자가 너무 작고 줄간격이 너무 좁다,
      글씨 키우고 줄간격 넓혀라"는 지적을 받았다. 그동안 "한 페이지에 다 넣어라"는
      요청 때문에 여기 전부 7~9px까지 줄였었는데, 이제는 페이지 수보다 읽기 편한 게
-     우선이다 — 그래서 글자·여백을 다시 넉넉하게 키운다. 글자 자체는 이 크기 그대로
-     유지하고, 그래도 안 들어가는 긴 내용(Type2·3)은 위의 zoom으로 통째로 축소해서
-     1페이지에 맞춘다(chessMeasurePrintBreaks()). */
-  .chess-writing-rubric { font-size: 11px; }
-  .chess-writing-rubric .chess-report-criteria-grade { width: 26px; padding: 5px 6px; font-size: 11px; }
-  .chess-writing-rubric .chess-report-criteria-desc { padding: 5px 8px; font-size: 11px; line-height: 1.45; }
-  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-card-title--top { font-size: 14px; margin-bottom: 6px; }
+     우선이다 — 그래서 글자·여백을 다시 넉넉하게 키운다. 안 들어가는 긴 내용(Type2·3)은
+     위의 zoom으로 통째로 축소해서 1페이지에 맞춘다(chessMeasurePrintBreaks()).
+     ⚠️ 2026-10-24 추가 — 운영자: "박스 크기 그대로 변경없는 상태에서 최대한으로
+     글씨 키우기". padding·width·gap 등 박스 치수는 전혀 안 건드리고 font-size만
+     더 키웠다(line-height는 전부 비율값이라 font-size를 따라 같이 커져서 따로 안
+     건드려도 된다). 모자라는 페이지는 어차피 위 zoom이 알아서 줄여주므로, 짧은
+     내용(대부분)은 이 더 큰 글자 그대로 나오고 Type2·3만 조금 더 줄어든다. */
+  .chess-writing-rubric { font-size: 13px; }
+  .chess-writing-rubric .chess-report-criteria-grade { width: 26px; padding: 5px 6px; font-size: 13px; }
+  .chess-writing-rubric .chess-report-criteria-desc { padding: 5px 8px; font-size: 13px; line-height: 1.45; }
+  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-card-title--top { font-size: 16px; margin-bottom: 6px; }
   .chess-report-item-row { padding: 6px 0; }
-  .chess-report-item-no { width: 24px; height: 24px; font-size: 11px; }
-  .chess-report-item-word { font-size: 12px; line-height: 1.4; }
-  .chess-report-item-desc { font-size: 10.5px; line-height: 1.4; margin-top: 2px; }
-  .chess-report-item-dot { width: 20px; height: 20px; font-size: 9.5px; }
+  .chess-report-item-no { width: 24px; height: 24px; font-size: 12px; }
+  .chess-report-item-word { font-size: 14px; line-height: 1.4; }
+  .chess-report-item-desc { font-size: 12.5px; line-height: 1.4; margin-top: 2px; }
+  .chess-report-item-dot { width: 20px; height: 20px; font-size: 10px; }
   .chess-report-combined-section:has(.chess-writing-rubric) { margin-top: 10px; }
   .chess-report-feedback-box { padding: 10px 12px; margin-top: 8px; }
-  .chess-report-feedback-title { font-size: 13px; margin-bottom: 6px; }
-  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-subcopy { font-size: 11.5px; line-height: 1.55; margin-bottom: 0; }
+  .chess-report-feedback-title { font-size: 15px; margin-bottom: 6px; }
+  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-subcopy { font-size: 13.5px; line-height: 1.55; margin-bottom: 0; }
   .lt-count-box .c { padding: 8px 4px; }
-  .lt-count-box .c b { font-size: 22px; }
+  .lt-count-box .c b { font-size: 25px; }
 
   /* TEST01 위 "JLS Placement Test / Evaluation Sheet" 안내문 + 상단 정보칸은
      실제 production(chess-report.css)에 이미 있는 2단계 압축(40px→22px 제목,
@@ -383,8 +387,8 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
      목업이 바로 이 문제 때문에 한 단계 더 줄인 값을 그대로 가져온다. 다른 분원
      성적표(.chess-writing-rubric이 없음)는 이 선택자에 전혀 안 걸려서 안전함. */
   .chess-report-page:has(.chess-writing-rubric) .chess-report-title-wrap { margin-bottom: 8px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-kicker { font-size: 13px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-title { font-size: 20px; margin-top: 1px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-kicker { font-size: 14px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-title { font-size: 22px; margin-top: 1px; }
   /* 안내문("정상어학원은 어휘나 문법에 대한...") 자체를 인쇄에서 뺀다 — 10px로
      줄여도 자리를 꽤 차지해서, 운영자 요청대로 통째로 지우고 그만큼 아래 내용을
      위로 당겨 올린다(2026-10-24: "저 문구를 다 삭제 시켜. 저 만큼 당겨 올리면
@@ -392,7 +396,18 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-page:has(.chess-writing-rubric) .chess-report-intro { display: none; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-info-box { margin-bottom: 6px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-info-cell { padding: 10px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-info-value { font-size: 14px; margin-top: 4px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-info-value { font-size: 16px; margin-top: 4px; }
+
+  /* 운영자 요청(2026-10-24): "박스 크기 그대로... 최대한으로 글씨 키우기" — 아래
+     셋(섹션 제목·TOTAL SCORE/LEVEL 박스·TEST01 표)은 전 분원 공용 print 크기
+     (chess-report.css, 섹션 제목 16px·label 10px·value 18px·표 9.5px)를 그대로
+     쓰고 있었다. 공용 값을 고치면 다른 분원까지 커지니, 똑같이 :has(.chess-writing-rubric)로
+     범위를 좁혀서 탕정만 키운다. 박스(score-box min-height, 표 th/td padding)는
+     안 건드림 — zoom이 넘치는 만큼 알아서 줄여준다. */
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-section-title { font-size: 18px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-score-label { font-size: 12px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-score-value { font-size: 22px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-table { font-size: 12px; }
 
   /* TEST02 Speaking 카드(보통 4~7장)는 목업과 같은 flex 2열이 기본이다 — grid는
      Chromium 인쇄 엔진이 페이지 넘길 때 잘 못 쪼개서(카드 몇 장만 올리고 밑에
@@ -415,15 +430,15 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid.chess-test02-single .chess-report-card {
     flex: 0 0 100%;
   }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-title--top { font-size: 13.5px; margin-bottom: 5px; line-height: 1.25; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-title--top { font-size: 15.5px; margin-bottom: 5px; line-height: 1.25; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-inner--fixed { grid-template-columns: 62px minmax(0, 1fr); gap: 8px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-left--fixed { width: 62px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed { min-height: 52px; padding: 5px; border-width: 2px; border-radius: 9px; gap: 3px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed .chess-report-grade-label { font-size: 10px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed .chess-report-grade-value { font-size: 17px; line-height: 1; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed { font-size: 10.5px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-grade { width: 24px; padding: 4px; font-size: 10.5px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-desc { padding: 4px 6px; font-size: 10.5px; line-height: 1.3; word-break: keep-all; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed .chess-report-grade-label { font-size: 11px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed .chess-report-grade-value { font-size: 19px; line-height: 1; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed { font-size: 12.5px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-grade { width: 24px; padding: 4px; font-size: 12.5px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed .chess-report-criteria-desc { padding: 4px 6px; font-size: 12.5px; line-height: 1.3; word-break: keep-all; }
 
   /* ⚠️ 2026-10-24 운영자 철회 — TEST02를 한 줄(4칸)로 눕혀서 빈 공간을 줄이려던
      것("I1처럼 카드 4개뿐이면 2x2 밑이 빈다")을 "테스트2 한줄로 하지마"라는
