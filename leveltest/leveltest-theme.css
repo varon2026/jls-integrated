@@ -449,6 +449,14 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-writing-part-card:has(.chess-items-2col) {
     padding: 4px 6px;
   }
+  /* A/B/C 기준표가 카드 전체 폭으로 늘어나 있으면 밑에 2열로 나뉜 문항 목록이랑
+     안 맞아 보이고 오른쪽에 빈 자리가 크게 남는다 — 문항 1번 칸(왼쪽 절반) 폭에
+     맞춰서 기준표도 절반만 쓰게 좁힌다(운영자 요청, 2026-10-24). 화면 기준
+     max-width:460px는 그대로 두고(다른 맥락엔 영향 없게), 이 2열 모드에서만
+     한 번 더 좁힌다. */
+  .chess-writing-part-card:has(.chess-items-2col) .chess-writing-rubric {
+    max-width: 50%;
+  }
   .chess-writing-part-card:has(.chess-items-2col) .chess-writing-rubric .chess-report-criteria-desc {
     padding: 1px 3px;
   }
