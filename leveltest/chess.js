@@ -2155,14 +2155,26 @@ const writingSection = rubrics?.writing?.type
   </div>
 ` : "";
 
-  app.innerHTML = `
-    <div class="top-bar no-print sticky-actions">
-      <button class="secondary" onclick="renderChessReview(LAST_CHESS_SESSION)">채점결과로 돌아가기</button>
-      <button onclick="window.print()">인쇄</button>
-      <button class="secondary" onclick="document.body.classList.remove('bulk-mode'); renderHome()">처음으로</button>
-    </div>
-
-<div class="chess-report-root">
+  /* 2026-10-26 — 운영자 확인받은 새 표지(.scratch_mockup/cover-mockup.html).
+     탕정(isChessV2())에서만 쓰고, 다른 분원은 전부 원래 표지(chess-report-cover,
+     "JLS Placement Test / Evaluation Sheet") 그대로 — 공유 함수 jlsCoverPageHTML()는
+     common.js에 있다(ACE 성적표와 틀을 같이 쓴다, "체스는 체스, 에이스는 에이스"). */
+  const coverHtml = isChessV2() ? jlsCoverPageHTML({
+    kicker: "PLACEMENT ASSESSMENT",
+    brandMain: "JLS", brandAccent: "CHESS",
+    subtitle: "Placement Assessment Report",
+    name, school, grade, testType: examName, testDate,
+    introHtml: `
+      <h1>영어를 아는 것을 넘어,<br>사용할 수 있는 실력까지</h1>
+      <p>정상어학원 레벨테스트는 어휘&amp;문법 지식부터 실제 영어 활용 능력까지 종합적으로 진단합니다.</p>
+      <p>Writing은 배운 영어를 이해하고 활용하는 힘을 보여줍니다.<br>어휘와 문법, 읽기와 듣기를 바탕으로 자신의 생각을 영어로 표현할 수 있는지 확인합니다.</p>
+      <p>Writing·Speaking·Reading·Listening 4개 영역을 평가하며, 9종의 테스트 중 학생의 수준에 맞는 레벨테스트를 선별해 현재 실력과 앞으로의 학습 방향을 안내합니다.</p>
+    `,
+    taglineHtml: `
+      <div class="line1">Creative<br>Writing을<br>목표로 하는<br>초등 영어에서</div>
+      <div class="line2">내신 <span class="accent">A등급</span>,<br>수능 <span class="accent">1등급</span>의<br>중등 영어로!</div>
+    `
+  }) : `
   <div class="chess-report-page chess-report-cover">
     <div class="chess-report-cover-inner">
  <img src="jls-logo.png" class="chess-report-logo">
@@ -2189,7 +2201,17 @@ const writingSection = rubrics?.writing?.type
         </div>
       </div>
     </div>
-  </div>
+  </div>`;
+
+  app.innerHTML = `
+    <div class="top-bar no-print sticky-actions">
+      <button class="secondary" onclick="renderChessReview(LAST_CHESS_SESSION)">채점결과로 돌아가기</button>
+      <button onclick="window.print()">인쇄</button>
+      <button class="secondary" onclick="document.body.classList.remove('bulk-mode'); renderHome()">처음으로</button>
+    </div>
+
+<div class="chess-report-root">
+  ${coverHtml}
 
           <div class="chess-report-page">
         <!-- chess-report-page1-block: 제목~TEST02(+Grammar) 묶음 — TEST03(Writing V2)은

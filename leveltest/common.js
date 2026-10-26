@@ -444,6 +444,51 @@ function formatDate(dateText) {
 function isSatExamKey(examKey) {
   return /수능형|고1형|고2형/.test(examKey || '');
 }
+/* 2026-10-26 — 탕정분원 전용 새 표지(운영자 확인받은 시안: .scratch_mockup/
+   cover-mockup.html). CHESS(chess.js, isChessV2())와 ACE(아래 renderReportScreen,
+   isSatExamKey()+탕정)가 같이 쓴다 — "체스는 체스, 에이스는 에이스"로 제목만
+   다르고 틀은 같아야 해서(운영자 요청) 한 함수로 공유한다. CSS는
+   leveltest-theme.css의 .jls-cover-* 참고.
+   opts: { kicker, brandMain, brandAccent, subtitle, name, school, grade,
+           testType, testDate, introHtml, taglineHtml } */
+function jlsCoverPageHTML(opts) {
+  const o = opts || {};
+  return `
+    <div class="jls-cover-page">
+      <div class="jls-cover-grid-v v1"></div>
+      <div class="jls-cover-grid-v v2"></div>
+      <div class="jls-cover-grid-h h1"></div>
+      <div class="jls-cover-grid-h h2"></div>
+
+      <div class="jls-cover-topleft">
+        <div class="jls-cover-kicker-label">ABOUT THE TEST</div>
+        ${o.introHtml || ""}
+      </div>
+
+      <div class="jls-cover-topright">
+        <div class="jls-cover-kicker-label">WHY JLS</div>
+        ${o.taglineHtml || ""}
+      </div>
+
+      <div class="jls-cover-title">
+        <div class="kicker">${esc(o.kicker || "")}</div>
+        <div class="main">${esc(o.brandMain || "JLS")} <span class="accent">${esc(o.brandAccent || "")}</span></div>
+        <div class="sub">${esc(o.subtitle || "")}</div>
+        <div class="rule"></div>
+      </div>
+
+      <div class="jls-cover-infobox">
+        <div class="cap">STUDENT INFO</div>
+        <div class="row"><b>NAME</b><span>${esc(o.name)}</span></div>
+        <div class="row"><b>SCHOOL / GRADE</b><span>${esc(o.school)} / ${esc(o.grade)}</span></div>
+        <div class="row"><b>TEST TYPE</b><span>${esc(o.testType)}</span></div>
+        <div class="row"><b>TEST DATE</b><span>${esc(formatDate(o.testDate))}</span></div>
+      </div>
+
+      <div class="jls-cover-logo"><img src="jls-logo-bw.png" alt="JLS 정상어학원"></div>
+      <div class="jls-cover-siteurl">www.<b>gojls</b>.com</div>
+    </div>`;
+}
 function getDisplayLevel(assignedLevel) {
   return assignedLevel || "미배정";
 }
@@ -3150,6 +3195,32 @@ function renderReportScreen(memberCode, name, school, grade, testDate, title, ex
     ? renderVTReport(memberCode, name, school, grade, testDate, "Voca & Translation", vtEvaluation)
     : "";
 
+  /* 2026-10-26 — 탕정분원 전용 새 표지(ACE). CHESS와 똑같은 틀(jlsCoverPageHTML,
+     common.js)을 쓰되 "체스는 체스, 에이스는 에이스"로 제목·배지만 다르게
+     (운영자 요청). ACE는 isSatExamKey(title)인 시험(M1·M2 수능형, M3 고1형·고2형 —
+     PDF 파일명도 전부 "ACE 신규모집...")만 해당하고, 같은 일반 리포트 경로를 쓰는
+     E6·M1/M2 일반형(JLS Academic Achievement Assessment, ACE 아님)은 안 걸린다.
+     ⚠️ 왼쪽·오른쪽 소개 문구는 아직 운영자 확인 전 임시 문구다 — CHESS처럼 정식
+     문구를 받으면 그걸로 바꿔야 한다. */
+  const JLS_V2_BRANCH_ID = "br_22jcktj";
+  const isAceV2 = isSatExamKey(title) && !!(window.__LT_ENTRY && window.__LT_ENTRY.branch === JLS_V2_BRANCH_ID);
+  const aceCoverHtml = isAceV2 ? jlsCoverPageHTML({
+    kicker: "ACADEMIC ASSESSMENT",
+    brandMain: "JLS", brandAccent: "ACE",
+    subtitle: "Academic Assessment Report",
+    name, school, grade, testType: title, testDate,
+    introHtml: `
+      <h1>[임시 문구 — 확인 필요]<br>수능형 문제로 다지는 실전 감각</h1>
+      <p>정상어학원 ACE는 듣기(LC)·독해(RC) 실전 문제풀이 능력을 종합적으로 진단합니다.</p>
+      <p>학년별 난이도에 맞춘 수능형 문항으로 실제 시험 감각과 문제 유형별 강점·약점을 정확히 파악합니다.</p>
+      <p>중1부터 고2 수준까지, 학생의 학습 단계에 맞는 시험으로 지금 실력과 앞으로의 학습 방향을 안내합니다.</p>
+    `,
+    taglineHtml: `
+      <div class="line1">Real 수능형<br>문제로 다지는<br>중등 영어에서</div>
+      <div class="line2">고등 내신 <span class="accent">A등급</span>,<br>수능 <span class="accent">1등급</span>의<br>탄탄한 실력으로!</div>
+    `
+  }) : "";
+
   app.innerHTML = `
     <div class="top-bar no-print sticky-actions">
       <button class="secondary" onclick="restoreExamInput()">답안입력으로 돌아가기</button>
@@ -3158,6 +3229,7 @@ function renderReportScreen(memberCode, name, school, grade, testDate, title, ex
     </div>
 
     <div id="reportArea" class="report-scale-fix">
+      ${aceCoverHtml}
       ${mainReport}
       ${vtReport}
     </div>
