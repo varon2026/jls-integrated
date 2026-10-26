@@ -302,6 +302,22 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .lt-count-box .cB{background:var(--wr-warn-bg);} .lt-count-box .cB b,.lt-count-box .cB span{color:var(--wr-warn);}
 .lt-count-box .cC{background:var(--wr-bad-bg);} .lt-count-box .cC b,.lt-count-box .cC span{color:var(--wr-bad);}
 
+/* 2026-10-26 운영자 요청 — TEST02 카드 왼쪽 SCORE 네모(.chess-report-grade-box--fixed)
+   크기가 카드마다 제각각이었다(스크린샷으로 확인). 원인은 chess-report.css의 공용
+   규칙(.chess-report-card-inner--fixed)이 align-items:stretch + 왼쪽 박스에
+   height:100%를 줘서, 오른쪽 기준표가 줄바꿈으로 길어지는 카드는 SCORE 네모도
+   같이 늘어나 버린 것 — 내용은 항상 "SCORE+글자 하나"로 똑같은데 늘어날 이유가
+   없다. align-items를 start로 바꿔서 늘어나지 않게 하면, 내용이 다 똑같으니
+   네모 크기도 자동으로 다 같아진다(개별 높이를 따로 안 맞춰도 됨). 공용 클래스라
+   :has(.chess-writing-rubric)로 탕정만 좁힘 — 다른 분원 TEST02 카드는 그대로. */
+.chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-inner--fixed {
+  align-items: start;
+}
+.chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed {
+  height: auto;
+  min-height: 0;
+}
+
 /* 인쇄(성적표 PDF) — 목업(.scratch_mockup) 그대로.
    PART 카드 하나(제목+A/B/C 채점기준표+문항 목록, D2 기준 5문항씩)는 통째로 안
    쪼개지게 한다 — 운영자 요청: "파트 3는 무조건 다음장으로 넘겨"(파트3 제목+기준표만
@@ -434,9 +450,12 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
     flex: 0 0 100%;
   }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-title--top { font-size: 15.5px; margin-bottom: 5px; line-height: 1.25; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-inner--fixed { grid-template-columns: 62px minmax(0, 1fr); gap: 8px; }
+  /* 운영자 요청(2026-10-26) — SCORE 네모 크기를 카드마다 다 똑같이(화면 쪽
+     설명은 위 스크린 규칙 참고). 인쇄도 같은 원인(align-items:stretch)이라
+     똑같이 start로 바꾸고 높이를 내용 그대로(auto) 둔다. */
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-inner--fixed { grid-template-columns: 62px minmax(0, 1fr); gap: 8px; align-items: start; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-card-left--fixed { width: 62px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed { min-height: 52px; padding: 5px; border-width: 2px; border-radius: 9px; gap: 3px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed { height: auto; min-height: 0; padding: 5px; border-width: 2px; border-radius: 9px; gap: 3px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed .chess-report-grade-label { font-size: 11px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-grade-box--fixed .chess-report-grade-value { font-size: 19px; line-height: 1; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-test02-grid .chess-report-criteria-table--fixed { font-size: 12.5px; }
