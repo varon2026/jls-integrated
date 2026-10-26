@@ -2168,7 +2168,7 @@ const writingSection = rubrics?.writing?.type
       <div class="jls-cover-h1">영어를 아는 것을 넘어,<br>사용할 수 있는 실력까지</div>
       <p>정상어학원 레벨테스트는 어휘&amp;문법 지식부터 실제 영어 활용 능력까지 종합적으로 진단합니다.</p>
       <p>Writing은 배운 영어를 이해하고 활용하는 힘을 보여줍니다.<br>어휘와 문법, 읽기와 듣기를 바탕으로 자신의 생각을 영어로 표현할 수 있는지 확인합니다.</p>
-      <p>Writing·Speaking·Reading·Listening 4개 영역을 평가하며, 9종의 테스트 중 학생의 수준에 맞는 레벨테스트를 선별해 현재 실력과 앞으로의 학습 방향을 안내합니다.</p>
+      <p class="jls-cover-emphasis">Writing·Speaking·Reading·Listening 4개 영역을 평가하며, 9종의 테스트 중 학생의 수준에 맞는 레벨테스트를 선별해 현재 실력과 앞으로의 학습 방향을 안내합니다.</p>
     `,
     taglineHtml: `
       <div class="line1">Creative<br>Writing을<br>목표로 하는<br>초등 영어에서</div>

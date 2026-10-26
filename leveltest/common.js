@@ -3079,6 +3079,20 @@ function getLevelOptions(grade, examName) {
    ("임시문구라고 적힌건 빼. 이 문구를 넣어" + 붙여넣은 문구가 general.js의
    introText 그대로) — 두 군데 따로 관리하면 나중에 문구 고칠 때 한쪽만
    고치고 잊어버리기 쉽다. */
+/* 운영자: "여기도 볼드체로 임팩트 줄거 없음?" — introText(general.js·sat.js가
+   만드는 설명 문구, 시험 종류별로 서로 다름)의 마지막 문단만 <strong>으로
+   감싼다. 특정 단어를 찾는 게 아니라 "맨 마지막 <br><br> 뒤"라는 구조로
+   판단해서, E6용·수능형용 문구가 서로 달라도(끝맺는 말은 둘 다 마지막
+   문단이라 결론 문장) 똑같이 작동한다. 원본 introText 변수 자체는 안
+   건드린다 — 다른 분원이 쓰는 옛 표지는 이 함수를 거치지 않고 원래 값을
+   그대로 쓴다. */
+function jlsBoldLastParagraph(html) {
+  const text = String(html || "");
+  const idx = text.lastIndexOf("<br><br>");
+  if (idx === -1) return text;
+  const splitAt = idx + 8;
+  return text.slice(0, splitAt) + "<strong>" + text.slice(splitAt).trim() + "</strong>";
+}
 function buildCoverPage(memberCode, name, school, grade, testDate, title, introText) {
   if (window.__LT_ENTRY && window.__LT_ENTRY.branch === "br_22jcktj") {
     return jlsCoverPageHTML({
@@ -3086,7 +3100,7 @@ function buildCoverPage(memberCode, name, school, grade, testDate, title, introT
       brandMain: "JLS", brandAccent: "ACE",
       subtitle: "Academic Assessment Report",
       name, school, grade, testType: title, testDate,
-      introHtml: introText,
+      introHtml: jlsBoldLastParagraph(introText),
       taglineHtml: `
         <div class="line1">Real 수능형<br>문제로 다지는<br>중등 영어에서</div>
         <div class="line2">고등 내신 <span class="accent">A등급</span>,<br>수능 <span class="accent">1등급</span>의<br>탄탄한 실력으로!</div>

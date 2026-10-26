@@ -558,7 +558,16 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    CHESS 표지 제목에 이미 쓰던 더 쨍한 파랑(#0a7acb, chess-report.css의
    .chess-report-cover-title과 동일)으로 통일했다 — 새로 만든 색이 아니라
    이미 이 성적표 브랜드 컬러로 쓰이던 값. */
-.jls-cover-kicker-label { font-size: 10px; font-weight: 700; letter-spacing: .22em; color: #0a7acb; margin-bottom: 10px; }
+/* 2026-10-26 — 운영자: "이미지로 보여줘" → "임팩트 키우기" 시안 확인받고 반영.
+   라벨은 글자색만 있던 걸 배지(알약 모양 파란 배경)로, 핵심 단어(A등급·1등급·
+   CHESS·ACE)는 형광펜 느낌 밑색으로, 가운데 제목은 한 단계 더 키움. CHESS·ACE
+   공용 클래스라 둘 다 같이 적용됨("체스는 체스, 에이스는 에이스, 틀은 같게"
+   원칙 그대로 — 틀을 키우는 거라 둘 다 자동으로 같이 바뀌는 게 맞다). */
+.jls-cover-kicker-label {
+  display: inline-block; background: #0a7acb; color: #fff;
+  padding: 4px 11px; border-radius: 3px;
+  font-size: 10px; font-weight: 800; letter-spacing: .14em; margin-bottom: 14px;
+}
 
 .jls-cover-topleft { position: absolute; left: 8mm; top: 8mm; width: 56mm; }
 /* ⚠️ 2026-10-26 — 운영자: "영어를 아는것을 넘어... 이게 보라색이잖아, 파랑
@@ -571,12 +580,16 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    나온다. */
 .jls-cover-topleft .jls-cover-h1 { font-size: 19px; font-weight: 800; line-height: 1.4; margin: 0 0 14px; color: #111; letter-spacing: -.2px; word-break: keep-all; }
 .jls-cover-topleft p { font-size: 12.5px; line-height: 1.6; color: #5a5a5a; margin: 0 0 13px; font-weight: 400; letter-spacing: -.1px; word-break: keep-all; }
+/* 운영자: "여기도 볼드체로 임팩트 줄거 없음?" — 결론 문장(CHESS는 마지막
+   <p class="jls-cover-emphasis">, ACE는 introText의 마지막 문단을
+   common.js가 <strong>으로 감싸 넣음)만 진하게. */
+.jls-cover-topleft p.jls-cover-emphasis { font-weight: 800; color: #111; }
 /* ACE는 왼쪽 소개 문구로 general.js·sat.js가 이미 만든 introText(.intro-box,
    파란 배경 박스 스타일)를 그대로 재사용한다(common.js buildCoverPage 참고) —
    근데 그 배경·테두리·넉넉한 패딩은 이 좁은 칸(56mm)엔 안 맞아서, 여기서만
    밋밋한 글로 되돌린다. */
 .jls-cover-topleft .intro-box { background: none; border: none; border-radius: 0; padding: 0; line-height: 1.7; color: #5a5a5a; font-size: 12.5px; word-break: keep-all; }
-.jls-cover-topleft .intro-box strong { color: #0a7acb; }
+.jls-cover-topleft .intro-box strong { font-weight: 800; color: #111; }
 
 .jls-cover-topright { position: absolute; right: 8mm; top: 8mm; width: 56mm; text-align: left; }
 .jls-cover-topright .line1, .jls-cover-topright .line2 {
@@ -584,14 +597,34 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 }
 .jls-cover-topright .line1 { margin: 0 0 20px; }
 .jls-cover-topright .line2 { margin: 0; }
-.jls-cover-topright .accent { color: #0a7acb; }
+/* 형광펜 느낌 밑색 — 글자색이 아니라 글자 뒤에 연한 파란 배경을 살짝 걸쳐서
+   (아래쪽만, linear-gradient로) 강조. */
+.jls-cover-topright .accent {
+  background: linear-gradient(transparent 58%, #cde8f7 58%);
+  padding: 0 3px; margin: 0 -3px; color: #0a7acb;
+}
 
 .jls-cover-title { position: absolute; left: 0; right: 0; top: 51%; transform: translateY(-50%); text-align: center; }
-.jls-cover-title .kicker { font-size: 13px; font-weight: 700; letter-spacing: .32em; color: #0a7acb; margin-bottom: 18px; }
-.jls-cover-title .main { font-size: 42px; font-weight: 800; color: #0d0d0d; line-height: 1.3; letter-spacing: -1px; }
-.jls-cover-title .main .accent { color: #0a7acb; }
+.jls-cover-title .kicker {
+  display: inline-block; background: #0a7acb; color: #fff;
+  padding: 5px 14px; border-radius: 3px;
+  font-size: 13px; font-weight: 800; letter-spacing: .24em; margin-bottom: 18px;
+}
+.jls-cover-title .main { font-size: 46px; font-weight: 800; color: #0d0d0d; line-height: 1.3; letter-spacing: -1.5px; }
+.jls-cover-title .main .accent {
+  background: linear-gradient(transparent 55%, #cde8f7 55%);
+  padding: 0 6px; color: #0a7acb;
+}
 .jls-cover-title .sub { font-size: 42px; font-weight: 300; color: #0d0d0d; line-height: 1.3; letter-spacing: -.6px; }
 .jls-cover-title .rule { width: 44px; height: 2px; background: #0a7acb; margin: 24px auto 0; }
+
+/* 운영자: "하단에 색이 있는거같지..?... 다 하얀색으로 못하냐?" — 실제 인쇄는
+   이미 흰색(style.css @media print)이지만, 화면 미리보기에서 표지와 표지
+   사이 틈으로 전체 화면 배경(연보라, 입력화면 톤)이 비쳤다. .jls-cover-page가
+   있는 화면(=탕정 새 표지가 뜬 화면)에서만 흰색으로 — :has(#reportArea) 식으로
+   넓게 걸면 다른 분원 화면까지 흰색이 되니, 꼭 .jls-cover-page로 좁힌다. */
+.wrap:has(.jls-cover-page) { background: #fff !important; }
+body:has(.jls-cover-page) { background: #fff !important; }
 
 .jls-cover-infobox { position: absolute; left: 130mm; top: 203mm; width: 56mm; }
 .jls-cover-infobox .cap { font-size: 10px; font-weight: 700; letter-spacing: .22em; color: #0a7acb; margin-bottom: 14px; }
