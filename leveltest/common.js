@@ -3197,13 +3197,14 @@ function renderReportScreen(memberCode, name, school, grade, testDate, title, ex
 
   /* 2026-10-26 — 탕정분원 전용 새 표지(ACE). CHESS와 똑같은 틀(jlsCoverPageHTML,
      common.js)을 쓰되 "체스는 체스, 에이스는 에이스"로 제목·배지만 다르게
-     (운영자 요청). ACE는 isSatExamKey(title)인 시험(M1·M2 수능형, M3 고1형·고2형 —
-     PDF 파일명도 전부 "ACE 신규모집...")만 해당하고, 같은 일반 리포트 경로를 쓰는
-     E6·M1/M2 일반형(JLS Academic Achievement Assessment, ACE 아님)은 안 걸린다.
-     ⚠️ 왼쪽·오른쪽 소개 문구는 아직 운영자 확인 전 임시 문구다 — CHESS처럼 정식
-     문구를 받으면 그걸로 바꿔야 한다. */
+     (운영자 요청).
+     ⚠️ 처음엔 isSatExamKey(title)(M1·M2 수능형, M3 고1형·고2형)만 ACE로 보고
+     E6·M1/M2 일반형은 뺐는데, 운영자 확인: "E6도 에이스인데?" — renderReportScreen은
+     애초에 CHESS(I1·D1~L4, chess.js가 따로 처리)가 아닌 나머지 전부(E6, M1·M2
+     일반형·수능형, M3, Voca & Translation)를 그리는 경로라서, 여기로 오는 시험은
+     전부 ACE다. 그래서 시험 종류는 안 가리고 분원만 본다. */
   const JLS_V2_BRANCH_ID = "br_22jcktj";
-  const isAceV2 = isSatExamKey(title) && !!(window.__LT_ENTRY && window.__LT_ENTRY.branch === JLS_V2_BRANCH_ID);
+  const isAceV2 = !!(window.__LT_ENTRY && window.__LT_ENTRY.branch === JLS_V2_BRANCH_ID);
   const aceCoverHtml = isAceV2 ? jlsCoverPageHTML({
     kicker: "ACADEMIC ASSESSMENT",
     brandMain: "JLS", brandAccent: "ACE",

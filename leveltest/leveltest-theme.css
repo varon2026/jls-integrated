@@ -524,10 +524,12 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    2026-10-26 — 새 표지(JLS 공용 디자인). 운영자 확인받은 시안(.scratch_mockup/
    cover-mockup.html) 그대로. common.js의 jlsCoverPageHTML()이 이 클래스들로
    HTML을 만들고, chess.js(CHESS, isChessV2()일 때만)와 common.js의
-   renderReportScreen(ACE — isSatExamKey(title) && 탕정분원일 때만)에서 같이 쓴다.
+   renderReportScreen(ACE — 탕정분원이면 전부. E6·M1/M2 일반형·수능형·M3·
+   Voca&Translation 등 CHESS가 아닌 시험은 renderReportScreen 자체가 전부
+   ACE라서 시험 종류는 안 가린다, common.js 쪽 주석 참고)에서 같이 쓴다.
    "체스는 체스, 에이스는 에이스"로 제목·배지만 다르고 틀은 똑같다(운영자 요청).
-   ⚠️ 다른 분원·다른 시험(E6, M1/M2 일반형 등)은 이 클래스 자체가 안 쓰이니 이
-   CSS가 안 걸린다 — 범위를 막는 쪽은 여기가 아니라 호출하는 JS 쪽이다.
+   ⚠️ 다른 분원은 이 클래스 자체가 안 쓰이니 이 CSS가 안 걸린다 — 범위를 막는
+   쪽은 여기가 아니라 호출하는 JS 쪽이다.
 
    치수는 .scratch_mockup 시안(종이 자체가 210x297mm, 가장자리서 18mm 여백)을
    그대로 썼는데, 실제 인쇄는 @page{margin:10mm}(chess-report.css)가 이미 한 번
