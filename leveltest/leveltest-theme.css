@@ -571,6 +571,12 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    나온다. */
 .jls-cover-topleft .jls-cover-h1 { font-size: 19px; font-weight: 800; line-height: 1.4; margin: 0 0 14px; color: #111; letter-spacing: -.2px; word-break: keep-all; }
 .jls-cover-topleft p { font-size: 12.5px; line-height: 1.6; color: #5a5a5a; margin: 0 0 13px; font-weight: 400; letter-spacing: -.1px; word-break: keep-all; }
+/* ACE는 왼쪽 소개 문구로 general.js·sat.js가 이미 만든 introText(.intro-box,
+   파란 배경 박스 스타일)를 그대로 재사용한다(common.js buildCoverPage 참고) —
+   근데 그 배경·테두리·넉넉한 패딩은 이 좁은 칸(56mm)엔 안 맞아서, 여기서만
+   밋밋한 글로 되돌린다. */
+.jls-cover-topleft .intro-box { background: none; border: none; border-radius: 0; padding: 0; line-height: 1.7; color: #5a5a5a; font-size: 12.5px; word-break: keep-all; }
+.jls-cover-topleft .intro-box strong { color: #0a7acb; }
 
 .jls-cover-topright { position: absolute; right: 8mm; top: 8mm; width: 56mm; text-align: left; }
 .jls-cover-topright .line1, .jls-cover-topright .line2 {

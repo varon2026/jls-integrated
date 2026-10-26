@@ -3066,7 +3066,33 @@ function getLevelOptions(grade, examName) {
 }
 
 
+/* 2026-10-26 — 탕정분원은 새 표지(jlsCoverPageHTML, common.js 공용 함수 — CHESS와
+   같이 씀, "체스는 체스, 에이스는 에이스"로 제목·배지만 다르게)로 바꾸고,
+   다른 분원은 원래 쓰던 이 표지(JLS Academic Achievement Assessment Report)를
+   그대로 둔다. ⚠️ 운영자 지적: "표지를 만들었으면 원래 있던 표지는 없애야지.
+   표지를 두개 넣는게 어디있음?" — 처음엔 renderReportScreen에서 새 표지를
+   그냥 앞에 붙이기만 해서, 이 buildCoverPage()가 만드는 원래 표지랑 같이
+   2장이 돼버렸다. 그래서 여기서 분기해서 하나만 나가게 고쳤다.
+   왼쪽 소개 문구는 introText(호출하는 쪽 general.js·sat.js가 이미 만들어서
+   넘겨주는 값 — 시험 종류별로 문구가 다름)를 그대로 재사용한다. 새로 문구를
+   또 만들지 않는 이유: 운영자가 준 문구가 정확히 이 introText 값과 같았다
+   ("임시문구라고 적힌건 빼. 이 문구를 넣어" + 붙여넣은 문구가 general.js의
+   introText 그대로) — 두 군데 따로 관리하면 나중에 문구 고칠 때 한쪽만
+   고치고 잊어버리기 쉽다. */
 function buildCoverPage(memberCode, name, school, grade, testDate, title, introText) {
+  if (window.__LT_ENTRY && window.__LT_ENTRY.branch === "br_22jcktj") {
+    return jlsCoverPageHTML({
+      kicker: "ACADEMIC ASSESSMENT",
+      brandMain: "JLS", brandAccent: "ACE",
+      subtitle: "Academic Assessment Report",
+      name, school, grade, testType: title, testDate,
+      introHtml: introText,
+      taglineHtml: `
+        <div class="line1">Real 수능형<br>문제로 다지는<br>중등 영어에서</div>
+        <div class="line2">고등 내신 <span class="accent">A등급</span>,<br>수능 <span class="accent">1등급</span>의<br>탄탄한 실력으로!</div>
+      `
+    });
+  }
   return `
     <section class="page cover-page">
       <div class="cover-inner">
@@ -3195,33 +3221,6 @@ function renderReportScreen(memberCode, name, school, grade, testDate, title, ex
     ? renderVTReport(memberCode, name, school, grade, testDate, "Voca & Translation", vtEvaluation)
     : "";
 
-  /* 2026-10-26 — 탕정분원 전용 새 표지(ACE). CHESS와 똑같은 틀(jlsCoverPageHTML,
-     common.js)을 쓰되 "체스는 체스, 에이스는 에이스"로 제목·배지만 다르게
-     (운영자 요청).
-     ⚠️ 처음엔 isSatExamKey(title)(M1·M2 수능형, M3 고1형·고2형)만 ACE로 보고
-     E6·M1/M2 일반형은 뺐는데, 운영자 확인: "E6도 에이스인데?" — renderReportScreen은
-     애초에 CHESS(I1·D1~L4, chess.js가 따로 처리)가 아닌 나머지 전부(E6, M1·M2
-     일반형·수능형, M3, Voca & Translation)를 그리는 경로라서, 여기로 오는 시험은
-     전부 ACE다. 그래서 시험 종류는 안 가리고 분원만 본다. */
-  const JLS_V2_BRANCH_ID = "br_22jcktj";
-  const isAceV2 = !!(window.__LT_ENTRY && window.__LT_ENTRY.branch === JLS_V2_BRANCH_ID);
-  const aceCoverHtml = isAceV2 ? jlsCoverPageHTML({
-    kicker: "ACADEMIC ASSESSMENT",
-    brandMain: "JLS", brandAccent: "ACE",
-    subtitle: "Academic Assessment Report",
-    name, school, grade, testType: title, testDate,
-    introHtml: `
-      <div class="jls-cover-h1">[임시 문구 — 확인 필요]<br>수능형 문제로 다지는 실전 감각</div>
-      <p>정상어학원 ACE는 듣기(LC)·독해(RC) 실전 문제풀이 능력을 종합적으로 진단합니다.</p>
-      <p>학년별 난이도에 맞춘 수능형 문항으로 실제 시험 감각과 문제 유형별 강점·약점을 정확히 파악합니다.</p>
-      <p>중1부터 고2 수준까지, 학생의 학습 단계에 맞는 시험으로 지금 실력과 앞으로의 학습 방향을 안내합니다.</p>
-    `,
-    taglineHtml: `
-      <div class="line1">Real 수능형<br>문제로 다지는<br>중등 영어에서</div>
-      <div class="line2">고등 내신 <span class="accent">A등급</span>,<br>수능 <span class="accent">1등급</span>의<br>탄탄한 실력으로!</div>
-    `
-  }) : "";
-
   app.innerHTML = `
     <div class="top-bar no-print sticky-actions">
       <button class="secondary" onclick="restoreExamInput()">답안입력으로 돌아가기</button>
@@ -3230,7 +3229,6 @@ function renderReportScreen(memberCode, name, school, grade, testDate, title, ex
     </div>
 
     <div id="reportArea" class="report-scale-fix">
-      ${aceCoverHtml}
       ${mainReport}
       ${vtReport}
     </div>
