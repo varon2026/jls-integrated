@@ -309,19 +309,19 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    스크린샷으로 확인). 문항 한 줄(.chess-report-item-row)도 같이 묶어서 한 줄이
    반으로 안 잘리게 한다.
 
-   ⚠️ 2026-10-24 재작업 — "테스트3은 무조건 다음장에 한장으로 나올수있게 해"라는
-   요청으로, 안 들어가는 파트부터 다음 페이지로 "쪼개던" 방식(.chess-part-break)을
-   버렸다. Type2·3(파트 3개)은 부장님이 키운 글자 크기로는 3파트만 해도 한 페이지
-   예산(1039px)을 넘어서, 쪼개도 결국 2페이지가 됐다. 그래서 쪼개지 않고 그 대신
-   chess.js의 chessMeasurePrintBreaks()가 실측 비율로 TEST03 전체를 CSS zoom으로
-   줄인다(--chess-writing-zoom) — 짧은 내용(Type1·4·5)은 1(안 줄임), 긴 내용은
-   필요한 만큼만 줄어서 항상 정확히 1페이지에 들어간다. zoom은 transform과 달리
-   레이아웃을 실제로 다시 흘려서 계산하기 때문에 인쇄에 그대로 반영된다. */
+   ⚠️ 2026-10-24 재작업 — 운영자: "라이팅은 한장에 다 나오게 해달라고 했잖아.
+   근데 파트3을 다음장으로 빼도 되니까 진짜 크게 한눈에 잘 보이게 해달래". 그래서
+   "무조건 1페이지" 요구를 철회하고, 전체를 줄이던 zoom(--chess-writing-zoom)도
+   버렸다 — 글자는 큰 크기 그대로 두고, 안 들어가는 덩어리(파트·Overall Feedback)부터
+   chess.js가 .chess-part-break를 붙여서 다음 페이지로 넘긴다(필요하면 그 다음
+   페이지까지도). 페이지1(제목~TEST02) 쪽은 이번 요청 대상이 아니라서 zoom을
+   그대로 둔다. */
 @media print {
-  .chess-report-combined-section:has(.chess-writing-rubric) {
-    zoom: var(--chess-writing-zoom, 1);
+  .chess-writing-part-card.chess-part-break,
+  .chess-report-feedback-box.chess-part-break {
+    page-break-before: always !important; break-before: page !important;
   }
-  /* 페이지1(제목~TEST02+Grammar) 묶음도 같은 방식 — 운영자 요청대로 요약(TOTAL
+  /* 페이지1(제목~TEST02+Grammar) 묶음 — 운영자 요청대로 요약(TOTAL
      SCORE+TEST01)을 세로로 쌓은 뒤로 TEST02 카드가 많은 시험(D2 7개)이 겹치면
      1페이지 예산을 넘는 게 실측으로 확인됐다(chess.js 주석 참고). 안 넘치면
      zoom 기본값 1이라 다른 시험·다른 분원엔 영향 없음. */
@@ -355,43 +355,31 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
      (chess.js가 항상 이 클래스를 붙임 — 조건 판단 없음). */
   .chess-report-combined-section.force-break { page-break-before: always; break-before: page; }
 
-  /* ⚠️ 2026-10-24 부장님 검토 — "인쇄했을 때 글자가 너무 작고 줄간격이 너무 좁다,
-     글씨 키우고 줄간격 넓혀라"는 지적을 받았다. 그동안 "한 페이지에 다 넣어라"는
-     요청 때문에 여기 전부 7~9px까지 줄였었는데, 이제는 페이지 수보다 읽기 편한 게
-     우선이다 — 그래서 글자·여백을 다시 넉넉하게 키운다. 안 들어가는 긴 내용(Type2·3)은
-     위의 zoom으로 통째로 축소해서 1페이지에 맞춘다(chessMeasurePrintBreaks()).
-     ⚠️ 2026-10-24 추가 — 운영자: "박스 크기 그대로 변경없는 상태에서 최대한으로
-     글씨 키우기". padding·width·gap 등 박스 치수는 전혀 안 건드리고 font-size만
-     더 키웠다(line-height는 전부 비율값이라 font-size를 따라 같이 커져서 따로 안
-     건드려도 된다). 모자라는 페이지는 어차피 위 zoom이 알아서 줄여주므로, 짧은
-     내용(대부분)은 이 더 큰 글자 그대로 나오고 Type2·3만 조금 더 줄어든다. */
-  /* ⚠️ 2026-10-24 추가 — 부장님: "라이팅 성적표 글씨 더 키워, a,b,c 항목(기준표+
-     문항별 등급 동그라미)도 키워달라". 박스 치수(폭·여백·동그라미 크기)는 여전히
-     안 건드리고 font-size만 더 올렸다 — Type2·3(3파트)는 이미 zoom으로 줄고
-     있었는데(69%), 기준 글자를 키운 만큼 줄어든 뒤 크기도 같이 커진다. Type1·4·5도
-     이번엔 zoom이 걸릴 수 있다(여유가 2~16%뿐이었음) — 그래도 다 같이 커진
-     글자의 비율 축소라 전체적으로는 키우기 전보다 작아지지 않는다. */
-  /* ⚠️ 2026-10-24 추가 — 부장님이 인쇄물에 손글씨로: "볼드체 밑에 적힌 작은 글씨
-     때문에 글씨를 못 키우는 거면, 그걸 옆으로 적어달라". 문항 제목+설명을 위아래
-     2줄에서 한 줄(.chess-report-item-text, chess.js에서 같이 수정)로 바꿔서
-     문항 한 줄 높이가 거의 반으로 줄었다 — 그만큼 여유가 생겨서 글자를 한 번 더
-     키웠다(Type1·4·5는 zoom 100%로 전혀 안 줄고, Type2·3도 60%→76%로 훨씬
-     덜 줄어든다, 즉 실제 보이는 글자가 더 커진다). */
-  .chess-writing-rubric { font-size: 18px; }
-  .chess-writing-rubric .chess-report-criteria-grade { width: 26px; padding: 5px 6px; font-size: 18px; }
-  .chess-writing-rubric .chess-report-criteria-desc { padding: 5px 8px; font-size: 18px; line-height: 1.45; }
-  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-card-title--top { font-size: 21px; margin-bottom: 6px; }
-  .chess-report-item-row { padding: 6px 0; }
-  .chess-report-item-no { width: 24px; height: 24px; font-size: 14px; }
-  .chess-report-item-word { font-size: 19px; line-height: 1.4; }
-  .chess-report-item-desc { font-size: 17px; line-height: 1.4; }
-  .chess-report-item-dot { width: 20px; height: 20px; font-size: 13px; }
+  /* ⚠️ 2026-10-26 부장님 피드백(카톡): "TEST01, TEST02, TEST03의 글씨 크기가
+     각각 다르게 적용되어 있는데, TEST02의 글씨 크기를 기준으로 동일하게
+     통일해 주실 수 있을까요? 그 외에는 A, B, C를 표시한 동그라미 크기만
+     수정해 주시면 좋을 것 같습니다." — 그동안 "1페이지에 넣어라" → "글씨 키워라"
+     → "그래도 작다" → "파트3은 다음장 가도 되니 진짜 크게"로 여러 번 바뀌면서
+     TEST03만 유독 커져 있었다(22~26px). 이번엔 그 반대 방향 — TEST03을
+     TEST02가 이미 쓰는 크기(아래 TEST02 블록의 12.5px/15.5px/19px)에 맞춰
+     도로 줄인다. 동그라미(A/B/C)만 코드 전에 운영자에게 스크린샷 두 장으로
+     먼저 물어봐서(24px→30px) 30px/글자16px로 확정받았다 — 본문 글자보다는
+     크게 둬서 한눈에 어느 걸 골랐는지 잘 보이게. */
+  .chess-writing-rubric { font-size: 12.5px; }
+  .chess-writing-rubric .chess-report-criteria-grade { width: 24px; padding: 4px; font-size: 12.5px; }
+  .chess-writing-rubric .chess-report-criteria-desc { padding: 4px 6px; font-size: 12.5px; line-height: 1.4; }
+  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-card-title--top { font-size: 15.5px; margin-bottom: 6px; }
+  .chess-report-item-row { padding: 8px 0; }
+  .chess-report-item-no { width: 24px; height: 24px; font-size: 12.5px; }
+  .chess-report-item-word { font-size: 13px; line-height: 1.4; }
+  .chess-report-item-desc { font-size: 12.5px; line-height: 1.4; }
+  .chess-report-item-dot { width: 30px; height: 30px; font-size: 16px; }
   .chess-report-combined-section:has(.chess-writing-rubric) { margin-top: 10px; }
   .chess-report-feedback-box { padding: 10px 12px; margin-top: 8px; }
-  .chess-report-feedback-title { font-size: 20px; margin-bottom: 6px; }
-  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-subcopy { font-size: 18px; line-height: 1.55; margin-bottom: 0; }
+  .chess-report-feedback-title { font-size: 15.5px; margin-bottom: 6px; }
+  .chess-report-combined-section:has(.chess-writing-rubric) .chess-report-subcopy { font-size: 12.5px; line-height: 1.5; margin-bottom: 0; }
   .lt-count-box .c { padding: 8px 4px; }
-  .lt-count-box .c b { font-size: 30px; }
+  .lt-count-box .c b { font-size: 22px; }
 
   /* TEST01 위 "JLS Placement Test / Evaluation Sheet" 안내문 + 상단 정보칸은
      실제 production(chess-report.css)에 이미 있는 2단계 압축(40px→22px 제목,
@@ -413,16 +401,16 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .chess-report-page:has(.chess-writing-rubric) .chess-report-info-cell { padding: 10px; }
   .chess-report-page:has(.chess-writing-rubric) .chess-report-info-value { font-size: 16px; margin-top: 4px; }
 
-  /* 운영자 요청(2026-10-24): "박스 크기 그대로... 최대한으로 글씨 키우기" — 아래
-     셋(섹션 제목·TOTAL SCORE/LEVEL 박스·TEST01 표)은 전 분원 공용 print 크기
-     (chess-report.css, 섹션 제목 16px·label 10px·value 18px·표 9.5px)를 그대로
-     쓰고 있었다. 공용 값을 고치면 다른 분원까지 커지니, 똑같이 :has(.chess-writing-rubric)로
-     범위를 좁혀서 탕정만 키운다. 박스(score-box min-height, 표 th/td padding)는
-     안 건드림 — zoom이 넘치는 만큼 알아서 줄여준다. */
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-section-title { font-size: 18px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-score-label { font-size: 12px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-score-value { font-size: 22px; }
-  .chess-report-page:has(.chess-writing-rubric) .chess-report-table { font-size: 12px; }
+  /* ⚠️ 2026-10-26 부장님 피드백 — TEST01·TOTAL SCORE 쪽도 TEST02 크기로 통일
+     (위 TEST03 블록 주석 참고). 이 셋(섹션 제목·TOTAL SCORE/LEVEL 박스·TEST01
+     표)은 전 분원 공용 print 크기(chess-report.css)를 그대로 쓰고 있었는데,
+     공용 값을 고치면 다른 분원까지 바뀌니 여기서도 :has(.chess-writing-rubric)로
+     범위를 좁혀서 탕정만 TEST02 크기(제목급 15.5px·label 11px·value 19px·
+     표 12.5px)로 맞춘다. */
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-section-title { font-size: 15.5px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-score-label { font-size: 11px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-score-value { font-size: 19px; }
+  .chess-report-page:has(.chess-writing-rubric) .chess-report-table { font-size: 12.5px; }
 
   /* TEST02 Speaking 카드(보통 4~7장)는 목업과 같은 flex 2열이 기본이다 — grid는
      Chromium 인쇄 엔진이 페이지 넘길 때 잘 못 쪼개서(카드 몇 장만 올리고 밑에

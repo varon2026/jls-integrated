@@ -602,16 +602,15 @@ function renderChessReportWritingV2(writingState, studentName, compact) {
     </div>`;
 }
 
-/* 2026-10-24 — TEST03(Writing)은 무조건 다음 페이지에서 시작하고, 그 페이지
-   "딱 한 장"에 전부 들어가야 한다(운영자: "테스트3은 무조건 다음장에 한장으로
-   나올수있게 해"). 예전엔 파트+피드백을 덩어리로 쪼개 안 들어가는 것부터 다음
-   페이지로 넘겼는데, Type2·3처럼 파트가 3개라 부장님이 키운 글자 크기로는
-   그 자체가 한 페이지 예산(1039px)을 넘어서(실측 3파트만 해도 1074px) 아무리
-   쪼개도 2페이지가 됐다. 그래서 쪼개는 대신 "한 페이지에 들어갈 비율만큼
-   화면을 통째로 줄인다"로 바꿨다 — CSS zoom(레이아웃을 실제로 다시 흘려서
-   계산하는 축소라 인쇄에 안전. transform:scale은 자리만 차지하고 안 줄어서 못 씀)을
-   원래 높이/예산 비율로 걸어서, 짧은 내용(Type1·4·5)은 100%(안 줄임) 그대로,
-   긴 내용(Type2·3)만 필요한 만큼만 줄여서 어떤 Type이 와도 항상 정확히 1페이지. */
+/* 2026-10-24 — 운영자: "라이팅은 한장에 다 나오게 해달라고 했잖아. 근데 파트3을
+   다음장으로 빼도 되니까 진짜 크게 한눈에 잘 보이게 해달래" — "무조건 1페이지"
+   요구를 철회하고 "크고 잘 보이는 게 먼저, 안 들어가면 넘어가도 됨"으로 바뀌었다.
+   그래서 전체를 줄이는 zoom(--chess-writing-zoom)을 버리고, 글자는 키운 크기
+   그대로 두고 대신 다시 "안 들어가는 덩어리부터 다음 페이지로"(덩어리=제목+파트1,
+   파트2, 파트3, Overall Feedback 각각) 쪼갠다. 예전 압축 시절 쓰던 방식과 같지만,
+   이제는 "1페이지에 다 넣어야 한다"는 압박이 없어서 글자를 줄일 필요가 없다 —
+   그냥 큰 글자로 들어가는 데까지 채우고, 안 들어가면 다음 페이지(필요하면 그
+   다음 페이지까지도)로 넘긴다. */
 function chessMeasurePrintBreaks() {
   const page = document.querySelector(".chess-report-page:not(.chess-report-cover)");
   const writingSection = document.querySelector(".chess-report-combined-section:has(.chess-writing-rubric)");
@@ -642,35 +641,51 @@ function chessMeasurePrintBreaks() {
        여백(8mm)만 한 번 더 빼면 된다. */
     const PAGE_BUDGET_PX = (297 - 7 - 7 - 8) * (96 / 25.4);
 
-    /* 전에 걸어둔 축소율을 지우고 "원래 크기(zoom:1)"부터 다시 잰다 — 안 지우면
-       이미 줄어든 상태를 기준으로 비율을 또 곱해서 계속 작아진다. */
-    writingSection.style.removeProperty("--chess-writing-zoom");
-    writingSection.classList.remove("force-break");
-    writingSection.querySelectorAll(".chess-part-break").forEach(el => el.classList.remove("chess-part-break"));
-
-    const parts = writingSection.querySelectorAll(".chess-writing-part-card");
+    const pageTop = page.getBoundingClientRect().top;
+    const parts = Array.from(writingSection.querySelectorAll(".chess-writing-part-card"));
     const feedbackBox = writingSection.querySelector(".chess-report-feedback-box");
     const titleEl = writingSection.querySelector(".chess-report-section-title");
-    const lastEl = feedbackBox || parts[parts.length - 1];
-    if (!titleEl || !lastEl) return;
 
-    const naturalHeight = lastEl.getBoundingClientRect().bottom - titleEl.getBoundingClientRect().top;
-    /* zoom은 브라우저가 적용할 때 안/밖 요소의 border·padding을 각 배율에서 다시
-       정수 픽셀로 스냅해서, 비율을 정확히 계산해도 실제로는 몇 px씩 더 길게 나올
-       때가 있다(실측: 비율 그대로 걸었더니 예산보다 4px 더 길었음). 그래서 예산에서
-       SAFETY_PX만큼 미리 빼고 비율을 구해 이 오차를 흡수한다. */
-    const SAFETY_PX = 10;
-    const zoom = Math.min(1, (PAGE_BUDGET_PX - SAFETY_PX) / naturalHeight);
-    writingSection.style.setProperty("--chess-writing-zoom", zoom.toFixed(4));
+    /* 이전 판정을 지우고 "안 끊긴 원래 모양"부터 다시 잰다. */
+    writingSection.classList.remove("force-break");
+    parts.forEach(p => p.classList.remove("chess-part-break"));
+    if (feedbackBox) feedbackBox.classList.remove("chess-part-break");
+
+    const y = el => el.getBoundingClientRect().top - pageTop;
+    const yb = el => el.getBoundingClientRect().bottom - pageTop;
+
+    /* 제목+파트1을 한 덩어리로(제목이 혼자 남는 "고아 줄" 방지), 그 뒤 파트들과
+       Overall Feedback 박스를 각각 하나의 덩어리로 보고, TEST03이 시작되는 새
+       페이지의 맨 위부터 순서대로 "지금까지 채운 만큼 + 이 덩어리"가 한 페이지
+       분량을 넘는지 봐서, 넘는 첫 덩어리부터만 또 다음 페이지로 보낸다. */
+    const chunks = [];
+    if (parts.length) {
+      chunks.push({ el: parts[0], top: y(titleEl), bottom: yb(parts[0]) });
+      for (let i = 1; i < parts.length; i++) chunks.push({ el: parts[i], top: y(parts[i]), bottom: yb(parts[i]) });
+    }
+    if (feedbackBox) chunks.push({ el: feedbackBox, top: y(feedbackBox), bottom: yb(feedbackBox) });
+
+    /* 소수점 아래 반올림 오차 때문에 실제로는 들어가는데 넘친다고 판정되는 경우를
+       대비한 아주 작은 여유. */
+    const ROUNDING_TOLERANCE_PX = 2;
+    let cursor = 0; // TEST03은 항상 새 페이지 맨 위부터 시작
+    chunks.forEach((chunk, i) => {
+      const height = chunk.bottom - chunk.top;
+      const gap = i === 0 ? 0 : Math.max(0, chunk.top - chunks[i - 1].bottom);
+      if (i > 0 && cursor + gap + height > PAGE_BUDGET_PX + ROUNDING_TOLERANCE_PX) {
+        chunk.el.classList.add("chess-part-break"); // 이 덩어리부터만 새 페이지로
+        cursor = height;
+      } else {
+        cursor += gap + height;
+      }
+    });
     writingSection.classList.add("force-break"); // TEST03은 무조건 새 페이지
 
-    /* 페이지1(제목~TEST02+Grammar) 쪽도 같은 방식으로 — 요약(TOTAL SCORE+TEST01)을
-       세로로 쌓고(운영자 요청) TEST02 카드가 많은 시험(D2 7개)이 겹치면 1페이지
-       예산을 넘는 경우가 실측으로 확인됐다(1155px, 116px 초과). TEST03과 똑같이
-       "넘칠 때만 비율만큼 축소"로 처리해서, 카드 적은 시험(4·6개, 예산 안)은
-       100% 그대로, D2 같은 경우만 살짝 줄어든다. */
+    /* 페이지1(제목~TEST02+Grammar)은 그대로 "넘칠 때만 비율만큼 축소" 유지 —
+       이번 요청은 라이팅(TEST03)에 대한 것이라 여긴 안 건드린다. */
     if (page1Block) {
       page1Block.style.removeProperty("--chess-page1-zoom");
+      const SAFETY_PX = 10;
       const p1Height = page1Block.getBoundingClientRect().height;
       const p1Zoom = Math.min(1, (PAGE_BUDGET_PX - SAFETY_PX) / p1Height);
       page1Block.style.setProperty("--chess-page1-zoom", p1Zoom.toFixed(4));
