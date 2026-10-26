@@ -3211,7 +3211,7 @@ function renderReportScreen(memberCode, name, school, grade, testDate, title, ex
     subtitle: "Academic Assessment Report",
     name, school, grade, testType: title, testDate,
     introHtml: `
-      <h1>[임시 문구 — 확인 필요]<br>수능형 문제로 다지는 실전 감각</h1>
+      <div class="jls-cover-h1">[임시 문구 — 확인 필요]<br>수능형 문제로 다지는 실전 감각</div>
       <p>정상어학원 ACE는 듣기(LC)·독해(RC) 실전 문제풀이 능력을 종합적으로 진단합니다.</p>
       <p>학년별 난이도에 맞춘 수능형 문항으로 실제 시험 감각과 문제 유형별 강점·약점을 정확히 파악합니다.</p>
       <p>중1부터 고2 수준까지, 학생의 학습 단계에 맞는 시험으로 지금 실력과 앞으로의 학습 방향을 안내합니다.</p>

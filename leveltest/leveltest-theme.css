@@ -561,7 +561,15 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .jls-cover-kicker-label { font-size: 10px; font-weight: 700; letter-spacing: .22em; color: #0a7acb; margin-bottom: 10px; }
 
 .jls-cover-topleft { position: absolute; left: 8mm; top: 8mm; width: 56mm; }
-.jls-cover-topleft h1 { font-size: 19px; font-weight: 800; line-height: 1.4; margin: 0 0 14px; color: #111; letter-spacing: -.2px; word-break: keep-all; }
+/* ⚠️ 2026-10-26 — 운영자: "영어를 아는것을 넘어... 이게 보라색이잖아, 파랑
+   하지말고 저걸 파랑으로"(정확히는 원래 검정으로 짰는데 실제로는 보라로
+   나왔다) — 원인은 h1 태그 자체. 이 파일 23번째 줄 근처에 입력화면용 공용
+   규칙 "h1{color:#8b6ee8 !important}"(보라, 입력화면 전용 톤)가 있는데,
+   예전 표지는 h1 태그를 안 써서 안 걸렸지만 이번 새 표지는 h1을 썼다가
+   그대로 맞았다. 색만 또 바꾸는 대신 애초에 h1 대신 일반 div(.jls-cover-h1)로
+   바꿔서 그 공용 규칙 자체를 안 타게 했다 — 의도한 색(검정 #111)이 그대로
+   나온다. */
+.jls-cover-topleft .jls-cover-h1 { font-size: 19px; font-weight: 800; line-height: 1.4; margin: 0 0 14px; color: #111; letter-spacing: -.2px; word-break: keep-all; }
 .jls-cover-topleft p { font-size: 12.5px; line-height: 1.6; color: #5a5a5a; margin: 0 0 13px; font-weight: 400; letter-spacing: -.1px; word-break: keep-all; }
 
 .jls-cover-topright { position: absolute; right: 8mm; top: 8mm; width: 56mm; text-align: left; }
