@@ -1771,6 +1771,11 @@ app.innerHTML = `
   <button id="viewAnswerBtn" type="button" class="paper-btn pink" onclick="openSelectedAnswer()">답지 보기</button>
   <button id="bulkInputBtn" type="button" class="paper-btn yellow" onclick="renderChessBulkMode()">단체 입력</button>
 </div>
+<!-- 2026-10-27 — 탕정분원 신규 CHESS(I1·D1~L4)만: Writing(TYPE1~5) 시험지·답지는
+     D/L 본지(_v2.pdf)에 안 들어있어서(운영자: "라이팅은 안보여") 여기 따로 둔다.
+     Writing Type은 학생마다 달라서(1차 인터뷰로 정함) D/L처럼 하나로 못 묶고
+     5개 버튼을 다 보여준다 — updatePaperButtons()가 채운다. -->
+<div id="writingPaperActions" style="display:none; margin-top:10px; flex-wrap:wrap; gap:8px; justify-content:center;"></div>
 
       <div class="top-bar" style="margin-top:18px; justify-content:center;">
   <button id="startBtn" type="button" class="next-btn" onclick="goNext(); return false;">다음</button>
@@ -2876,6 +2881,7 @@ function updatePaperButtons() {
     answerBtn.disabled = true;
     questionBtn.onclick = null;
     answerBtn.onclick = null;
+    renderWritingPaperActions(false);
     return;
   }
 
@@ -2899,6 +2905,24 @@ const chessTests = ["I1", "D1", "D2", "D3", "D4", "L1", "L2", "L3", "L4"];
   } else {
     answerBtn.onclick = openSelectedAnswer;
   }
+
+  /* 2026-10-27 — 운영자: "라이팅은 안보여. 라이팅 채점하는 답지도 안보여" —
+     탕정 신규 CHESS(I1·D1~L4)만 Writing TYPE1~5 시험지·선생님용 답지(A/B/C
+     채점기준+정답+Type 판정표) 버튼을 띄운다. Writing Type은 학생 1차 인터뷰로
+     정해져서 D/L 시험지처럼 examName 하나에 안 묶이므로, 5개를 다 보여주고
+     원무가 그 학생 Type에 맞는 것만 눌러서 쓰게 한다. */
+  renderWritingPaperActions(chessV2Active && chessTests.includes(selectedExam));
+}
+function renderWritingPaperActions(show) {
+  const box = document.getElementById("writingPaperActions");
+  if (!box) return;
+  if (!show) { box.style.display = "none"; box.innerHTML = ""; return; }
+  box.style.display = "flex";
+  box.innerHTML = `
+    <span class="hint" style="width:100%; text-align:center; font-size:12.5px; color:var(--ink3)">Writing(1차 인터뷰로 정한 Type만 눌러 쓰세요)</span>
+    ${[1,2,3,4,5].map(n => `<button type="button" class="paper-btn blue" style="padding:6px 14px; font-size:13px" onclick="window.open('PDF/Writing_Type${n}.pdf','_blank')">Type${n} 시험지</button>`).join("")}
+    <button type="button" class="paper-btn pink" style="padding:6px 14px; font-size:13px" onclick="window.open('PDF/Writing_AnswerKey.pdf','_blank')">Writing 답지(선생님용)</button>
+  `;
 }
 function getReportGradeForExam(studentGrade, examName) {
  
