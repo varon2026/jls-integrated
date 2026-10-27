@@ -529,7 +529,13 @@ function openSelectedPaper() {
     L1: "./PDF/L1_v2.pdf",
     L2: "./PDF/L2_v2.pdf",
     L3: "./PDF/L3_v2.pdf",
-    L4: "./PDF/L4_v2.pdf"
+    L4: "./PDF/L4_v2.pdf",
+    /* 2026-10-27 — Writing은 시험지명 드롭다운의 "Writing TypeN" 선택값. getExamOptionsByGrade() 참고. */
+    "Writing Type1": "./PDF/Writing_Type1.pdf",
+    "Writing Type2": "./PDF/Writing_Type2.pdf",
+    "Writing Type3": "./PDF/Writing_Type3.pdf",
+    "Writing Type4": "./PDF/Writing_Type4.pdf",
+    "Writing Type5": "./PDF/Writing_Type5.pdf"
   };
   const chessV2Active = typeof isChessV2 === "function" && isChessV2();
 
@@ -863,7 +869,14 @@ function openSelectedAnswer() {
   const examEl = document.getElementById("examName");
   const title = examEl?.value || "";
 
-  const chessTests = ["D1","D2","D3","D4","L1","L2","L3","L4"];
+  /* Writing TypeN은 객관식 답안지(showChessAnswerSheet)가 아니라 선생님용 채점 답지
+     PDF 한 장을 공유해서 쓴다 — getExamOptionsByGrade()/updatePaperButtons() 참고. */
+  if (title.startsWith("Writing Type")) {
+    window.open("./PDF/Writing_AnswerKey.pdf", "_blank");
+    return;
+  }
+
+  const chessTests = ["I1","D1","D2","D3","D4","L1","L2","L3","L4"];
 
   if (chessTests.includes(title)) {
     CURRENT_CHESS_EXAM_KEY = title;
@@ -1771,11 +1784,6 @@ app.innerHTML = `
   <button id="viewAnswerBtn" type="button" class="paper-btn pink" onclick="openSelectedAnswer()">답지 보기</button>
   <button id="bulkInputBtn" type="button" class="paper-btn yellow" onclick="renderChessBulkMode()">단체 입력</button>
 </div>
-<!-- 2026-10-27 — 탕정분원 신규 CHESS(I1·D1~L4)만: Writing(TYPE1~5) 시험지·답지는
-     D/L 본지(_v2.pdf)에 안 들어있어서(운영자: "라이팅은 안보여") 여기 따로 둔다.
-     Writing Type은 학생마다 달라서(1차 인터뷰로 정함) D/L처럼 하나로 못 묶고
-     5개 버튼을 다 보여준다 — updatePaperButtons()가 채운다. -->
-<div id="writingPaperActions" style="display:none; margin-top:10px; flex-wrap:wrap; gap:8px; justify-content:center;"></div>
 
       <div class="top-bar" style="margin-top:18px; justify-content:center;">
   <button id="startBtn" type="button" class="next-btn" onclick="goNext(); return false;">다음</button>
@@ -1800,7 +1808,15 @@ function getExamOptionsByGrade(grade) {
     ];
     /* I1은 탕정분원 전용 신규 CHESS에서만 고를 수 있다 — 다른 분원 드롭다운엔
        이 함수가 그대로라 안 뜬다. isChessV2()는 leveltest/chess.js에 정의돼 있다. */
-    if (typeof isChessV2 === "function" && isChessV2()) list.unshift({ value: "I1", label: "I1" });
+    if (typeof isChessV2 === "function" && isChessV2()) {
+      list.unshift({ value: "I1", label: "I1" });
+      /* 2026-10-27 — 운영자: "시험지명에 라이팅 시험 타입을 넣어야지" — Writing은
+         D/L 본지(_v2.pdf)에 안 들어있어서 따로 받는 시험지다. Writing Type은
+         1차 인터뷰로 정해지고 실제로 채점(다음 버튼)하는 시험이 아니라 시험지·
+         답지만 꺼내 쓰는 용도라서, 다른 D1~L4처럼 goNext()에선 안 타게 막아둔다
+         (goNext() 참고). 여기 넣어야 다른 D/L처럼 시험지명 드롭다운 하나로 고른다. */
+      for (let n = 1; n <= 5; n++) list.push({ value: "Writing Type" + n, label: "Writing Type" + n });
+    }
     return list;
   }
 
@@ -1869,6 +1885,14 @@ function goNext() {
     alert("이름/학교/학년/시험 본 날짜/시험지명을 입력하세요.");
     return;
   }
+
+  /* Writing TypeN은 실제로 채점하는 시험이 아니라 시험지·답지 PDF만 꺼내 쓰는
+     드롭다운 선택값이다(getExamOptionsByGrade 참고) — 실수로 골랐을 때 여기서 멈춘다. */
+  if (examName.startsWith("Writing Type")) {
+    alert("Writing은 실제 응시 시험이 아니라 시험지/답지만 꺼내 쓰는 항목입니다.\nD1~L4(또는 I1) 중 학생이 실제로 본 시험을 골라주세요.");
+    return;
+  }
+
   /* I1은 탕정분원 드롭다운에서만 나올 수 있는 값이라(getExamOptionsByGrade 참고)
      다른 분원은 이 값을 애초에 선택할 수 없다 — 여기 추가해도 안전하다. */
   const chessTests = ["I1", "D1", "D2", "D3", "D4", "L1", "L2", "L3", "L4"];
@@ -2860,7 +2884,9 @@ function updatePaperButtons() {
     L3: "./PDF/L3.pdf",
     L4: "./PDF/L4.pdf"
   };
-  /* 탕정분원 신규 CHESS 시험지 PDF — openSelectedPaper()와 같은 이유로 "_v2" 별도 파일. */
+  /* 탕정분원 신규 CHESS 시험지 PDF — openSelectedPaper()와 같은 이유로 "_v2" 별도 파일.
+     Writing TypeN은 D/L 본지에 안 들어있던 시험지라 여기 같이 묶어서 넣는다 —
+     getExamOptionsByGrade()에서 시험지명 드롭다운에 추가한 선택값과 짝이 맞아야 한다. */
   const CHESS_PAPER_MAP_V2 = {
     I1: "./PDF/I1_v2.pdf",
     D1: "./PDF/D1_v2.pdf",
@@ -2870,7 +2896,12 @@ function updatePaperButtons() {
     L1: "./PDF/L1_v2.pdf",
     L2: "./PDF/L2_v2.pdf",
     L3: "./PDF/L3_v2.pdf",
-    L4: "./PDF/L4_v2.pdf"
+    L4: "./PDF/L4_v2.pdf",
+    "Writing Type1": "./PDF/Writing_Type1.pdf",
+    "Writing Type2": "./PDF/Writing_Type2.pdf",
+    "Writing Type3": "./PDF/Writing_Type3.pdf",
+    "Writing Type4": "./PDF/Writing_Type4.pdf",
+    "Writing Type5": "./PDF/Writing_Type5.pdf"
   };
   const chessV2Active = typeof isChessV2 === "function" && isChessV2();
 
@@ -2881,7 +2912,6 @@ function updatePaperButtons() {
     answerBtn.disabled = true;
     questionBtn.onclick = null;
     answerBtn.onclick = null;
-    renderWritingPaperActions(false);
     return;
   }
 
@@ -2897,7 +2927,12 @@ function updatePaperButtons() {
 
 const chessTests = ["I1", "D1", "D2", "D3", "D4", "L1", "L2", "L3", "L4"];
 
-  if (chessTests.includes(selectedExam)) {
+  /* 2026-10-27 — 운영자: "시험지명에 라이팅 시험 타입을 넣어야지" — Writing TypeN은
+     객관식 답안지(showChessAnswerSheet)가 아니라 선생님용 채점 답지 PDF 한 장을
+     공유해서 쓴다(A/B/C 채점기준+정답+Type 판정표, Writing_AnswerKey.pdf). */
+  if (selectedExam.startsWith("Writing Type")) {
+    answerBtn.onclick = () => window.open("./PDF/Writing_AnswerKey.pdf", "_blank");
+  } else if (chessTests.includes(selectedExam)) {
     answerBtn.onclick = () => {
       CURRENT_CHESS_EXAM_KEY = selectedExam;
       showChessAnswerSheet();
@@ -2905,24 +2940,6 @@ const chessTests = ["I1", "D1", "D2", "D3", "D4", "L1", "L2", "L3", "L4"];
   } else {
     answerBtn.onclick = openSelectedAnswer;
   }
-
-  /* 2026-10-27 — 운영자: "라이팅은 안보여. 라이팅 채점하는 답지도 안보여" —
-     탕정 신규 CHESS(I1·D1~L4)만 Writing TYPE1~5 시험지·선생님용 답지(A/B/C
-     채점기준+정답+Type 판정표) 버튼을 띄운다. Writing Type은 학생 1차 인터뷰로
-     정해져서 D/L 시험지처럼 examName 하나에 안 묶이므로, 5개를 다 보여주고
-     원무가 그 학생 Type에 맞는 것만 눌러서 쓰게 한다. */
-  renderWritingPaperActions(chessV2Active && chessTests.includes(selectedExam));
-}
-function renderWritingPaperActions(show) {
-  const box = document.getElementById("writingPaperActions");
-  if (!box) return;
-  if (!show) { box.style.display = "none"; box.innerHTML = ""; return; }
-  box.style.display = "flex";
-  box.innerHTML = `
-    <span class="hint" style="width:100%; text-align:center; font-size:12.5px; color:var(--ink3)">Writing(1차 인터뷰로 정한 Type만 눌러 쓰세요)</span>
-    ${[1,2,3,4,5].map(n => `<button type="button" class="paper-btn blue" style="padding:6px 14px; font-size:13px" onclick="window.open('PDF/Writing_Type${n}.pdf','_blank')">Type${n} 시험지</button>`).join("")}
-    <button type="button" class="paper-btn pink" style="padding:6px 14px; font-size:13px" onclick="window.open('PDF/Writing_AnswerKey.pdf','_blank')">Writing 답지(선생님용)</button>
-  `;
 }
 function getReportGradeForExam(studentGrade, examName) {
  
