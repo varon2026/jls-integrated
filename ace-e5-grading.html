@@ -467,9 +467,20 @@ function render(){
         ${branchOptions}
       </select>
     </div>` : ''}
-    <div class="card addrow-card" style="padding:14px 18px;margin-bottom:14px">
-      <button class="ghost mini" onclick="addManualRow()">+ 답안입력 추가 (비재원생)</button>
-      <span class="hint" style="margin-left:10px">재원생 명단에 없는 응시자는 여기로 줄을 추가하세요</span>
+    <div class="card addrow-card" style="padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;flex-wrap:wrap">
+        <button class="ghost mini" onclick="addManualRow()">+ 답안입력 추가 (비재원생)</button>
+        <span class="hint" style="margin-left:10px">재원생 명단에 없는 응시자는 여기로 줄을 추가하세요</span>
+      </div>
+      <!-- 2026-10-28 — 초등5가 초등6 시험(E6·단어/해석)으로 진급시험을 보게 되면서,
+           시험지·OMR을 여기서 바로 받게 해달라는 요청. leveltest/PDF의 E6·Voca & Translation
+           시험지를 그대로 링크하고(leveltest/common.js의 PAPER_FILE_MAP과 같은 파일),
+           OMR 답안지는 이 화면 전용이라 루트 PDF/ 폴더에 따로 둔다. -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="ghost mini" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="leveltest/PDF/[JLS Academic Achievement Assessment] E6.pdf" target="_blank" rel="noopener">📄 E6 시험지↓</a>
+        <a class="ghost mini" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="leveltest/PDF/[JLS Academic Achievement Assessment] Voca & Translation_0116.pdf" target="_blank" rel="noopener">📄 단어·해석 시험지↓</a>
+        <a class="ghost mini" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--brand);border-color:transparent" href="PDF/초등5_ACE진급테스트_OMR.pdf" target="_blank" rel="noopener">🖊 OMR 답안지↓</a>
+      </div>
     </div>
     <div class="tabs" style="justify-content:space-between">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
