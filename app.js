@@ -4305,12 +4305,17 @@ async function handleExcelFile(ev){
       cN=col('이름'), cC=col('회원코드')>=0?col('회원코드'):col('아이디'),
       cS=col('학교'), cG=col('학년'), cP=col('학부모 연락처'), cM=col('공지'), cR=col('접수자');
     if(cN<0||cD<0){ toast('이름·예약일 칸을 못 찾았어요','err'); return; }
-    const seen=new Set(reservations.map(r=>`${r.branch_id}|${(r.student_code||r.student_name||'').trim()}|${String(r.reserved_date).slice(0,10)}|${String(r.reserved_time||'').slice(0,5)}`));
+    /* 2026-10-28 — 운영자: "엑셀에 조민준이 두명이였거든. 학교가 다른데 왜 중복으로 인식한거야?"
+       회원코드가 없는 예약(예약 단계엔 IMS 임시등록이 없어서 흔함)은 이름만으로 중복을 봤는데,
+       같은 날·같은 시간에 동명이인이 있으면(학교가 다른 다른 학생) 뒤의 학생이 중복으로
+       잘못 건너뛰어졌다(아산탕정 10/31 조민준 2명 중 1명 누락). 학교를 키에 더해서
+       같은 이름이라도 학교가 다르면 다른 사람으로 본다. */
+    const seen=new Set(reservations.map(r=>`${r.branch_id}|${(r.student_code||r.student_name||'').trim()}|${String(r.reserved_date).slice(0,10)}|${String(r.reserved_time||'').slice(0,5)}|${String(r.school||'').trim()}`));
     // ★ 분원 계정이 올리면 파일의 장소/분원명을 신뢰하지 않고 '내 분원'으로 고정.
     //   (운정1이 올렸는데 파일 장소칸이 운정2로 매칭돼 엉뚱한 분원에 들어가는 사고 방지)
     //   어드민만 여러 분원 섞인 파일을 파일값(matchBranch)으로 분배.
     const forcedBranch = (session && session.role!=='admin') ? (session.branchId||null) : null;
-    const toInsert=[]; let dup=0, noBr=0, bad=0;
+    const toInsert=[]; let dup=0, noBr=0, bad=0; const dupNames=[];
     for(let i=hi+1;i<rows.length;i++){
       const r=rows[i]; if(!r) continue;
       const name=String(r[cN]==null?'':r[cN]).trim(); if(!name) continue;
@@ -4319,23 +4324,26 @@ async function handleExcelFile(ev){
       const date=xlDate(r[cD]); if(!date){ bad++; continue; }
       const time=String(r[cT]==null?'':r[cT]).trim().slice(0,5);
       const code=String(r[cC]==null?'':r[cC]).trim();
+      const school=String(r[cS]==null?'':r[cS]).trim();
       const memo=String(r[cM]==null?'':r[cM]).trim();
       const canceled=memo.includes('[취소]')||/^취소/.test(memo);
-      const key=`${branchId}|${(code||name).trim()}|${date}|${time}`;
-      if(seen.has(key)){ dup++; continue; }
+      const key=`${branchId}|${(code||name).trim()}|${date}|${time}|${school}`;
+      if(seen.has(key)){ dup++; dupNames.push(name+(school?`(${school})`:'')); continue; }
       seen.add(key);
       toInsert.push({ branch_id:branchId, student_code:code||null, student_name:name,
-        parent_phone:xlPhone(r[cP]), school:String(r[cS]==null?'':r[cS]).trim()||null,
+        parent_phone:xlPhone(r[cP]), school:school||null,
         grade:String(r[cG]==null?'':r[cG]).trim()||null, reserved_date:date, reserved_time:time,
         manager:null, memo:memo||null,
         status:canceled?'canceled':'booked', enrolled:'pending' });
     }
-    if(!toInsert.length){ toast(`추가할 새 예약 없음${dup?` · 중복 ${dup}건`:''}${noBr?` · 분원매칭실패 ${noBr}건`:''}`); return; }
+    /* 운영자가 "몇 건 중복"이라는 숫자만 보고는 누가 빠졌는지 알 길이 없어서(위 조민준 건처럼
+       실제로는 동명이인이 잘못 걸러진 걸 눈치채기 어려웠다) 중복으로 건너뛴 이름을 같이 보여준다. */
+    const dupMsg=dupNames.length?` · 중복 ${dup}건 건너뜀: ${dupNames.slice(0,8).join(', ')}${dupNames.length>8?` 외 ${dupNames.length-8}명`:''}`:'';
+    if(!toInsert.length){ toast(`추가할 새 예약 없음${dupMsg}${noBr?` · 분원매칭실패 ${noBr}건`:''}`); return; }
     const { data, error } = await sb.from('level_test_reservations').insert(toInsert).select();
     if(error){ console.error(error); toast('등록 실패: '+error.message,'err'); return; }
     if(data) reservations.push(...data);
-    let msg=`${(data?data.length:toInsert.length)}건 등록됨`;
-    if(dup) msg+=` · 중복 ${dup} 건너뜀`;
+    let msg=`${(data?data.length:toInsert.length)}건 등록됨${dupMsg}`;
     if(noBr) msg+=` · 분원매칭 실패 ${noBr}`;
     if(bad) msg+=` · 날짜오류 ${bad}`;
     toast(msg+' ✓');
