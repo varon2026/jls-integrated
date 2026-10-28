@@ -1723,15 +1723,20 @@ function renderChessReport() {
 
     if (cleanKey === "D2") {
       /* 2026-10-28 CHESS PT 개편(운영자가 준 "분원공유용 CHESS New PT 배정기준표" 원본) —
-         D2는 Phonics 영역이 새로 생기고 배점도 15/30/30/25로 바뀌었다. 예전 46/36/18은
-         2017년 구버전 그대로였다(우연히 D2만 멀쩡해 보였던 값, 위 2046번 줄 참고). */
+         D2는 Phonics 영역이 새로 생기고 배점도 15/30/30/25로 바뀌었다. 단, 이 개편은
+         탕정분원(isChessV2()) 전용이다 — 다른 분원은 아직 옛 시험지 그대로라 영역
+         구성 자체가 다르므로, 예전 배점(46/36/18)을 그대로 써야 한다. */
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
-        test01Rows: [
+        test01Rows: isChessV2() ? [
           { label: "Phonics", base: 15 },
           { label: "Listening Comprehension", base: 30 },
           { label: "Reading Comprehension", base: 30 },
           { label: "Vocabulary in Context", base: 25 }
+        ] : [
+          { label: "Listening Comprehension", base: 46 },
+          { label: "Reading Comprehension", base: 36 },
+          { label: "Vocabulary in Context", base: 18 }
         ],
         speaking: [
           {
@@ -1874,14 +1879,17 @@ function renderChessReport() {
     ];
 
     if (cleanKey === "D3") {
-      /* 2026-10-28 CHESS PT 개편 — D3는 Vocabulary 영역이 새로 생기고 42/42/16으로 바뀜.
-         예전 40/60(듣기/읽기 2영역)은 구버전 비율이었다. */
+      /* 2026-10-28 CHESS PT 개편 — 탕정분원(isChessV2())만 Vocabulary 영역이 새로 생기고
+         42/42/16으로 바뀐다. 다른 분원은 옛 시험지 그대로라 40/60(듣기/읽기 2영역)을 쓴다. */
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
-        test01Rows: [
+        test01Rows: isChessV2() ? [
           { label: "Listening Comprehension", base: 42 },
           { label: "Reading Comprehension", base: 42 },
           { label: "Vocabulary in Context", base: 16 }
+        ] : [
+          { label: "Listening Comprehension", base: 40 },
+          { label: "Reading Comprehension", base: 60 }
         ],
         speaking: commonSpeaking,
         showGrammar: true,
@@ -1890,15 +1898,19 @@ function renderChessReport() {
     }
 
     if (cleanKey === "D4") {
-      /* 2026-10-28 CHESS PT 개편 — D4는 Vocabulary·Grammar 영역이 새로 생기고
-         42/42/6/10으로 바뀜. 33번은 서술형이라 Grammar 안에서 1문항만 4점. */
+      /* 2026-10-28 CHESS PT 개편 — 탕정분원(isChessV2())만 Vocabulary·Grammar 영역이
+         새로 생기고 42/42/6/10으로 바뀐다(33번은 서술형이라 Grammar 안에서 1문항만 4점).
+         다른 분원은 옛 시험지 그대로라 D3와 같은 40/60을 쓴다. */
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
-        test01Rows: [
+        test01Rows: isChessV2() ? [
           { label: "Listening Comprehension", base: 42 },
           { label: "Reading Comprehension", base: 42 },
           { label: "Vocabulary in Context", base: 6 },
           { label: "Grammar", base: 10 }
+        ] : [
+          { label: "Listening Comprehension", base: 40 },
+          { label: "Reading Comprehension", base: 60 }
         ],
         speaking: commonSpeaking,
         showGrammar: true,
@@ -1906,14 +1918,17 @@ function renderChessReport() {
       };
     }
 
-    /* 2026-10-28 CHESS PT 개편 — L1~L4는 전부 같은 배점표(36/36/15/13)를 쓴다.
-       Writing 유형(SUMMARY/PARAGRAPH)만 레벨마다 다르다. 예전 46/54(듣기/읽기 2영역)는
-       구버전 비율이었다. */
-    const l1l4Test01Rows = [
+    /* 2026-10-28 CHESS PT 개편 — 탕정분원(isChessV2())만 L1~L4 전부 같은 배점표(36/36/15/13)를
+       쓴다. Writing 유형(SUMMARY/PARAGRAPH)만 레벨마다 다르다. 다른 분원은 옛 시험지 그대로라
+       46/54(듣기/읽기 2영역)를 쓴다. */
+    const l1l4Test01Rows = isChessV2() ? [
       { label: "Listening Comprehension", base: 36 },
       { label: "Reading Comprehension", base: 36 },
       { label: "Vocabulary in Context", base: 15 },
       { label: "Grammar", base: 13 }
+    ] : [
+      { label: "Listening Comprehension", base: 46 },
+      { label: "Reading Comprehension", base: 54 }
     ];
 
     if (cleanKey === "L1" || cleanKey === "L2") {
