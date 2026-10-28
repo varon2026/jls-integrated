@@ -4305,12 +4305,15 @@ async function handleExcelFile(ev){
       cN=col('이름'), cC=col('회원코드')>=0?col('회원코드'):col('아이디'),
       cS=col('학교'), cG=col('학년'), cP=col('학부모 연락처'), cM=col('공지'), cR=col('접수자');
     if(cN<0||cD<0){ toast('이름·예약일 칸을 못 찾았어요','err'); return; }
-    /* 2026-10-28 — 운영자: "엑셀에 조민준이 두명이였거든. 학교가 다른데 왜 중복으로 인식한거야?"
+    /* 2026-10-28 — 운영자: "엑셀에 조민준이 두명이였거든. 학교·전화번호 다른데 왜 중복으로
+       인식한거야? 이름이 같을순 있어. 근데 전화번호까지 같으면 중복으로 인식되어야 하는거고."
        회원코드가 없는 예약(예약 단계엔 IMS 임시등록이 없어서 흔함)은 이름만으로 중복을 봤는데,
-       같은 날·같은 시간에 동명이인이 있으면(학교가 다른 다른 학생) 뒤의 학생이 중복으로
-       잘못 건너뛰어졌다(아산탕정 10/31 조민준 2명 중 1명 누락). 학교를 키에 더해서
-       같은 이름이라도 학교가 다르면 다른 사람으로 본다. */
-    const seen=new Set(reservations.map(r=>`${r.branch_id}|${(r.student_code||r.student_name||'').trim()}|${String(r.reserved_date).slice(0,10)}|${String(r.reserved_time||'').slice(0,5)}|${String(r.school||'').trim()}`));
+       같은 날·같은 시간에 동명이인이 있으면(실제로는 다른 학생) 뒤의 학생이 중복으로 잘못
+       건너뛰어졌다(아산탕정 10/31 조민준 2명 중 1명 누락). 사람을 구분하는 기준은 학교보다
+       학부모 전화번호가 더 믿을 만하다(같은 학교에 동명이인이 있을 수도 있고, 반대로 전화번호가
+       같으면 사실상 같은 집·같은 아이로 봐도 된다) — 그래서 전화번호를 우선으로 쓰고,
+       전화번호가 비어 있을 때만 학교로 대신 구분한다. */
+    const seen=new Set(reservations.map(r=>`${r.branch_id}|${(r.student_code||r.student_name||'').trim()}|${String(r.reserved_date).slice(0,10)}|${String(r.reserved_time||'').slice(0,5)}|${r.parent_phone||String(r.school||'').trim()}`));
     // ★ 분원 계정이 올리면 파일의 장소/분원명을 신뢰하지 않고 '내 분원'으로 고정.
     //   (운정1이 올렸는데 파일 장소칸이 운정2로 매칭돼 엉뚱한 분원에 들어가는 사고 방지)
     //   어드민만 여러 분원 섞인 파일을 파일값(matchBranch)으로 분배.
@@ -4325,13 +4328,15 @@ async function handleExcelFile(ev){
       const time=String(r[cT]==null?'':r[cT]).trim().slice(0,5);
       const code=String(r[cC]==null?'':r[cC]).trim();
       const school=String(r[cS]==null?'':r[cS]).trim();
+      const phone=xlPhone(r[cP]);
       const memo=String(r[cM]==null?'':r[cM]).trim();
       const canceled=memo.includes('[취소]')||/^취소/.test(memo);
-      const key=`${branchId}|${(code||name).trim()}|${date}|${time}|${school}`;
-      if(seen.has(key)){ dup++; dupNames.push(name+(school?`(${school})`:'')); continue; }
+      const identity=phone||school;
+      const key=`${branchId}|${(code||name).trim()}|${date}|${time}|${identity}`;
+      if(seen.has(key)){ dup++; dupNames.push(name+(identity?`(${identity})`:'')); continue; }
       seen.add(key);
       toInsert.push({ branch_id:branchId, student_code:code||null, student_name:name,
-        parent_phone:xlPhone(r[cP]), school:school||null,
+        parent_phone:phone, school:school||null,
         grade:String(r[cG]==null?'':r[cG]).trim()||null, reserved_date:date, reserved_time:time,
         manager:null, memo:memo||null,
         status:canceled?'canceled':'booked', enrolled:'pending' });
