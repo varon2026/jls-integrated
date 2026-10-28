@@ -4060,7 +4060,7 @@ async function submitReservation(){
     student_name: name,
     parent_phone: phone,
     school: g('school')||null,
-    grade: g('grade')||null,
+    grade: gradeTxt(g('grade'))||null,
     reserved_date: bookState.sel,
     reserved_time: time,
     manager: null,
@@ -4219,7 +4219,7 @@ async function saveResInfo(id){
   const g=k=>{ const e=$(k+id); return e?e.value.trim():''; };
   const name=g('bk_en_');
   if(!name){ toast('이름을 입력하세요','err'); return; }
-  const ok=await updateReservation(id,{ student_name:name, school:g('bk_es_')||null, grade:g('bk_eg_')||null, parent_phone:g('bk_ep_')||null });
+  const ok=await updateReservation(id,{ student_name:name, school:g('bk_es_')||null, grade:gradeTxt(g('bk_eg_'))||null, parent_phone:g('bk_ep_')||null });
   if(ok){ toast('학생 정보 수정됨 ✓'); renderWonmuBody(); }
 }
 async function moveReservation(id){
@@ -4335,9 +4335,16 @@ async function handleExcelFile(ev){
       const key=`${branchId}|${(code||name).trim()}|${date}|${time}|${identity}`;
       if(seen.has(key)){ dup++; dupNames.push(name+(identity?`(${identity})`:'')); continue; }
       seen.add(key);
+      /* 2026-10-28 — 운영자: "초2로 올리건 초등2로 올리건 무조건 초등,중등으로 인식해야돼.
+         맨위엔 초등2로 떴는데 학생정보엔 적은 그대로 들어가서 채점하기 눌렀을때 학년정보가
+         안 따라붙어." — 목록 배지는 gradeTxt()로 보여줄 때만 "초등2"로 바꿔서 보여줬을 뿐
+         실제 저장값은 "초2" 그대로였다. 레벨테스트 채점 화면(leveltest)의 학년 선택지는
+         "초등2"/"중등1" 같은 전체 글자만 있어서, 짧은 "초2"가 넘어가면 학년이 안 골라졌다.
+         업로드 시점에 바로 정규화해서 저장값 자체를 "초등2"로 맞춘다. */
+      const gradeNorm=gradeTxt(String(r[cG]==null?'':r[cG]).trim())||null;
       toInsert.push({ branch_id:branchId, student_code:code||null, student_name:name,
         parent_phone:phone, school:school||null,
-        grade:String(r[cG]==null?'':r[cG]).trim()||null, reserved_date:date, reserved_time:time,
+        grade:gradeNorm, reserved_date:date, reserved_time:time,
         manager:null, memo:memo||null,
         status:canceled?'canceled':'booked', enrolled:'pending' });
     }
