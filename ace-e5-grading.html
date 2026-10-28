@@ -494,6 +494,7 @@ function render(){
         <button class="btn" onclick="saveAll()" ${SAVING||TABLE_MISSING?'disabled':''}>${SAVING?'저장 중…':'💾 저장'}</button>
       </div>
     </div>
+    ${CURTAB==='vocab' ? `<div style="margin:2px 2px 10px;padding:10px 14px;border:1.5px solid #e0a44c;background:#fff3d6;border-radius:10px;font-weight:800;color:#b7791f;font-size:13px">🟧 Voca는 <b>맞으면 1, 틀리면 0 또는 빈칸</b>으로 두세요.</div>` : ''}
     ${CURTAB==='total' ? `
     <div class="card" style="padding:12px 18px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span class="hint">선택 ${SELECTED.size}명</span>
