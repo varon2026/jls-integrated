@@ -1718,12 +1718,16 @@ function renderChessReport() {
     }
 
     if (cleanKey === "D2") {
+      /* 2026-10-28 CHESS PT 개편(운영자가 준 "분원공유용 CHESS New PT 배정기준표" 원본) —
+         D2는 Phonics 영역이 새로 생기고 배점도 15/30/30/25로 바뀌었다. 예전 46/36/18은
+         2017년 구버전 그대로였다(우연히 D2만 멀쩡해 보였던 값, 위 2046번 줄 참고). */
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
         test01Rows: [
-          { label: "Listening Comprehension", base: 46 },
-          { label: "Reading Comprehension", base: 36 },
-          { label: "Vocabulary in Context", base: 18 }
+          { label: "Phonics", base: 15 },
+          { label: "Listening Comprehension", base: 30 },
+          { label: "Reading Comprehension", base: 30 },
+          { label: "Vocabulary in Context", base: 25 }
         ],
         speaking: [
           {
@@ -1865,12 +1869,15 @@ function renderChessReport() {
       }
     ];
 
-    if (cleanKey === "D3" || cleanKey === "D4") {
+    if (cleanKey === "D3") {
+      /* 2026-10-28 CHESS PT 개편 — D3는 Vocabulary 영역이 새로 생기고 42/42/16으로 바뀜.
+         예전 40/60(듣기/읽기 2영역)은 구버전 비율이었다. */
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
         test01Rows: [
-          { label: "Listening Comprehension", base: 40 },
-          { label: "Reading Comprehension", base: 60 }
+          { label: "Listening Comprehension", base: 42 },
+          { label: "Reading Comprehension", base: 42 },
+          { label: "Vocabulary in Context", base: 16 }
         ],
         speaking: commonSpeaking,
         showGrammar: true,
@@ -1878,13 +1885,37 @@ function renderChessReport() {
       };
     }
 
-    if (cleanKey === "L1" || cleanKey === "L2") {
+    if (cleanKey === "D4") {
+      /* 2026-10-28 CHESS PT 개편 — D4는 Vocabulary·Grammar 영역이 새로 생기고
+         42/42/6/10으로 바뀜. 33번은 서술형이라 Grammar 안에서 1문항만 4점. */
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
         test01Rows: [
-          { label: "Listening Comprehension", base: 46 },
-          { label: "Reading Comprehension", base: 54 }
+          { label: "Listening Comprehension", base: 42 },
+          { label: "Reading Comprehension", base: 42 },
+          { label: "Vocabulary in Context", base: 6 },
+          { label: "Grammar", base: 10 }
         ],
+        speaking: commonSpeaking,
+        showGrammar: true,
+        writingType: null
+      };
+    }
+
+    /* 2026-10-28 CHESS PT 개편 — L1~L4는 전부 같은 배점표(36/36/15/13)를 쓴다.
+       Writing 유형(SUMMARY/PARAGRAPH)만 레벨마다 다르다. 예전 46/54(듣기/읽기 2영역)는
+       구버전 비율이었다. */
+    const l1l4Test01Rows = [
+      { label: "Listening Comprehension", base: 36 },
+      { label: "Reading Comprehension", base: 36 },
+      { label: "Vocabulary in Context", base: 15 },
+      { label: "Grammar", base: 13 }
+    ];
+
+    if (cleanKey === "L1" || cleanKey === "L2") {
+      return {
+        test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
+        test01Rows: l1l4Test01Rows,
         speaking: commonSpeaking,
         showGrammar: true,
         writingType: "SUMMARY"
@@ -1893,10 +1924,7 @@ function renderChessReport() {
 
     return {
       test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
-      test01Rows: [
-        { label: "Listening Comprehension", base: 46 },
-        { label: "Reading Comprehension", base: 54 }
-      ],
+      test01Rows: l1l4Test01Rows,
       speaking: commonSpeaking,
       showGrammar: true,
       writingType: "PARAGRAPH"
