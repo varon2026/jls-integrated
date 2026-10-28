@@ -1997,7 +1997,13 @@ function naesinDayLabel(className){
    전체 합만 나옴) naesinPerfItemGains로 문항(n) 단위로 따로 뽑는다.
    세 영역(지필·듣기·수행)이 다 채점된 학생만 총점·등급을 채운다 — 하나라도 빠졌는데
    총점을 내면 미채점 상태를 다 채점된 것처럼 큐앱에 올리게 된다. */
-function naesinQappSheetFor(code,studs,idx){
+function naesinQappSheetFor(code,studs,idx,opts){
+  /* 2026-10-28 — 운영자: "본사 계정으로 전체 다운로드했을땐 분원명이 들어가야돼.
+     분원계정으로 했을땐 상관없거든. 본사는 어느분원인지 알아야 할거잖아." —
+     분원 하나짜리 반(exportQappExcel)·분원계정 일괄은 어차피 한 분원뿐이라 안 넣고,
+     본사계정이 "전체 (모든 분원)"로 일괄 받을 때만(opts.branchCol) 맨 앞에 분원명 칸을 더한다.
+     큐앱 업로드 양식 자체는 분원명 칸이 없어서, 그 경우엔 이 칸을 지우고 올려야 한다. */
+  const branchCol=!!(opts&&opts.branchCol);
   const wAns=naesinAns('지필평가',code), lAns=naesinAns('듣기평가',code);
   const ptOf=(arr,f)=>Math.round(arr.filter(f).reduce((s,a)=>s+(a.pt||0),0)*10)/10;
   const wSub=sub=>ptOf(wAns,a=>(a.sub||'')===sub);
@@ -2038,7 +2044,7 @@ function naesinQappSheetFor(code,studs,idx){
     {label:`수행평가 \n(만점 ${itemMax(204)}점) \n(지문길이와 문장 수 조건) `, max:itemMax(204), w:12, get:c=>c.perf?(c.perf[204]||0):''},
   ].filter(cdef=>cdef.max>0);
 
-  const header=['No','학생코드','학생이름','학교명/학년','레벨','수업요일','담임선생님','학년구분',
+  const header=[...(branchCol?['분원명']:[]),'No','학생코드','학생이름','학교명/학년','레벨','수업요일','담임선생님','학년구분',
     `점수 \n(만점 ${totalMax}점) `,'등급', ...scoreCols.map(cdef=>cdef.label)];
 
   const rows=studs.map((r,i)=>{
@@ -2053,6 +2059,7 @@ function naesinQappSheetFor(code,studs,idx){
     const grade=complete?(total>89?'A':total>79?'B':total>69?'C':total>59?'D':total>19?'E':''):'';
     const ctx={w,l,perf,spkTot,wrtTot};
     const cells=[
+      ...(branchCol?[r.branchName||'']:[]),
       i+1, r.code, r.name, (r.school||'')+'/'+(r.grade||''), levelCode(r.className)||code,
       naesinDayLabel(r.className), r.teacher||'', r.chess?'CHESS':'ACE',
       total, grade,
@@ -2061,7 +2068,7 @@ function naesinQappSheetFor(code,studs,idx){
     return {cells, fill:null};
   });
 
-  const widths=[4,12,10,22,8,10,14,10,8,6, ...scoreCols.map(cdef=>cdef.w)];
+  const widths=[...(branchCol?[11]:[]),4,12,10,22,8,10,14,10,8,6, ...scoreCols.map(cdef=>cdef.w)];
   return {name:code, header, rows, widths};
 }
 async function exportQappExcel(){
@@ -2161,12 +2168,17 @@ async function exportScoresBulk(){
       /* 2026-10-28 — 반별(exportQappExcel) 버튼과 같이, 일괄 다운로드도 큐앱 업로드용 시트 +
          사람이 보기 좋은 성적표 시트를 레벨마다 짝으로 넣는다. brDl이 빈 문자열이면(본사계정이
          위에서 "전체 (모든 분원)"를 고른 경우) levelsForExam('')이 scopedRoster 쪽에서 분원
-         필터를 안 걸어서 전 분원이 다 들어간다 — scopedRoster() 참고. */
+         필터를 안 걸어서 전 분원이 다 들어간다 — scopedRoster() 참고.
+         운영자: "본사 계정으로 전체 다운로드했을땐 분원명이 들어가야돼. 분원계정으로 했을땐
+         상관없거든." — 본사가 "전체 (모든 분원)"를 골랐을 때만(여러 분원이 한 시트에 섞이는
+         경우만) 큐앱 시트에 분원명 칸을 추가한다. 분원계정이거나 본사가 분원 하나를 콕 찍으면
+         어차피 그 시트 전체가 한 분원이라 분원명이 필요 없다. */
+      const qappShowBranch=(ROLE==='admin')&&!brDl;
       levelsForExam(brDl).forEach(l=>{
         const code=l.code;
         const studs=l.recs.slice().sort((a,b)=>(a.branchName+a.name).localeCompare(b.branchName+b.name));
         if(!studs.some(r=>idx[r.code+'|'+code+'|지필평가']||idx[r.code+'|'+code+'|듣기평가']||idx[r.code+'|'+code+'|수행평가']))return;
-        const qsh=naesinQappSheetFor(code,studs,idx);qsh.name=_uniqSheet(sheets,code+'_큐앱');
+        const qsh=naesinQappSheetFor(code,studs,idx,{branchCol:qappShowBranch});qsh.name=_uniqSheet(sheets,code+'_큐앱');
         sheets.push(qsh);
         const sh=naesinSheetFor(code,studs,idx);sh.name=_uniqSheet(sheets,code+'_성적');
         sheets.push(sh);
