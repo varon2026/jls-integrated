@@ -891,11 +891,13 @@ function openSelectedAnswer() {
 
  openAceAnswerModalPretty(title);
 }
-function openAnswerModal() {
+/* 2026-10-28 — titleOverride를 추가해서 examName 드롭다운이 없는 화면(예: ace-e5-grading.html,
+   integration.js의 ?answerFor= 직통 진입)에서도 같은 답지 팝업을 그대로 띄울 수 있게 했다.
+   기존 호출부(openSelectedAnswer 등)는 그대로 examName 값을 읽는다 — 동작 안 바뀜. */
+function openAnswerModal(titleOverride) {
   const examEl = document.getElementById("examName");
-  if (!examEl) return;
-
-  const title = examEl.value;
+  const title = titleOverride != null ? titleOverride : (examEl ? examEl.value : "");
+  if (titleOverride == null && !examEl) return;
 
   const chessTests = ["D1","D2","D3","D4","L1","L2","L3","L4"];
 

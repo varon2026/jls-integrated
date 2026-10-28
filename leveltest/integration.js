@@ -3,6 +3,9 @@
    - 진입: 예약에서 넘어온 학생정보 자동입력 (?code&name&school&grade&date&rid&branch)
    - 저장: 채점 결과 → Supabase(level_test_results) + 예약(level_test_reservations) 업데이트
    - 열람: ?view=<resultId> → 저장된 성적표 읽기전용 렌더
+   - 답지 직통: ?answerFor=<examName> → 반·시험지 선택 없이 그 시험 답지 팝업만 바로 띄움
+     (ace-e5-grading.html의 "E6 답지"/"단어·해석 답지" 버튼이 새 탭에서 이 주소로 연다 —
+     운영자: "레벨테스트에서 답지볼때랑 똑같은 팝업이 떴으면 좋겠음")
    ※ 원본의 LAST_REPORT_SESSION / LAST_CHESS_SESSION / render* 는 같은 전역이라 이름으로 접근 가능
    ============================================================================ */
 (function () {
@@ -15,7 +18,7 @@
   var P = {
     rid: qs.get('rid'), code: qs.get('code'), name: qs.get('name'),
     school: qs.get('school'), grade: qs.get('grade'), date: qs.get('date'),
-    branch: qs.get('branch'), viewId: qs.get('view')
+    branch: qs.get('branch'), viewId: qs.get('view'), answerFor: qs.get('answerFor')
   };
   window.__LT_ENTRY = P;
 
@@ -180,12 +183,35 @@
     } catch (e) { console.error('열람 실패', e); if (appEl) appEl.innerHTML = '<p style="padding:50px;text-align:center;color:#64748b">성적표를 불러오지 못했어요.</p>'; }
   }
 
+  /* ---------- 답지 직통 (?answerFor=) — openSelectedAnswer()의 분기와 같은 로직,
+     #examName 드롭다운 없이 title만으로 바로 연다 ---------- */
+  function showAnswerDirect(title) {
+    if (title.indexOf('Writing Type') === 0) {
+      window.open('./PDF/Writing_AnswerKey.pdf', '_blank');
+      return;
+    }
+    var chessTests = ['I1', 'D1', 'D2', 'D3', 'D4', 'L1', 'L2', 'L3', 'L4'];
+    if (chessTests.indexOf(title) >= 0) {
+      if (typeof showChessAnswerSheet === 'function') {
+        window.CURRENT_CHESS_EXAM_KEY = title;
+        showChessAnswerSheet();
+      }
+      return;
+    }
+    if (title === 'Voca & Translation') {
+      if (typeof openAnswerModal === 'function') openAnswerModal(title);
+      return;
+    }
+    if (typeof openAceAnswerModalPretty === 'function') openAceAnswerModalPretty(title);
+  }
+
   /* ---------- 부팅 ---------- */
   function boot() {
     // 성적표가 그려질 때마다 저장버튼 주입 감시
     var appEl = document.getElementById('app');
     if (appEl) { var mo = new MutationObserver(function () { injectSaveBtn(); }); mo.observe(appEl, { childList: true, subtree: true }); }
     if (P.viewId) { renderViewMode(); return; }
+    if (P.answerFor) { showAnswerDirect(P.answerFor); return; }
     prefill();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
