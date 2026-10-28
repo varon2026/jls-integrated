@@ -1817,6 +1817,16 @@ function getExamOptionsByGrade(grade) {
          (goNext() 참고). 여기 넣어야 다른 D/L처럼 시험지명 드롭다운 하나로 고른다. */
       for (let n = 1; n <= 5; n++) list.push({ value: "Writing Type" + n, label: "Writing Type" + n });
     }
+    /* 2026-10-28 — 운영자: "전 분원 현재 초등5학년 학생은 초등6시험,단어,해석 이걸로
+       볼 예정" — 초등5는 CHESS 시험지 밑에 초등6 시험지(E6·Voca & Translation)도
+       같이 뜨게 한다(초등1~4는 그대로 둔다). 전 분원 공통 — 탕정만이 아니다.
+       goNext()에도 초5+E6/Voca를 초등6처럼 보내는 라우팅을 같이 추가해야 한다
+       (getReportGradeForExam()·getAssignedLevel()엔 이미 이 조합을 알아보는 로직이
+       있었는데, 드롭다운에 선택지 자체가 없어서 못 골랐을 뿐이다). */
+    if (g === "초등5") {
+      list.push({ value: "E6", label: "E6" });
+      list.push({ value: "Voca & Translation", label: "Voca & Translation" });
+    }
     return list;
   }
 
@@ -1913,12 +1923,18 @@ function goNext() {
     });
     return;
   }
-  if ((grade === "초등6" || grade === "중등1") && examName === "Voca & Translation") {
+  /* 2026-10-28 — 초등5가 E6·Voca & Translation을 고르면(getExamOptionsByGrade 참고)
+     초등6과 똑같은 화면으로 보낸다. 학생의 실제 학년(grade)은 그대로 넘겨서 — 아래
+     renderVTExamPage/renderExamPage가 받는 grade는 "초등5" 그대로이고, 보고서에
+     찍히는 학년은 getReportGradeForExam()이 따로 "초등6"으로 바꿔 보여준다. */
+  const routeGrade = (grade === "초등5" && (examName === "E6" || examName === "Voca & Translation")) ? "초등6" : grade;
+
+  if ((routeGrade === "초등6" || routeGrade === "중등1") && examName === "Voca & Translation") {
     renderVTExamPage(memberCode, name, school, grade, testDate, examName);
     return;
   }
 
-  if (grade === "초등6") {
+  if (routeGrade === "초등6") {
     renderExamPage(memberCode, name, school, grade, testDate, examName, "E6");
     return;
   }
@@ -2060,7 +2076,7 @@ function renderExamPage(memberCode, name, school, grade, testDate, title, examKe
         <input id="q-${q.no}" class="answer-input" maxlength="1" inputmode="numeric"
           value="${esc(preset)}" data-ans="${esc(q.ans == null ? '' : q.ans)}"
           oninput="onlyChoice(this)"
-          onkeydown="moveLinear(event,'q',${q.no},${examData.length},'${grade === '초등6' || grade === '중등1' ? 'vocab-1' : ''}')">
+          onkeydown="moveLinear(event,'q',${q.no},${examData.length},'${isVTBundledGrade(grade) ? 'vocab-1' : ''}')">
         <div class="answer-meta">${q.area} / ${q.score}점</div>
       </div>
     `;
@@ -2068,7 +2084,7 @@ function renderExamPage(memberCode, name, school, grade, testDate, title, examKe
 
   let integratedVT = "";
 
-if ((grade === "초등6" || grade === "중등1") &&
+if (isVTBundledGrade(grade) &&
     typeof VOCAB_ITEMS !== "undefined" &&
     typeof TRANS_ITEMS !== "undefined") {
 
@@ -2713,7 +2729,7 @@ const interviewResult = collectChessInterviewResult(title, examKey);
   let vtEvaluation = null;
 
  if (
-  (grade === "초등6" || grade === "중등1") &&
+  isVTBundledGrade(grade) &&
   typeof VOCAB_ITEMS !== "undefined" &&
   typeof TRANS_ITEMS !== "undefined" &&
   document.getElementById("trans-score-1")
@@ -2835,7 +2851,7 @@ const assignedLevel = getAssignedLevel(reportGrade, title, evaluation.total, tes
 let vtEvaluation = null;
 
   if (
-  (grade === "초등6" || grade === "중등1") &&
+  isVTBundledGrade(grade) &&
   typeof evaluateVTExam === "function" &&
   document.getElementById("trans-score-1")
 ) {
@@ -2948,11 +2964,21 @@ function getReportGradeForExam(studentGrade, examName) {
 
  
   if ((g.includes("초5") || g.includes("초등5")) && (e.includes("E6") || e === "")) {
-    console.log("학년 보정 발생: 초5 -> 초등6"); 
+    console.log("학년 보정 발생: 초5 -> 초등6");
     return "초등6";
   }
 
   return studentGrade;
+}
+/* 2026-10-28 — 초등5가 E6을 고르면(getExamOptionsByGrade 참고) 어휘·해석(VT)이
+   초등6·중등1처럼 한 세션에 묶여야 한다("문항 다음칸 이동"/"통합VT 렌더링"/
+   "채점 시 VT 수거" 네 군데가 전부 이 조건을 썼다 — 한 곳으로 모아서 하나만
+   고치면 나머지가 안 따라오는 일을 막는다). renderExamPage/checkExam/
+   goToFinalReport는 D1~L4·I1·Writing(별도 chess.js 경로)·Voca & Translation
+   단독 선택(renderVTExamPage 경로)을 안 타므로, 이 세 함수 안에서 grade가
+   "초등5"라는 건 이미 E6을 골랐다는 뜻이라 examName을 다시 안 봐도 된다. */
+function isVTBundledGrade(grade) {
+  return grade === "초등6" || grade === "중등1" || grade === "초등5";
 }
 function getAssignedLevel(grade, examName, score, testDate = "") {
   const g = String(grade || "").replace(/\s/g, "");
