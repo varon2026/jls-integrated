@@ -454,10 +454,18 @@ function isSatExamKey(examKey) {
    좌표는 원본 PDF를 pymupdf로 직접 읽어 뽑은 pt값에서, 실제 인쇄가
    @page{margin:10mm}(chess-report.css)로 한 번 더 깎아먹는 만큼(10mm=28.35pt)
    가로·세로 전부 28.35pt씩 뺀 값이다 — 위 구 표지와 같은 보정 방식.
+   ⚠️ 2026-10-29 — .jls-cover-page 자체에 화면용 10mm padding을 줬더니, 그
+   안의 position:absolute 자식들이 padding을 무시하고 테두리 기준으로 붙어서
+   (이 브라우저 렌더러 특성 — 패딩이 있어도 absolute 자식의 left/top 기준점이
+   안 밀린다) 전체가 왼쪽으로 10mm씩 쏠려 보였다("너는 중심에 가깝고 샘플은
+   우측에 더 붙어있음" — 운영자가 정확히 짚어낸 증상). 그래서 패딩은 바깥의
+   새 래퍼(.jls-cover-page-frame, 화면 전용)에 주고, 좌표의 기준점인
+   .jls-cover-page 자체는 화면·인쇄 둘 다 패딩 없이 190x277mm 그대로 둔다.
    opts: { name, school, grade, testType, testDate, introHtml, rImage } */
 function jlsCoverPageHTML(opts) {
   const o = opts || {};
   return `
+    <div class="jls-cover-page-frame">
     <div class="jls-cover-page">
       <div class="jls-cover-tagline">
         <div>Creative Writing 목표의 초등영어에서</div>
@@ -481,6 +489,7 @@ function jlsCoverPageHTML(opts) {
         ${o.introHtml || ""}
       </div>
       <div class="jls-cover-rmark"><img src="${esc(o.rImage || "cover-r-pink.png")}" alt="R"></div>
+    </div>
     </div>`;
 }
 function getDisplayLevel(assignedLevel) {

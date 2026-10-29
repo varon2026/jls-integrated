@@ -527,9 +527,17 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    topright·title·infobox·logo·siteurl)를 통째로 대체한다.
    ⚠️ 다른 분원은 이 클래스 자체가 안 쓰이니 이 CSS가 안 걸린다 — 범위를 막는
    쪽은 여기가 아니라 호출하는 JS 쪽이다. */
+/* ⚠️ 2026-10-29 — 화면에서 인쇄 여백(10mm)을 보여주려고 .jls-cover-page 자체에
+   padding을 줬었는데, 그 안의 position:absolute 자식들이 padding을 무시하고
+   테두리(border box) 기준으로 붙는 바람에("너는 중심에 가깝고 샘플은 우측에
+   더 붙어있음" — 운영자가 정확히 짚어낸 증상) 전체가 왼쪽으로 쏠려 보였다.
+   그래서 여백은 바깥 래퍼(.jls-cover-page-frame, 화면 전용)가 담당하고,
+   좌표 기준점인 .jls-cover-page 자체는 화면·인쇄 둘 다 패딩 없이 190x277mm
+   그대로 둔다 — 공통 규칙만 여기, @media 분기는 아래 frame 쪽에. */
 .jls-cover-page {
   position: relative;
   width: 100%;
+  min-height: 277mm;
   background: #fff;
   overflow: hidden;
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -537,26 +545,18 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   box-sizing: border-box;
 }
 .jls-cover-page * { box-sizing: border-box; }
-/* 좌표는 전부 "인쇄 시 @page{margin:10mm}가 깎아낸 190x277mm 내용 상자" 기준
-   pt값이다(common.js의 jlsCoverPageHTML 주석 참고) — 인쇄는 그 여백을 브라우저가
-   알아서 넣어주니 .jls-cover-page 자체엔 패딩이 없어야 좌표가 맞는다.
-   ⚠️ 그런데 화면 미리보기는 @page가 전혀 안 걸려서, 패딩 없이 보면 모든 내용이
-   실제 인쇄본보다 사방으로 10mm씩 위·왼쪽에 붙어 보인다 — 운영자가 화면 캡처로
-   "글자가 너무 위에 붙어있다"고 지적한 게 이거였다(실제 인쇄본과 비교해보니
-   좌표 자체는 안 틀렸고, 화면 미리보기만 여백 없이 보여서 그랬다). 그래서 화면
-   에서만 전체를 210x297mm 종이처럼 그리고 10mm 패딩을 줘서, 패딩 안쪽(=내용
-   좌표가 기준으로 삼는 190x277mm)이 인쇄 결과와 똑같이 보이게 한다. */
+/* .jls-cover-page-frame — 화면에서만 210x297mm 종이 + 10mm 여백처럼 보이게
+   감싸는 바깥 껍데기. 인쇄는 @page{margin:10mm}가 이미 실제 여백이라 아무
+   것도 안 한다(패딩 0, 폭 자동) — 그래서 인쇄 결과물은 이 커밋으로 전혀
+   안 바뀐다, 화면에 보이는 모습만 바뀐다. */
 @media print {
-  .jls-cover-page { min-height: 277mm; padding: 0; }
+  .jls-cover-page-frame { padding: 0; width: auto; }
 }
 @media screen {
-  /* ⚠️ 2026-10-29 추가 — 위 10mm 패딩만 넣었더니, 화면(.jls-cover-page)이
-     width:100%라 부모 폭이 210mm(약 794px)보다 좁은 창에서는 패딩+글자가
-     그대로 눌려서 "Placement Test Report"가 "Placement T"처럼 잘려 보이고
-     R도 깨졌다(운영자 캡처로 확인, 기본 창 폭에서 재현됨). min-width로
-     최소 210mm를 보장해서, 창이 좁으면 가로 스크롤이 생기더라도 안 눌리게
-     한다 — 화면 전용이라 인쇄엔 영향 없다. */
-  .jls-cover-page { min-height: 297mm; min-width: 210mm; padding: 10mm; }
+  /* min-width로 최소 210mm를 보장해서, 창이 좁으면 (처음엔 width:100%가
+     그대로 눌려서 "Placement Test Report"가 "Placement T"처럼 잘렸었다)
+     욱여넣지 않고 가로 스크롤이 생기게 한다. */
+  .jls-cover-page-frame { min-width: 210mm; padding: 10mm; box-sizing: border-box; }
 }
 
 .jls-cover-tagline {
