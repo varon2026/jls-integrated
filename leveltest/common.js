@@ -444,49 +444,43 @@ function formatDate(dateText) {
 function isSatExamKey(examKey) {
   return /수능형|고1형|고2형/.test(examKey || '');
 }
-/* 2026-10-26 — 탕정분원 전용 새 표지(운영자 확인받은 시안: .scratch_mockup/
-   cover-mockup.html). CHESS(chess.js, isChessV2())와 ACE(아래 renderReportScreen,
-   isSatExamKey()+탕정)가 같이 쓴다 — "체스는 체스, 에이스는 에이스"로 제목만
-   다르고 틀은 같아야 해서(운영자 요청) 한 함수로 공유한다. CSS는
-   leveltest-theme.css의 .jls-cover-* 참고.
-   opts: { kicker, brandMain, brandAccent, subtitle, name, school, grade,
-           testType, testDate, introHtml, taglineHtml } */
+/* 2026-10-29 — 대표님이 새로 디자인한 표지로 전면 교체(운영자: "토씨 하나 틀리지
+   말고" 그대로). 참고 원본: OneDrive/문서/DaouMessenger 4.0/Test Report_Cover.pdf
+   (CHESS=분홍 R, ACE=초록 R, 그 외 글자·배치는 전부 동일). 탕정분원 전용
+   (CHESS: chess.js의 isChessV2(), ACE: 아래 renderReportScreen에서 탕정일 때)이고
+   공유 함수라 "체스는 체스, 에이스는 에이스" 그대로 계승 — 상표 문구는 아예
+   안 보여주는 디자인이라(제목·라벨 전부 CHESS/ACE 어디에도 "CHESS"/"ACE" 글자가
+   없다) R 색깔과 ABOUT THE TEST 문단 내용으로만 구분한다.
+   좌표는 원본 PDF를 pymupdf로 직접 읽어 뽑은 pt값에서, 실제 인쇄가
+   @page{margin:10mm}(chess-report.css)로 한 번 더 깎아먹는 만큼(10mm=28.35pt)
+   가로·세로 전부 28.35pt씩 뺀 값이다 — 위 구 표지와 같은 보정 방식.
+   opts: { name, school, grade, testType, testDate, introHtml, rImage } */
 function jlsCoverPageHTML(opts) {
   const o = opts || {};
   return `
     <div class="jls-cover-page">
-      <div class="jls-cover-grid-v v1"></div>
-      <div class="jls-cover-grid-v v2"></div>
-      <div class="jls-cover-grid-h h1"></div>
-      <div class="jls-cover-grid-h h2"></div>
-
-      <div class="jls-cover-topleft">
-        <div class="jls-cover-kicker-label">ABOUT THE TEST</div>
-        ${o.introHtml || ""}
+      <div class="jls-cover-tagline">
+        <div>Creative Writing 목표의 초등영어에서</div>
+        <div>내신 A등급, 수능 1등급의 중등영어로!</div>
       </div>
+      <div class="jls-cover-divider d1"></div>
+      <div class="jls-cover-divider d2"></div>
+      <div class="jls-cover-mark"><img src="jls-mark-bw.png" alt="JLS"></div>
 
-      <div class="jls-cover-topright">
-        <div class="jls-cover-kicker-label">WHY JLS</div>
-        ${o.taglineHtml || ""}
-      </div>
-
-      <div class="jls-cover-title">
-        <div class="kicker">${esc(o.kicker || "")}</div>
-        <div class="main">${esc(o.brandMain || "JLS")} <span class="accent">${esc(o.brandAccent || "")}</span></div>
-        <div class="sub">${esc(o.subtitle || "")}</div>
-        <div class="rule"></div>
-      </div>
+      <div class="jls-cover-report-title">Placement Test Report</div>
 
       <div class="jls-cover-infobox">
-        <div class="cap">STUDENT INFO</div>
-        <div class="row"><b>NAME</b><span>${esc(o.name)}</span></div>
-        <div class="row"><b>SCHOOL / GRADE</b><span>${esc(o.school)} / ${esc(o.grade)}</span></div>
-        <div class="row"><b>TEST TYPE</b><span>${esc(o.testType)}</span></div>
-        <div class="row"><b>TEST DATE</b><span>${esc(formatDate(o.testDate))}</span></div>
+        <div class="row"><b>NAME .</b><span>${esc(o.name)}</span></div>
+        <div class="row"><b>SCHOOL / GRADE .</b><span>${esc(o.school)} / ${esc(o.grade)}</span></div>
+        <div class="row"><b>TEST TYPE .</b><span>${esc(o.testType)}</span></div>
+        <div class="row"><b>TEST DATE .</b><span>${esc(formatDate(o.testDate))}</span></div>
       </div>
 
-      <div class="jls-cover-logo"><img src="jls-logo-bw.png" alt="JLS 정상어학원"></div>
-      <div class="jls-cover-siteurl">www.<b>gojls</b>.com</div>
+      <div class="jls-cover-about">
+        <div class="cap">ABOUT THE TEST</div>
+        ${o.introHtml || ""}
+      </div>
+      <div class="jls-cover-rmark"><img src="${esc(o.rImage || "cover-r-pink.png")}" alt="R"></div>
     </div>`;
 }
 function getDisplayLevel(assignedLevel) {
@@ -3135,44 +3129,24 @@ function getLevelOptions(grade, examName) {
 }
 
 
-/* 2026-10-26 — 탕정분원은 새 표지(jlsCoverPageHTML, common.js 공용 함수 — CHESS와
-   같이 씀, "체스는 체스, 에이스는 에이스"로 제목·배지만 다르게)로 바꾸고,
-   다른 분원은 원래 쓰던 이 표지(JLS Academic Achievement Assessment Report)를
-   그대로 둔다. ⚠️ 운영자 지적: "표지를 만들었으면 원래 있던 표지는 없애야지.
+/* ⚠️ 운영자 지적(2026-10-26): "표지를 만들었으면 원래 있던 표지는 없애야지.
    표지를 두개 넣는게 어디있음?" — 처음엔 renderReportScreen에서 새 표지를
    그냥 앞에 붙이기만 해서, 이 buildCoverPage()가 만드는 원래 표지랑 같이
-   2장이 돼버렸다. 그래서 여기서 분기해서 하나만 나가게 고쳤다.
-   왼쪽 소개 문구는 introText(호출하는 쪽 general.js·sat.js가 이미 만들어서
-   넘겨주는 값 — 시험 종류별로 문구가 다름)를 그대로 재사용한다. 새로 문구를
-   또 만들지 않는 이유: 운영자가 준 문구가 정확히 이 introText 값과 같았다
-   ("임시문구라고 적힌건 빼. 이 문구를 넣어" + 붙여넣은 문구가 general.js의
-   introText 그대로) — 두 군데 따로 관리하면 나중에 문구 고칠 때 한쪽만
-   고치고 잊어버리기 쉽다. */
-/* 운영자: "여기도 볼드체로 임팩트 줄거 없음?" — introText(general.js·sat.js가
-   만드는 설명 문구, 시험 종류별로 서로 다름)의 마지막 문단만 <strong>으로
-   감싼다. 특정 단어를 찾는 게 아니라 "맨 마지막 <br><br> 뒤"라는 구조로
-   판단해서, E6용·수능형용 문구가 서로 달라도(끝맺는 말은 둘 다 마지막
-   문단이라 결론 문장) 똑같이 작동한다. 원본 introText 변수 자체는 안
-   건드린다 — 다른 분원이 쓰는 옛 표지는 이 함수를 거치지 않고 원래 값을
-   그대로 쓴다. */
-function jlsBoldLastParagraph(html) {
-  const text = String(html || "");
-  const idx = text.lastIndexOf("<br><br>");
-  if (idx === -1) return text;
-  const splitAt = idx + 8;
-  return text.slice(0, splitAt) + "<strong>" + text.slice(splitAt).trim() + "</strong>";
-}
+   2장이 돼버렸다. 그래서 여기서 분기해서 하나만 나가게 고쳤다. */
+/* 2026-10-29 — 대표님이 새로 디자인한 표지로 전면 교체("토씨 하나 틀리지 말고").
+   ACE는 초록 R(cover-r-green.png), ABOUT THE TEST 문단은 운영자가 준 문구 그대로
+   고정 — 시험 종류(E6·M1/M2·M3·Voca&Translation 등)와 무관하게 전부 같은 문단을
+   쓴다(예전엔 general.js/sat.js가 넘겨주는 introText를 시험마다 다르게 썼지만,
+   새 표지 시안엔 그 자리가 이 고정 문단 하나뿐이다). */
 function buildCoverPage(memberCode, name, school, grade, testDate, title, introText) {
   if (window.__LT_ENTRY && window.__LT_ENTRY.branch === "br_22jcktj") {
     return jlsCoverPageHTML({
-      kicker: "ACADEMIC ASSESSMENT",
-      brandMain: "JLS", brandAccent: "ACE",
-      subtitle: "Academic Assessment Report",
       name, school, grade, testType: title, testDate,
-      introHtml: jlsBoldLastParagraph(introText),
-      taglineHtml: `
-        <div class="line1">Real 수능형<br>문제로 다지는<br>중등 영어에서</div>
-        <div class="line2">고등 내신 <span class="accent">A등급</span>,<br>수능 <span class="accent">1등급</span>의<br>탄탄한 실력으로!</div>
+      rImage: "cover-r-green.png",
+      introHtml: `
+        <p>정상어학원의 레벨테스트는<br>단순히 문법 지식을 확인하는 4지선다형 문법 평가가 아닙니다.</p>
+        <p>해석 테스트를 통해 중·고등학교 영어 교과과정의 문법 학습 수준,<br>실제 문장 해석과 이해에 활용할 수 있는 역량을 종합적으로 평가합니다.<br>여기에 고등 수준까지의 어휘력 테스트를 더해 영어 실력을 다각적으로 진단합니다.</p>
+        <p>이러한 평가를 바탕으로 학생의 영어 학습 강점과 보완점을 정확하게 파악하고,<br>수능 1등급을 목표로 한 체계적인 학습 로드맵을 제시합니다.</p>
       `
     });
   }
