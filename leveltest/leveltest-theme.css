@@ -527,17 +527,22 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    topright·title·infobox·logo·siteurl)를 통째로 대체한다.
    ⚠️ 다른 분원은 이 클래스 자체가 안 쓰이니 이 CSS가 안 걸린다 — 범위를 막는
    쪽은 여기가 아니라 호출하는 JS 쪽이다. */
-/* ⚠️ 2026-10-29 — 화면에서 인쇄 여백(10mm)을 보여주려고 .jls-cover-page 자체에
-   padding을 줬었는데, 그 안의 position:absolute 자식들이 padding을 무시하고
-   테두리(border box) 기준으로 붙는 바람에("너는 중심에 가깝고 샘플은 우측에
-   더 붙어있음" — 운영자가 정확히 짚어낸 증상) 전체가 왼쪽으로 쏠려 보였다.
-   그래서 여백은 바깥 래퍼(.jls-cover-page-frame, 화면 전용)가 담당하고,
-   좌표 기준점인 .jls-cover-page 자체는 화면·인쇄 둘 다 패딩 없이 190x277mm
-   그대로 둔다 — 공통 규칙만 여기, @media 분기는 아래 frame 쪽에. */
+/* ⚠️ 2026-10-29 — "인쇄하면 축소돼 보인다"는 걸 transform:scale로 억지로
+   키워서 맞춰보려 했는데, 운영자가 대표님 샘플과 자로 잰 듯 다시 비교해주고
+   나서야 진짜 원인을 찾았다: chess-report.css에 @page 규칙이 두 번 있다
+   (352번 줄 margin:10mm, 그리고 "CHESS report compact tuning" 구간
+   765번 줄 margin:7mm) — 나중에 나오는 7mm가 이겨서, 실제 인쇄는 줄곧
+   7mm였는데 이 표지 좌표는 전부 10mm로 계산해 뒀었다. 그래서 scale 땜질
+   대신 좌표 기준 자체를 7mm(=19.84pt)로 다시 뽑아서 고쳤다 — transform
+   땜질은 걷어냈다. (다른 분원 성적표가 이미 쓰고 있는 7mm는 안 건드림,
+   이 표지만 그 값에 맞춰 좌표를 다시 계산한 것.)
+   좌표 기준점인 .jls-cover-page 자체는 화면·인쇄 둘 다 패딩 없이
+   196x283mm(=210-7*2 x 297-7*2) 그대로 둔다 — 공통 규칙만 여기,
+   @media 분기는 아래 frame 쪽에. */
 .jls-cover-page {
   position: relative;
   width: 100%;
-  min-height: 277mm;
+  min-height: 283mm;
   background: #fff;
   overflow: hidden;
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -545,55 +550,40 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   box-sizing: border-box;
 }
 .jls-cover-page * { box-sizing: border-box; }
-/* .jls-cover-page-frame — 화면에서만 210x297mm 종이 + 10mm 여백처럼 보이게
-   감싸는 바깥 껍데기. 인쇄는 @page{margin:10mm}가 이미 실제 여백이라 아무
-   것도 안 한다(패딩 0, 폭 자동). */
+/* .jls-cover-page-frame — 화면에서만 210x297mm 종이 + 7mm 여백처럼 보이게
+   감싸는 바깥 껍데기. 인쇄는 @page(실제로 적용되는 건 7mm, 위 설명 참고)가
+   이미 실제 여백이라 아무 것도 안 한다(패딩 0, 폭 자동). */
 @media print {
   .jls-cover-page-frame { padding: 0; width: auto; }
-  /* 2026-10-29 — 운영자(최윤정): "인쇄하면 대표님 원본보다 살짝 축소되는
-     느낌" — 실제로 재서 비교해보니 내용 크기·배치는 정확히 원본 PDF 그대로였고,
-     원인은 @page{margin:10mm}(다른 분원 성적표 페이지와 공용이라 여기선 안
-     건드림)가 넉넉해서 "덜 꽉 차 보이는" 느낌이었다. 운영자 확인: "여백만
-     줄이기"로.
-     ⚠️ 처음엔 음수 margin+width로 상자 자체를 키웠는데, 그러면 상자의
-     왼쪽/위 모서리만 가장자리 쪽으로 당겨지고 오른쪽/아래는 오히려 더
-     멀어진다(요소 좌표가 상자 "왼쪽 위 모서리" 기준이라) — 실측해보니 R의
-     오른쪽 여백이 19.8mm→24.8mm로 더 벌어져서 되려 반대 효과였다. 그래서
-     transform:scale로 중심 기준 균등 확대로 바꿨다 — 글자·R 포함 전체가
-     한 덩어리로 커져서 네 방향 여백이 전부 비슷하게 줄어든다(가로 10→6.6mm,
-     세로 10→5mm, 프린터 최소 여백 3~5mm보다 넉넉해서 안전). page-break-after
-     로 이 표지는 항상 단독 페이지라, 확대된 모습이 위아래로 살짝 넘쳐도
-     다음 페이지 내용과 안 겹친다. */
-  .jls-cover-page { transform: scale(1.036); transform-origin: center; }
 }
 @media screen {
   /* min-width로 최소 210mm를 보장해서, 창이 좁으면 (처음엔 width:100%가
      그대로 눌려서 "Placement Test Report"가 "Placement T"처럼 잘렸었다)
      욱여넣지 않고 가로 스크롤이 생기게 한다. */
-  .jls-cover-page-frame { min-width: 210mm; padding: 10mm; box-sizing: border-box; }
+  .jls-cover-page-frame { min-width: 210mm; padding: 7mm; box-sizing: border-box; }
 }
 
 .jls-cover-tagline {
-  position: absolute; left: 204.95pt; top: 27.05pt;
+  position: absolute; left: 213.46pt; top: 35.56pt;
   font-size: 12pt; font-weight: 600; line-height: 1.2; color: #231f20;
   white-space: nowrap;
 }
 
 .jls-cover-divider {
-  position: absolute; top: 29.35pt; height: 41.3pt; width: 0.5pt; background: #231f20;
+  position: absolute; top: 37.86pt; height: 41.3pt; width: 0.5pt; background: #231f20;
 }
-.jls-cover-divider.d1 { left: 413.95pt; }
-.jls-cover-divider.d2 { left: 511.75pt; }
+.jls-cover-divider.d1 { left: 422.46pt; }
+.jls-cover-divider.d2 { left: 520.26pt; }
 
-.jls-cover-mark { position: absolute; left: 436.85pt; top: 36.55pt; width: 52pt; }
+.jls-cover-mark { position: absolute; left: 445.36pt; top: 45.06pt; width: 52pt; }
 .jls-cover-mark img { width: 100%; height: auto; display: block; }
 
 .jls-cover-report-title {
-  position: absolute; left: 306.55pt; top: 269.35pt;
+  position: absolute; left: 315.06pt; top: 277.86pt;
   font-size: 16pt; font-weight: 800; color: #231f20; white-space: nowrap;
 }
 
-.jls-cover-infobox { position: absolute; left: 305.55pt; top: 311pt; width: 206.5pt; }
+.jls-cover-infobox { position: absolute; left: 314.06pt; top: 319.76pt; width: 206.5pt; }
 /* ⚠️ 2026-10-29 — 운영자가 몇 번을 다시 봐도 "밑줄이 글씨에 안 붙어있다"고 한 게
    이거였다: align-items:baseline + 고정 height를 같이 쓰면, 한 줄짜리 flex에서
    내용이 박스 "위쪽"에 붙고 밑줄(border-bottom)과의 간격은 아래쪽 빈 공간만큼
@@ -608,7 +598,7 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .jls-cover-infobox .row span { font-size: 12pt; font-weight: 700; color: #231f20; }
 
 .jls-cover-about {
-  position: absolute; left: 0; top: 590.25pt; width: 365.45pt; text-align: right;
+  position: absolute; left: 0; top: 598.76pt; width: 374.06pt; text-align: right;
 }
 .jls-cover-about .cap {
   font-size: 10pt; font-weight: 700; letter-spacing: .08em; color: #231f20; margin-bottom: 6pt;
@@ -616,7 +606,7 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .jls-cover-about p { font-size: 9pt; line-height: 1.2; color: #231f20; margin: 0 0 4.8pt; font-weight: 400; }
 .jls-cover-about p:last-child { margin-bottom: 0; }
 
-.jls-cover-rmark { position: absolute; left: 381.25pt; top: 547.25pt; width: 129.6pt; height: 195.8pt; }
+.jls-cover-rmark { position: absolute; left: 389.76pt; top: 555.76pt; width: 129.6pt; height: 195.8pt; }
 .jls-cover-rmark img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* 운영자: "하단에 색이 있는거같지..?... 다 하얀색으로 못하냐?" — 실제 인쇄는

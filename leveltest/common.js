@@ -451,9 +451,12 @@ function isSatExamKey(examKey) {
    공유 함수라 "체스는 체스, 에이스는 에이스" 그대로 계승 — 상표 문구는 아예
    안 보여주는 디자인이라(제목·라벨 전부 CHESS/ACE 어디에도 "CHESS"/"ACE" 글자가
    없다) R 색깔과 ABOUT THE TEST 문단 내용으로만 구분한다.
-   좌표는 원본 PDF를 pymupdf로 직접 읽어 뽑은 pt값에서, 실제 인쇄가
-   @page{margin:10mm}(chess-report.css)로 한 번 더 깎아먹는 만큼(10mm=28.35pt)
-   가로·세로 전부 28.35pt씩 뺀 값이다 — 위 구 표지와 같은 보정 방식.
+   좌표는 원본 PDF를 pymupdf로 직접 읽어 뽑은 pt값에서, 실제 인쇄가 깎아먹는
+   여백만큼 뺀 값이다. ⚠️ 처음엔 10mm(chess-report.css 352번 줄 @page)인
+   줄 알았는데, 같은 파일 "CHESS report compact tuning" 구간(765번 줄)에
+   @page가 한 번 더 있고 margin:7mm라 그게 이긴다 — 실제 인쇄 여백은
+   줄곧 7mm였다. 그래서 7mm=19.84pt를 뺀 값으로 다시 계산했다(leveltest-theme.css
+   의 .jls-cover-* 참고).
    ⚠️ 2026-10-29 — .jls-cover-page 자체에 화면용 10mm padding을 줬더니, 그
    안의 position:absolute 자식들이 padding을 무시하고 테두리 기준으로 붙어서
    (이 브라우저 렌더러 특성 — 패딩이 있어도 absolute 자식의 left/top 기준점이
