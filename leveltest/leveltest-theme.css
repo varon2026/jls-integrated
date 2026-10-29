@@ -579,11 +579,16 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .jls-cover-mark img { width: 100%; height: auto; display: block; }
 
 .jls-cover-report-title {
-  position: absolute; left: 315.06pt; top: 277.86pt;
+  position: absolute; left: 329.23pt; top: 277.86pt;
   font-size: 16pt; font-weight: 800; color: #231f20; white-space: nowrap;
 }
 
-.jls-cover-infobox { position: absolute; left: 314.06pt; top: 319.76pt; width: 206.5pt; }
+/* 2026-10-29 — 운영자가 인쇄본을 자로 재서 준 수치 그대로 반영:
+   (1) "좀 더 우측으로" — 본문 덩어리(제목·학생정보·ABOUT THE TEST·R)를
+       전부 +5mm(14.17pt)씩 오른쪽으로. 머리말(태그라인·로고)은 지적 없었어서 안 건드림.
+   (2) 학생정보 줄 간격을 자로 재니 샘플 1.1cm인데 여긴 1cm — height를
+       30.35pt→31.18pt(=1.1cm)로. */
+.jls-cover-infobox { position: absolute; left: 328.23pt; top: 319.76pt; width: 206.5pt; }
 /* ⚠️ 2026-10-29 — 운영자가 몇 번을 다시 봐도 "밑줄이 글씨에 안 붙어있다"고 한 게
    이거였다: align-items:baseline + 고정 height를 같이 쓰면, 한 줄짜리 flex에서
    내용이 박스 "위쪽"에 붙고 밑줄(border-bottom)과의 간격은 아래쪽 빈 공간만큼
@@ -592,21 +597,26 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    붙인다. */
 .jls-cover-infobox .row {
   display: flex; align-items: flex-end; justify-content: space-between;
-  height: 30.35pt; padding-bottom: 2pt; border-bottom: 0.55pt solid #231906;
+  height: 31.18pt; padding-bottom: 2pt; border-bottom: 0.55pt solid #231906;
 }
 .jls-cover-infobox .row b { font-size: 10pt; font-weight: 600; color: #231f20; }
 .jls-cover-infobox .row span { font-size: 12pt; font-weight: 700; color: #231f20; }
 
+/* 2026-10-29 — 운영자: "R옆 문구 위아래 간격이 너무 촘촘해, 살짝 여유롭게" +
+   "하단 문구는 글씨체 1씩 더 키우고" → line-height 1.2→1.35, cap 10→11pt,
+   본문 9→10pt. width도 본문 덩어리 +5mm 이동에 맞춰 같이 늘림(오른쪽 끝
+   정렬 기준이라 width를 늘려야 오른쪽으로 밀린다). */
 .jls-cover-about {
-  position: absolute; left: 0; top: 598.76pt; width: 374.06pt; text-align: right;
+  position: absolute; left: 0; top: 598.76pt; width: 388.23pt; text-align: right;
 }
 .jls-cover-about .cap {
-  font-size: 10pt; font-weight: 700; letter-spacing: .08em; color: #231f20; margin-bottom: 6pt;
+  font-size: 11pt; font-weight: 700; letter-spacing: .08em; color: #231f20; margin-bottom: 6pt;
 }
-.jls-cover-about p { font-size: 9pt; line-height: 1.2; color: #231f20; margin: 0 0 4.8pt; font-weight: 400; }
+.jls-cover-about p { font-size: 10pt; line-height: 1.35; color: #231f20; margin: 0 0 4.8pt; font-weight: 400; }
 .jls-cover-about p:last-child { margin-bottom: 0; }
 
-.jls-cover-rmark { position: absolute; left: 389.76pt; top: 555.76pt; width: 129.6pt; height: 195.8pt; }
+/* R도 +5mm 오른쪽 + "밑으로 더 내려가야" 요청대로 +10mm 아래로. */
+.jls-cover-rmark { position: absolute; left: 403.93pt; top: 584.11pt; width: 129.6pt; height: 195.8pt; }
 .jls-cover-rmark img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* 운영자: "하단에 색이 있는거같지..?... 다 하얀색으로 못하냐?" — 실제 인쇄는
