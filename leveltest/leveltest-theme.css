@@ -547,10 +547,24 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .jls-cover-page * { box-sizing: border-box; }
 /* .jls-cover-page-frame — 화면에서만 210x297mm 종이 + 10mm 여백처럼 보이게
    감싸는 바깥 껍데기. 인쇄는 @page{margin:10mm}가 이미 실제 여백이라 아무
-   것도 안 한다(패딩 0, 폭 자동) — 그래서 인쇄 결과물은 이 커밋으로 전혀
-   안 바뀐다, 화면에 보이는 모습만 바뀐다. */
+   것도 안 한다(패딩 0, 폭 자동). */
 @media print {
   .jls-cover-page-frame { padding: 0; width: auto; }
+  /* 2026-10-29 — 운영자(최윤정): "인쇄하면 대표님 원본보다 살짝 축소되는
+     느낌" — 실제로 재서 비교해보니 내용 크기·배치는 정확히 원본 PDF 그대로였고,
+     원인은 @page{margin:10mm}(다른 분원 성적표 페이지와 공용이라 여기선 안
+     건드림)가 넉넉해서 "덜 꽉 차 보이는" 느낌이었다. 운영자 확인: "여백만
+     줄이기"로.
+     ⚠️ 처음엔 음수 margin+width로 상자 자체를 키웠는데, 그러면 상자의
+     왼쪽/위 모서리만 가장자리 쪽으로 당겨지고 오른쪽/아래는 오히려 더
+     멀어진다(요소 좌표가 상자 "왼쪽 위 모서리" 기준이라) — 실측해보니 R의
+     오른쪽 여백이 19.8mm→24.8mm로 더 벌어져서 되려 반대 효과였다. 그래서
+     transform:scale로 중심 기준 균등 확대로 바꿨다 — 글자·R 포함 전체가
+     한 덩어리로 커져서 네 방향 여백이 전부 비슷하게 줄어든다(가로 10→6.6mm,
+     세로 10→5mm, 프린터 최소 여백 3~5mm보다 넉넉해서 안전). page-break-after
+     로 이 표지는 항상 단독 페이지라, 확대된 모습이 위아래로 살짝 넘쳐도
+     다음 페이지 내용과 안 겹친다. */
+  .jls-cover-page { transform: scale(1.036); transform-origin: center; }
 }
 @media screen {
   /* min-width로 최소 210mm를 보장해서, 창이 좁으면 (처음엔 width:100%가
