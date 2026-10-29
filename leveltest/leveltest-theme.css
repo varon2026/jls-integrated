@@ -580,9 +580,15 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 }
 
 .jls-cover-infobox { position: absolute; left: 305.55pt; top: 311pt; width: 206.5pt; }
+/* ⚠️ 2026-10-29 — 운영자가 몇 번을 다시 봐도 "밑줄이 글씨에 안 붙어있다"고 한 게
+   이거였다: align-items:baseline + 고정 height를 같이 쓰면, 한 줄짜리 flex에서
+   내용이 박스 "위쪽"에 붙고 밑줄(border-bottom)과의 간격은 아래쪽 빈 공간만큼
+   벌어진다 — 반대로 원본은 내용이 밑줄 바로 위에 거의 붙어 있고 그 "위쪽"에
+   다음 줄과의 간격이 있다. flex-end로 바꿔서 내용을 박스 아래쪽(=밑줄 바로 위)에
+   붙인다. */
 .jls-cover-infobox .row {
-  display: flex; align-items: baseline; justify-content: space-between;
-  height: 30.35pt; border-bottom: 0.55pt solid #231906;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  height: 30.35pt; padding-bottom: 2pt; border-bottom: 0.55pt solid #231906;
 }
 .jls-cover-infobox .row b { font-size: 10pt; font-weight: 600; color: #231f20; }
 .jls-cover-infobox .row span { font-size: 12pt; font-weight: 700; color: #231f20; }
