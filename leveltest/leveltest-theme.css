@@ -572,10 +572,14 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .jls-cover-divider {
   position: absolute; top: 37.86pt; height: 41.3pt; width: 0.5pt; background: #231f20;
 }
+/* 2026-10-29 — 운영자가 "JLS 로고 옆 선"(d1~d2 사이, 로고가 들어가는 칸) 간격을
+   자로 쟀더니 샘플 2.5cm인데 여긴 3.6cm — 원본 PDF 좌표 추출이 처음부터
+   틀렸던 걸로 보인다. d1(태그라인 쪽)은 지적 없어서 그대로 두고, d2만
+   2.5cm(=70.87pt) 떨어지게 당겼다: 422.46+70.87=493.33pt. */
 .jls-cover-divider.d1 { left: 422.46pt; }
-.jls-cover-divider.d2 { left: 520.26pt; }
+.jls-cover-divider.d2 { left: 493.33pt; }
 
-.jls-cover-mark { position: absolute; left: 445.36pt; top: 45.06pt; width: 52pt; }
+.jls-cover-mark { position: absolute; left: 431.9pt; top: 45.06pt; width: 52pt; }
 .jls-cover-mark img { width: 100%; height: auto; display: block; }
 
 .jls-cover-report-title {
