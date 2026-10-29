@@ -530,13 +530,28 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .jls-cover-page {
   position: relative;
   width: 100%;
-  min-height: 277mm;
   background: #fff;
   overflow: hidden;
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
   color: #231f20;
+  box-sizing: border-box;
 }
 .jls-cover-page * { box-sizing: border-box; }
+/* 좌표는 전부 "인쇄 시 @page{margin:10mm}가 깎아낸 190x277mm 내용 상자" 기준
+   pt값이다(common.js의 jlsCoverPageHTML 주석 참고) — 인쇄는 그 여백을 브라우저가
+   알아서 넣어주니 .jls-cover-page 자체엔 패딩이 없어야 좌표가 맞는다.
+   ⚠️ 그런데 화면 미리보기는 @page가 전혀 안 걸려서, 패딩 없이 보면 모든 내용이
+   실제 인쇄본보다 사방으로 10mm씩 위·왼쪽에 붙어 보인다 — 운영자가 화면 캡처로
+   "글자가 너무 위에 붙어있다"고 지적한 게 이거였다(실제 인쇄본과 비교해보니
+   좌표 자체는 안 틀렸고, 화면 미리보기만 여백 없이 보여서 그랬다). 그래서 화면
+   에서만 전체를 210x297mm 종이처럼 그리고 10mm 패딩을 줘서, 패딩 안쪽(=내용
+   좌표가 기준으로 삼는 190x277mm)이 인쇄 결과와 똑같이 보이게 한다. */
+@media print {
+  .jls-cover-page { min-height: 277mm; padding: 0; }
+}
+@media screen {
+  .jls-cover-page { min-height: 297mm; padding: 10mm; }
+}
 
 .jls-cover-tagline {
   position: absolute; left: 204.95pt; top: 27.05pt;
