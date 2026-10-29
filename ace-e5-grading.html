@@ -503,16 +503,20 @@ function render(){
         <span class="hint" style="margin-left:10px">재원생 명단에 없는 응시자는 여기로 줄을 추가하세요</span>
       </div>
       <!-- 2026-10-28 — 초등5가 초등6 시험(E6·단어/해석)으로 진급시험을 보게 되면서,
-           시험지·답지·OMR을 여기서 바로 받게 해달라는 요청. leveltest/PDF의 E6·Voca & Translation
-           시험지를 그대로 링크하고(leveltest/common.js의 PAPER_FILE_MAP과 같은 파일),
-           OMR 답안지는 이 화면 전용이라 루트 PDF/ 폴더에 따로 둔다.
+           시험지·답지·OMR을 여기서 바로 받게 해달라는 요청.
            답지는 PDF가 아니라 레벨테스트에서 "답지 보기" 눌렀을 때 뜨는 그 팝업을 그대로
-           새 탭에서 띄운다(운영자: "똑같은 팝업이 떴으면 좋겠음") — leveltest/integration.js의
-           ?answerFor= 직통 진입을 새로 만들어서 썼다(leveltest/index.html?answerFor=E6 등). -->
+           이 화면 위 오버레이로 띄운다(운영자: "똑같은 팝업이 떴으면 좋겠음") — leveltest/
+           integration.js의 ?answerFor= 직통 진입을 그대로 쓴다(leveltest/index.html?
+           answerFor=E6 등). 이 답지 팝업·점수 계산용 로드맵 판정(아래 getReportGradeForExam
+           호출부 등)은 전부 leveltest 쪽 "E6" 데이터를 그대로 재사용하는 거라 안 건드린다
+           — 버튼 겉 라벨만 "E5"로 보이는 것뿐, 실제로 연결되는 시험 내용은 그대로 E6.
+           2026-10-29 — 운영자가 전용 시험지·OMR 파일을 새로 줘서(Z:\05.ACE 이관\26. ACE
+           이관 26.10.14 업데이트\) leveltest 공용 PDF 대신 이 파일들로 링크를 바꾸고,
+           버튼 글자도 "E6"→"E5"로. 루트 PDF/ 폴더에 둔다(OMR과 같은 자리 — 이 화면 전용). -->
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <a class="ghost mini" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="leveltest/PDF/[JLS Academic Achievement Assessment] E6.pdf" target="_blank" rel="noopener">📄 E6 시험지↓</a>
-        <button class="ghost mini" style="display:inline-flex;align-items:center;gap:6px" onclick="openAnswerOverlay('E6')">🔑 E6 답지</button>
-        <a class="ghost mini" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="leveltest/PDF/[JLS Academic Achievement Assessment] Voca & Translation_0116.pdf" target="_blank" rel="noopener">📄 단어·해석 시험지↓</a>
+        <a class="ghost mini" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="PDF/초등5_ACE진급테스트_시험지.pdf" target="_blank" rel="noopener">📄 E5 시험지↓</a>
+        <button class="ghost mini" style="display:inline-flex;align-items:center;gap:6px" onclick="openAnswerOverlay('E6')">🔑 E5 답지</button>
+        <a class="ghost mini" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px" href="PDF/초등5_ACE진급테스트_VocaTranslation_시험지.pdf" target="_blank" rel="noopener">📄 단어·해석 시험지↓</a>
         <button class="ghost mini" style="display:inline-flex;align-items:center;gap:6px" onclick="openAnswerOverlay('Voca & Translation')">🔑 단어·해석 답지</button>
         <a class="ghost mini" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--brand);border-color:transparent" href="PDF/초등5_ACE진급테스트_OMR.pdf" target="_blank" rel="noopener">🖊 OMR 답안지↓</a>
       </div>
