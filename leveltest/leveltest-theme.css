@@ -555,6 +555,16 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    이미 실제 여백이라 아무 것도 안 한다(패딩 0, 폭 자동). */
 @media print {
   .jls-cover-page-frame { padding: 0; width: auto; }
+  /* 2026-10-29 — 운영자가 실제로 PDF로 저장해서 보내준 파일을 pymupdf로
+     직접 재봤더니, 글자·R·태그라인 할 것 없이 전부 정확히 93.4%
+     비율로 똑같이 작게 찍혀 있었다(여러 요소에서 일관되게 0.933~0.934).
+     종이 크기(@page) 자체는 정상 A4라 좌표 계산 문제가 아니라, 운영자
+     인쇄 환경(화면 배율 확인했는데도 재현됨 — 원인 특정은 못 함)에서
+     생기는 축소로 보인다. 원인을 더 못 찾아서, 실측값(93.4%)의 역수
+     (1/0.934=1.0711)만큼 인쇄할 때만 미리 키워서 상쇄시킨다 — 이 보정이
+     정상 환경에서 인쇄되면 오히려 커질 수 있다는 걸 알지만, 지금은 운영자
+     실제 출력을 기준으로 맞추는 게 우선이라 적용하고 다음 PDF로 다시 확인. */
+  .jls-cover-page { transform: scale(1.0711); transform-origin: top left; }
 }
 @media screen {
   /* min-width로 최소 210mm를 보장해서, 창이 좁으면 (처음엔 width:100%가
