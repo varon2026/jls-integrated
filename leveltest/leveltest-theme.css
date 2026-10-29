@@ -550,7 +550,13 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
   .jls-cover-page { min-height: 277mm; padding: 0; }
 }
 @media screen {
-  .jls-cover-page { min-height: 297mm; padding: 10mm; }
+  /* ⚠️ 2026-10-29 추가 — 위 10mm 패딩만 넣었더니, 화면(.jls-cover-page)이
+     width:100%라 부모 폭이 210mm(약 794px)보다 좁은 창에서는 패딩+글자가
+     그대로 눌려서 "Placement Test Report"가 "Placement T"처럼 잘려 보이고
+     R도 깨졌다(운영자 캡처로 확인, 기본 창 폭에서 재현됨). min-width로
+     최소 210mm를 보장해서, 창이 좁으면 가로 스크롤이 생기더라도 안 눌리게
+     한다 — 화면 전용이라 인쇄엔 영향 없다. */
+  .jls-cover-page { min-height: 297mm; min-width: 210mm; padding: 10mm; }
 }
 
 .jls-cover-tagline {
