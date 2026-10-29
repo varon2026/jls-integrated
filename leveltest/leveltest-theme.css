@@ -615,8 +615,11 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .jls-cover-about p { font-size: 10pt; line-height: 1.35; color: #231f20; margin: 0 0 4.8pt; font-weight: 400; }
 .jls-cover-about p:last-child { margin-bottom: 0; }
 
-/* R도 +5mm 오른쪽 + "밑으로 더 내려가야" 요청대로 +10mm 아래로. */
-.jls-cover-rmark { position: absolute; left: 403.93pt; top: 584.11pt; width: 129.6pt; height: 195.8pt; }
+/* R도 +5mm 오른쪽 + "밑으로 더 내려가야" 요청대로 +10mm 아래로.
+   2026-10-29 — 운영자가 줄자로 "R 옆 긴 줄" 길이를 재서 줌: 샘플 7.5cm,
+   여기는 7cm. 7.5cm(=212.6pt)로 키우고, 이미지 원본 비율 그대로 유지하려고
+   너비도 같은 배율(212.6/195.8=1.0858)로 129.6pt→140.72pt. */
+.jls-cover-rmark { position: absolute; left: 403.93pt; top: 584.11pt; width: 140.72pt; height: 212.6pt; }
 .jls-cover-rmark img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* 운영자: "하단에 색이 있는거같지..?... 다 하얀색으로 못하냐?" — 실제 인쇄는
