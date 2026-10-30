@@ -640,11 +640,11 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    2026-10-29 — 운영자가 줄자로 "R 옆 긴 줄" 길이를 재서 줌: 샘플 7.5cm,
    여기는 7cm. 7.5cm(=212.6pt)로 키우고, 이미지 원본 비율 그대로 유지하려고
    너비도 같은 배율(212.6/195.8=1.0858)로 129.6pt→140.72pt.
-   ⚠️ "우측으로 최대한" 요청에서 R은 일부러 그대로 뒀다 — 지금도 오른쪽
-   여백이 10.9pt(3.8mm)뿐이라 콘텐츠 상자(196mm) 끝까지 3.8mm밖에 안
-   남아서, 더 밀면 인쇄 때 잘릴 위험이 있다(이전에 한 번 0.4cm까지 밀었다가
-   되돌린 적 있음). */
-.jls-cover-rmark { position: absolute; left: 403.93pt; top: 584.11pt; width: 140.72pt; height: 212.6pt; }
+   2026-10-30 — 운영자: "인쇄 잘릴 걱정하지 말고 그냥 붙여." 그래서 콘텐츠
+   상자(196mm=555.59pt) 오른쪽 끝에 완전히 맞춰 붙였다(여백 0) — 이전엔
+   3.8mm 여백을 안전하게 남겨뒀었는데, 이번엔 운영자가 그 안전마진을
+   명시적으로 포기하라고 해서 뺐다. */
+.jls-cover-rmark { position: absolute; left: 414.87pt; top: 584.11pt; width: 140.72pt; height: 212.6pt; }
 .jls-cover-rmark img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* 운영자: "하단에 색이 있는거같지..?... 다 하얀색으로 못하냐?" — 실제 인쇄는
