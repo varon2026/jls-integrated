@@ -2673,7 +2673,7 @@ function renderVTFallbackReport(memberCode, name, school, grade, testDate, evalu
     <section class="page">
       <div class="page-head">
         <div>
-          <div class="page-label">Voca & Translation Ⅰ</div>
+          <div class="page-label">English Mastery Index</div>
           <div class="report-subtitle">${esc(name)} · ${esc(school)} · ${esc(grade)} · ${esc(formatDate(testDate))}</div>
         </div>
         <div class="badge">ACE Academic Assessment Report</div>

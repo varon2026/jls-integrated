@@ -231,9 +231,10 @@ function renderVTReport(memberCode, name, school, grade, testDate, title, evalua
       <div class="table-wrap">
         <table class="detail-table">
           <thead>
+            <!-- 단어시험(Vocabulary)엔 리스닝이 없다 — 예전엔 칸 이름이 "Listening"으로 잘못 붙어 있었다(2026-10-30, 부장님 지적). -->
             <tr>
               <th>Grade</th>
-              <th>Listening</th>
+              <th>Achievement</th>
               <th>정오표</th>
               <th>코멘트</th>
             </tr>
@@ -269,5 +270,5 @@ function renderVTReport(memberCode, name, school, grade, testDate, title, evalua
     </div>
   `;
 
-  return pageTemplate("Voca & Translation Ⅰ", "Vocabulary / Translation Summary", body);
+  return pageTemplate("English Mastery Index", "Vocabulary / Translation Summary", body);
 }
