@@ -661,12 +661,15 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    점 2개가 아니라 지금까지 실제로 찍어본 3개 점(403.93→72.0pt,
    414.87→61.5pt, 478.93→2.0pt)으로 선형회귀를 다시 돌려서(기울기
    -0.932pt/pt) 인쇄 여백 7pt(2.5mm)쯤 남도록 역산 = left 473.5pt.
-   ⚠️ 그래도 회귀식일 뿐이니 정확히 7pt가 안 나올 수 있다 — 다음 PDF로
-   다시 재서 필요하면 더 조정할 것. */
+   2026-10-30 (3차) — 473.5pt(실측 여백 6.9pt=2.4mm)도 운영자가 "더 당겨야
+   돼" — 4번째 실측점(473.5→6.9pt)까지 넣어서 회귀를 다시 돌려(기울기
+   -0.933pt/pt) 인쇄 여백 14pt(4.9mm)쯤 남도록 역산 = left 465.96pt.
+   ⚠️ 회귀식일 뿐이니 정확히 14pt가 안 나올 수 있다 — 다음 PDF로 다시 재서
+   필요하면 더 조정할 것. */
 .jls-cover-rmark { position: absolute; left: 414.87pt; top: 584.11pt; width: 140.72pt; height: 212.6pt; }
 .jls-cover-rmark img { width: 100%; height: 100%; object-fit: contain; display: block; }
 @media print {
-  .jls-cover-rmark { left: 473.5pt; }
+  .jls-cover-rmark { left: 465.96pt; }
 }
 
 /* 운영자: "하단에 색이 있는거같지..?... 다 하얀색으로 못하냐?" — 실제 인쇄는
