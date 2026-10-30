@@ -491,7 +491,12 @@ function jlsCoverPageHTML(opts) {
         <div class="cap">ABOUT THE TEST</div>
         ${o.introHtml || ""}
       </div>
-      <div class="jls-cover-rmark"><img src="${esc(o.rImage || "cover-r-pink.png")}" alt="R"></div>
+      <!-- 2026-10-30 — cover-r-pink.png/cover-r-green.png을 몇 번을 다시 만들어도
+           운영자 PC에선 계속 옛날(짧은 줄) 그림이 나왔다. CSS는 ?v= 버전을 매번
+           올려서 캐시가 안 걸리는데, 이 <img>는 파일명만 써서 버전 표시가 없었다
+           — 그래서 PNG만 브라우저/CDN에 예전 걸로 계속 캐시돼 있었다. 이제부터
+           R 그림을 바꿀 때마다 이 ?v= 날짜도 같이 올릴 것. -->
+      <div class="jls-cover-rmark"><img src="${esc(o.rImage || "cover-r-pink.png")}?v=20261030g" alt="R"></div>
     </div>
     </div>`;
 }
