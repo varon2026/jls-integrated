@@ -668,8 +668,16 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    원본 비율(위:아래 ≈ 38.1:37.1) 그대로 유지하면서 7.5cm(212.6pt)가
    되도록 늘렸다 — 위로 46.67pt, 아래로 45.47pt. 그만큼 이미지 자체를
    위아래로 더 잘라냈고, top만 그만큼(575→567.09) 올렸다(글자 위치는
-   이미지 안에서 안 움직이니 화면에 보이는 R 글자 위치는 그대로다). */
-.jls-cover-rmark { position: absolute; left: 409pt; top: 567.09pt; width: 131pt; height: 212.6pt; }
+   이미지 안에서 안 움직이니 화면에 보이는 R 글자 위치는 그대로다).
+   2026-10-30 (2차) — 캐시도 지우고 엣지로 새로 뽑아도 줄이 계속 6.5cm로
+   나와서, 운영자가 보낸 PDF 좌표를 직접 재보니 — <img> 하나만 인쇄할 때
+   가로·세로 똑같이 93.5%로 줄어 있었다(가로 122.54/131=0.9354, 세로
+   198.86/212.6=0.9354 — 완전히 똑같은 비율, 등방 축소). 페이지 전체를
+   1.0711배로 키워 보정했던 그 "미스터리 축소"와 같은 종류인데, 이번엔
+   이 <img> 박스 자체에만 걸려 있었다. left/top(위치)은 전혀 안 틀렸으니
+   안 건드리고, width/height만 역수(1/0.9354=1.0691배)로 키워서 인쇄
+   결과가 7.5cm로 나오도록 보정했다. */
+.jls-cover-rmark { position: absolute; left: 409pt; top: 567.09pt; width: 140.05pt; height: 227.29pt; }
 .jls-cover-rmark img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* 운영자: "하단에 색이 있는거같지..?... 다 하얀색으로 못하냐?" — 실제 인쇄는
