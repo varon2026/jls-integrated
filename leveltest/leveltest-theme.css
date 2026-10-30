@@ -577,9 +577,17 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    선+로고)은 지금까지 한 번도 오른쪽으로 민 적이 없어서(선 사이 2.5cm 간격만
    맞췄을 뿐) 제일 많이 남아 있었다. 안전 여백 4mm(최소 인쇄 여백 고려)만
    남기고 콘텐츠 상자(196mm) 오른쪽 끝까지 민다 — d1·d2 사이 2.5cm 간격,
-   태그라인~d1 간격은 전부 그대로 유지한 채 덩어리째 이동. */
+   태그라인~d1 간격은 전부 그대로 유지한 채 덩어리째 이동.
+   2026-10-30 — 인쇄물을 샘플이랑 나란히 놓고 자로 재보니(운영자) 두 번째
+   선~페이지 끝 여백이 샘플은 2.1cm인데 우리는 2.4cm — 0.3cm(8.5pt)만큼
+   여백을 더 줄여야 했다. d1·d2 사이 2.5cm 간격은 이미 맞는 값이라 그대로
+   유지하고, d1·d2·로고를 덩어리째 +8.5pt 오른쪽으로 다시 밀었다.
+   태그라인~d1 간격은 원본 샘플 PDF(Test Report_Cover.pdf)를 다시 열어
+   원본 비율(태그라인~d1 간격 : d1~d2 간격 = 20.29 : 97.85)대로 역산해서
+   우리 d1~d2(2.5cm 고정)에 맞춰 넓혔다 — 태그라인이 d1에 너무 붙어있어
+   "꽉 껴 보인다"는 지적이 있었다. */
 .jls-cover-tagline {
-  position: absolute; left: 264.38pt; top: 35.56pt;
+  position: absolute; left: 267.44pt; top: 35.56pt;
   font-size: 12pt; font-weight: 600; line-height: 1.2; color: #231f20;
   white-space: nowrap;
 }
@@ -587,10 +595,10 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .jls-cover-divider {
   position: absolute; top: 37.86pt; height: 41.3pt; width: 0.5pt; background: #231f20;
 }
-.jls-cover-divider.d1 { left: 473.38pt; }
-.jls-cover-divider.d2 { left: 544.25pt; }
+.jls-cover-divider.d1 { left: 481.88pt; }
+.jls-cover-divider.d2 { left: 552.75pt; }
 
-.jls-cover-mark { position: absolute; left: 482.82pt; top: 45.06pt; width: 52pt; }
+.jls-cover-mark { position: absolute; left: 491.32pt; top: 45.06pt; width: 52pt; }
 .jls-cover-mark img { width: 100%; height: auto; display: block; }
 
 .jls-cover-report-title {
@@ -653,10 +661,15 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
    그대로 썼다 — 이 페이지의 다른 요소들(태그라인·구분선·인포박스 등)도
    전부 이 원본 PDF 좌표를 그대로 쓰고 있고 실측으로 잘 맞았으니, R도
    같은 방식이 맞다. 그래서 화면/인쇄 따로 보정하던 것도 걷어냈다.
-   ⚠️ 그래도 실제 PDF로 한 번 더 확인 필요 — 이번엔 "진짜" 좌표라 믿을 만
-   하지만, 혹시 어긋나면 이 좌표(409/575)가 아니라 이미지 자체는 이제
-   맞으니 좌표만 미세조정하면 된다. */
-.jls-cover-rmark { position: absolute; left: 409pt; top: 575pt; width: 131pt; height: 197pt; }
+   실제로 인쇄해서 샘플 옆에 놓고 자로 재보니(운영자) 글자·위치는 잘
+   맞는데, 줄 길이가 샘플(예전에 이미 자로 잰 값 7.5cm)보다 짧았다 —
+   "R은 위치 건들지 말고 세로줄만 더 길게"라는 요청이라, 글자(R) 자체의
+   절대 좌표(613.76~734.22)는 그대로 두고 줄의 위아래 튀어나온 길이만
+   원본 비율(위:아래 ≈ 38.1:37.1) 그대로 유지하면서 7.5cm(212.6pt)가
+   되도록 늘렸다 — 위로 46.67pt, 아래로 45.47pt. 그만큼 이미지 자체를
+   위아래로 더 잘라냈고, top만 그만큼(575→567.09) 올렸다(글자 위치는
+   이미지 안에서 안 움직이니 화면에 보이는 R 글자 위치는 그대로다). */
+.jls-cover-rmark { position: absolute; left: 409pt; top: 567.09pt; width: 131pt; height: 212.6pt; }
 .jls-cover-rmark img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* 운영자: "하단에 색이 있는거같지..?... 다 하얀색으로 못하냐?" — 실제 인쇄는
