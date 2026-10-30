@@ -489,7 +489,7 @@ async function applyAceCutline(){
   if(CURTAB==='총점')return;
   const rows=[...document.querySelectorAll('#aceContent tbody tr')];if(!rows.length)return;
   const dAns=aceAns('독해'),gAns=aceAns('문법');
-  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('key_name',CURVARIANT));}catch(e){return;}
+  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('key_name',CURVARIANT).eq('semester',semName(SEM)));}catch(e){return;}
   const dBy={},gBy={};(data||[]).forEach(r=>{const map=r.section==='독해'?dBy:(r.section==='문법'?gBy:null);if(!map)return;
     const cur=map[r.student_code];const rn=+(r.round||'1'),cn=cur?+(cur.round||'1'):-1;
     if(!cur||rn>cn||(rn===cn&&String(r.graded_at||'')>String(cur.graded_at||''))) map[r.student_code]=r;});
@@ -1540,7 +1540,7 @@ async function loadAceSummary(){
   const host=$('aceSum');if(!host)return;
   const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const dAns=aceAns('독해'),gAns=aceAns('문법');
-  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT'));}catch(e){host.innerHTML='<div class="hint">불러오기 실패</div>';return;}
+  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('semester',semName(SEM)));}catch(e){host.innerHTML='<div class="hint">불러오기 실패</div>';return;}
   // 학생·영역별로 최신 회차(재시험 포함) 기록을 집계 — 재시험 본 학생이 총점에서 빠지지 않도록
   const dBy={},gBy={};(data||[]).forEach(r=>{if(r.key_name!==CURVARIANT)return;const map=r.section==='독해'?dBy:(r.section==='문법'?gBy:null);if(!map)return;
     const cur=map[r.student_code];const rn=+(r.round||'1'),cn=cur?+(cur.round||'1'):-1;
@@ -1588,9 +1588,19 @@ async function saveAce(){
   }
   toast(`${section} ${ok}명 저장됨 ✓`);await loadScored();buildAceArea();
 }
+/* 2026-10-30 — 운영자: "과거 시험답안입력한게 왜 저기떠있냐고" — 2026-08-18(여름학기)에
+   채점한 A1(1-3개월) 데이터가 가을학기 채점화면에 그대로 떠 있었다. exam_scores는 저장할
+   때 semester를 같이 찍는데(line ~1377/1586/1826), 정작 "불러올 때"는 이 함수를 포함해
+   AT·내신모의고사 쪽 여러 곳이 레벨 이름(key_name)만 보고 찾아서, 레벨 이름이 같은 다른
+   학기 데이터까지 같이 섞여 들어왔다. DT는 애초에 섞이지 않았다(아래 608~609줄처럼 불러올
+   때도 항상 semester를 같이 걸었음) — AT·내신만 이 확인이 몇 군데 빠져 있었다.
+   이 파일의 exam_scores를 불러오는 모든 곳에 .eq('semester',semName(SEM))을 추가해서
+   한 번에 고쳤다(loadAceSaved·loadAceSummary·applyAceCutline·loadNaesinSaved·
+   loadNaesinSummary·exportAtQappExcel·exportQappExcel·exportScoresXlsx·
+   exportScoresBulk 전부). */
 async function loadAceSaved(section){
   const ans=aceAns(section);if(!ans.length)return;
-  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT'));}catch(e){return;}
+  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('semester',semName(SEM)));}catch(e){return;}
   const byCode={};(data||[]).forEach(r=>{if(r.key_name===CURVARIANT&&r.section===section)byCode[r.student_code]=r;});
   const ansByN={};ans.forEach(a=>ansByN[a.n]=a);
   document.querySelectorAll('#aceContent tbody tr').forEach(tr=>{const rec=byCode[tr.dataset.code];if(!rec)return;
@@ -1786,7 +1796,7 @@ async function loadNaesinSummary(){
   const cls=curClassObj();if(!cls)return;const code=cls.levelCode;
   const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const wAns=naesinAns('지필평가',code),lAns=naesinAns('듣기평가',code),pAns=naesinAns('수행평가',code);
-  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사'));}catch(e){host.innerHTML='<div class="hint">불러오기 실패</div>';return;}
+  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('semester',semName(SEM)));}catch(e){host.innerHTML='<div class="hint">불러오기 실패</div>';return;}
   const wBy={},lBy={},pBy={};
   (data||[]).forEach(r=>{if(r.key_name!==code)return;
     const map=r.section==='지필평가'?wBy:(r.section==='듣기평가'?lBy:(r.section==='수행평가'?pBy:null));if(!map)return;
@@ -1831,7 +1841,7 @@ async function saveNaesin(){
 async function loadNaesinSaved(section){
   const cls=curClassObj();if(!cls)return;const code=cls.levelCode;
   const ans=naesinAns(section);if(!ans.length)return;
-  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사'));}catch(e){return;}
+  let data;try{data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('semester',semName(SEM)));}catch(e){return;}
   const byCode={};(data||[]).forEach(r=>{if(r.key_name===code&&r.section===section)byCode[r.student_code]=r;});
   const ansByN={};ans.forEach(a=>ansByN[a.n]=a);
   document.querySelectorAll('#naesinContent tbody tr').forEach(tr=>{const rec=byCode[tr.dataset.code];if(!rec)return;
@@ -1993,7 +2003,7 @@ async function exportAtQappExcel(){
   const variant=CURVARIANT; if(!variant||!keyOfVariant(variant)){toast('시험지(정답키)를 선택하세요',false);return;}
   toast('큐앱 엑셀 만드는 중…');
   try{
-    const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('key_name',variant));
+    const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('key_name',variant).eq('semester',semName(SEM)));
     const idx={}; data.forEach(r=>_latest(idx, r.student_code+'|'+r.key_name+'|'+r.section, r));
     const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     const qappSheet=atQappSheetFor(variant,cls.levelCode,studs,idx); qappSheet.name='큐앱';
@@ -2145,7 +2155,7 @@ async function exportQappExcel(){
   if(!wAns.length&&!lAns.length){toast('이 반(학년) 정답키가 없어요 — 정답등록에서 먼저 올려주세요',false);return;}
   toast('큐앱 엑셀 만드는 중…');
   try{
-    const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('key_name',code));
+    const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('key_name',code).eq('semester',semName(SEM)));
     const idx={}; data.forEach(r=>_latest(idx, r.student_code+'|'+r.key_name+'|'+r.section, r));
     const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     /* 2026-10-28 — 운영자: "큐앱엑셀버튼이랑 성적엑셀파일버튼 ... 두개 합쳐야할거같아.
@@ -2189,19 +2199,19 @@ async function exportScoresXlsx(){
     const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     if(EXAM==='AT'){
       const variant=CURVARIANT;if(!variant||!keyOfVariant(variant)){toast('시험지(정답키)를 선택하세요',false);return;}
-      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('key_name',variant));
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('key_name',variant).eq('semester',semName(SEM)));
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
       const sh=atSheetFor(variant,studs,idx);sh.name=_sheetName(cls.levelCode+'_'+vLabel(variant,cls.levelCode));sh.widths=[11,12,15,7,13];
       await writeXlsxColored([sh],`${EXAM}_${cls.levelCode}_${vLabel(variant,cls.levelCode)}_${semName(SEM)}`);
     }else if(EXAM==='내신모의고사'){
       const code=cls.levelCode;
-      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('key_name',code));
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('key_name',code).eq('semester',semName(SEM)));
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+code+'|'+r.section,r));
       const sh=naesinSheetFor(code,studs,idx);sh.name=_sheetName(code);
       await writeXlsxColored([sh],`${EXAM}_${code}_${semName(SEM)}`);
     }else{
       const key=keyOfLevel(cls.levelCode);if(!key){toast('정답키가 없어요',false);return;}
-      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM).eq('key_id',key.id));
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM).eq('key_id',key.id).eq('semester',semName(SEM)));
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+key.id,r));
       const sh=dtSheetFor(cls.levelCode,key,studs,idx);
       await writeXlsxColored([sh],`${EXAM}_${cls.levelCode}_${semName(SEM)}`);
@@ -2217,7 +2227,7 @@ async function exportScoresBulk(){
   try{
     const sheets=[];
     if(EXAM==='AT'){
-      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT'));
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('semester',semName(SEM)));
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
       /* 2026-10-30 — 반별(exportAtQappExcel) 버튼과 같이, 일괄 다운로드도 큐앱 업로드용 시트 +
          사람이 보기 좋은 성적표 시트를 시험지(variant)마다 짝으로 넣는다. 분원명 칸 규칙은
@@ -2236,7 +2246,7 @@ async function exportScoresBulk(){
         });
       });
     }else if(EXAM==='내신모의고사'){
-      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사'));
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('semester',semName(SEM)));
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
       /* 2026-10-28 — 반별(exportQappExcel) 버튼과 같이, 일괄 다운로드도 큐앱 업로드용 시트 +
          사람이 보기 좋은 성적표 시트를 레벨마다 짝으로 넣는다. brDl이 빈 문자열이면(본사계정이
@@ -2257,7 +2267,7 @@ async function exportScoresBulk(){
         sheets.push(sh);
       });
     }else{
-      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM));
+      const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM).eq('semester',semName(SEM)));
       levelsForExam(brDl).forEach(l=>{
         const key=keyOfLevel(l.code);if(!key)return;
         const idx={};data.forEach(r=>{if(r.key_id===key.id)_latest(idx,r.student_code+'|'+key.id,r);});
