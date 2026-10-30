@@ -1948,6 +1948,17 @@ function atSheetFor(variant,recs,idx){
   });
   return {name:variant,header,rows};
 }
+/* 2026-10-30 — 운영자: "시트명이 이지랄이면 뭔레벨인지 바로 확인이 어렵잖아" — 일괄
+   다운로드 시트 이름이 반 이름표 그대로(시간대·요일·강의실 알파벳)라 레벨이 안 보였다.
+   "레벨_학년 담임" 식으로 간단하게: 레벨(변형 포함)_학년(M1/E6 등) 담임의 영어이름만.
+   학년 토큰은 naesinGradeFromClass와 같은 정규식(반이름의 /M1/, /E6/ 같은 토큰)을 쓴다.
+   담임 영어이름은 "Lily김우연"처럼 영어가 항상 맨 앞에 붙는 이 저장소 표기 규칙을 그대로
+   이용해 맨 앞 알파벳만 뽑는다 — 영어이름이 없으면 전체 이름을 그대로 쓴다. */
+function atSheetLabel(cls,variant){
+  const grade=(String(cls.className||'').match(/[\/_](E\d+|M\d+)(?=[\/(\s]|$)/i)||[])[1]||'';
+  const teacherEng=(String(cls.teacher||'').match(/^[A-Za-z]+/)||[])[0]||cls.teacher||'';
+  return cls.levelCode+vLabel(variant,cls.levelCode)+'_'+(grade?grade+' ':'')+teacherEng;
+}
 /* AT 한 시험지(variant) → 큐앱 업로드용 시트. exportAtQappExcel()(반 하나)과
    exportScoresBulk()(일괄)가 둘 다 이 함수 하나만 쓴다.
    2026-10-30 — 운영자가 실제로 쓰는 큐앱 업로드 양식(A2(1-3).xlsx)을 받아서 칸 순서·이름을
@@ -2229,20 +2240,20 @@ async function exportScoresBulk(){
     if(EXAM==='AT'){
       const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('semester',semName(SEM)));
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
-      /* 2026-10-30 — 반별(exportAtQappExcel) 버튼과 같이, 일괄 다운로드도 큐앱 업로드용 시트 +
-         사람이 보기 좋은 성적표 시트를 시험지(variant)마다 짝으로 넣는다. 분원명 칸 규칙은
-         내신 큐앱과 동일(아래 qappShowBranch 설명 참고). */
+      /* 2026-10-30 — 운영자: "큐앱껏만 나오게하고 성적시트는 넣지말자" — AT 일괄 다운로드는
+         큐앱 업로드용 시트만 넣는다(내신은 그대로 큐앱+성적 짝으로 유지 — 요청 대상이 아니었음).
+         시트 이름도 "반 이름표(시간대/요일/강의실 알파벳 다 들어간 것)라 레벨을 바로 알 수
+         없어서 답답하다"는 지적대로, "레벨(변형)_학년 담임영어이름"으로 간단하게 바꿨다
+         (atSheetLabel 참고) — 예: A2(1-3개월)_M1 Lily. */
       const qappShowBranch=(ROLE==='admin')&&!brDl;
       classesForExam(brDl).forEach(cls=>{
         variantsForBase(cls.levelCode).forEach(v=>{
           if(!keyOfVariant(v))return;
           const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
           if(!studs.some(r=>idx[r.code+'|'+v+'|독해']||idx[r.code+'|'+v+'|문법']))return;
-          const label=noDays(classDetail(cls.className))+'_'+vLabel(v,cls.levelCode);
+          const label=atSheetLabel(cls,v);
           const qsh=atQappSheetFor(v,cls.levelCode,studs,idx,{branchCol:qappShowBranch});qsh.name=_uniqSheet(sheets,label+'_큐앱');
           sheets.push(qsh);
-          const sh=atSheetFor(v,studs,idx);sh.name=_uniqSheet(sheets,label+'_성적');sh.widths=[11,12,15,7,13];
-          sheets.push(sh);
         });
       });
     }else if(EXAM==='내신모의고사'){
