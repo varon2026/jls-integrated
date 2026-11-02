@@ -197,6 +197,28 @@
          (saveResult 참고) 그 값으로 덮어써서 "열람"도 "응시"와 같은 분원 판정을 받게
          한다 — CHESS 쪽은 이미 dataVersion으로 같은 문제를 풀어놔서 영향 없음. */
       if (res.data.branch_id) window.__LT_ENTRY.branch = res.data.branch_id;
+      /* 2026-11-02 — 운영자: "학교 수정하면 바로 입력이 다 된 성적표라도 바뀌게끔",
+         "지금 현재 학생정보 입력칸에 적힌 학년기준으로 성적표에도 그렇게 학년 나오게".
+         result_json엔 채점 당시 스냅샷(학교·학년)이 그대로 박혀 있어서, 나중에
+         학생정보(students 표)에서 학교·학년을 고쳐도 이미 만든 성적표엔 안 보였다.
+         열람할 때마다 students 표에서 지금 학교·학년을 다시 가져와 덮어쓴다.
+         회원코드가 있으면(임시-로 시작하지 않으면) 코드로 정확히 한 명을 찾고,
+         없으면 이름으로 찾되 — 동명이인이 둘 이상이면 엉뚱한 학생 정보가 붙을
+         위험이 있어서 그럴 땐 안 건드리고 저장된 값 그대로 둔다. */
+      try {
+        var liveStu = null;
+        if (res.data.student_code && res.data.student_code.indexOf('임시-') !== 0) {
+          var byCode = await s.from('students').select('school,grade').eq('code', res.data.student_code).maybeSingle();
+          if (!byCode.error && byCode.data) liveStu = byCode.data;
+        } else {
+          var byName = await s.from('students').select('school,grade').eq('name', rj.name || res.data.student_name);
+          if (!byName.error && byName.data && byName.data.length === 1) liveStu = byName.data[0];
+        }
+        if (liveStu) {
+          if (liveStu.school) rj.school = liveStu.school;
+          if (liveStu.grade) rj.grade = liveStu.grade;
+        }
+      } catch (e) { console.error('학생 최신 학교/학년 조회 실패(저장된 값 그대로 둠)', e); }
       if (res.data.report_type === 'chess') {
         LAST_CHESS_SESSION = rj;
         if (typeof renderChessReport === 'function') renderChessReport();
