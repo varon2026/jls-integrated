@@ -119,6 +119,7 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 </head>
 <body>
 <div id="app" class="content">불러오는 중…</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================================================================
@@ -471,6 +472,36 @@ function vocabMax(){ return VOCAB_ITEMS.length; }
 function transScore(row){ return TRANS_ITEMS.reduce((s,it)=> s + (Number(row.trans[it.no])||0), 0); }
 function transMax(){ return TRANS_ITEMS.reduce((s,it)=>s+(it.max||0),0); }
 
+/* 2026-11-02 — 운영자: "초등5 진급고사 답안입력한거 엑셀 다운받는 버튼 만들어달래."
+   총점/레벨 탭에 보이는 줄 순서·점수를 그대로 엑셀로 뽑는다(등수순 — buildTotalGrid와
+   같은 정렬 기준). 이 시험은 getSuggestedLevel이 객관식 점수만 보고 레벨을 매겨서
+   (단어·해석은 참고용) "총점" 칸은 따로 안 만들고 화면에 보이는 세 영역 점수를
+   각각 그대로 적는다 — 없는 지표를 새로 만들어서 혼란 주지 않기 위함. */
+function exportE5Xlsx(){
+  if(typeof XLSX==='undefined'){ toast('엑셀 모듈 로딩 중이에요. 잠시 후 다시 눌러주세요',false); return; }
+  const oMax=objMax(), vMax=vocabMax(), tMax=transMax();
+  const sortedRows = ROWS.slice().sort((a,b)=> objScore(b)-objScore(a) || String(a.name).localeCompare(String(b.name),'ko'));
+  const header = ['번호','이름','회원코드','분원','반','담임','학교','학년',
+    `객관식(/${oMax})`, `단어(/${vMax})`, `해석(/${tMax})`, '임시레벨','최종레벨'];
+  const data = [header];
+  sortedRows.forEach((r,i)=>{
+    const os=objScore(r), vs=vocabScore(r), ts=transScore(r);
+    const suggested=getSuggestedLevel(os);
+    data.push([
+      i+1, r.name, r.code||'', r.branchName||'', classDetail(r.classLabel||''), r.teacher||'',
+      r.school||'', gradeKey(r.grade||''), os, vs, ts, suggested, r.finalLevel||suggested
+    ]);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:5},{wch:10},{wch:12},{wch:10},{wch:14},{wch:10},{wch:16},{wch:7},
+    {wch:10},{wch:8},{wch:8},{wch:9},{wch:9}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'초5진급고사');
+  const scopeLabel = ROLE==='admin' && !BRANCH ? '전체분원' : (BRANCHES[BRANCH]||'');
+  XLSX.writeFile(wb, `초5ACE진급시험_${scopeLabel}_${SEM||''}.xlsx`.replace(/[\\/:*?"<>|]/g,'_'));
+  toast(`${sortedRows.length}명 엑셀 다운로드 완료`,true);
+}
+
 /* ---------------- 렌더 ---------------- */
 function tabBtn(key,label){ return `<button class="${CURTAB===key?'on':''}" onclick="setTab('${key}')">${label}</button>`; }
 function setTab(k){ CURTAB=k; render(); }
@@ -530,6 +561,7 @@ function render(){
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         ${LAST_SAVED ? `<span class="hint">마지막 저장 ${esc(LAST_SAVED)}</span>` : ''}
+        <button class="ghost mini" onclick="exportE5Xlsx()">📥 엑셀 다운로드</button>
         <button class="btn" onclick="saveAll()" ${SAVING||TABLE_MISSING?'disabled':''}>${SAVING?'저장 중…':'💾 저장'}</button>
       </div>
     </div>
