@@ -119,7 +119,7 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 </head>
 <body>
 <div id="app" class="content">불러오는 중…</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================================================================
@@ -472,33 +472,109 @@ function vocabMax(){ return VOCAB_ITEMS.length; }
 function transScore(row){ return TRANS_ITEMS.reduce((s,it)=> s + (Number(row.trans[it.no])||0), 0); }
 function transMax(){ return TRANS_ITEMS.reduce((s,it)=>s+(it.max||0),0); }
 
-/* 2026-11-02 — 운영자: "초등5 진급고사 답안입력한거 엑셀 다운받는 버튼 만들어달래."
-   총점/레벨 탭에 보이는 줄 순서·점수를 그대로 엑셀로 뽑는다(등수순 — buildTotalGrid와
-   같은 정렬 기준). 이 시험은 getSuggestedLevel이 객관식 점수만 보고 레벨을 매겨서
-   (단어·해석은 참고용) "총점" 칸은 따로 안 만들고 화면에 보이는 세 영역 점수를
-   각각 그대로 적는다 — 없는 지표를 새로 만들어서 혼란 주지 않기 위함. */
-function exportE5Xlsx(){
-  if(typeof XLSX==='undefined'){ toast('엑셀 모듈 로딩 중이에요. 잠시 후 다시 눌러주세요',false); return; }
+/* 2026-11-02 — 운영자: "초등5 진급고사 답안입력한거 엑셀 다운받는 버튼 만들어달래. 그리고
+   학생 답안 입력한것도 다운받게 해줘야돼. 그리고 점수·레벨 부분 강조되게 색깔 이쁘게."
+   두 가지를 합쳐서: (1) "요약" 시트 — 총점/레벨 탭과 같은 줄 순서(등수순)·점수, 점수·레벨
+   칸에 화면과 같은 기준(scorePill의 good/low 70%·40% 컷)으로 초록/주황/빨강을 입힌다.
+   (2) "답안상세" 시트 — 문항별로 실제 입력한 답(객관식 선택지, 단어 O/X, 해석 득점)을
+   하나씩 다 펼쳐서, 맞았는지 바로 눈에 보이게 초록/빨강을 입힌다(선생님이 어느 문항을
+   틀렸는지 엑셀만 보고 바로 알 수 있게). 색은 이 화면 CSS 변수(--pos/--warn/--neg)
+   그대로 가져다 썼다 — 화면·엑셀이 같은 색 체계를 쓰게. SheetJS는 셀 색칠을 무료
+   버전에서 못 해서, grader.html처럼 ExcelJS로 바꿨다. */
+const E5_XL_HEAD='FFF0EBFE', E5_XL_LINE='FFECE8F5', E5_XL_INK='FF2F3138';
+const E5_XL_GOOD_BG='FFE4F6EE', E5_XL_GOOD_FG='FF167A52';
+const E5_XL_WARN_BG='FFFDF3E6', E5_XL_WARN_FG='FFAD6A1C';
+const E5_XL_BAD_BG ='FFFDECEC', E5_XL_BAD_FG ='FFC53337';
+function e5ScoreTier(value,max){ const pct=max?Math.round(value/max*100):0; return pct>=70?'good':(pct<40?'bad':'warn'); }
+function e5LevelTier(level){
+  const idx=LEVEL_OPTIONS.indexOf(level);
+  if(idx<=0) return 'bad';        // 미배정
+  if(idx<=2) return 'warn';       // HB, PA1
+  return 'good';                  // PA2, A1, A2
+}
+function e5TierFill(tier){ return tier==='good'?E5_XL_GOOD_BG:(tier==='bad'?E5_XL_BAD_BG:E5_XL_WARN_BG); }
+function e5TierFont(tier){ return tier==='good'?E5_XL_GOOD_FG:(tier==='bad'?E5_XL_BAD_FG:E5_XL_WARN_FG); }
+function e5StyleHeaderRow(row){
+  row.eachCell(c=>{
+    c.font={bold:true,size:11,color:{argb:E5_XL_INK}};
+    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:E5_XL_HEAD}};
+    c.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+    const thin={style:'thin',color:{argb:E5_XL_LINE}};
+    c.border={top:thin,left:thin,bottom:thin,right:thin};
+  });
+}
+function e5StyleCell(cell,tier,center){
+  cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:e5TierFill(tier)}};
+  cell.font={bold:true,color:{argb:e5TierFont(tier)}};
+  if(center) cell.alignment={horizontal:'center',vertical:'middle'};
+}
+async function exportE5Xlsx(){
+  if(typeof ExcelJS==='undefined'){ toast('엑셀 모듈 로딩 중이에요. 잠시 후 다시 눌러주세요',false); return; }
   const oMax=objMax(), vMax=vocabMax(), tMax=transMax();
   const sortedRows = ROWS.slice().sort((a,b)=> objScore(b)-objScore(a) || String(a.name).localeCompare(String(b.name),'ko'));
-  const header = ['번호','이름','회원코드','분원','반','담임','학교','학년',
-    `객관식(/${oMax})`, `단어(/${vMax})`, `해석(/${tMax})`, '임시레벨','최종레벨'];
-  const data = [header];
+  const wb=new ExcelJS.Workbook();
+
+  /* ---- 시트1: 요약(총점/레벨 탭과 같은 순서) ---- */
+  const ws1=wb.addWorksheet('요약');
+  ws1.columns=[
+    {header:'번호',width:5},{header:'이름',width:10},{header:'회원코드',width:12},
+    {header:'분원',width:10},{header:'반',width:16},{header:'담임',width:10},
+    {header:'학교',width:16},{header:'학년',width:7},
+    {header:`객관식(/${oMax})`,width:11},{header:`단어(/${vMax})`,width:9},
+    {header:`해석(/${tMax})`,width:9},{header:'임시레벨',width:9},{header:'최종레벨',width:9}
+  ];
+  e5StyleHeaderRow(ws1.getRow(1));
   sortedRows.forEach((r,i)=>{
     const os=objScore(r), vs=vocabScore(r), ts=transScore(r);
     const suggested=getSuggestedLevel(os);
-    data.push([
-      i+1, r.name, r.code||'', r.branchName||'', classDetail(r.classLabel||''), r.teacher||'',
-      r.school||'', gradeKey(r.grade||''), os, vs, ts, suggested, r.finalLevel||suggested
-    ]);
+    const finalLv=r.finalLevel||suggested;
+    const row=ws1.addRow([i+1, r.name, r.code||'', r.branchName||'', classDetail(r.classLabel||''), r.teacher||'',
+      r.school||'', gradeKey(r.grade||''), os, vs, ts, suggested, finalLv]);
+    e5StyleCell(row.getCell(9), e5ScoreTier(os,oMax), true);
+    e5StyleCell(row.getCell(10), e5ScoreTier(vs,vMax), true);
+    e5StyleCell(row.getCell(11), e5ScoreTier(ts,tMax), true);
+    e5StyleCell(row.getCell(12), e5LevelTier(suggested), true);
+    e5StyleCell(row.getCell(13), e5LevelTier(finalLv), true);
   });
-  const ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:5},{wch:10},{wch:12},{wch:10},{wch:14},{wch:10},{wch:16},{wch:7},
-    {wch:10},{wch:8},{wch:8},{wch:9},{wch:9}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'초5진급고사');
+  ws1.views=[{state:'frozen',ySplit:1}];
+
+  /* ---- 시트2: 답안상세(문항별 — 틀린 문항이 바로 보이게) ---- */
+  const ws2=wb.addWorksheet('답안상세');
+  const head2=['번호','이름','회원코드',
+    ...E5_EXAM.map(q=>`객${q.no}`), ...VOCAB_ITEMS.map(it=>`단${it.no}`), ...TRANS_ITEMS.map(it=>`해${it.no}`)];
+  ws2.addRow(head2);
+  ws2.columns=head2.map((h,i)=>({width:i<3?(i===0?5:12):5}));
+  e5StyleHeaderRow(ws2.getRow(1));
+  sortedRows.forEach((r,i)=>{
+    const objVals=E5_EXAM.map(q=>r.obj[q.no]||'');
+    const vocabVals=VOCAB_ITEMS.map(it=>String(r.vocab[it.no]||'')==='1'?'O':'X');
+    const transVals=TRANS_ITEMS.map(it=>Number(r.trans[it.no])||0);
+    const row=ws2.addRow([i+1, r.name, r.code||'', ...objVals, ...vocabVals, ...transVals]);
+    E5_EXAM.forEach((q,qi)=>{
+      const cell=row.getCell(4+qi);
+      const correct=String(r.obj[q.no]||'')===String(q.ans);
+      e5StyleCell(cell, correct?'good':'bad', true);
+    });
+    VOCAB_ITEMS.forEach((it,vi)=>{
+      const cell=row.getCell(4+E5_EXAM.length+vi);
+      e5StyleCell(cell, vocabVals[vi]==='O'?'good':'bad', true);
+    });
+    TRANS_ITEMS.forEach((it,ti)=>{
+      const cell=row.getCell(4+E5_EXAM.length+VOCAB_ITEMS.length+ti);
+      const v=transVals[ti];
+      e5StyleCell(cell, v>=it.max?'good':(v<=0?'bad':'warn'), true);
+    });
+  });
+  ws2.views=[{state:'frozen',ySplit:1,xSplit:3}];
+
   const scopeLabel = ROLE==='admin' && !BRANCH ? '전체분원' : (BRANCHES[BRANCH]||'');
-  XLSX.writeFile(wb, `초5ACE진급시험_${scopeLabel}_${SEM||''}.xlsx`.replace(/[\\/:*?"<>|]/g,'_'));
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`초5ACE진급시험_${scopeLabel}_${SEM||''}`.replace(/[\\/:*?"<>|]/g,'_')+'.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
   toast(`${sortedRows.length}명 엑셀 다운로드 완료`,true);
 }
 
