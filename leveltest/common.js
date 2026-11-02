@@ -1855,10 +1855,17 @@ function getExamOptionsByGrade(grade) {
     return list;
   }
 
+  /* 2026-11-02 — 운영자: "초등6학년애들이 다음학기 입학하면 중등1로 입학을 할 텐데...
+     학년을 중1로 바꿔서 넣고있거든" — 승급 예정 학생이 미리 다음 학년 시험을 볼 수
+     있게, 그 학년 시험 밑에 다음 학년 시험도 같이 보여준다(초6=E6+M1, 중1=M1+M2,
+     중2=M2+M3). 실제 채점·레벨표시는 promotedGradeFor()가 "그 시험을 골랐으면 다음
+     학년인 셈" 쳐서 처리한다 — 여기선 드롭다운에 보여주기만 하면 된다. */
   if (g === "초등6") {
     return [
       { value: "E6", label: "E6" },
-      { value: "Voca & Translation", label: "Voca & Translation" }
+      { value: "Voca & Translation", label: "Voca & Translation" },
+      { value: "M1(일반형)", label: "M1(일반형)" },
+      { value: "M1(수능형)", label: "M1(수능형)" }
     ];
   }
 
@@ -1866,14 +1873,18 @@ function getExamOptionsByGrade(grade) {
     return [
       { value: "M1(일반형)", label: "M1(일반형)" },
       { value: "M1(수능형)", label: "M1(수능형)" },
-      { value: "Voca & Translation", label: "Voca & Translation" }
+      { value: "Voca & Translation", label: "Voca & Translation" },
+      { value: "M2(일반형)", label: "M2(일반형)" },
+      { value: "M2(수능형)", label: "M2(수능형)" }
     ];
   }
 
   if (g === "중등2") {
     return [
       { value: "M2(일반형)", label: "M2(일반형)" },
-      { value: "M2(수능형)", label: "M2(수능형)" }
+      { value: "M2(수능형)", label: "M2(수능형)" },
+      { value: "M3(고1형)", label: "M3(고1형)" },
+      { value: "M3(고2형)", label: "M3(고2형)" }
     ];
   }
 
@@ -1951,8 +1962,11 @@ function goNext() {
   /* 2026-10-28 — 초등5가 E6·Voca & Translation을 고르면(getExamOptionsByGrade 참고)
      초등6과 똑같은 화면으로 보낸다. 학생의 실제 학년(grade)은 그대로 넘겨서 — 아래
      renderVTExamPage/renderExamPage가 받는 grade는 "초등5" 그대로이고, 보고서에
-     찍히는 학년은 getReportGradeForExam()이 따로 "초등6"으로 바꿔 보여준다. */
-  const routeGrade = (grade === "초등5" && (examName === "E6" || examName === "Voca & Translation")) ? "초등6" : grade;
+     찍히는 학년은 getReportGradeForExam()이 따로 "초등6"으로 바꿔 보여준다.
+     2026-11-02 — 초6→M1, 중1→M2, 중2→M3 승급 예정 조합도 같은 식으로 넓혔다
+     (promotedGradeFor 참고) — 아래 분기는 grade 대신 routeGrade를 써서, 승급
+     예정 학생도 실제 그 학년 학생과 똑같은 시험지·채점 기준을 그대로 탄다. */
+  const routeGrade = promotedGradeFor(grade, examName);
 
   if ((routeGrade === "초등6" || routeGrade === "중등1") && examName === "Voca & Translation") {
     renderVTExamPage(memberCode, name, school, grade, testDate, examName);
@@ -1964,17 +1978,17 @@ function goNext() {
     return;
   }
 
-  if (grade === "중등1") {
+  if (routeGrade === "중등1") {
     renderExamPage(memberCode, name, school, grade, testDate, examName, examName === "M1(수능형)" ? "M1(수능형)" : "M1,M2(일반형)");
     return;
   }
 
-  if (grade === "중등2") {
+  if (routeGrade === "중등2") {
     renderExamPage(memberCode, name, school, grade, testDate, examName, examName === "M2(수능형)" ? "M2(수능형)" : "M1,M2(일반형)");
     return;
   }
 
-  if (grade === "중등3") {
+  if (routeGrade === "중등3") {
     renderExamPage(memberCode, name, school, grade, testDate, examName, examName);
   }
 }
@@ -3004,18 +3018,32 @@ const chessTests = ["I1", "D1", "D2", "D3", "D4", "L1", "L2", "L3", "L4"];
     answerBtn.onclick = openSelectedAnswer;
   }
 }
-function getReportGradeForExam(studentGrade, examName) {
- 
+/* 2026-11-02 — 운영자: "초등6학년애들이 다음학기 입학하면 중등1로 입학을 할 텐데...
+   학년을 중1로 바꿔서 넣고있거든. 해결할 수 있는 방법 없을까?" — 승급 예정 학생이
+   미리 다음 학년 시험(초6→M1, 중1→M2, 중2→M3)을 볼 수 있어야 하는데, 그동안은
+   드롭다운에 다음 학년 시험이 아예 안 떠서 학년 칸 자체를 거짓으로 바꿔 넣는
+   수밖에 없었다(그러면 다른 화면에 실제 학년이 아닌 값이 찍힌다).
+   2026-10-28에 초5→E6(초6 시험)만 똑같은 문제를 먼저 풀어뒀던 방식(학년은 그대로
+   받되 "이 조합이면 다음 학년인 셈 친다"는 보정)을 그대로 넓혔다 — 탕정만이 아니라
+   그때처럼 전 분원 공통이다.
+   이 보정은 아래 세 곳이 전부 똑같이 써야 한다(한 곳만 고치면 나머지가 그 조합을
+   못 알아봐서 엉뚱한 채점기준표를 쓰거나 "미배정"만 나온다):
+   getExamOptionsByGrade(드롭다운에 다음 학년 시험도 보여주기) ·
+   getAssignedLevel(그 시험 기준표로 채점) · getLevelOptions(레벨 수정 드롭다운) ·
+   getReportGradeForExam(성적표에 찍히는 학년). goNext()의 라우팅도 이 값을 쓴다. */
+function promotedGradeFor(studentGrade, examName) {
   const g = String(studentGrade || "").replace(/\s/g, "");
   const e = String(examName || "").replace(/\s/g, "");
-
- 
-  if ((g.includes("초5") || g.includes("초등5")) && (e.includes("E6") || e === "")) {
-    console.log("학년 보정 발생: 초5 -> 초등6");
-    return "초등6";
-  }
-
+  if ((g === "초등5" || g === "초5") && (e === "E6" || e === "Voca&Translation" || e === "")) return "초등6";
+  if ((g === "초등6" || g === "초6") && e.startsWith("M1")) return "중등1";
+  if ((g === "중등1" || g === "중1") && e.startsWith("M2")) return "중등2";
+  if ((g === "중등2" || g === "중2") && e.startsWith("M3")) return "중등3";
   return studentGrade;
+}
+function getReportGradeForExam(studentGrade, examName) {
+  const promoted = promotedGradeFor(studentGrade, examName);
+  if (promoted !== studentGrade) console.log("학년 보정 발생: " + studentGrade + " -> " + promoted);
+  return promoted;
 }
 /* 2026-10-28 — 초등5가 E6을 고르면(getExamOptionsByGrade 참고) 어휘·해석(VT)이
    초등6·중등1처럼 한 세션에 묶여야 한다("문항 다음칸 이동"/"통합VT 렌더링"/
@@ -3028,7 +3056,10 @@ function isVTBundledGrade(grade) {
   return grade === "초등6" || grade === "중등1" || grade === "초등5";
 }
 function getAssignedLevel(grade, examName, score, testDate = "") {
-  const g = String(grade || "").replace(/\s/g, "");
+  /* promotedGradeFor로 먼저 "다음 학년 시험을 봤으면 다음 학년인 셈 치고" 나면,
+     아래 g==="중등1" 등 기존 분기가 그대로 그 시험 기준표를 써서 채점한다 —
+     분기마다 따로 예외 조건을 안 넣어도 된다. */
+  const g = String(promotedGradeFor(grade, examName) || "").replace(/\s/g, "");
   const e = String(examName || "").replace(/\s/g, "");
   const s = Number(score);
 
@@ -3037,10 +3068,7 @@ function getAssignedLevel(grade, examName, score, testDate = "") {
   const term = getTermInfo(testDate)?.term || "";
 
 // 초6
-if (
-  g === "초등6" || g === "초6" ||
-  ((g === "초등5" || g === "초5") && e === "E6")
-) {
+if (g === "초등6" || g === "초6") {
   if (s >= 75) return "A1";
   if (s >= 65) return "PA2";
   if (s >= 60) return "PA1";
@@ -3121,7 +3149,7 @@ if (
   return "미배정";
 }
 function getLevelOptions(grade, examName) {
-  const g = String(grade || "").replace(/\s/g, "");
+  const g = String(promotedGradeFor(grade, examName) || "").replace(/\s/g, "");
   const e = String(examName || "").replace(/\s/g, "");
 
   // CHESS 시험인 경우 — CHESS_LEVEL_RULES 기준 레벨 목록
@@ -3154,7 +3182,7 @@ function getLevelOptions(grade, examName) {
   // ACE 시험 — 학년 기준
   let levels = [];
 
-  if (g === "초등6" || g === "초6" || ((g === "초등5" || g === "초5") && e === "E6")) {
+  if (g === "초등6" || g === "초6") {
     levels = ["B", "HB", "PA1", "PA2", "A1" , "A2"];
   } else if (g === "중등1" || g === "중1") {
     if (e === "M1(수능형)") {
