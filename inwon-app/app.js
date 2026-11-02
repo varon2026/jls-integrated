@@ -6059,8 +6059,20 @@ function addNewStudent(){
   }
 
   let stu=db.students.find(s=>s.code===code);
-  if(!stu){ stu={id:uid('st'),code,name,school:el('nsSchool').value.trim(),grade:el('nsGrade').value.trim()};
+  const formSchool=el('nsSchool').value.trim(), formGrade=el('nsGrade').value.trim();
+  if(!stu){ stu={id:uid('st'),code,name,school:formSchool,grade:formGrade};
     db.students.push(stu); }
+  else {
+    /* 2026-11-02 — 운영자: 회원코드가 이미 있는 학생(복귀생 등)을 다시 등록할 때,
+       화면에 새로 입력한 학교·학년이 무시되고 students 표의 예전 값이 그대로
+       남아있었다(초6→중1처럼 자연스럽게 올라간 학생이 돌아왔는데 옛날 학교·학년이
+       안 바뀜 — 서수민, 수원금호초/초등6 → 호매실중/중등1). 재등록 시점에 입력한
+       값이 최신이니 그걸로 덮어쓴다. 빈칸으로 넘어오면(실수로 안 적은 경우) 기존
+       값을 지우지 않고 그대로 둔다. */
+    stu.name = name || stu.name;
+    stu.school = formSchool || stu.school;
+    stu.grade = formGrade || stu.grade;
+  }
 const isTransferIn = el('nsTransferIn') ? el('nsTransferIn').checked : false;
   const fromBranchId = isTransferIn && el('nsTransferFrom') ? el('nsTransferFrom').value : '';
   const fromBranchName = fromBranchId ? (getBranch(fromBranchId)?.name||'') : '';
