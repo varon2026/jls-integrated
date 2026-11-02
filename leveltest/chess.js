@@ -1528,7 +1528,10 @@ function checkChessExam() {
   const grammar = evaluateChessGrammar(examName);
   const rubrics = collectChessRubrics(examName);
 
-  const totalScore = objective.rate;
+  /* 2026-11-02 — 실제 배점을 아는 시험지는 chessTrueScore로 정확히 계산하고
+     (위 chessTrueScoreRows 주석 참고), 모르는 시험지(D1, D3·D4 구버전)는 기존 방식
+     (33문항 균등 배점 어림, objective.rate)을 그대로 쓴다. */
+  const totalScore = chessTrueScore(examName, objective.results) ?? objective.rate;
   /* dataVersion을 찍기 전에 레벨부터 계산 — 이 시점의 isChessV2()는 아직 dataVersion이
      없으니 branch 기준으로 정확히 판단한다(위 isChessV2 주석 참고). */
   const assignedLevel = getChessLevel(totalScore, examName);
@@ -1691,6 +1694,64 @@ function chessAreaEarned(results, row) {
   const correctQs = (results || []).filter(r => r.no >= startQ && r.no <= endQ && r.correct).map(r => r.no);
   if (row.equalDivision) return (correctQs.length * row.base) / count;
   return correctQs.reduce((sum, n) => sum + ((row.bonusQ && n === row.bonusQ) ? 4 : 3), 0);
+}
+
+/* 2026-11-02 — 운영자: "SCORE(총점)도 영역별 표처럼 실제 배점으로 나와야 하는거아님?" —
+   맞는 말이라 바꿨다. 맨 위 SCORE는 지금까지 33문항을 똑같은 배점으로 쳐서
+   어림(objective.rate)한 값이었는데, 영역별 표(getProfile의 test01Rows)는 이제
+   진짜 배점으로 계산하다 보니 SCORE랑 표 합계가 최대 1점(33번 문항) 차이났다.
+   SCORE는 레벨 컷라인(getChessLevel)에 바로 쓰이는 값이라, "배점을 정확히 아는"
+   시험지만(getProfile의 test01Rows에 q가 다 있는 것과 같은 기준) 진짜 배점 합계로
+   바꾸고, 모르는 시험지(D1, D3·D4 구버전)는 null을 돌려줘서 기존 방식(균등 추정)을
+   그대로 쓰게 한다.
+   ⚠️ 여기 배점표는 getProfile()의 test01Rows와 "같은 영역·같은 배점"이어야 한다 —
+   렌더링용(getProfile)엔 라벨까지 있어서 그대로 재사용을 못 하고 숫자만 따로
+   들고 있다. getProfile의 test01Rows를 고치면 반드시 여기도 같이 고칠 것. */
+function chessTrueScoreRows(examName) {
+  const k = String(examName || "").toUpperCase().match(/[IDL][1-4]/)?.[0] || "";
+  const v2 = isChessV2();
+  if (k === "I1") return [
+    { base: 46, q: [1, 15], equalDivision: true },
+    { base: 36, q: [16, 27] },
+    { base: 18, q: [28, 33] }
+  ];
+  if (k === "D2") return v2 ? [
+    { base: 15, q: [1, 5] },
+    { base: 30, q: [6, 15] },
+    { base: 30, q: [16, 25] },
+    { base: 25, q: [26, 33], bonusQ: 33 }
+  ] : [
+    { base: 46, q: [1, 15], equalDivision: true },
+    { base: 36, q: [16, 27] },
+    { base: 18, q: [28, 33] }
+  ];
+  if (k === "D3" && v2) return [
+    { base: 42, q: [1, 14] },
+    { base: 42, q: [15, 28] },
+    { base: 16, q: [29, 33], bonusQ: 33 }
+  ];
+  if (k === "D4" && v2) return [
+    { base: 42, q: [1, 14] },
+    { base: 42, q: [15, 28] },
+    { base: 6, q: [29, 30] },
+    { base: 10, q: [31, 33], bonusQ: 33 }
+  ];
+  if (/^L[1-4]$/.test(k)) return v2 ? [
+    { base: 36, q: [1, 12] },
+    { base: 36, q: [13, 24] },
+    { base: 15, q: [25, 29] },
+    { base: 13, q: [30, 33], bonusQ: 33 }
+  ] : [
+    { base: 46, q: [1, 15], equalDivision: true },
+    { base: 54, q: [16, 33] }
+  ];
+  return null; // D1, D3·D4 구버전 — 실제 배점을 모름(위 chessAreaEarned 주석 참고), 기존 방식 유지
+}
+function chessTrueScore(examName, objectiveResults) {
+  const rows = chessTrueScoreRows(examName);
+  if (!rows) return null;
+  // 배점 합이 전부 100이 되도록 짜여 있어서(위 표 확인) 그대로 0~100 totalScore로 쓸 수 있다.
+  return Math.round(rows.reduce((sum, row) => sum + chessAreaEarned(objectiveResults, row), 0));
 }
 
 function renderChessReport() {

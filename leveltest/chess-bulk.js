@@ -610,7 +610,10 @@ function buildBulkChessResult(row) {
   const examName = bulkExamKeyToChessExamName(row.examKey);
   const objective = evaluateChessObjective(examName, row.obj || []);
   const grammar = evaluateChessGrammarFromBulk(examName, row.grammar || []);
-  const totalScore = objective.rate;
+  /* 2026-11-02 — 일괄채점도 한 명씩 채점하는 화면(checkChessExam, chess.js)과 같은
+     기준으로 맞춘다. 안 그러면 같은 답안이라도 일괄로 올리느냐 하나씩 입력하느냐에
+     따라 SCORE·레벨이 달라지는 모순이 생긴다. */
+  const totalScore = chessTrueScore(examName, objective.results) ?? objective.rate;
   const assignedLevel = getChessLevel(totalScore, examName);
 
   return {
