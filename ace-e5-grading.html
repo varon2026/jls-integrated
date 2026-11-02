@@ -527,7 +527,8 @@ async function exportE5Xlsx(){
   sortedRows.forEach((r,i)=>{
     const os=objScore(r), vs=vocabScore(r), ts=transScore(r);
     const suggested=getSuggestedLevel(os);
-    const finalLv=r.finalLevel||suggested;
+    // 최종레벨은 직접 골라 저장한 값만 — 안 고른 건 미배정(위 buildTotalGrid 주석 참고)
+    const finalLv=r.finalLevel||'미배정';
     const row=ws1.addRow([i+1, r.name, r.code||'', r.branchName||'', classDetail(r.classLabel||''), r.teacher||'',
       r.school||'', gradeKey(r.grade||''), os, vs, ts, suggested, finalLv]);
     e5StyleCell(row.getCell(9), e5ScoreTier(os,oMax), true);
@@ -794,11 +795,18 @@ function buildTotalGrid(){
   const body = sortedRows.map(r=>{
     const os=objScore(r), vs=vocabScore(r), ts=transScore(r);
     const suggested=getSuggestedLevel(os);
-    if(!r.finalLevel) r.finalLevel = suggested;
+    /* 2026-11-02 — 운영자: "최종레벨은 내가 직접 선택해서 저장하지 않는 이상
+       다 미배정인거야." 예전엔 여기서 r.finalLevel이 비어있으면 추천레벨(suggested)을
+       그대로 r.finalLevel에 박아 넣어서, 선생님이 손도 안 댔는데(특히 비재원생으로
+       추가한 줄처럼 저장을 바로 안 누르는 줄) 드롭다운엔 이미 레벨이 "선택된 것처럼"
+       보이고 그 상태로 저장을 누르면 그게 그대로 확정 레벨로 저장돼버렸다. r.finalLevel
+       자체는 절대 자동으로 안 채우고, 화면 표시(드롭다운 selected)만 비어있을 때
+       "미배정"으로 보여준다 — 실제로 선택해서 바뀌는 건 onLevelChange()뿐. */
     if(LEVEL_FILTER && suggested!==LEVEL_FILTER) return '';
     shown++;
     const bc=branchColor(r.branchId); const bs=bc?` style=\"--bc:${bc}\"`:'';
-    const opts = LEVEL_OPTIONS.map(lv=>`<option value="${lv}" ${r.finalLevel===lv?'selected':''}>${lv}</option>`).join('');
+    const displayLevel = r.finalLevel || '미배정';
+    const opts = LEVEL_OPTIONS.map(lv=>`<option value="${lv}" ${displayLevel===lv?'selected':''}>${lv}</option>`).join('');
     const checked = SELECTED.has(r.id)?'checked':'';
     return `<div class="ttrow" data-code="${esc(r.code||'')}"${bs}>
       <div class="gcell chk"><input type="checkbox" ${checked} onchange="toggleSelect('${r.id}',this.checked)"></div>
