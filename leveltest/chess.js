@@ -713,33 +713,36 @@ window.addEventListener("beforeprint", () => {
 });
 
 /* 새 레벨 배정표 — "분원공유용_CHESS New PT 배정기준표_202402.xlsx"의 성적처리(반배정)기준표
-   시트 그대로. 점수 구간이 아니라 "이 점수 이상이면 이 레벨" 식 커트라인 누적 방식
-   (CLAUDE.md 학원 업무 흐름의 레벨 표기 — IS1·IS2·DSA1·DSA2…와 동일한 코드 체계). */
+   시트 그대로. 점수 구간이 아니라 "이 점수 이상이면 이 레벨" 식 커트라인 누적 방식.
+   2026-11-02 — 운영자: "DSA1, DSA2 이런식으로 레벨 나오게 하지말고 DSA,DSB 이런식으로
+   뒤에 숫자 다 빼" + "레벨 체계 자체를 병합"(세부 1/2단계 구분 없이 큰 레벨 하나로).
+   그래서 라벨에서 끝자리 숫자를 뺐다(IS1/IS2→IS, DSA1/DSA2→DSA …) — 커트라인 점수
+   자체는 그대로 둬서, 같은 레벨 안에서 더 높은 점수를 받으면 다음 레벨로 넘어가는
+   로직은 안 바뀐다. (반 이름의 진짜 DSA1/DSA2 같은 반 구분은 건드린 적 없음 — 이건
+   레벨테스트 결과가 "추천하는 레벨"만 단순화한 것이고, 실제 어느 반에 넣을지는
+   그대로 사람이 정한다.) */
 const CHESS_LEVEL_TABLE_V2 = {
-  I1: [[0, "미배정"], [40, "IS1"], [55, "IS2"], [91, "DSA1"]],
-  D1: [[0, "미배정"], [55, "DSA1"], [67, "DSA2"], [79, "DSB1"]],
-  D2: [[0, "미배정"], [55, "DSB1"], [67, "DSB2"], [79, "DSC1"]],
-  D3: [[0, "미배정"], [55, "DSC1"], [67, "DSC2"], [79, "DSD1"]],
-  D4: [[0, "미배정"], [55, "DSD1"], [67, "DSD2"], [79, "LSA1"]],
-  L1: [[0, "미배정"], [55, "LSA1"], [67, "LSA2"], [79, "LSB1"]],
-  L2: [[0, "미배정"], [55, "LSB1"], [67, "LSB2"], [79, "LSC1"]],
-  L3: [[0, "미배정"], [55, "LSC1"], [67, "LSC2"], [79, "LSD1"]],
-  L4: [[0, "미배정"], [61, "LSD1"], [76, "LSD2"], [91, "MSA1"]]
+  I1: [[0, "미배정"], [40, "IS"], [55, "IS"], [91, "DSA"]],
+  D1: [[0, "미배정"], [55, "DSA"], [67, "DSA"], [79, "DSB"]],
+  D2: [[0, "미배정"], [55, "DSB"], [67, "DSB"], [79, "DSC"]],
+  D3: [[0, "미배정"], [55, "DSC"], [67, "DSC"], [79, "DSD"]],
+  D4: [[0, "미배정"], [55, "DSD"], [67, "DSD"], [79, "LSA"]],
+  L1: [[0, "미배정"], [55, "LSA"], [67, "LSA"], [79, "LSB"]],
+  L2: [[0, "미배정"], [55, "LSB"], [67, "LSB"], [79, "LSC"]],
+  L3: [[0, "미배정"], [55, "LSC"], [67, "LSC"], [79, "LSD"]],
+  L4: [[0, "미배정"], [61, "LSD"], [76, "LSD"], [91, "MSA"]]
 };
-/* 레벨 수정 드롭다운용 전체 레벨 순서(CLAUDE.md 학원 업무 흐름 그대로) + 자동배정 앞뒤로
-   2단계씩 보여주는 슬라이딩 윈도 — 탕정 CHESS 전용(기존 CHESS는 getLevelOptions의
-   10단계 목록을 그대로 쓴다, 안 건드림). */
-const CHESS_V2_GLOBAL_LEVELS = [
-  "IS1","IS2","DSA1","DSA2","DSB1","DSB2","DSC1","DSC2","DSD1","DSD2",
-  "LSA1","LSA2","LSB1","LSB2","LSC1","LSC2","LSD1","LSD2","MSA1","MSA2","MSB1","MSB2"
+/* 레벨 수정 드롭다운용 전체 레벨 목록.
+   2026-11-02 — 운영자: "미배정으로 뜨면 드롭다운에 미배정만 나온다" 버그 발견(원래
+   온갖 레벨이 다 나오게 설계했었는데, 자동배정이 미배정일 때만 예외로 미배정 하나만
+   돌려주고 있었다) + "서수원분원처럼 걍 모든 레벨 다 뜨게 해줘야됨" — 그래서 자동배정
+   앞뒤로 2단계만 보여주던 슬라이딩 윈도(예전 CHESS_V2_GLOBAL_LEVELS)를 버리고, 기존
+   CHESS(getLevelOptions)와 똑같이 항상 전체 목록 + 미배정 + interview를 보여준다. */
+const CHESS_V2_LEVEL_OPTIONS = [
+  "미배정", "interview", "IS", "DSA", "DSB", "DSC", "DSD", "LSA", "LSB", "LSC", "LSD", "MSA"
 ];
 function chessV2LevelOptions(autoLevel) {
-  if (autoLevel === "미배정") return ["미배정"];
-  const idx = CHESS_V2_GLOBAL_LEVELS.indexOf(autoLevel);
-  if (idx === -1) return [autoLevel];
-  const start = Math.max(0, idx - 2);
-  const end = Math.min(CHESS_V2_GLOBAL_LEVELS.length, idx + 2);
-  return CHESS_V2_GLOBAL_LEVELS.slice(start, end);
+  return CHESS_V2_LEVEL_OPTIONS;
 }
 /* I1·D1~L4 공통 "정답 조회" 창구. 기존 CHESS_ANSWER_KEY[examName] 직접 참조를
    전부 이걸로 바꿔서, 탕정분원일 때만 새 정답(CHESS_ANSWER_KEY_I1/_V2)을 돌려주고
