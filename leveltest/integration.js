@@ -170,6 +170,14 @@
       var res = await s.from('level_test_results').select('*').eq('id', P.viewId).single();
       if (res.error) throw res.error;
       var rj = res.data.result_json || {};
+      /* 2026-11-02 — 운영자: "성적표 보기 누르면 옛날버전 성적표가 나와" — 통합관리
+         어드민 화면(응시자 상세 표)에서 "성적" 점수를 눌러 여는 길(leveltest/index.html?view=)
+         은 URL에 ?branch=가 안 붙는다. buildCoverPage(common.js)가 새 표지를 쓸지는
+         window.__LT_ENTRY.branch로만 판단하는데, 이 길로 들어오면 그게 비어 있어서
+         탕정분원 결과인데도 옛날 표지로 떨어졌다. 저장된 행 자체에 branch_id가 있으니
+         (saveResult 참고) 그 값으로 덮어써서 "열람"도 "응시"와 같은 분원 판정을 받게
+         한다 — CHESS 쪽은 이미 dataVersion으로 같은 문제를 풀어놔서 영향 없음. */
+      if (res.data.branch_id) window.__LT_ENTRY.branch = res.data.branch_id;
       if (res.data.report_type === 'chess') {
         LAST_CHESS_SESSION = rj;
         if (typeof renderChessReport === 'function') renderChessReport();
