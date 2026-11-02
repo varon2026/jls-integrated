@@ -2788,8 +2788,30 @@ const assignedLevel = getAssignedLevel(reportGrade, title, evaluation.total, tes
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
+/* 2026-11-02 — 운영자: "답안입력으로 돌아가기 눌러도 버튼이 안먹힌다" — CHESS 때와
+   같은 종류 버그다(chess.js의 chessBackToInput 참고). "답안입력으로 돌아가기" 버튼은
+   restoreExamInput()을 쓰는데, 그건 전역 LAST_EXAM_SESSION.answerMap/vtState를 읽는다.
+   근데 그 값은 renderExamPage가 "맨 처음 빈 칸으로 그릴 때" 딱 한 번만 세팅되고, 그
+   뒤로 한 번도 안 채워졌다 — 어드민 열람모드(?view=)에서는 renderExamPage 자체를 아예
+   안 거치니 LAST_EXAM_SESSION이 통째로 비어서 버튼이 조용히 아무 일도 안 했다(열람모드
+   아닌 정상 채점 흐름에서도 사실 답이 비어서 돌아갔을 것 — 마침 발견 못 했을 뿐).
+   그래서 이 화면이 그려질 때마다, 이미 채점된 evaluation/vtEvaluation에서 답을 그대로
+   복원해 LAST_EXAM_SESSION을 다시 채워 넣는다 — restoreExamInput()은 그대로 두고
+   재료만 채워주면 된다. */
 function renderAnswerReview(memberCode, name, school, grade, testDate, title, examKey, evaluation, vtEvaluation = null, assignedLevel = "미배정", reportGrade = grade) {
   const results = evaluation.results || [];
+
+  const answerMap = {};
+  results.forEach(q => { answerMap[q.no] = q.user ?? q.userAnswer ?? ""; });
+  let vtState = null;
+  if (vtEvaluation) {
+    const vocabAnswers = {};
+    (vtEvaluation.vocabResults || []).forEach(item => { vocabAnswers[item.no] = item.user ?? ""; });
+    const transScores = {};
+    (vtEvaluation.transResults || []).forEach(item => { transScores[item.no] = String(item.earned ?? "0"); });
+    vtState = { vocabAnswers, transScores };
+  }
+  LAST_EXAM_SESSION = { memberCode, name, school, grade, testDate, title, examKey, answerMap, vtState };
 
   const reviewRows = results.map(q => `
     <div class="review-row ${q.correct ? "correct" : "wrong"}">
@@ -3288,8 +3310,23 @@ function renderReport(memberCode, name, school, grade, testDate, title, examData
     : renderGeneralReport(memberCode, name, school, grade, testDate, title, examData, evaluation, assignedLevel, reportGrade);
 }
 
+/* 2026-11-02 — renderAnswerReview와 같은 이유로 여기도 LAST_EXAM_SESSION을 다시
+   채워 넣는다 — 이 화면(최종 성적표)은 어드민 열람모드(?view=)에서 renderAnswerReview를
+   거치지 않고 바로 그려지는 화면이라, 여기서도 안 채우면 "답안입력으로 돌아가기"가
+   똑같이 조용히 안 먹는다. */
 function renderReportScreen(memberCode, name, school, grade, testDate, title, examKey, evaluation, vtEvaluation = null, assignedLevel, reportGrade = grade) {
-  
+  const answerMap = {};
+  (evaluation?.results || []).forEach(q => { answerMap[q.no] = q.user ?? q.userAnswer ?? ""; });
+  let vtState = null;
+  if (vtEvaluation) {
+    const vocabAnswers = {};
+    (vtEvaluation.vocabResults || []).forEach(item => { vocabAnswers[item.no] = item.user ?? ""; });
+    const transScores = {};
+    (vtEvaluation.transResults || []).forEach(item => { transScores[item.no] = String(item.earned ?? "0"); });
+    vtState = { vocabAnswers, transScores };
+  }
+  LAST_EXAM_SESSION = { memberCode, name, school, grade, testDate, title, examKey, answerMap, vtState };
+
   const mainReport = renderReport(
     memberCode,
     name,
