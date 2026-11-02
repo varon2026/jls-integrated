@@ -291,6 +291,16 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 .chess-report-item-dot.sel.A{background:var(--wr-good);border-color:var(--wr-good);color:#fff;}
 .chess-report-item-dot.sel.B{background:var(--wr-warn);border-color:var(--wr-warn);color:#fff;}
 .chess-report-item-dot.sel.C{background:var(--wr-bad);border-color:var(--wr-bad);color:#fff;}
+/* 2026-11-02 — 운영자: "a~d까지 입력하는것들은 그냥 성적표 화면에서도 수정가능하게".
+   점·행 자체 크기는 그대로 두고(인쇄 레이아웃 안 건드림) 화면에서만 클릭 가능해
+   보이게 커서·호버만 추가했다 — @media screen 안이라 인쇄에는 전혀 안 남는다. */
+@media screen {
+  .chess-report-item-dot{cursor:pointer;}
+  .chess-report-item-dot:hover{border-color:#1f5d96;}
+  .chess-report-criteria-row-editable{cursor:pointer;}
+  .chess-report-criteria-row-editable:hover{background:#f3f7fc;}
+  .chess-report-criteria-row-editable.sel{background:#eaf1fb;}
+}
 .chess-report-feedback-box{border:1px solid #d7e3f0;border-radius:16px;background:#fff;padding:16px 18px;margin-top:14px;box-shadow:0 4px 14px rgba(31,93,150,.06);}
 .chess-report-feedback-title{font-size:13px;font-weight:800;color:#1f5d96;letter-spacing:.04em;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
 .chess-report-feedback-title::before{content:'';width:8px;height:8px;background:#0a7acb;border-radius:2px;}

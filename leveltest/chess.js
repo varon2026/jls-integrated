@@ -538,12 +538,15 @@ function chessWritingFeedbackHTML(n, c, mode, studentName){
    같은 줄로 바로 이어 붙게(한 줄에 안 들어가면 그때만 다음 줄로) 바꿨다 —
    문항 한 줄이 대부분 한 줄 높이로 줄어서, 같은 예산 안에서 글자를 덜
    줄여도(zoom이 덜 걸려도) 된다. */
+/* 2026-11-02 — 운영자: "a~d까지 입력하는것들은 그냥 성적표 화면에서도 수정가능하게" —
+   Writing(V2) 문항별 A/B/C 동그라미도 눌러서 바로 바꿀 수 있게 했다. 점(dot) 모양·
+   크기는 그대로고 onclick만 더해서 인쇄 레이아웃에는 영향이 없다. */
 function chessRenderReportItemRowV2(serial, it, grade) {
   return `<div class="chess-report-item-row">
     <div class="chess-report-item-no">${serial}</div>
     <div class="chess-report-item-text"><span class="chess-report-item-word">${esc(it.s || it.w)}</span><span class="chess-report-item-desc">${esc(it.sd || it.d)}</span></div>
     <div class="chess-report-item-grades">
-      ${["A", "B", "C"].map(g => `<div class="chess-report-item-dot${grade === g ? " sel " + g : ""}">${g}</div>`).join("")}
+      ${["A", "B", "C"].map(g => `<div class="chess-report-item-dot${grade === g ? " sel " + g : ""}" onclick="chessEditWritingItemGrade(${serial},'${g}')" title="클릭하면 이 등급으로 바뀝니다">${g}</div>`).join("")}
     </div>
   </div>`;
 }
@@ -1646,6 +1649,26 @@ function overrideChessLevel(newLevel) {
   LAST_CHESS_SESSION.assignedLevel = newLevel;
 }
 
+/* 2026-11-02 — 운영자: "a~d까지 입력하는것들은 그냥 성적표 화면에서도 수정가능하게".
+   Speaking 카드·holistic Writing 카드(renderCriteriaCard)의 등급 행을 클릭하면 호출됨.
+   group은 'speaking'|'writing', key는 그 항목 키(예: 'listening'). LAST_CHESS_SESSION에
+   바로 써넣고 성적표를 다시 그린다 — 답안입력 화면을 거치지 않고 바로 반영된다. */
+function chessEditCriteriaGrade(group, key, grade) {
+  if (!LAST_CHESS_SESSION || !LAST_CHESS_SESSION.rubrics) return;
+  if (!LAST_CHESS_SESSION.rubrics[group]) LAST_CHESS_SESSION.rubrics[group] = {};
+  LAST_CHESS_SESSION.rubrics[group][key] = grade;
+  renderChessReport();
+}
+/* Writing(V2) 문항별 A/B/C 점(chessRenderReportItemRowV2)을 클릭하면 호출됨. serial은
+   1부터 시작하는 문항 번호 — rubrics.writing.grades 배열은 0부터라 하나 뺀다. */
+function chessEditWritingItemGrade(serial, grade) {
+  if (!LAST_CHESS_SESSION || !LAST_CHESS_SESSION.rubrics || !LAST_CHESS_SESSION.rubrics.writing) return;
+  const grades = LAST_CHESS_SESSION.rubrics.writing.grades;
+  if (!Array.isArray(grades)) return;
+  grades[serial - 1] = grade;
+  renderChessReport();
+}
+
 function renderChessReport() {
   if (!LAST_CHESS_SESSION || typeof LAST_CHESS_SESSION.totalScore === "undefined") {
     alert("채점 결과가 없습니다.");
@@ -2111,7 +2134,13 @@ function renderChessReport() {
     return [];
   }
 
-  function renderCriteriaCard(title, score, grades) {
+  /* 2026-11-02 — 운영자: "a~d까지 입력하는것들은 그냥 성적표 화면에서도 수정가능하게"
+     — group·key가 있으면(Speaking/holistic Writing 카드) 각 등급 행을 눌러서 바로
+     SCORE를 바꿀 수 있게 한다. 표의 행·칸 구조는 그대로 두고 onclick만 더했다 —
+     인쇄 페이지 나누기 계산(chessMeasurePrintBreaks)은 실제 인쇄 시점의 렌더 높이만
+     보기 때문에, 클릭 가능하게 만든 것 자체는 그 계산에 전혀 영향을 주지 않는다. */
+  function renderCriteriaCard(title, score, grades, group, key) {
+  const editable = !!(group && key);
   return `
     <div class="chess-report-card">
       <div class="chess-report-card-title chess-report-card-title--top">${title}</div>
@@ -2128,7 +2157,7 @@ function renderChessReport() {
           <table class="chess-report-criteria-table chess-report-criteria-table--fixed">
             <tbody>
               ${["A", "B", "C", "D"].map(g => `
-                <tr>
+                <tr${editable ? ` class="chess-report-criteria-row-editable${g === score ? " sel" : ""}" onclick="chessEditCriteriaGrade('${group}','${key}','${g}')" title="클릭하면 이 등급으로 바뀝니다"` : ""}>
                   <td class="chess-report-criteria-grade">${g}</td>
                   <td class="chess-report-criteria-desc">${grades[g] || ""}</td>
                 </tr>
@@ -2183,13 +2212,13 @@ function renderChessReport() {
 
   const speakingCards = profile.speaking.map(item => {
     const score = rubrics?.speaking?.[item.key] || "";
-    return renderCriteriaCard(item.title, score, item.grades);
+    return renderCriteriaCard(item.title, score, item.grades, "speaking", item.key);
   }).join("");
 
   const writingItems = getWritingItems(profile.writingType);
   const writingCards = writingItems.map(item => {
     const score = rubrics?.writing?.[item.key] || "";
-    return renderCriteriaCard(item.title, score, item.grades);
+    return renderCriteriaCard(item.title, score, item.grades, "writing", item.key);
   }).join("");
 const grammarLabels = CHESS_GRAMMAR_LABELS[
   getChessMeta(examName).grammarType
