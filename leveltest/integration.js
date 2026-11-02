@@ -200,17 +200,25 @@
       /* 2026-11-02 — 운영자: "학교 수정하면 바로 입력이 다 된 성적표라도 바뀌게끔",
          "지금 현재 학생정보 입력칸에 적힌 학년기준으로 성적표에도 그렇게 학년 나오게".
          result_json엔 채점 당시 스냅샷(학교·학년)이 그대로 박혀 있어서, 나중에
-         학생정보(students 표)에서 학교·학년을 고쳐도 이미 만든 성적표엔 안 보였다.
-         열람할 때마다 students 표에서 지금 학교·학년을 다시 가져와 덮어쓴다.
-         회원코드가 있으면(임시-로 시작하지 않으면) 코드로 정확히 한 명을 찾고,
-         없으면 이름으로 찾되 — 동명이인이 둘 이상이면 엉뚱한 학생 정보가 붙을
-         위험이 있어서 그럴 땐 안 건드리고 저장된 값 그대로 둔다. */
+         학교·학년을 고쳐도 이미 만든 성적표엔 안 보였다. 열람할 때마다 지금 값을
+         다시 가져와 덮어쓴다 — 어디서 찾을지가 문제인데,
+         1) 회원코드가 있으면(임시-로 시작하지 않으면, 이미 등록된 학생) students 표를 코드로,
+         2) 아니면(운정 "장효승"처럼 등록 여부가 '대기'라 아직 students에 없는 경우가
+            대부분) 원무 예약 화면 "학생 정보" 칸이 실제로 고치는 level_test_reservations를
+            reservation_id로 — 이게 코드 없는 응시자의 진짜 최신 값이다.
+         3) 그래도 못 찾으면 마지막으로 이름으로 students를 찾되, 동명이인이 둘 이상이면
+            엉뚱한 학생 정보가 붙을 위험이 있어서 손 안 대고 저장된 값을 그대로 둔다. */
       try {
         var liveStu = null;
         if (res.data.student_code && res.data.student_code.indexOf('임시-') !== 0) {
           var byCode = await s.from('students').select('school,grade').eq('code', res.data.student_code).maybeSingle();
           if (!byCode.error && byCode.data) liveStu = byCode.data;
-        } else {
+        }
+        if (!liveStu && res.data.reservation_id) {
+          var byRes = await s.from('level_test_reservations').select('school,grade').eq('id', res.data.reservation_id).maybeSingle();
+          if (!byRes.error && byRes.data) liveStu = byRes.data;
+        }
+        if (!liveStu) {
           var byName = await s.from('students').select('school,grade').eq('name', rj.name || res.data.student_name);
           if (!byName.error && byName.data && byName.data.length === 1) liveStu = byName.data[0];
         }
