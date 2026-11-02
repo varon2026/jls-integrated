@@ -538,34 +538,43 @@ async function exportE5Xlsx(){
   });
   ws1.views=[{state:'frozen',ySplit:1}];
 
-  /* ---- 시트2: 답안상세(문항별 — 틀린 문항이 바로 보이게) ---- */
+  /* ---- 시트2: 답안상세(문항별 — 틀린 문항이 바로 보이게) ----
+     2026-11-02 — 운영자: "객관식 다 적었으면 객관식 총점, 단어 총점, 해석 총점도
+     넣으면 딱 좋을듯" — 요약 시트까지 안 왔다갔다 안 해도 이 시트만 보고 바로
+     총점까지 알 수 있게, 회원코드 뒤에 총점 3칸을 추가했다. */
   const ws2=wb.addWorksheet('답안상세');
-  const head2=['번호','이름','회원코드',
+  const FIXED2=['번호','이름','회원코드',`객관식(/${oMax})`,`단어(/${vMax})`,`해석(/${tMax})`];
+  const head2=[...FIXED2,
     ...E5_EXAM.map(q=>`객${q.no}`), ...VOCAB_ITEMS.map(it=>`단${it.no}`), ...TRANS_ITEMS.map(it=>`해${it.no}`)];
   ws2.addRow(head2);
-  ws2.columns=head2.map((h,i)=>({width:i<3?(i===0?5:12):5}));
+  ws2.columns=head2.map((h,i)=>({width:i<FIXED2.length?(i===0?5:i<3?12:9):5}));
   e5StyleHeaderRow(ws2.getRow(1));
+  const F2=FIXED2.length; // 문항 칸들이 시작하는 앞쪽 고정 칸 수
   sortedRows.forEach((r,i)=>{
+    const os=objScore(r), vs=vocabScore(r), ts=transScore(r);
     const objVals=E5_EXAM.map(q=>r.obj[q.no]||'');
     const vocabVals=VOCAB_ITEMS.map(it=>String(r.vocab[it.no]||'')==='1'?'O':'X');
     const transVals=TRANS_ITEMS.map(it=>Number(r.trans[it.no])||0);
-    const row=ws2.addRow([i+1, r.name, r.code||'', ...objVals, ...vocabVals, ...transVals]);
+    const row=ws2.addRow([i+1, r.name, r.code||'', os, vs, ts, ...objVals, ...vocabVals, ...transVals]);
+    e5StyleCell(row.getCell(4), e5ScoreTier(os,oMax), true);
+    e5StyleCell(row.getCell(5), e5ScoreTier(vs,vMax), true);
+    e5StyleCell(row.getCell(6), e5ScoreTier(ts,tMax), true);
     E5_EXAM.forEach((q,qi)=>{
-      const cell=row.getCell(4+qi);
+      const cell=row.getCell(F2+1+qi);
       const correct=String(r.obj[q.no]||'')===String(q.ans);
       e5StyleCell(cell, correct?'good':'bad', true);
     });
     VOCAB_ITEMS.forEach((it,vi)=>{
-      const cell=row.getCell(4+E5_EXAM.length+vi);
+      const cell=row.getCell(F2+1+E5_EXAM.length+vi);
       e5StyleCell(cell, vocabVals[vi]==='O'?'good':'bad', true);
     });
     TRANS_ITEMS.forEach((it,ti)=>{
-      const cell=row.getCell(4+E5_EXAM.length+VOCAB_ITEMS.length+ti);
+      const cell=row.getCell(F2+1+E5_EXAM.length+VOCAB_ITEMS.length+ti);
       const v=transVals[ti];
       e5StyleCell(cell, v>=it.max?'good':(v<=0?'bad':'warn'), true);
     });
   });
-  ws2.views=[{state:'frozen',ySplit:1,xSplit:3}];
+  ws2.views=[{state:'frozen',ySplit:1,xSplit:F2}];
 
   const scopeLabel = ROLE==='admin' && !BRANCH ? '전체분원' : (BRANCHES[BRANCH]||'');
   const buf=await wb.xlsx.writeBuffer();
