@@ -493,8 +493,8 @@ function jlsCoverPageHTML(opts) {
       <div class="jls-cover-report-title">Placement Test Report</div>
 
       <div class="jls-cover-infobox">
-        <div class="row"><b>NAME .</b><span>${esc(o.name)}</span></div>
-        <div class="row"><b>SCHOOL / GRADE .</b><span>${esc(jlsShortSchool(o.school))} / ${esc(o.grade)}</span></div>
+        <div class="row"><b>NAME .</b><span class="jls-cover-editable" onclick="jlsEditCoverField('name','이름')">${esc(o.name)}</span></div>
+        <div class="row"><b>SCHOOL / GRADE .</b><span><span class="jls-cover-editable" onclick="jlsEditCoverField('school','학교명')">${esc(jlsShortSchool(o.school))}</span> / ${esc(o.grade)}</span></div>
         <div class="row"><b>TEST TYPE .</b><span>${esc(o.testType)}</span></div>
         <div class="row"><b>TEST DATE .</b><span>${esc(formatDate(o.testDate))}</span></div>
       </div>
@@ -511,6 +511,32 @@ function jlsCoverPageHTML(opts) {
       <div class="jls-cover-rmark"><img src="${esc(o.rImage || "cover-r-pink.png")}?v=20261030g" alt="R"></div>
     </div>
     </div>`;
+}
+/* 2026-11-02 — 운영자: "성적표가 만들어진 상태에서 나중에 학교명을 바꾸면
+   반영이 안 돼." 학생 명단에서 학교명을 고쳐도 이미 저장된 성적표는 그 시점
+   스냅샷이라 안 바뀐다. 명단에서 자동으로 다시 가져오게 하면 동명이인이 있을
+   때 엉뚱한 학생 정보가 붙을 위험이 있어서(회원코드 없이 이름으로만 맞추는
+   경우가 있다), 그 대신 A~D 등급 수정과 같은 방식으로 성적표 화면에서 이름·
+   학교명을 직접 클릭해 고치게 한다. CHESS(LAST_CHESS_SESSION)와 일반/ACE
+   (LAST_REPORT_SESSION) 두 시스템이 서로 다른 전역을 쓰므로 어느 쪽이 지금
+   떠 있는지 먼저 판정한다 — integration.js의 판정 방식과 동일
+   (LAST_CHESS_SESSION.totalScore가 있으면 CHESS, 아니면 LAST_REPORT_SESSION). */
+function jlsEditCoverField(field, label) {
+  const isChess = typeof LAST_CHESS_SESSION !== "undefined" && LAST_CHESS_SESSION && typeof LAST_CHESS_SESSION.totalScore !== "undefined";
+  const sess = isChess ? LAST_CHESS_SESSION : (typeof LAST_REPORT_SESSION !== "undefined" ? LAST_REPORT_SESSION : null);
+  if (!sess) return;
+  const next = prompt(label + " 수정", sess[field] || "");
+  if (next === null) return;
+  sess[field] = next.trim();
+  if (isChess) {
+    renderChessReport();
+  } else {
+    renderReportScreen(
+      sess.memberCode, sess.name, sess.school, sess.grade, sess.testDate,
+      sess.title, sess.examKey, sess.evaluation, sess.vtEvaluation,
+      sess.assignedLevel, sess.reportGrade
+    );
+  }
 }
 function getDisplayLevel(assignedLevel) {
   return assignedLevel || "미배정";

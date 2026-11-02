@@ -634,6 +634,12 @@ button.ghost { background: #faf8fe !important; color: #8b6ee8 !important; border
 }
 .jls-cover-infobox .row b { font-size: 10pt; font-weight: 600; color: #231f20; }
 .jls-cover-infobox .row span { font-size: 12pt; font-weight: 700; color: #231f20; }
+/* 2026-11-02 — 운영자: "성적표에서 학교명도 바로 수정 가능하게." 커서·밑줄만
+   화면에서 보이게(@media screen, 인쇄에는 안 남음) — A~D 등급 수정 때 쓴 것과 같은 방식. */
+@media screen {
+  .jls-cover-editable { cursor: pointer; border-bottom: 1px dashed #1f5d96; }
+  .jls-cover-editable:hover { background: #f3f7fc; }
+}
 
 /* 2026-10-29 — 운영자: "R옆 문구 위아래 간격이 너무 촘촘해, 살짝 여유롭게" +
    "하단 문구는 글씨체 1씩 더 키우고" → line-height 1.2→1.35, cap 10→11pt,
