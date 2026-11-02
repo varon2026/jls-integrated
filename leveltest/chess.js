@@ -944,7 +944,7 @@ function buildChessGrammarInputs(examName) {
   `;
 }
 
-function buildChessRubricInputs(examName) {
+function buildChessRubricInputs(examName, savedRubrics) {
   const meta = getChessMeta(examName);
 
   const cleanKey = String(examName || "")
@@ -1116,7 +1116,9 @@ function buildChessRubricInputs(examName) {
 let writingHtml = "";
 
 if (isChessV2()) {
-  writingHtml = buildChessWritingSection(cleanKey, null, null);
+  const savedWriting = savedRubrics && savedRubrics.writing;
+  const savedType = (savedWriting && Array.isArray(savedWriting.grades)) ? savedWriting.type : null;
+  writingHtml = buildChessWritingSection(cleanKey, savedType || null, null);
 } else if (meta.isLType) {
   const isL34 = cleanKey === "L3" || cleanKey === "L4";
 
@@ -1306,7 +1308,16 @@ function showChessAnswerSheet() {
 
   openAnswerModalContent(html);
 }
-function renderChessInput(student) {
+/* 2026-11-02 — 운영자: "성적입력을 다 하고 성적표를 봤는데 잘못 입력해서 다시 돌아가야
+   되는데, 답안입력으로 돌아가면 기존에 적은 게 다 사라진다. 사라지면 안 돼." — 두 번째
+   인자 prevEval이 있으면(채점을 이미 한 번 해서 LAST_CHESS_SESSION에 objective/grammar/
+   rubrics가 들어있는 상태) 입력칸을 빈 채로 그리지 않고 그 값 그대로 채워 넣는다.
+   객관식·서술형 문법·L/V/C/P 등 루브릭 select는 restoreChessInputValues()가 렌더 후에
+   .value로 채우면 되지만, Writing(V2)은 타입(Type1~5)에 따라 표 자체의 행 구성이
+   달라져서 렌더 "전에"(buildChessRubricInputs → buildChessWritingSection) 타입·채점을
+   같이 넘겨줘야 한다 — 안 그러면 전에 고른 Type이 아니라 그 시험 기본 Type으로
+   되돌아가 버린다(운영자가 말한 "라이팅 입력하는게 사라져... 예전 화면임"의 원인). */
+function renderChessInput(student, prevEval) {
   const { memberCode, name, school, grade, testDate, examName } = student;
 CURRENT_CHESS_EXAM_KEY = String(examName || "")
   .toUpperCase()
@@ -1324,7 +1335,9 @@ const config = CHESS_CONFIG[cleanKey];
     return;
   }
 
-  LAST_CHESS_SESSION = { memberCode, name, school, grade, testDate, examName };
+  LAST_CHESS_SESSION = prevEval
+    ? { ...prevEval, memberCode, name, school, grade, testDate, examName }
+    : { memberCode, name, school, grade, testDate, examName };
 
   app.innerHTML = `
     <h1>${examName}</h1>
@@ -1344,7 +1357,7 @@ const config = CHESS_CONFIG[cleanKey];
     </div>
 
     ${buildChessGrammarInputs(examName)}
-    ${buildChessRubricInputs(examName)}
+    ${buildChessRubricInputs(examName, prevEval?.rubrics)}
   `;
 
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1352,7 +1365,55 @@ const config = CHESS_CONFIG[cleanKey];
   markAllChess();
   /* buildChessWritingSection은 문항 표가 들어갈 빈 mount(#chess-writing-items)만
      HTML 문자열로 돌려준다 — 그 안쪽 내용은 실제로 DOM에 붙은 뒤에야(여기서) 채울 수 있다. */
-  if (document.getElementById("chess-writing-items")) renderChessWritingItems(CHESS_WRITING_TYPE);
+  if (document.getElementById("chess-writing-items")) {
+    const savedWriting = prevEval?.rubrics?.writing;
+    const savedGrades = (savedWriting && Array.isArray(savedWriting.grades)) ? savedWriting.grades : null;
+    renderChessWritingItems(CHESS_WRITING_TYPE, savedGrades);
+  }
+  if (prevEval) restoreChessInputValues(prevEval);
+}
+/* 객관식(chess-q-N)·서술형 문법(chess-g-N)·Speaking/Reading 루브릭(chess-speak-*·
+   chess-read-*)·L-type Writing(chess-write-*) 입력칸을 이전 채점 결과로 채워 넣는다.
+   V2 Writing(타입별 표)은 렌더 전에 이미 채워졌으니(위 renderChessInput 주석 참고)
+   여기서는 안 건드린다. */
+function restoreChessInputValues(prevEval) {
+  (prevEval.objective?.results || []).forEach(r => {
+    const el = document.getElementById("chess-q-" + r.no);
+    if (el) el.value = r.user || "";
+  });
+  (prevEval.grammar?.results || []).forEach(r => {
+    const el = document.getElementById("chess-g-" + r.no);
+    if (el) el.value = String(r.binary || 0);
+  });
+  const sp = (prevEval.rubrics && prevEval.rubrics.speaking) || {};
+  const speakIdMap = {
+    listening: "chess-speak-listening",
+    vocabulary: "chess-speak-vocabulary",
+    complexity: "chess-speak-complexity",
+    phonics: "chess-speak-phonics",
+    readFluency: "chess-read-fluency",
+    readComplexity: "chess-read-complexity",
+    readComprehension: "chess-read-comprehension"
+  };
+  Object.keys(speakIdMap).forEach(k => {
+    const el = document.getElementById(speakIdMap[k]);
+    if (el && sp[k]) el.value = sp[k];
+  });
+  const w = prevEval.rubrics && prevEval.rubrics.writing;
+  if (w && !Array.isArray(w.grades)) {
+    ["task", "topic", "details", "organization", "grammar"].forEach(k => {
+      const el = document.getElementById("chess-write-" + k);
+      if (el && w[k]) el.value = w[k];
+    });
+  }
+  markAllChess();
+}
+/* 채점 결과 화면(renderChessReview)·성적표 화면(renderChessReport, integration.js의
+   "레벨 수정" 버튼을 거쳐 옴) 양쪽의 "답안입력으로 돌아가기"가 공통으로 쓴다 —
+   LAST_CHESS_SESSION을 student 정보와 prevEval 둘 다로 넘겨서 답안이 안 날아가게 한다. */
+function chessBackToInput() {
+  if (!LAST_CHESS_SESSION) return;
+  renderChessInput(LAST_CHESS_SESSION, LAST_CHESS_SESSION);
 }
 
 function collectChessAnswers(examName) {
@@ -1525,14 +1586,7 @@ function renderChessReview(data) {
 
   app.innerHTML = `
     <div class="top-bar no-print sticky-actions">
-      <button class="secondary" onclick="renderChessInput({
-        memberCode: '${escapeJs(memberCode)}',
-        name: '${escapeJs(name)}',
-        school: '${escapeJs(school)}',
-        grade: '${escapeJs(grade)}',
-        testDate: '${escapeJs(testDate)}',
-        examName: '${escapeJs(examName)}'
-      })">답안입력으로 돌아가기</button>
+      <button class="secondary" onclick="chessBackToInput()">답안입력으로 돌아가기</button>
       <button onclick="renderChessReport()">성적표 보기</button>
       <button class="secondary" onclick="renderHome()">처음으로</button>
     </div>
