@@ -21,6 +21,11 @@
     branch: qs.get('branch'), viewId: qs.get('view'), answerFor: qs.get('answerFor')
   };
   window.__LT_ENTRY = P;
+  /* 2026-11-02 — 어드민 "성적표 보기"(?view=)로 열람할 때 원본 행을 기억해둔다 —
+     저장(saveResult)할 때 이 행을 업데이트하려고. URL엔 rid/code/branch 등이 안
+     실려 있어서(renderViewMode 참고) 이게 없으면 저장할 때 그 값들을 전부 null로
+     밀어써버린다. */
+  var VIEWED_ROW = null;
 
   function num(v) { var n = parseFloat(v); return isNaN(n) ? null : n; }
   function toast(msg, ok) {
@@ -58,31 +63,44 @@
     return null;
   }
 
-  /* ---------- 저장 ---------- */
+  /* ---------- 저장 ----------
+     2026-11-02 — 운영자: "성적표 보기 눌렀는데 성적수정하는버튼이 아예안보여" — 어드민
+     "성적표 보기"(열람)에서도 레벨 수정·결과 저장이 되게 해달라는 요청(아래
+     injectSaveBtn의 P.viewId 가드도 같이 뺐다). 열람 중엔 VIEWED_ROW에 원본 행이
+     있으니, 그때는 새로 insert하지 않고 그 행을 update한다 — 안 그러면 URL에 없는
+     reservation_id·branch_id·student_code 등이 전부 null로 찍힌 "복사본" 행이
+     하나 더 생기고, 원본은 안 바뀐 채로 남는다. */
   async function saveResult() {
     var s = getSb();
     if (!s) { toast('저장소 연결 실패'); return; }
     var pl = currentPayload();
     if (!pl) { toast('저장할 채점 결과가 없어요'); return; }
+    var v = VIEWED_ROW; // 열람 중이면 원본 행, 아니면 null
     var row = {
-      reservation_id: P.rid || null, branch_id: P.branch || null,
-      student_code: P.code || null, student_name: P.name || null,
-      school: P.school || null, grade: P.grade || null,
-      test_date: pl.testDate || P.date || null,
+      reservation_id: P.rid || (v && v.reservation_id) || null,
+      branch_id: P.branch || (v && v.branch_id) || null,
+      student_code: P.code || (v && v.student_code) || null,
+      student_name: P.name || (v && v.student_name) || null,
+      school: P.school || (v && v.school) || null,
+      grade: P.grade || (v && v.grade) || null,
+      test_date: pl.testDate || P.date || (v && v.test_date) || null,
       exam_key: pl.exam_key, exam_title: pl.exam_title, report_type: pl.report_type,
       assigned_level: pl.assigned_level, total_score: pl.total_score, result_json: pl.result_json
     };
     try {
-      var res = await s.from('level_test_results').insert(row).select();
+      var res = v
+        ? await s.from('level_test_results').update(row).eq('id', v.id).select()
+        : await s.from('level_test_results').insert(row).select();
       if (res.error) throw res.error;
-      if (P.rid) {
+      var resultId = v ? v.id : (res.data && res.data[0] && res.data[0].id);
+      var ridForReservation = P.rid || (v && v.reservation_id);
+      if (ridForReservation) {
         await s.from('level_test_reservations').update({
           status: 'attended', test_level: pl.assigned_level, test_score: pl.total_score
-        }).eq('id', P.rid);
+        }).eq('id', ridForReservation);
       }
       toast('결과가 저장됐어요 ✓', true);
-      var rid2 = res.data && res.data[0] && res.data[0].id;
-      if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'lt-saved', resultId: rid2, rid: P.rid }, '*');
+      if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'lt-saved', resultId: resultId, rid: ridForReservation }, '*');
     } catch (e) { console.error('저장 실패', e); toast('저장 실패: ' + (e.message || e)); }
   }
   window.ltSaveResult = saveResult;
@@ -101,9 +119,12 @@
   }
   window.ltEditLevel = goEditLevel;
 
-  /* ---------- 성적표 화면에 "레벨 수정" + "결과 저장" 버튼 주입 ---------- */
+  /* ---------- 성적표 화면에 "레벨 수정" + "결과 저장" 버튼 주입 ----------
+     2026-11-02 — 예전엔 열람모드(?view=, 어드민 "성적표 보기")에 이 버튼을 아예
+     안 띄웠는데, 운영자가 나중에 실수 발견하면 그 자리에서 바로 고치고 싶다고
+     해서 열람모드에서도 띄운다. 저장은 위 saveResult()가 VIEWED_ROW로 "새로
+     추가"가 아니라 "원본 행 업데이트"를 하게 같이 고쳤다. */
   function injectSaveBtn() {
-    if (P.viewId) return; // 열람모드(어드민)엔 편집·저장 버튼 없음
     var appEl = document.getElementById('app'); if (!appEl) return;
     var btns = appEl.querySelectorAll('button');
     var printBtn = null;
@@ -153,15 +174,12 @@
     }
   }
 
-  /* ---------- 열람모드 (읽기전용) ---------- */
-  function stripInputButtons() {
-    var appEl = document.getElementById('app'); if (!appEl) return;
-    var btns = appEl.querySelectorAll('button');
-    for (var i = 0; i < btns.length; i++) {
-      var oc = btns[i].getAttribute('onclick') || ''; var t = (btns[i].textContent || '').trim();
-      if (/restoreExamInput|goBack|renderChessInput/.test(oc) || t === '답안입력으로 돌아가기' || t === '처음으로') btns[i].remove();
-    }
-  }
+  /* ---------- 열람모드 ----------
+     2026-11-02 — 운영자: "성적표 보기 눌렀는데 성적수정하는버튼이 아예안보여" — 원래는
+     여기서 "답안입력으로 돌아가기"·"처음으로" 버튼까지 지워서 읽기전용으로 만들었는데,
+     나중에 열람하다 실수를 발견하면 그 자리에서 바로 고치고 싶다는 요청이라 더 이상
+     안 지운다(이 함수도 그래서 뺐다). 레벨 수정·결과 저장 버튼은 injectSaveBtn이
+     그대로 주입한다. */
   async function renderViewMode() {
     var appEl = document.getElementById('app');
     var s = getSb();
@@ -169,6 +187,7 @@
     try {
       var res = await s.from('level_test_results').select('*').eq('id', P.viewId).single();
       if (res.error) throw res.error;
+      VIEWED_ROW = res.data; // saveResult()가 "새로 추가" 대신 이 행을 업데이트하는 데 쓴다
       var rj = res.data.result_json || {};
       /* 2026-11-02 — 운영자: "성적표 보기 누르면 옛날버전 성적표가 나와" — 통합관리
          어드민 화면(응시자 상세 표)에서 "성적" 점수를 눌러 여는 길(leveltest/index.html?view=)
@@ -187,7 +206,6 @@
           renderReportScreen(rj.memberCode, rj.name, rj.school, rj.grade, rj.testDate, rj.title, rj.examKey, rj.evaluation, rj.vtEvaluation, rj.assignedLevel, rj.reportGrade);
         }
       }
-      setTimeout(stripInputButtons, 40);
     } catch (e) { console.error('열람 실패', e); if (appEl) appEl.innerHTML = '<p style="padding:50px;text-align:center;color:#64748b">성적표를 불러오지 못했어요.</p>'; }
   }
 

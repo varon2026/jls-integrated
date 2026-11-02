@@ -465,6 +465,18 @@ function isSatExamKey(examKey) {
    새 래퍼(.jls-cover-page-frame, 화면 전용)에 주고, 좌표의 기준점인
    .jls-cover-page 자체는 화면·인쇄 둘 다 패딩 없이 190x277mm 그대로 둔다.
    opts: { name, school, grade, testType, testDate, introHtml, rImage } */
+/* 2026-11-02 — 운영자: "학교이름이 길어지면 2줄로 나온다는거야. 학교이름을 길게 써도
+   ㅇㅇㅇ초/ㅇㅇ중으로 너가 알아서 끊어야돼." — 학교 칸이 한 줄(white-space:nowrap)인데
+   "한들물빛초등학교"처럼 긴 이름은 흘러넘쳐 줄바꿈됐다. "초등학교/중학교/고등학교"
+   끝부분만 "초/중/고"로 줄인다 — 앞부분(학교 고유 이름)은 그대로 둬서 어느 학교인지는
+   여전히 알아볼 수 있다. */
+function jlsShortSchool(school) {
+  return String(school || "")
+    .trim()
+    .replace(/초등학교$/, "초")
+    .replace(/중학교$/, "중")
+    .replace(/고등학교$/, "고");
+}
 function jlsCoverPageHTML(opts) {
   const o = opts || {};
   return `
@@ -482,7 +494,7 @@ function jlsCoverPageHTML(opts) {
 
       <div class="jls-cover-infobox">
         <div class="row"><b>NAME .</b><span>${esc(o.name)}</span></div>
-        <div class="row"><b>SCHOOL / GRADE .</b><span>${esc(o.school)} / ${esc(o.grade)}</span></div>
+        <div class="row"><b>SCHOOL / GRADE .</b><span>${esc(jlsShortSchool(o.school))} / ${esc(o.grade)}</span></div>
         <div class="row"><b>TEST TYPE .</b><span>${esc(o.testType)}</span></div>
         <div class="row"><b>TEST DATE .</b><span>${esc(formatDate(o.testDate))}</span></div>
       </div>
