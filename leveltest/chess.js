@@ -1669,6 +1669,30 @@ function chessEditWritingItemGrade(serial, grade) {
   renderChessReport();
 }
 
+/* 2026-11-02 — 분원 선생님: "딱 봐도 리딩을 리스닝보다 못했는데 왜 성취율이 같냐"(L3).
+   영역별(TEST01) 점수가 지금까지 totalScore(총점 하나)를 영역 배점 비율대로 그냥
+   나눠서 보여주고 있었다 — 그래서 리스닝·리딩 배점이 똑같으면(36/36 등) 실제로
+   뭘 더 맞혔든 항상 똑같은 숫자가 떴다. 운영자 PC의 "분원공유용 CHESS New PT
+   배정기준표" 엑셀에서 실제 몇 번~몇 번이 어느 영역인지 확인해서(아래 getProfile의
+   q: [시작문항,끝문항]), 그 범위 안 문항을 진짜로 채점해 합산한다. 문항은 기본 3점,
+   그 시험지의 맨 마지막 문항(33번)만 영역 합계가 짝이 안 맞을 때 4점 — 이것도
+   엑셀의 "*33번 4점" 각주로 확인된 것만 bonusQ로 표시했다. 어느 문항이 4점인지
+   확정 못 한 영역(I1 Phonics, 구버전 Listening)은 배점을 문항 수로 균등하게 나눈다
+   (equalDivision — 최대 1점 안팎 오차, 그래도 지금까지의 "무조건 똑같이 보임"보다는
+   훨씬 정확하다). q가 없는 영역(D1, D3·D4 구버전)은 엑셀 수치와 기존 코드 수치가
+   서로 달라서 — 어느 쪽이 맞는지 확인 전까지 — 손 안 대고 기존 방식(비례 역산) 그대로 둔다.
+   ⚠️ 맨 위 SCORE(총점)는 그대로 둔다(레벨 컷라인과 연결돼 있어서 건드리면 파급이 큼) —
+   그래서 이 표의 합계가 SCORE와 1점 안팎 차이날 수 있는데, 그건 버그가 아니라
+   SCORE 자체가 문항마다 똑같은 배점으로 어림한 값이기 때문이다. */
+function chessAreaEarned(results, row) {
+  if (!row.q) return null;
+  const [startQ, endQ] = row.q;
+  const count = endQ - startQ + 1;
+  const correctQs = (results || []).filter(r => r.no >= startQ && r.no <= endQ && r.correct).map(r => r.no);
+  if (row.equalDivision) return (correctQs.length * row.base) / count;
+  return correctQs.reduce((sum, n) => sum + ((row.bonusQ && n === row.bonusQ) ? 4 : 3), 0);
+}
+
 function renderChessReport() {
   if (!LAST_CHESS_SESSION || typeof LAST_CHESS_SESSION.totalScore === "undefined") {
     alert("채점 결과가 없습니다.");
@@ -1697,9 +1721,9 @@ function renderChessReport() {
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
         test01Rows: [
-          { label: "Phonics", base: 46 },
-          { label: "Vocabulary & Expression", base: 36 },
-          { label: "TPR", base: 18 }
+          { label: "Phonics", base: 46, q: [1, 15], equalDivision: true },
+          { label: "Vocabulary & Expression", base: 36, q: [16, 27] },
+          { label: "TPR", base: 18, q: [28, 33] }
         ],
         speaking: [
           {
@@ -1748,6 +1772,13 @@ function renderChessReport() {
       };
     }
     if (cleanKey === "D1") {
+      /* ⚠️ 2026-11-02 — 영역별 실제 집계(chessAreaEarned, 위 주석 참고)로 못 바꿨다.
+         운영자 PC "분원공유용 CHESS New PT 배정기준표" 엑셀엔 D1이 "Phonics 48(1~16번) /
+         Vocabulary & Expressions 52(17~33번)"로 돼 있는데, 여기 코드는 "Listening 49 /
+         Reading 51"로 라벨도 숫자도 다르다. 2026-10-24에 이미 이 49/51 기준으로
+         "성취율 196.1%" 버그를 고친 이력이 있어서(바로 아래 블록 주석 참고) 그때 뭘
+         보고 49/51로 정했는지 확인 전엔 함부로 48/52로 바꾸지 않는다 — 비례 역산
+         방식 그대로 둔다. */
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
         test01Rows: [
@@ -1809,14 +1840,14 @@ function renderChessReport() {
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
         test01Rows: isChessV2() ? [
-          { label: "Phonics", base: 15 },
-          { label: "Listening Comprehension", base: 30 },
-          { label: "Reading Comprehension", base: 30 },
-          { label: "Vocabulary in Context", base: 25 }
+          { label: "Phonics", base: 15, q: [1, 5] },
+          { label: "Listening Comprehension", base: 30, q: [6, 15] },
+          { label: "Reading Comprehension", base: 30, q: [16, 25] },
+          { label: "Vocabulary in Context", base: 25, q: [26, 33], bonusQ: 33 }
         ] : [
-          { label: "Listening Comprehension", base: 46 },
-          { label: "Reading Comprehension", base: 36 },
-          { label: "Vocabulary in Context", base: 18 }
+          { label: "Listening Comprehension", base: 46, q: [1, 15], equalDivision: true },
+          { label: "Reading Comprehension", base: 36, q: [16, 27] },
+          { label: "Vocabulary in Context", base: 18, q: [28, 33] }
         ],
         speaking: [
           {
@@ -1960,13 +1991,16 @@ function renderChessReport() {
 
     if (cleanKey === "D3") {
       /* 2026-10-28 CHESS PT 개편 — 탕정분원(isChessV2())만 Vocabulary 영역이 새로 생기고
-         42/42/16으로 바뀐다. 다른 분원은 옛 시험지 그대로라 40/60(듣기/읽기 2영역)을 쓴다. */
+         42/42/16으로 바뀐다. 다른 분원은 옛 시험지 그대로라 40/60(듣기/읽기 2영역)을 쓴다.
+         ⚠️ 2026-11-02 — isChessV2() 42/42/16 쪽은 문항 범위(1~14/15~28/29~33)가 엑셀과
+         정확히 맞아서 실제 집계(q)를 넣었다. 구버전 40/60은 엑셀의 "D3-L4 구버전" 표가
+         말하는 46/54와 달라서(D1과 같은 종류의 불일치) q 없이 비례 역산 그대로 둔다. */
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
         test01Rows: isChessV2() ? [
-          { label: "Listening Comprehension", base: 42 },
-          { label: "Reading Comprehension", base: 42 },
-          { label: "Vocabulary in Context", base: 16 }
+          { label: "Listening Comprehension", base: 42, q: [1, 14] },
+          { label: "Reading Comprehension", base: 42, q: [15, 28] },
+          { label: "Vocabulary in Context", base: 16, q: [29, 33], bonusQ: 33 }
         ] : [
           { label: "Listening Comprehension", base: 40 },
           { label: "Reading Comprehension", base: 60 }
@@ -1980,14 +2014,16 @@ function renderChessReport() {
     if (cleanKey === "D4") {
       /* 2026-10-28 CHESS PT 개편 — 탕정분원(isChessV2())만 Vocabulary·Grammar 영역이
          새로 생기고 42/42/6/10으로 바뀐다(33번은 서술형이라 Grammar 안에서 1문항만 4점).
-         다른 분원은 옛 시험지 그대로라 D3와 같은 40/60을 쓴다. */
+         다른 분원은 옛 시험지 그대로라 D3와 같은 40/60을 쓴다.
+         ⚠️ 2026-11-02 — D3와 같은 이유로 isChessV2() 42/42/6/10만 실제 집계(q)를 넣고,
+         구버전 40/60은 D3·D1과 같은 불일치가 있어서 비례 역산 그대로 둔다. */
       return {
         test01Title: "TEST01 이해 능력 평가 득점 현황(영역별)",
         test01Rows: isChessV2() ? [
-          { label: "Listening Comprehension", base: 42 },
-          { label: "Reading Comprehension", base: 42 },
-          { label: "Vocabulary in Context", base: 6 },
-          { label: "Grammar", base: 10 }
+          { label: "Listening Comprehension", base: 42, q: [1, 14] },
+          { label: "Reading Comprehension", base: 42, q: [15, 28] },
+          { label: "Vocabulary in Context", base: 6, q: [29, 30] },
+          { label: "Grammar", base: 10, q: [31, 33], bonusQ: 33 }
         ] : [
           { label: "Listening Comprehension", base: 40 },
           { label: "Reading Comprehension", base: 60 }
@@ -2000,15 +2036,18 @@ function renderChessReport() {
 
     /* 2026-10-28 CHESS PT 개편 — 탕정분원(isChessV2())만 L1~L4 전부 같은 배점표(36/36/15/13)를
        쓴다. Writing 유형(SUMMARY/PARAGRAPH)만 레벨마다 다르다. 다른 분원은 옛 시험지 그대로라
-       46/54(듣기/읽기 2영역)를 쓴다. */
+       46/54(듣기/읽기 2영역)를 쓴다.
+       2026-11-02 — 최부장님 지적(L3 리딩·리스닝 성취율이 똑같이 뜸)으로 실제 문항 범위(q)를
+       넣었다 — 둘 다 엑셀("분원공유용 CHESS New PT 배정기준표")의 문항 범위·배점과 정확히
+       맞아서(신버전 1~12/13~24/25~29/30~33, 구버전 1~15/16~33) 안전하게 실제 집계로 바꿨다. */
     const l1l4Test01Rows = isChessV2() ? [
-      { label: "Listening Comprehension", base: 36 },
-      { label: "Reading Comprehension", base: 36 },
-      { label: "Vocabulary in Context", base: 15 },
-      { label: "Grammar", base: 13 }
+      { label: "Listening Comprehension", base: 36, q: [1, 12] },
+      { label: "Reading Comprehension", base: 36, q: [13, 24] },
+      { label: "Vocabulary in Context", base: 15, q: [25, 29] },
+      { label: "Grammar", base: 13, q: [30, 33], bonusQ: 33 }
     ] : [
-      { label: "Listening Comprehension", base: 46 },
-      { label: "Reading Comprehension", base: 54 }
+      { label: "Listening Comprehension", base: 46, q: [1, 15], equalDivision: true },
+      { label: "Reading Comprehension", base: 54, q: [16, 33] }
     ];
 
     if (cleanKey === "L1" || cleanKey === "L2") {
@@ -2189,15 +2228,24 @@ function renderChessReport() {
        실제로 받은 점수"를 기준으로 나머지를 채워야 한다 — totalBase 자체가 아니라. */
     const totalBase = profile.test01Rows.reduce((a, row) => a + row.base, 0);
     const overallEarned = Math.round((totalScore / 100) * totalBase);
-    const earned = profile.test01Rows.map((row, idx) => {
-      if (idx === profile.test01Rows.length - 1) return null; // 마지막은 나머지로 뒤에서 채움
-      return Math.round((totalScore / 100) * row.base);
-    });
-    const usedSum = earned.reduce((a, b) => a + (b || 0), 0);
-    earned[earned.length - 1] = overallEarned - usedSum;
+    /* 2026-11-02 — 위 chessAreaEarned 주석 참고: 영역 전부가 실제 문항 범위(q)를 갖고
+       있을 때만 진짜 집계를 쓴다(하나라도 없으면 비례 역산과 섞여 합계가 안 맞을 수
+       있어서) — objective.results가 없는 아주 오래된 데이터를 위한 안전장치도 겸한다. */
+    const canTally = profile.test01Rows.every(row => row.q) && objective && Array.isArray(objective.results) && objective.results.length > 0;
+    let earned;
+    if (canTally) {
+      earned = profile.test01Rows.map(row => chessAreaEarned(objective.results, row));
+    } else {
+      earned = profile.test01Rows.map((row, idx) => {
+        if (idx === profile.test01Rows.length - 1) return null; // 마지막은 나머지로 뒤에서 채움
+        return Math.round((totalScore / 100) * row.base);
+      });
+      const usedSum = earned.reduce((a, b) => a + (b || 0), 0);
+      earned[earned.length - 1] = overallEarned - usedSum;
+    }
 
     test01RowsHtml = profile.test01Rows.map((row, idx) => {
-      const score = earned[idx];
+      const score = Math.round(earned[idx]);
       const rate = ((score / row.base) * 100).toFixed(1);
       return `
         <tr>
