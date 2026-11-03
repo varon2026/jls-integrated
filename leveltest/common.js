@@ -3093,33 +3093,33 @@ function getAssignedLevel(grade, examName, score, testDate = "") {
 
   const term = getTermInfo(testDate)?.term || "";
 
+/* 2026-11-03 — 운영자: "진급고사랑 e6시험지랑 아예 똑같잖아. e는 똑같이 만들어놔."
+   초5→초6 진급고사(ace-e5-grading.html의 getSuggestedLevel)가 쓰는 시험지가
+   바로 이 E6 시험지라(라벨만 "E5"로 다르게 보일 뿐 실제 시험 내용은 E6 그대로),
+   신규생 레벨테스트 쪽 E6 컷라인도 운영자가 준 "반 편성 기준표"에 맞춰
+   진급고사와 완전히 똑같은 기준(HB 30~40, PA1 41~53, PA2 54~65, A1 66~)으로
+   맞췄다 — 예전엔 두 화면이 같은 시험지를 쓰면서도 서로 다른 컷라인(B 단계가
+   따로 있었음)을 썼었다. */
 // 초6
 if (g === "초등6" || g === "초6") {
-  if (s >= 75) return "A1";
-  if (s >= 65) return "PA2";
-  if (s >= 60) return "PA1";
-  if (s >= 45) return "HB";
-  if (s >= 30) return "B";
+  if (s >= 66) return "A1";
+  if (s >= 54) return "PA2";
+  if (s >= 41) return "PA1";
+  if (s >= 30) return "HB";
   return "미배정";
 }
 
+  /* 2026-11-03 — 운영자: "m은 어느 학년까지 인정인지 확인해주신데. 일단 m1 즉
+     중1은 다 저걸로 먼저 해놔." — "반 편성 기준표"의 M행(PA2 35~45, A1 46~55,
+     A2 56~67, MA1 68~)을 중1(M1)에 적용한다. 일반형·수능형이 예전엔 서로 다른
+     컷라인을 썼는데, "다 저걸로"라고 하셔서 둘 다 이 표 하나로 통일했다.
+     중2·중3은 아직 지시 전이라 손 안 댔다 — 나중에 알려주신다고 함. */
   // 중1
   if (g === "중등1" || g === "중1") {
-    if (e === "M1(수능형)") {
-      if (s >= 75) return "MA2";
-      if (s >= 65) return "MA1";
-      if (s >= 55) return "A2";
-      if (s >= 45) return "A1";
-      return "미배정";
-    }
-
-    if (e === "M1(일반형)") {
-      if (s >= 75) return "A1";
-      if (s >= 60) return "PA2";
-      if (s >= 45) return "PA1";
-      return "미배정";
-    }
-
+    if (s >= 68) return "MA1";
+    if (s >= 56) return "A2";
+    if (s >= 46) return "A1";
+    if (s >= 35) return "PA2";
     return "미배정";
   }
 
