@@ -1562,8 +1562,10 @@ async function call(action,payload){
       var r=(await sbGet('sales_history','select=*&id=eq.'+payload.saleId))[0];
       if(!r) return {ok:false,msg:'해당 이력을 찾을 수 없습니다.'};
       if(r.pay_status==='완납') return {ok:false,msg:'완납 처리된 항목은 취소할 수 없습니다.'};
-      var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-      await fetch(SB_URL+'/sales_history?id=eq.'+payload.saleId,{method:'DELETE',headers:h});
+      var h=Object.assign({},SB_HEADERS,{'Prefer':'return=representation'});
+      var _dr=await fetch(SB_URL+'/sales_history?id=eq.'+payload.saleId,{method:'DELETE',headers:h});
+      var _dd=_dr.ok?await _dr.json():[];
+      if(!_dd.length) return {ok:false,msg:'삭제되지 않았어요. 화면을 새로고침해서 확인하세요.'};
       return {ok:true,msg:'삭제 완료'};
     }
     if(action==='markPaid'){
@@ -3870,8 +3872,12 @@ async function deleteHistoryRow(id,bookName,type,payStatus,btn){
   }
   if(!confirm('['+bookName+'] '+type+' 이력을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.')) return;
   try{
-    var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
+    /* 예전엔 return=minimal 이라 서버가 실제로 한 줄도 안 지웠어도 '삭제 완료'로 보였다.
+       지워진 줄을 돌려받아서 0줄이면 실패로 알린다. */
+    var h=Object.assign({},SB_HEADERS,{'Prefer':'return=representation'});
     var res=await fetch(SB_URL+'/sales_history?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:h});
+    var _del=res.ok?await res.json():[];
+    if(res.ok&&!_del.length){toast('삭제되지 않았어요(이미 지워졌거나 권한 없음). 화면을 새로고침해서 확인하세요.',false);return;}
     if(res.ok){
       // 해당 행 제거
       var row=btn.closest('tr');
