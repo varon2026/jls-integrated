@@ -1303,7 +1303,39 @@ function saveAccountSettings(){
     if(tmplEl) ts[k]=tmplEl.value;
     localStorage.setItem('jls_sms_templates',JSON.stringify(ts));
   }catch(e){}
-  toast('설정이 저장됐어요!',true);
+  /* 예전엔 브라우저(localStorage)에만 저장해서 다른 컴퓨터·시크릿창·데이터 삭제 때마다 '계좌번호 미설정'이 됐다.
+     이제 서버(bk_branch_settings)에 저장하고, 서버 저장이 실패하면 숨기지 않고 알린다. */
+  saveBranchSettingsToDB(k).then(function(ok){
+    if(ok) toast('설정이 저장됐어요!',true);
+    else toast('이 브라우저에만 저장됐어요. 서버 표가 없어서 다른 컴퓨터에선 안 보여요. (sql/bk_branch_settings.sql 실행 필요)',false);
+  });
+}
+async function saveBranchSettingsToDB(k){
+  try{
+    var b=BRANCHES[k]||{};
+    var h=Object.assign({},SB_HEADERS,{'Prefer':'resolution=merge-duplicates,return=representation'});
+    var r=await fetch(SB_URL+'/branch_settings?on_conflict=branch',{method:'POST',headers:h,body:JSON.stringify({branch:k,account:b.account||'',account_holder:b.accountHolder||'',sms_template:b.smsTemplate||null,updated_at:new Date().toISOString()})});
+    if(!r.ok) return false;
+    var j=await r.json();
+    return Array.isArray(j)&&j.length>0;
+  }catch(e){return false;}
+}
+async function loadBranchSettingsFromDB(){
+  try{
+    var d=await sbGet('branch_settings','select=*');
+    if(!Array.isArray(d)) return; // 표가 아직 없으면 브라우저 저장값 그대로 사용
+    var have={};
+    d.forEach(function(r){
+      have[r.branch]=true;
+      if(!BRANCHES[r.branch]) return;
+      BRANCHES[r.branch].account=r.account||'';
+      BRANCHES[r.branch].accountHolder=r.account_holder||'';
+      if(r.sms_template) BRANCHES[r.branch].smsTemplate=r.sms_template;
+    });
+    /* 이 브라우저에만 있던 기존 설정은 서버에 한 번 올려 둔다(이사) */
+    var cb=currentBranch;
+    if(cb&&BRANCHES[cb]&&!have[cb]&&(BRANCHES[cb].account||BRANCHES[cb].smsTemplate)) saveBranchSettingsToDB(cb);
+  }catch(e){}
 }
 
 function isAdmin(){return currentBranch==='varon';}
@@ -2174,6 +2206,7 @@ async function init(){
   if(!currentBranch) return; // 로그인 전엔 실행 안 함
   setLoadingState(false,'데이터 불러오는 중...');
   var hasCache=hydrateFromCache();
+  await loadBranchSettingsFromDB();
   try{
     var r=await Promise.all([call('getTeachers'),call('getBooks'),call('getStudents'),call('getVendors'),call('getSemesters')]);
     teachers=r[0].data||[];books=r[1].data||[];students=r[2].data||[];vendors=r[3].data||[];semesters=r[4].data||[];
