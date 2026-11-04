@@ -4021,12 +4021,16 @@ document.addEventListener('click',function(e){
 });
 async function doEditPrice(){
   if(!_priceEditBarcode) return toast('교재를 먼저 선택해주세요.',false);
-  var newPrice=document.getElementById('price-edit-value').value;
-  if(!newPrice&&newPrice!=='0') return toast('새 가격을 입력해주세요.',false);
+  /* 입력칸은 '15,000'처럼 쉼표가 붙는다. 예전엔 쉼표를 안 떼고 Number()를 해서 NaN → 서버에 null로 저장돼
+     아무리 15000을 넣어도 '현재 정가 0원'으로 떴다. */
+  var newPrice=String(document.getElementById('price-edit-value').value).replace(/,/g,'').trim();
+  if(newPrice===''||isNaN(Number(newPrice))) return toast('새 가격을 숫자로 입력해주세요.',false);
   try{
-    var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
+    var h=Object.assign({},SB_HEADERS,{'Prefer':'return=representation'});
     var res=await fetch(SB_URL+'/books?barcode=eq.'+encodeURIComponent(_priceEditBarcode),{method:'PATCH',headers:h,body:JSON.stringify({price:Number(newPrice)})});
     if(!res.ok){var err=await res.text();toast('수정 실패: '+err,false);return;}
+    var _upd=await res.json();
+    if(!_upd.length){toast('수정된 교재가 없어요. 바코드를 확인하세요.',false);return;}
     toast('가격이 수정됐어요! ('+Number(newPrice).toLocaleString()+'원)',true);
     // 로컬 캐시 업데이트
     var bk=books.find(function(b){return b['바코드']===_priceEditBarcode;});
