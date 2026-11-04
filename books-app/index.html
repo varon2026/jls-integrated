@@ -2773,12 +2773,20 @@ async function doSales(){
       return toast('학생을 선택해주세요. 퇴원학생은 "퇴원이름"으로 입력하세요.',false);
     }
   }
-  // 중복 판매 확인 (출고 + 학생 선택 시)
-  if(type==='출고'&&studentId){
-    var dup=await sbGet('sales_history','select=id,book_name&type=eq.출고&student_id=eq.'+encodeURIComponent(studentId)+'&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&limit=1');
-    if(dup.length){
-      var bookName=dup[0].book_name||barcode;
-      if(!confirm('['+bookName+']은 이 학생에게 이미 판매된 교재입니다.\n중복 판매가 맞나요?')) return;
+  /* 중복 판매 확인 — 선택한 학생 '전원'을 이번 학기 기준으로 본다.
+     예전엔 첫 번째 학생 한 명만, 학기 상관없이 봐서 지난 학기에 산 기록 때문에도 경고가 떴고
+     누구 때문인지도 알 수 없었다. */
+  if(type==='출고'&&(_targetStudents.length||studentId)){
+    var _dupIds=(_targetStudents.length?_targetStudents.map(function(s){return s.id;}):[studentId]).filter(Boolean);
+    if(_dupIds.length){
+      var _dq='select=student_id,student_name,semester&type=eq.출고&student_id=in.('+_dupIds.map(function(x){return encodeURIComponent(x);}).join(',')+')&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch);
+      if(semester) _dq+='&semester=eq.'+encodeURIComponent(semester);
+      var dup=await sbGet('sales_history',_dq);
+      if(Array.isArray(dup)&&dup.length){
+        var _dn=[];dup.forEach(function(r){var n=r.student_name||r.student_id;if(_dn.indexOf(n)<0)_dn.push(n);});
+        var bookName=(findBookByBarcode(barcode)||{})['교재명']||barcode;
+        if(!confirm('['+bookName+']\n'+(semester?semester+' ':'')+'학기에 이미 판매된 학생: '+_dn.join(', ')+'\n중복 판매가 맞나요?')) return;
+      }
     }
   }
   // 분원출고는 transfers 테이블에 저장 (상대방이 수락해야 재고 반영)
