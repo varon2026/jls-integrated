@@ -477,7 +477,7 @@ tbody tr:hover{background:rgba(139,110,232,.05)!important;}
         <div style="position:relative">
           <input type="text" id="sales-student-search" placeholder="이름 검색" autocomplete="off" style="width:100%">
           <input type="hidden" id="sales-student">
-          <div id="sales-student-results" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;background:#faf8fe;border:2px solid var(--border-soft);border-radius:12px;box-shadow:var(--shadow);max-height:200px;overflow-y:auto;white-space:nowrap"></div>
+          <div id="sales-student-results" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;background:#faf8fe;border:2px solid var(--border-soft);border-radius:12px;box-shadow:var(--shadow);max-height:260px;overflow-y:auto;overflow-x:hidden;min-width:260px"></div>
         </div>
       </div>
       <div class="fg" id="sf-pay" style="width:76px;flex-shrink:0">
@@ -2647,7 +2647,7 @@ function renderSalesStudentResults(keyword){
     if(id) sub.push(id);
     if(school) sub.push(shortenSchool(school));
     if(grade) sub.push(grade);
-    return '<button type="button" onclick="pickSalesStudent(\''+id.replace(/'/g,"\\'")+'\')" style="width:100%;text-align:left;padding:10px 12px;border:none;border-bottom:1px solid #ecd89b;background:#faf8fe;cursor:pointer">'+
+    return '<button type="button" onclick="pickSalesStudent(\''+id.replace(/'/g,"\\'")+'\')" style="display:block;width:100%;box-sizing:border-box;white-space:normal;text-align:left;padding:10px 12px;border:none;border-bottom:1px solid #ecd89b;background:#faf8fe;cursor:pointer">'+
       '<div style="font-size:13px;font-weight:700;color:var(--text)">'+name+'</div>'+
       '<div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">'+sub.join(' · ')+'</div>'+
       '</button>';
