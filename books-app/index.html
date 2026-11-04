@@ -1753,7 +1753,7 @@ async function call(action,payload){
       });
       return {ok:true,data:stockData};
     }
-    if(action==='addBook'){var bc=String(payload.barcode||'').trim();await sbPost('books',{barcode:bc,name:payload.name,subject:payload.subject||null,publisher:payload.publisher||null,vendor:payload.vendor||null,price:payload.price?Number(String(payload.price).replace(/,/g,'')):0,purchase_price:payload.purchasePrice?Number(String(payload.purchasePrice).replace(/,/g,'')):0,note:payload.note||null});return {ok:true,msg:'교재 등록 완료: '+payload.name};}
+    if(action==='addBook'){var bc=String(payload.barcode||'').trim();/* 서버가 거절해도(바코드 중복 등) 무조건 '등록 완료'가 떴다. 결과를 확인한다. */var _ab=await sbPost('books',{barcode:bc,name:payload.name,subject:payload.subject||null,publisher:payload.publisher||null,vendor:payload.vendor||null,price:payload.price?Number(String(payload.price).replace(/,/g,'')):0,purchase_price:payload.purchasePrice?Number(String(payload.purchasePrice).replace(/,/g,'')):0,note:payload.note||null});if(_ab&&!Array.isArray(_ab)&&(_ab.code||_ab.message)){return {ok:false,msg:(String(_ab.code)==='23505'?'이미 등록된 바코드입니다. 교재 목록에서 검색해보세요. ('+bc+')':'등록 실패: '+(_ab.message||_ab.code))};}return {ok:true,msg:'교재 등록 완료: '+payload.name};}
     if(action==='addTeacher'){
       var tid=payload.id||('T'+Date.now().toString().slice(-6));
       // ID 중복 체크
