@@ -899,8 +899,8 @@ tbody tr:hover{background:rgba(139,110,232,.05)!important;}
       <div class="fg"><label class="fl">과목</label><input type="text" id="book-subject" placeholder="영어/수학..."></div>
       <div class="fg"><label class="fl">출판사</label><input type="text" id="book-publisher"></div>
       <div class="fg"><label class="fl">매입 업체</label><input type="text" id="book-vendor" placeholder="예: A업체, 자체제작"></div>
-      <div class="fg"><label class="fl">정가 (원)</label><input type="text" id="book-price" inputmode="numeric" placeholder="예: 12,000" oninput="this.value=this.value.replace(/[^0-9]/g,'');formatNumberInput(this)" onblur="formatNumberInput(this)" onfocus="this.value=this.value.replace(/,/g,'')"></div>
-        <div class="fg"><label class="fl">매입단가</label><input type="text" id="book-purchase-price" inputmode="numeric" placeholder="예: 8,000" oninput="this.value=this.value.replace(/[^0-9]/g,'');formatNumberInput(this)" onblur="formatNumberInput(this)" onfocus="this.value=this.value.replace(/,/g,'')"></div>
+      <div class="fg"><label class="fl">정가 = 학생 청구액 (원) *</label><input type="text" id="book-price" inputmode="numeric" placeholder="학생에게 받을 금액" oninput="this.value=this.value.replace(/[^0-9]/g,'');formatNumberInput(this)" onblur="formatNumberInput(this)" onfocus="this.value=this.value.replace(/,/g,'')"></div>
+        <div class="fg"><label class="fl">매입단가 (입고 원가)</label><input type="text" id="book-purchase-price" inputmode="numeric" placeholder="예: 8,000" oninput="this.value=this.value.replace(/[^0-9]/g,'');formatNumberInput(this)" onblur="formatNumberInput(this)" onfocus="this.value=this.value.replace(/,/g,'')"></div>
       <div class="fg"><label class="fl">비고</label><input type="text" id="book-note"></div>
       <div class="fg" style="justify-content:flex-end"><button class="btn btn-p" onclick="doAddBook()">교재 등록</button></div>
     </div>
@@ -1527,6 +1527,7 @@ async function call(action,payload){
       var isDispose=payload.type==='폐기';
       // 폐기는 판매가 0, 출고: 정가, 분원출고: 매입단가, 입고: 매입단가
       var unitPrice=isDispose?0:isOut?(payload.price!=null&&payload.price!==''?Number(String(payload.price).replace(/,/g,'')):book.price||0):isBranchOut?(book.purchase_price||0):(payload.price!=null&&payload.price!==''?Number(String(payload.price).replace(/,/g,'')):(book['매입단가']||book.purchase_price||0));
+      if(isOut&&!(unitPrice>0)&&(payload.price==null||payload.price==='')) return {ok:false,msg:'이 교재는 정가가 0원이라 출고할 수 없어요. 교재 등록 > 정가 수정에서 정가를 먼저 넣거나, 단가 칸에 금액을 입력하세요.'};
       var qty=Number(payload.qty)||1;
       var vendor=String(book.vendor||'');
       // vendors DB에서 직접 조회
@@ -1657,6 +1658,8 @@ async function call(action,payload){
       var book=(await sbGet('books','select=name,price&barcode=eq.'+encodeURIComponent(bc)))[0];
       if(!book) return {ok:false,msg:'등록되지 않은 교재입니다.'};
       var unitPrice=payload.price!=null?Number(payload.price):(book.price||0);
+      /* 정가가 0인 교재를 단가 없이 출고하면 학생 전원이 0원으로 기록되고, 이미 찍힌 금액은 정가를 고쳐도 안 바뀐다 */
+      if(payload.price==null&&!(unitPrice>0)) return {ok:false,msg:'이 교재는 정가가 0원이라 출고할 수 없어요. 교재 등록 > 정가 수정에서 정가를 먼저 넣거나, 출고 화면 단가 칸에 금액을 입력하세요.'};
       var sts=await sbGet('students','select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&class_name=eq.'+encodeURIComponent(payload.classNum)+'&branch=eq.'+encodeURIComponent(currentBranch));
       if(!sts.length) return {ok:false,msg:'해당 반 학생이 없습니다.'};
       // 프론트에서 체크한 학생만 출고 (studentIds 전달 시)
@@ -4085,10 +4088,16 @@ async function doAddBook(){
   var barcode=normalizeBarcode(document.getElementById('book-barcode').value);
   var name=document.getElementById('book-name').value.trim();
   if(!barcode||!name) return toast('바코드와 교재명은 필수입니다.',false);
+  /* 정가(=학생 청구액)를 비워 두고 '매입단가'에만 금액을 넣어 등록하는 일이 실제로 있었다.
+     출고는 정가로 계산하므로 정가가 0이면 반별 일괄출고가 전부 0원으로 찍혀 납입내역이 0원이 된다
+     (서수원 26년가을 동아윤 중등1 제본 14명). 그래서 정가가 비면 등록 자체를 막는다. */
+  var _regPrice=Number(String(document.getElementById('book-price').value).replace(/,/g,''))||0;
+  if(_regPrice<=0) return toast('정가(학생 청구액)를 입력하세요. 비워 두면 출고가 0원으로 찍힙니다.',false);
   try{
-    var pp=document.getElementById('book-purchase-price');var res=await call('addBook',{barcode:barcode,name:name,subject:document.getElementById('book-subject').value.trim(),publisher:document.getElementById('book-publisher').value.trim(),vendor:document.getElementById('book-vendor').value.trim(),price:document.getElementById('book-price').value.replace(/,/g,''),note:document.getElementById('book-note').value.trim()});
+    /* 예전엔 매입단가 칸을 읽기만 하고 서버로 안 보내서 입력해도 늘 0으로 저장됐다 */
+    var pp=document.getElementById('book-purchase-price');var res=await call('addBook',{barcode:barcode,name:name,subject:document.getElementById('book-subject').value.trim(),publisher:document.getElementById('book-publisher').value.trim(),vendor:document.getElementById('book-vendor').value.trim(),price:document.getElementById('book-price').value.replace(/,/g,''),purchasePrice:pp?pp.value.replace(/,/g,''):'',note:document.getElementById('book-note').value.trim()});
     toast(res.msg,res.ok);
-    if(res.ok){['book-barcode','book-name','book-subject','book-publisher','book-vendor','book-price','book-note'].forEach(function(id){document.getElementById(id).value='';});var bb=await call('getBooks');books=bb.data||[];initBarcodePage();}
+    if(res.ok){['book-barcode','book-name','book-subject','book-publisher','book-vendor','book-price','book-purchase-price','book-note'].forEach(function(id){document.getElementById(id).value='';});var bb=await call('getBooks');books=bb.data||[];initBarcodePage();}
   }catch(e){toast('오류 발생',false);}
 }
 // ── 레벨별 교재 체크리스트 ──
