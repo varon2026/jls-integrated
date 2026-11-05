@@ -1220,7 +1220,8 @@ function buildGrid(){
       <div class="hint">응시 ${studs.length}명 · <b style="color:var(--pos)">채점 ${gradedOf(cls)}/${studs.length}명</b> · ${key?`정답키 ${key.num_q}문항`:'<b style="color:var(--warn)">정답키 없음</b>'}</div>
       <div style="flex:1"></div>
       ${cutlineChip()}
-      ${key?`<button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>`:''}
+      ${key?`<button class="ghost mini" onclick="exportDtQappExcel()">📥 큐앱 엑셀↓ (성적표 포함)</button>
+      <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>`:''}
       ${isTeacherRO()?'':`<button class="ghost mini ${isOff?'':'danger'}" onclick="toggleOff('${esc(code)}')">${isOff?'✓ 미응시 해제':'✕ 이 레벨 시험없음(미응시)'}</button>
       ${key&&!isOff?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
       <label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">답안 엑셀↑<input type="file" accept=".xlsx,.xls" hidden onchange="uploadAns(this)"></label>
@@ -1907,6 +1908,49 @@ function dtSheetFor(code,key,recs,idx){
   const widths=[11,12,15,7,13,...parts.map(()=>10),9,...Array(maxR).fill(7)];
   return {name:code,header,rows,widths};
 }
+/* DT 한 레벨(code) → 큐앱 업로드용 시트. exportDtQappExcel()(반 하나)과
+   exportScoresBulk()(일괄)가 둘 다 이 함수 하나만 쓴다.
+   2026-11-05 — 운영자가 실제로 쓰는 큐앱 업로드 양식(exam_score_20261105.xlsx)을 받아서
+   칸 순서·이름을 그대로 맞췄다: No·학생코드·학생이름·학교명/학년·레벨·수업요일·
+   담임선생님·학년구분·PASS/STAY/JUMP 다음에 영역별 점수. AT처럼 세부영역 이름을
+   하드코딩하지 않고 정답키(key.answers)의 part를 그대로 순서대로 읽는다.
+   PASS/STAY/JUMP: 운영자 — "100점을 받아도 무조건 점프는 아니다. 학원 사정에 따라
+   달라질 수 있어서 자동으로 못 채우는 영역이다. 재시험 기준 미만이면 무조건 STAY니까
+   그건 자동으로 넣어도 되고." 그래서
+   · 총점이 재시험 기준(retestCutlineFor('DT')) 미만 → 자동으로 'STAY'
+   · 기준 이상 → 빈칸으로 두고 노란색만 칠해서 "PASS/JUMP 중 담임이 직접 골라 넣어라"
+     표시만 한다(판정 자체는 절대 안 채움). */
+const XL_PICK='FFFFF3CD'; // PASS/STAY/JUMP 중 담임이 직접 골라야 하는 칸 표시
+function dtQappSheetFor(code,key,recs,idx,opts){
+  const branchCol=!!(opts&&opts.branchCol);
+  const ans=(key.answers||[]).slice().sort((a,b)=>a.n-b.n);
+  const parts=[...new Set(ans.map(a=>a.part||'전체'))];
+  const ptOf=p=>Math.round(ans.filter(a=>(a.part||'전체')===p).reduce((s,a)=>s+(a.pt||0),0)*10)/10;
+  const cut=retestCutlineFor('DT');
+  const pstCol=(branchCol?1:0)+9; // 1-based: PASS/STAY/JUMP 칸 위치
+
+  /* 운영자가 준 실제 양식에서 CQ Writing·Sentence Ordering for Summary 두 칸(서술형)만
+     "(만점 N점)"이 안 붙어있고 이름 그대로였다 — 나머지(객관식 영역)는 다 붙어있다. */
+  const NO_MAX_LABEL=new Set(['CQ Writing','Sentence Ordering for Summary']);
+  const header=[...(branchCol?['분원명']:[]),'No','학생코드','학생이름','학교명/학년','레벨','수업요일','담임선생님','학년구분','PASS/STAY/JUMP',
+    ...parts.map(p=>NO_MAX_LABEL.has(p)?p:`${p}\n(만점 ${ptOf(p)}점) `)];
+
+  const rows=recs.map((r,i)=>{
+    const rec=idx[r.code+'|'+key.id];
+    const cp=rec?computeParts(rec.responses,ans):null;
+    const judge=cp?(cp.score<cut?'STAY':''):'';
+    const needsPick=!!(cp&&cp.score>=cut);
+    const cells=[
+      ...(branchCol?[r.branchName||'']:[]),
+      i+1, r.code, r.name, (r.school||'')+'/'+(r.grade||''), code,
+      naesinDayLabel(r.className), r.teacher||'', r.chess?'CHESS':'ACE',
+      judge, ...parts.map(p=>cp?(cp.got[p]||0):'')
+    ];
+    return {cells, fill:null, cellFill: needsPick ? {[pstCol]: XL_PICK} : null};
+  });
+  const widths=[...(branchCol?[11]:[]),4,12,10,22,8,10,14,10,13, ...parts.map(()=>12)];
+  return {name:code, header, rows, widths};
+}
 /* AT 한 시험지(variant) → 시트. 독해/문법 각 세부영역 + 총점 */
 function atSheetFor(variant,recs,idx){
   const k=keyOfVariant(variant);const kAns=k?(k.answers||[]):[];
@@ -2007,6 +2051,22 @@ function atQappSheetFor(variant,base,studs,idx,opts){
 
   const widths=[...(branchCol?[11]:[]),4,12,10,22,8,10,14,10,8, ...scoreCols.map(cdef=>cdef.w)];
   return {name:variant, header, rows, widths};
+}
+async function exportDtQappExcel(){
+  if(typeof ExcelJS==='undefined'){toast('엑셀 모듈 로딩 중이에요. 잠시 후 다시 눌러주세요',false);return;}
+  const cls=curClassObj(); if(!cls){toast('반을 먼저 선택하세요',false);return;}
+  const key=keyOfLevel(cls.levelCode); if(!key){toast('정답키가 없어요',false);return;}
+  toast('큐앱 엑셀 만드는 중…');
+  try{
+    const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','DT').eq('key_id',key.id).eq('semester',semName(SEM)));
+    const idx={}; data.forEach(r=>_latest(idx, r.student_code+'|'+key.id, r));
+    const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    const qappSheet=dtQappSheetFor(cls.levelCode,key,studs,idx); qappSheet.name='큐앱';
+    const niceSheet=dtSheetFor(cls.levelCode,key,studs,idx); niceSheet.name='성적표';
+    const fname=('큐앱_'+noDays(cls.dispCode||cls.levelCode)+'_'+classDetail(cls.className)+'_'+semName(SEM)).replace(/[\\/:*?"<>|]/g,'_');
+    await writeXlsxColored([qappSheet,niceSheet],fname);
+    toast(`큐앱 엑셀 다운로드 완료 ✓ (${studs.length}명)`);
+  }catch(e){console.error(e);toast('엑셀 생성 실패: '+(e.message||e),false);}
 }
 async function exportAtQappExcel(){
   if(typeof ExcelJS==='undefined'){toast('엑셀 모듈 로딩 중이에요. 잠시 후 다시 눌러주세요',false);return;}
@@ -2191,7 +2251,11 @@ async function writeXlsxColored(sheets,filename){
     for(let ci=1;ci<=sh.header.length;ci++){const c=ws.getRow(1).getCell(ci);c.font={bold:true,size:11};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:XL_HEAD}};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.border=border;}
     sh.rows.forEach(r=>{
       const row=ws.addRow(r.cells);
-      for(let ci=1;ci<=sh.header.length;ci++){const c=row.getCell(ci);c.border=border;c.alignment={horizontal:ci===2||ci===3?'left':'center',vertical:'middle'};if(r.fill)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:r.fill}};}
+      for(let ci=1;ci<=sh.header.length;ci++){const c=row.getCell(ci);c.border=border;c.alignment={horizontal:ci===2||ci===3?'left':'center',vertical:'middle'};
+        /* r.cellFill: 특정 칸만 색칠(예: DT 큐앱의 PASS/STAY/JUMP). 없으면 기존처럼 r.fill(줄 전체)만 본다. */
+        const cf=r.cellFill&&r.cellFill[ci];
+        if(cf)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:cf}};
+        else if(r.fill)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:r.fill}};}
     });
     (sh.widths||[]).forEach((w,i)=>{if(ws.getColumn(i+1))ws.getColumn(i+1).width=w;});
     for(let i=1;i<=sh.header.length;i++){if(!ws.getColumn(i).width)ws.getColumn(i).width=11;}
@@ -2279,11 +2343,14 @@ async function exportScoresBulk(){
       });
     }else{
       const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM).eq('semester',semName(SEM)));
+      const qappShowBranch=(ROLE==='admin')&&!brDl;
       levelsForExam(brDl).forEach(l=>{
         const key=keyOfLevel(l.code);if(!key)return;
         const idx={};data.forEach(r=>{if(r.key_id===key.id)_latest(idx,r.student_code+'|'+key.id,r);});
         const studs=l.recs.slice().sort((a,b)=>(a.branchName+a.name).localeCompare(b.branchName+b.name));
         if(!studs.some(r=>idx[r.code+'|'+key.id]))return;   // 이 분원에 채점된 학생이 없으면 건너뜀
+        const qsh=dtQappSheetFor(l.code,key,studs,idx,{branchCol:qappShowBranch});qsh.name=_uniqSheet(sheets,l.code+'_큐앱');
+        sheets.push(qsh);
         const sh=dtSheetFor(l.code,key,studs,idx);sh.name=_uniqSheet(sheets,l.code);
         sheets.push(sh);
       });
