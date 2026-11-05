@@ -477,7 +477,7 @@ tbody tr:hover{background:rgba(139,110,232,.05)!important;}
         <div style="position:relative">
           <input type="text" id="sales-student-search" placeholder="이름 검색" autocomplete="off" style="width:100%">
           <input type="hidden" id="sales-student">
-          <div id="sales-student-results" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;background:#faf8fe;border:2px solid var(--border-soft);border-radius:12px;box-shadow:var(--shadow);max-height:200px;overflow-y:auto;white-space:nowrap"></div>
+          <div id="sales-student-results" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;background:#faf8fe;border:2px solid var(--border-soft);border-radius:12px;box-shadow:var(--shadow);max-height:260px;overflow-y:auto;overflow-x:hidden;min-width:260px"></div>
         </div>
       </div>
       <div class="fg" id="sf-pay" style="width:76px;flex-shrink:0">
@@ -899,8 +899,8 @@ tbody tr:hover{background:rgba(139,110,232,.05)!important;}
       <div class="fg"><label class="fl">과목</label><input type="text" id="book-subject" placeholder="영어/수학..."></div>
       <div class="fg"><label class="fl">출판사</label><input type="text" id="book-publisher"></div>
       <div class="fg"><label class="fl">매입 업체</label><input type="text" id="book-vendor" placeholder="예: A업체, 자체제작"></div>
-      <div class="fg"><label class="fl">정가 (원)</label><input type="text" id="book-price" inputmode="numeric" placeholder="예: 12,000" oninput="this.value=this.value.replace(/[^0-9]/g,'');formatNumberInput(this)" onblur="formatNumberInput(this)" onfocus="this.value=this.value.replace(/,/g,'')"></div>
-        <div class="fg"><label class="fl">매입단가</label><input type="text" id="book-purchase-price" inputmode="numeric" placeholder="예: 8,000" oninput="this.value=this.value.replace(/[^0-9]/g,'');formatNumberInput(this)" onblur="formatNumberInput(this)" onfocus="this.value=this.value.replace(/,/g,'')"></div>
+      <div class="fg"><label class="fl">정가 = 학생 청구액 (원) *</label><input type="text" id="book-price" inputmode="numeric" placeholder="학생에게 받을 금액" oninput="this.value=this.value.replace(/[^0-9]/g,'');formatNumberInput(this)" onblur="formatNumberInput(this)" onfocus="this.value=this.value.replace(/,/g,'')"></div>
+        <div class="fg"><label class="fl">매입단가 (입고 원가)</label><input type="text" id="book-purchase-price" inputmode="numeric" placeholder="예: 8,000" oninput="this.value=this.value.replace(/[^0-9]/g,'');formatNumberInput(this)" onblur="formatNumberInput(this)" onfocus="this.value=this.value.replace(/,/g,'')"></div>
       <div class="fg"><label class="fl">비고</label><input type="text" id="book-note"></div>
       <div class="fg" style="justify-content:flex-end"><button class="btn btn-p" onclick="doAddBook()">교재 등록</button></div>
     </div>
@@ -1303,7 +1303,39 @@ function saveAccountSettings(){
     if(tmplEl) ts[k]=tmplEl.value;
     localStorage.setItem('jls_sms_templates',JSON.stringify(ts));
   }catch(e){}
-  toast('설정이 저장됐어요!',true);
+  /* 예전엔 브라우저(localStorage)에만 저장해서 다른 컴퓨터·시크릿창·데이터 삭제 때마다 '계좌번호 미설정'이 됐다.
+     이제 서버(bk_branch_settings)에 저장하고, 서버 저장이 실패하면 숨기지 않고 알린다. */
+  saveBranchSettingsToDB(k).then(function(ok){
+    if(ok) toast('설정이 저장됐어요!',true);
+    else toast('이 브라우저에만 저장됐어요. 서버 표가 없어서 다른 컴퓨터에선 안 보여요. (sql/bk_branch_settings.sql 실행 필요)',false);
+  });
+}
+async function saveBranchSettingsToDB(k){
+  try{
+    var b=BRANCHES[k]||{};
+    var h=Object.assign({},SB_HEADERS,{'Prefer':'resolution=merge-duplicates,return=representation'});
+    var r=await fetch(SB_URL+'/branch_settings?on_conflict=branch',{method:'POST',headers:h,body:JSON.stringify({branch:k,account:b.account||'',account_holder:b.accountHolder||'',sms_template:b.smsTemplate||null,updated_at:new Date().toISOString()})});
+    if(!r.ok) return false;
+    var j=await r.json();
+    return Array.isArray(j)&&j.length>0;
+  }catch(e){return false;}
+}
+async function loadBranchSettingsFromDB(){
+  try{
+    var d=await sbGet('branch_settings','select=*');
+    if(!Array.isArray(d)) return; // 표가 아직 없으면 브라우저 저장값 그대로 사용
+    var have={};
+    d.forEach(function(r){
+      have[r.branch]=true;
+      if(!BRANCHES[r.branch]) return;
+      BRANCHES[r.branch].account=r.account||'';
+      BRANCHES[r.branch].accountHolder=r.account_holder||'';
+      if(r.sms_template) BRANCHES[r.branch].smsTemplate=r.sms_template;
+    });
+    /* 이 브라우저에만 있던 기존 설정은 서버에 한 번 올려 둔다(이사) */
+    var cb=currentBranch;
+    if(cb&&BRANCHES[cb]&&!have[cb]&&(BRANCHES[cb].account||BRANCHES[cb].smsTemplate)) saveBranchSettingsToDB(cb);
+  }catch(e){}
 }
 
 function isAdmin(){return currentBranch==='varon';}
@@ -1424,7 +1456,7 @@ async function call(action,payload){
       return {ok:true,msg:'삭제 완료'};
     }
     if(action==='getBooks'){var d=await sbGetAll('books','select=*,level_namdongtanjls&order=name');return {ok:true,data:d.map(function(b){return {'바코드':b.barcode,'교재명':b.name,'과목':b.subject||'','출판사':b.publisher||'','업체':b.vendor||'','정가':b.price||0,'매입단가':b.purchase_price||0,'비고':b.note||'','레벨':b.level||'','레벨_남동탄':b.level_namdongtanjls||''};})};}
-    if(action==='getStudents'){var d=await sbGet('students','select=*&order=name&branch=eq.'+encodeURIComponent(currentBranch));return {ok:true,data:d.map(function(s){return {'학생ID':s.student_id,'이름':s.name,'학부모연락처':s.contact||'','학기':s.semester||'','학년':s.grade||'','반':s.class_name||'','학교':s.school||'','비고':s.note||'','구분':s.division||'CHESS','상태':s.status||'재원'};})};}
+    if(action==='getStudents'){/* 서버는 한 번에 1000줄까지만 준다. 학기별로 줄이 쌓여 넘으면 뒤쪽 학생(동명이인 포함)이 검색에서 빠졌다. 1000줄씩 나눠 전부 받는다. */var d=await sbGetAll('students','select=*&order=name,student_id&branch=eq.'+encodeURIComponent(currentBranch));return {ok:true,data:d.map(function(s){return {'학생ID':s.student_id,'이름':s.name,'학부모연락처':s.contact||'','학기':s.semester||'','학년':s.grade||'','반':s.class_name||'','학교':s.school||'','비고':s.note||'','구분':s.division||'CHESS','상태':s.status||'재원'};})};}
     if(action==='getSemesters'){var _semBr=payload.branch||currentBranch;var d1=await sbGet('students','select=semester&order=semester.desc&branch=eq.'+encodeURIComponent(_semBr));var d2=await sbGet('sales_history','select=semester&order=semester.desc&branch=eq.'+encodeURIComponent(_semBr)+'&type=eq.출고');var d3=await sbGet('semesters','select=name&branch=eq.'+encodeURIComponent(_semBr)+'&order=created_at.desc');var sems=[...new Set([...d1,...d2].map(function(r){return r.semester;}).concat(d3.map(function(r){return r.name;})).filter(Boolean))].sort(function(a,b){return b.localeCompare(a,'ko');});return {ok:true,data:sems};}
     if(action==='getStudentsBySemester'){
       var sParams='select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=class_name,name';
@@ -1527,6 +1559,7 @@ async function call(action,payload){
       var isDispose=payload.type==='폐기';
       // 폐기는 판매가 0, 출고: 정가, 분원출고: 매입단가, 입고: 매입단가
       var unitPrice=isDispose?0:isOut?(payload.price!=null&&payload.price!==''?Number(String(payload.price).replace(/,/g,'')):book.price||0):isBranchOut?(book.purchase_price||0):(payload.price!=null&&payload.price!==''?Number(String(payload.price).replace(/,/g,'')):(book['매입단가']||book.purchase_price||0));
+      if(isOut&&!(unitPrice>0)&&(payload.price==null||payload.price==='')) return {ok:false,msg:'이 교재는 정가가 0원이라 출고할 수 없어요. 교재 등록 > 정가 수정에서 정가를 먼저 넣거나, 단가 칸에 금액을 입력하세요.'};
       var qty=Number(payload.qty)||1;
       var vendor=String(book.vendor||'');
       // vendors DB에서 직접 조회
@@ -1561,8 +1594,10 @@ async function call(action,payload){
       var r=(await sbGet('sales_history','select=*&id=eq.'+payload.saleId))[0];
       if(!r) return {ok:false,msg:'해당 이력을 찾을 수 없습니다.'};
       if(r.pay_status==='완납') return {ok:false,msg:'완납 처리된 항목은 취소할 수 없습니다.'};
-      var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-      await fetch(SB_URL+'/sales_history?id=eq.'+payload.saleId,{method:'DELETE',headers:h});
+      var h=Object.assign({},SB_HEADERS,{'Prefer':'return=representation'});
+      var _dr=await fetch(SB_URL+'/sales_history?id=eq.'+payload.saleId,{method:'DELETE',headers:h});
+      var _dd=_dr.ok?await _dr.json():[];
+      if(!_dd.length) return {ok:false,msg:'삭제되지 않았어요. 화면을 새로고침해서 확인하세요.'};
       return {ok:true,msg:'삭제 완료'};
     }
     if(action==='markPaid'){
@@ -1657,6 +1692,8 @@ async function call(action,payload){
       var book=(await sbGet('books','select=name,price&barcode=eq.'+encodeURIComponent(bc)))[0];
       if(!book) return {ok:false,msg:'등록되지 않은 교재입니다.'};
       var unitPrice=payload.price!=null?Number(payload.price):(book.price||0);
+      /* 정가가 0인 교재를 단가 없이 출고하면 학생 전원이 0원으로 기록되고, 이미 찍힌 금액은 정가를 고쳐도 안 바뀐다 */
+      if(payload.price==null&&!(unitPrice>0)) return {ok:false,msg:'이 교재는 정가가 0원이라 출고할 수 없어요. 교재 등록 > 정가 수정에서 정가를 먼저 넣거나, 출고 화면 단가 칸에 금액을 입력하세요.'};
       var sts=await sbGet('students','select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&class_name=eq.'+encodeURIComponent(payload.classNum)+'&branch=eq.'+encodeURIComponent(currentBranch));
       if(!sts.length) return {ok:false,msg:'해당 반 학생이 없습니다.'};
       // 프론트에서 체크한 학생만 출고 (studentIds 전달 시)
@@ -1748,7 +1785,7 @@ async function call(action,payload){
       });
       return {ok:true,data:stockData};
     }
-    if(action==='addBook'){var bc=String(payload.barcode||'').trim();await sbPost('books',{barcode:bc,name:payload.name,subject:payload.subject||null,publisher:payload.publisher||null,vendor:payload.vendor||null,price:payload.price?Number(String(payload.price).replace(/,/g,'')):0,purchase_price:payload.purchasePrice?Number(String(payload.purchasePrice).replace(/,/g,'')):0,note:payload.note||null});return {ok:true,msg:'교재 등록 완료: '+payload.name};}
+    if(action==='addBook'){var bc=String(payload.barcode||'').trim();/* 서버가 거절해도(바코드 중복 등) 무조건 '등록 완료'가 떴다. 결과를 확인한다. */var _ab=await sbPost('books',{barcode:bc,name:payload.name,subject:payload.subject||null,publisher:payload.publisher||null,vendor:payload.vendor||null,price:payload.price?Number(String(payload.price).replace(/,/g,'')):0,purchase_price:payload.purchasePrice?Number(String(payload.purchasePrice).replace(/,/g,'')):0,note:payload.note||null});if(_ab&&!Array.isArray(_ab)&&(_ab.code||_ab.message)){return {ok:false,msg:(String(_ab.code)==='23505'?'이미 등록된 바코드입니다. 교재 목록에서 검색해보세요. ('+bc+')':'등록 실패: '+(_ab.message||_ab.code))};}return {ok:true,msg:'교재 등록 완료: '+payload.name};}
     if(action==='addTeacher'){
       var tid=payload.id||('T'+Date.now().toString().slice(-6));
       // ID 중복 체크
@@ -2169,6 +2206,7 @@ async function init(){
   if(!currentBranch) return; // 로그인 전엔 실행 안 함
   setLoadingState(false,'데이터 불러오는 중...');
   var hasCache=hydrateFromCache();
+  await loadBranchSettingsFromDB();
   try{
     var r=await Promise.all([call('getTeachers'),call('getBooks'),call('getStudents'),call('getVendors'),call('getSemesters')]);
     teachers=r[0].data||[];books=r[1].data||[];students=r[2].data||[];vendors=r[3].data||[];semesters=r[4].data||[];
@@ -2642,7 +2680,7 @@ function renderSalesStudentResults(keyword){
     if(id) sub.push(id);
     if(school) sub.push(shortenSchool(school));
     if(grade) sub.push(grade);
-    return '<button type="button" onclick="pickSalesStudent(\''+id.replace(/'/g,"\\'")+'\')" style="width:100%;text-align:left;padding:10px 12px;border:none;border-bottom:1px solid #ecd89b;background:#faf8fe;cursor:pointer">'+
+    return '<button type="button" onclick="pickSalesStudent(\''+id.replace(/'/g,"\\'")+'\')" style="display:block;width:100%;box-sizing:border-box;white-space:normal;text-align:left;padding:10px 12px;border:none;border-bottom:1px solid #ecd89b;background:#faf8fe;cursor:pointer">'+
       '<div style="font-size:13px;font-weight:700;color:var(--text)">'+name+'</div>'+
       '<div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">'+sub.join(' · ')+'</div>'+
       '</button>';
@@ -2768,12 +2806,20 @@ async function doSales(){
       return toast('학생을 선택해주세요. 퇴원학생은 "퇴원이름"으로 입력하세요.',false);
     }
   }
-  // 중복 판매 확인 (출고 + 학생 선택 시)
-  if(type==='출고'&&studentId){
-    var dup=await sbGet('sales_history','select=id,book_name&type=eq.출고&student_id=eq.'+encodeURIComponent(studentId)+'&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&limit=1');
-    if(dup.length){
-      var bookName=dup[0].book_name||barcode;
-      if(!confirm('['+bookName+']은 이 학생에게 이미 판매된 교재입니다.\n중복 판매가 맞나요?')) return;
+  /* 중복 판매 확인 — 선택한 학생 '전원'을 이번 학기 기준으로 본다.
+     예전엔 첫 번째 학생 한 명만, 학기 상관없이 봐서 지난 학기에 산 기록 때문에도 경고가 떴고
+     누구 때문인지도 알 수 없었다. */
+  if(type==='출고'&&(_targetStudents.length||studentId)){
+    var _dupIds=(_targetStudents.length?_targetStudents.map(function(s){return s.id;}):[studentId]).filter(Boolean);
+    if(_dupIds.length){
+      var _dq='select=student_id,student_name,semester&type=eq.출고&student_id=in.('+_dupIds.map(function(x){return encodeURIComponent(x);}).join(',')+')&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch);
+      if(semester) _dq+='&semester=eq.'+encodeURIComponent(semester);
+      var dup=await sbGet('sales_history',_dq);
+      if(Array.isArray(dup)&&dup.length){
+        var _dn=[];dup.forEach(function(r){var n=r.student_name||r.student_id;if(_dn.indexOf(n)<0)_dn.push(n);});
+        var bookName=(findBookByBarcode(barcode)||{})['교재명']||barcode;
+        if(!confirm('['+bookName+']\n'+(semester?semester+' ':'')+'학기에 이미 판매된 학생: '+_dn.join(', ')+'\n중복 판매가 맞나요?')) return;
+      }
     }
   }
   // 분원출고는 transfers 테이블에 저장 (상대방이 수락해야 재고 반영)
@@ -3867,8 +3913,12 @@ async function deleteHistoryRow(id,bookName,type,payStatus,btn){
   }
   if(!confirm('['+bookName+'] '+type+' 이력을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.')) return;
   try{
-    var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
+    /* 예전엔 return=minimal 이라 서버가 실제로 한 줄도 안 지웠어도 '삭제 완료'로 보였다.
+       지워진 줄을 돌려받아서 0줄이면 실패로 알린다. */
+    var h=Object.assign({},SB_HEADERS,{'Prefer':'return=representation'});
     var res=await fetch(SB_URL+'/sales_history?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:h});
+    var _del=res.ok?await res.json():[];
+    if(res.ok&&!_del.length){toast('삭제되지 않았어요(이미 지워졌거나 권한 없음). 화면을 새로고침해서 확인하세요.',false);return;}
     if(res.ok){
       // 해당 행 제거
       var row=btn.closest('tr');
@@ -4018,12 +4068,16 @@ document.addEventListener('click',function(e){
 });
 async function doEditPrice(){
   if(!_priceEditBarcode) return toast('교재를 먼저 선택해주세요.',false);
-  var newPrice=document.getElementById('price-edit-value').value;
-  if(!newPrice&&newPrice!=='0') return toast('새 가격을 입력해주세요.',false);
+  /* 입력칸은 '15,000'처럼 쉼표가 붙는다. 예전엔 쉼표를 안 떼고 Number()를 해서 NaN → 서버에 null로 저장돼
+     아무리 15000을 넣어도 '현재 정가 0원'으로 떴다. */
+  var newPrice=String(document.getElementById('price-edit-value').value).replace(/,/g,'').trim();
+  if(newPrice===''||isNaN(Number(newPrice))) return toast('새 가격을 숫자로 입력해주세요.',false);
   try{
-    var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
+    var h=Object.assign({},SB_HEADERS,{'Prefer':'return=representation'});
     var res=await fetch(SB_URL+'/books?barcode=eq.'+encodeURIComponent(_priceEditBarcode),{method:'PATCH',headers:h,body:JSON.stringify({price:Number(newPrice)})});
     if(!res.ok){var err=await res.text();toast('수정 실패: '+err,false);return;}
+    var _upd=await res.json();
+    if(!_upd.length){toast('수정된 교재가 없어요. 바코드를 확인하세요.',false);return;}
     toast('가격이 수정됐어요! ('+Number(newPrice).toLocaleString()+'원)',true);
     // 로컬 캐시 업데이트
     var bk=books.find(function(b){return b['바코드']===_priceEditBarcode;});
@@ -4085,10 +4139,16 @@ async function doAddBook(){
   var barcode=normalizeBarcode(document.getElementById('book-barcode').value);
   var name=document.getElementById('book-name').value.trim();
   if(!barcode||!name) return toast('바코드와 교재명은 필수입니다.',false);
+  /* 정가(=학생 청구액)를 비워 두고 '매입단가'에만 금액을 넣어 등록하는 일이 실제로 있었다.
+     출고는 정가로 계산하므로 정가가 0이면 반별 일괄출고가 전부 0원으로 찍혀 납입내역이 0원이 된다
+     (서수원 26년가을 동아윤 중등1 제본 14명). 그래서 정가가 비면 등록 자체를 막는다. */
+  var _regPrice=Number(String(document.getElementById('book-price').value).replace(/,/g,''))||0;
+  if(_regPrice<=0) return toast('정가(학생 청구액)를 입력하세요. 비워 두면 출고가 0원으로 찍힙니다.',false);
   try{
-    var pp=document.getElementById('book-purchase-price');var res=await call('addBook',{barcode:barcode,name:name,subject:document.getElementById('book-subject').value.trim(),publisher:document.getElementById('book-publisher').value.trim(),vendor:document.getElementById('book-vendor').value.trim(),price:document.getElementById('book-price').value.replace(/,/g,''),note:document.getElementById('book-note').value.trim()});
+    /* 예전엔 매입단가 칸을 읽기만 하고 서버로 안 보내서 입력해도 늘 0으로 저장됐다 */
+    var pp=document.getElementById('book-purchase-price');var res=await call('addBook',{barcode:barcode,name:name,subject:document.getElementById('book-subject').value.trim(),publisher:document.getElementById('book-publisher').value.trim(),vendor:document.getElementById('book-vendor').value.trim(),price:document.getElementById('book-price').value.replace(/,/g,''),purchasePrice:pp?pp.value.replace(/,/g,''):'',note:document.getElementById('book-note').value.trim()});
     toast(res.msg,res.ok);
-    if(res.ok){['book-barcode','book-name','book-subject','book-publisher','book-vendor','book-price','book-note'].forEach(function(id){document.getElementById(id).value='';});var bb=await call('getBooks');books=bb.data||[];initBarcodePage();}
+    if(res.ok){['book-barcode','book-name','book-subject','book-publisher','book-vendor','book-price','book-purchase-price','book-note'].forEach(function(id){document.getElementById(id).value='';});var bb=await call('getBooks');books=bb.data||[];initBarcodePage();}
   }catch(e){toast('오류 발생',false);}
 }
 // ── 레벨별 교재 체크리스트 ──
