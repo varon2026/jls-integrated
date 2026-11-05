@@ -2067,10 +2067,11 @@ async function exportDtQappExcel(){
     const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','DT').eq('key_id',key.id).eq('semester',semName(SEM)));
     const idx={}; data.forEach(r=>_latest(idx, r.student_code+'|'+key.id, r));
     const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    /* 2026-11-05 — 운영자: "큐앱에 올릴 시트만 나왔으면 좋겠어. 성적시트는 없애" — AT와
+       달리 DT는 반별·일괄 둘 다 큐앱 시트만 내보낸다(성적표 시트는 안 넣음). */
     const qappSheet=dtQappSheetFor(cls.levelCode,key,studs,idx); qappSheet.name='큐앱';
-    const niceSheet=dtSheetFor(cls.levelCode,key,studs,idx); niceSheet.name='성적표';
     const fname=('큐앱_'+noDays(cls.dispCode||cls.levelCode)+'_'+classDetail(cls.className)+(cls.teacher?'_'+cls.teacher:'')+'_'+semName(SEM)).replace(/[\\/:*?"<>|]/g,'_');
-    await writeXlsxColored([qappSheet,niceSheet],fname);
+    await writeXlsxColored([qappSheet],fname);
     toast(`큐앱 엑셀 다운로드 완료 ✓ (${studs.length}명)`);
   }catch(e){console.error(e);toast('엑셀 생성 실패: '+(e.message||e),false);}
 }
@@ -2359,10 +2360,9 @@ async function exportScoresBulk(){
            없으면 건너뜀"이었는데, 큐앱 시트는 반별 버튼처럼 채점 전에도(빈칸 그대로) 담임이
            받아서 쓸 수 있어야 한다. 그래서 명단 자체가 없을 때만 건너뛰고, 채점 여부는 안 본다. */
         if(!studs.length)return;
+        /* "큐앱에 올릴 시트만 나왔으면 좋겠어. 성적시트는 없애" — 성적표(dtSheetFor) 시트는 안 넣음. */
         const qsh=dtQappSheetFor(l.code,key,studs,idx,{branchCol:qappShowBranch});qsh.name=_uniqSheet(sheets,l.code+'_큐앱');
         sheets.push(qsh);
-        const sh=dtSheetFor(l.code,key,studs,idx);sh.name=_uniqSheet(sheets,l.code);
-        sheets.push(sh);
       });
     }
     if(!sheets.length){toast('내보낼 채점 데이터가 없어요 (정답키·채점 여부 확인)',false);return;}
