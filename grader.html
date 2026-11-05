@@ -2354,7 +2354,11 @@ async function exportScoresBulk(){
         const key=keyOfLevel(l.code);if(!key)return;
         const idx={};data.forEach(r=>{if(r.key_id===key.id)_latest(idx,r.student_code+'|'+key.id,r);});
         const studs=l.recs.slice().sort((a,b)=>(a.branchName+a.name).localeCompare(b.branchName+b.name));
-        if(!studs.some(r=>idx[r.code+'|'+key.id]))return;   // 이 분원에 채점된 학생이 없으면 건너뜀
+        /* 2026-11-05 — 운영자: "일괄다운로드 눌렀는데 내보낼 채점 데이터가 없다고 뜨는데..
+           반별로 큐앱엑셀다운 누르면 빈칸으로 다운이 되긴 해" — 예전엔 "채점된 학생이 1명도
+           없으면 건너뜀"이었는데, 큐앱 시트는 반별 버튼처럼 채점 전에도(빈칸 그대로) 담임이
+           받아서 쓸 수 있어야 한다. 그래서 명단 자체가 없을 때만 건너뛰고, 채점 여부는 안 본다. */
+        if(!studs.length)return;
         const qsh=dtQappSheetFor(l.code,key,studs,idx,{branchCol:qappShowBranch});qsh.name=_uniqSheet(sheets,l.code+'_큐앱');
         sheets.push(qsh);
         const sh=dtSheetFor(l.code,key,studs,idx);sh.name=_uniqSheet(sheets,l.code);
