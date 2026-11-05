@@ -1929,11 +1929,15 @@ function dtQappSheetFor(code,key,recs,idx,opts){
   const cut=retestCutlineFor('DT');
   const pstCol=(branchCol?1:0)+9; // 1-based: PASS/STAY/JUMP 칸 위치
 
-  /* 운영자가 준 실제 양식에서 CQ Writing·Sentence Ordering for Summary 두 칸(서술형)만
-     "(만점 N점)"이 안 붙어있고 이름 그대로였다 — 나머지(객관식 영역)는 다 붙어있다. */
-  const NO_MAX_LABEL=new Set(['CQ Writing','Sentence Ordering for Summary']);
+  /* 2026-11-05 — 운영자가 DSD·LSB·MSA 세 레벨 양식을 줬는데, 서술형(라이팅류) 영역
+     이름도·개수도 레벨마다 다 달랐다(CQ Writing+Sentence Ordering / CQ Writing+
+     Sentence Completion & Ordering / Task Completion+Language Use+Contents).
+     이름으로는 못 맞춘다 — 공통점은 그 영역 문항이 전부 서술형(type:'sa')이라는
+     것뿐이라, 그걸로 판정한다: 객관식(mc) 영역만 "(만점 N점)"을 붙이고,
+     한 영역의 문항이 전부 'sa'면 그 영역은 이름 그대로 둔다. */
+  const isWritingPart=p=>ans.filter(a=>(a.part||'전체')===p).every(a=>a.type==='sa');
   const header=[...(branchCol?['분원명']:[]),'No','학생코드','학생이름','학교명/학년','레벨','수업요일','담임선생님','학년구분','PASS/STAY/JUMP',
-    ...parts.map(p=>NO_MAX_LABEL.has(p)?p:`${p}\n(만점 ${ptOf(p)}점) `)];
+    ...parts.map(p=>isWritingPart(p)?p:`${p}\n(만점 ${ptOf(p)}점) `)];
 
   const rows=recs.map((r,i)=>{
     const rec=idx[r.code+'|'+key.id];
