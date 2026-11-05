@@ -1146,7 +1146,7 @@ function renderAnswerView(){
           <option value="">전체 (모든 분원)</option>
           ${Object.keys(BRANCHES).map(id=>`<option value="${id}" ${id===BRANCH?'selected':''}>${esc(BRANCHES[id])}</option>`).join('')}
         </select></span>`:''}
-      <button class="btn mini" onclick="exportScoresBulk()">${EXAM==='내신모의고사'?'📥 내신모의고사 큐앱+성적 엑셀 일괄 다운로드':EXAM==='DT'?'📥 DT 큐앱 엑셀 일괄 다운로드':EXAM==='AT'?'📥 AT 큐앱+성적 엑셀 일괄 다운로드':`📊 ${EXAM} 성적 엑셀 일괄 다운로드`}</button>
+      <button class="btn mini" onclick="exportScoresBulk()">${(EXAM==='DT'||EXAM==='AT'||EXAM==='내신모의고사')?`📥 ${EXAM} 큐앱 엑셀 일괄 다운로드`:`📊 ${EXAM} 성적 엑셀 일괄 다운로드`}</button>
       <span class="hint">정답키가 등록된 레벨만 · 미응시 노랑 · 재시험 초록</span>
     </div>
     <div class="dd" style="margin-bottom:16px">
@@ -1500,7 +1500,7 @@ function buildAceArea(){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div style="font-size:16px;font-weight:800">${esc(base)} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}${cls.teacher?' · 담임 '+esc(cls.teacher):''}</span></div>
         <div style="flex:1"></div>
-        <button class="ghost mini" onclick="exportAtQappExcel()">📥 큐앱 엑셀↓ (성적표 포함)</button>
+        <button class="ghost mini" onclick="exportAtQappExcel()">📥 큐앱 엑셀↓</button>
         <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>
         ${CURTAB!=='총점'?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
         <label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">답안 엑셀↑<input type="file" accept=".xlsx,.xls" hidden onchange="uploadAns(this)"></label>
@@ -1693,7 +1693,8 @@ function buildNaesinArea(){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div style="font-size:16px;font-weight:800">${esc(noDays(cls.dispCode||code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}${cls.teacher?' · 담임 '+esc(cls.teacher):''}</span></div>
         <div style="flex:1"></div>
-        <button class="ghost mini" onclick="exportQappExcel()">📥 큐앱 엑셀↓ (성적표 포함)</button>
+        <button class="ghost mini" onclick="exportQappExcel()">📥 큐앱 엑셀↓</button>
+        <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>
         ${CURTAB!=='총점'?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
         <label class="ghost mini" style="cursor:pointer;display:inline-flex;align-items:center">답안 엑셀↑<input type="file" accept=".xlsx,.xls" hidden onchange="uploadAns(this)"></label>
         <button class="btn mini" onclick="saveNaesin()">${CURTAB} 채점 저장</button>`:''}
@@ -2084,10 +2085,11 @@ async function exportAtQappExcel(){
     const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','AT').eq('key_name',variant).eq('semester',semName(SEM)));
     const idx={}; data.forEach(r=>_latest(idx, r.student_code+'|'+r.key_name+'|'+r.section, r));
     const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    /* 2026-11-05 — 운영자: "성적 엑셀 일괄 다운로드 없애고... 실제 다운받았을때도 큐앱만
+       뜨도록해줘" — DT와 같은 요청. 성적표 시트는 안 넣고 큐앱 시트만 내보낸다. */
     const qappSheet=atQappSheetFor(variant,cls.levelCode,studs,idx); qappSheet.name='큐앱';
-    const niceSheet=atSheetFor(variant,studs,idx); niceSheet.name='성적표'; niceSheet.widths=[11,12,15,7,13];
     const fname=('큐앱_'+noDays(cls.dispCode||cls.levelCode)+'_'+vLabel(variant,cls.levelCode)+'_'+classDetail(cls.className)+'_'+semName(SEM)).replace(/[\\/:*?"<>|]/g,'_');
-    await writeXlsxColored([qappSheet,niceSheet],fname);
+    await writeXlsxColored([qappSheet],fname);
     toast(`큐앱 엑셀 다운로드 완료 ✓ (${studs.length}명)`);
   }catch(e){console.error(e);toast('엑셀 생성 실패: '+(e.message||e),false);}
 }
@@ -2238,11 +2240,12 @@ async function exportQappExcel(){
     const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     /* 2026-10-28 — 운영자: "큐앱엑셀버튼이랑 성적엑셀파일버튼 ... 두개 합쳐야할거같아.
        기본은 큐앱엑셀이고 거기에 다른시트에 성적엑셀 깔끔하게 잘 보이는거 합쳐야해."
-       버튼을 하나로 합치고, 한 파일 안에 시트 두 개(큐앱 업로드용 + 사람이 보기 좋은 성적표)로 낸다. */
+       버튼을 하나로 합치고, 한 파일 안에 시트 두 개(큐앱 업로드용 + 사람이 보기 좋은 성적표)로 냈었음.
+       2026-11-05 — 운영자: "성적 엑셀 일괄 다운로드 없애고... 실제 다운받았을때도 큐앱만
+       뜨도록해줘"(DT·AT와 동일 요청) — 성적표 시트를 다시 빼고 큐앱 시트만 내보낸다. */
     const qappSheet=naesinQappSheetFor(code,studs,idx); qappSheet.name='큐앱';
-    const niceSheet=naesinSheetFor(code,studs,idx); niceSheet.name='성적표';
     const fname=('큐앱_'+noDays(cls.dispCode||code)+'_'+classDetail(cls.className)+'_'+semName(SEM)).replace(/[\\/:*?"<>|]/g,'_');
-    await writeXlsxColored([qappSheet,niceSheet],fname);
+    await writeXlsxColored([qappSheet],fname);
     toast(`큐앱 엑셀 다운로드 완료 ✓ (${studs.length}명)`);
   }catch(e){console.error(e);toast('엑셀 생성 실패: '+(e.message||e),false);}
 }
@@ -2331,13 +2334,16 @@ async function exportScoresBulk(){
       const data=await fetchAll('exam_scores','*',q=>q.eq('test_type','내신모의고사').eq('semester',semName(SEM)));
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+r.key_name+'|'+r.section,r));
       /* 2026-10-28 — 반별(exportQappExcel) 버튼과 같이, 일괄 다운로드도 큐앱 업로드용 시트 +
-         사람이 보기 좋은 성적표 시트를 레벨마다 짝으로 넣는다. brDl이 빈 문자열이면(본사계정이
+         사람이 보기 좋은 성적표 시트를 레벨마다 짝으로 넣었었다. brDl이 빈 문자열이면(본사계정이
          위에서 "전체 (모든 분원)"를 고른 경우) levelsForExam('')이 scopedRoster 쪽에서 분원
          필터를 안 걸어서 전 분원이 다 들어간다 — scopedRoster() 참고.
          운영자: "본사 계정으로 전체 다운로드했을땐 분원명이 들어가야돼. 분원계정으로 했을땐
          상관없거든." — 본사가 "전체 (모든 분원)"를 골랐을 때만(여러 분원이 한 시트에 섞이는
          경우만) 큐앱 시트에 분원명 칸을 추가한다. 분원계정이거나 본사가 분원 하나를 콕 찍으면
-         어차피 그 시트 전체가 한 분원이라 분원명이 필요 없다. */
+         어차피 그 시트 전체가 한 분원이라 분원명이 필요 없다.
+         2026-11-05 — 운영자: "성적 엑셀 일괄 다운로드 없애고... 실제 다운받았을때도 큐앱만
+         뜨도록해줘"(DT·AT와 동일 요청, 단 "성적은 따로 버튼 빼줘" — 성적표는 없애는 게
+         아니라 반별 성적 엑셀↓ 버튼으로 따로 받게) — 일괄은 성적표 시트를 뺀다. */
       const qappShowBranch=(ROLE==='admin')&&!brDl;
       levelsForExam(brDl).forEach(l=>{
         const code=l.code;
@@ -2345,8 +2351,6 @@ async function exportScoresBulk(){
         if(!studs.some(r=>idx[r.code+'|'+code+'|지필평가']||idx[r.code+'|'+code+'|듣기평가']||idx[r.code+'|'+code+'|수행평가']))return;
         const qsh=naesinQappSheetFor(code,studs,idx,{branchCol:qappShowBranch});qsh.name=_uniqSheet(sheets,code+'_큐앱');
         sheets.push(qsh);
-        const sh=naesinSheetFor(code,studs,idx);sh.name=_uniqSheet(sheets,code+'_성적');
-        sheets.push(sh);
       });
     }else{
       const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM).eq('semester',semName(SEM)));
