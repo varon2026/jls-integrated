@@ -235,7 +235,7 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
       <div class="crumb" id="crumb">시험 채점</div>
       <div class="sp"></div>
       <div class="pick"><span>학기</span><select id="semSel" onchange="onSemChange(this.value)"></select></div>
-      <div class="pick" id="brWrap"><span>분원</span><select id="brSel" onchange="onBranchChange(this.value)"></select></div>
+      <div class="pick" id="brWrap" style="display:none"><span>분원</span><select id="brSel" onchange="onBranchChange(this.value)"></select></div>
       <span class="status" id="status">불러오는 중…</span>
     </header>
     <main class="content" id="content"><div class="loading">데이터 불러오는 중…</div></main>
@@ -973,8 +973,10 @@ function renderTop(){
   const semIds=[...new Set([...SEM_IDS, ...SEMS.map(s=>s.id)])];
   $('semSel').innerHTML=semIds.map(id=>`<option value="${id}" ${id===SEM?'selected':''}>${esc(semName(id))}</option>`).join('');
   const brs=Object.keys(BRANCHES).map(id=>({id,name:BRANCHES[id]}));
-  if(ROLE==='admin'){$('brWrap').style.display='';$('brSel').innerHTML=`<option value="">전체</option>`+brs.map(b=>`<option value="${b.id}" ${b.id===BRANCH?'selected':''}>${esc(b.name)}</option>`).join('');}
-  else $('brWrap').style.display='none';
+  /* 2026-11-05 운영자: 본사 계정 우측 상단 분원 드롭다운은 없앤다(성적 일괄다운로드 옆 '다운로드 분원'과 겹쳐서 헷갈림).
+     본사는 항상 '전 분원' 범위로 보고, 분원별로 받을 땐 다운로드 분원 드롭다운을 쓴다.
+     (예전엔 admin 일 때 여기서 BRANCH 를 골라 화면 범위를 좁힐 수 있었다.) */
+  $('brWrap').style.display='none';
   const rc=BRANCH?ROSTER.filter(r=>r.branchId===BRANCH).length:ROSTER.length;
   $('status').textContent=semName(SEM)+(BRANCH?' · '+BRANCHES[BRANCH]:' · 전 분원')+' · 명단 '+rc+'명';
   $('status').className='status ok';
