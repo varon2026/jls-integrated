@@ -1146,7 +1146,7 @@ function renderAnswerView(){
           <option value="">전체 (모든 분원)</option>
           ${Object.keys(BRANCHES).map(id=>`<option value="${id}" ${id===BRANCH?'selected':''}>${esc(BRANCHES[id])}</option>`).join('')}
         </select></span>`:''}
-      <button class="btn mini" onclick="exportScoresBulk()">${EXAM==='내신모의고사'?'📥 내신모의고사 큐앱+성적 엑셀 일괄 다운로드':EXAM==='AT'?'📥 AT 큐앱+성적 엑셀 일괄 다운로드':`📊 ${EXAM} 성적 엑셀 일괄 다운로드`}</button>
+      <button class="btn mini" onclick="exportScoresBulk()">${EXAM==='내신모의고사'?'📥 내신모의고사 큐앱+성적 엑셀 일괄 다운로드':(EXAM==='AT'||EXAM==='DT')?`📥 ${EXAM} 큐앱+성적 엑셀 일괄 다운로드`:`📊 ${EXAM} 성적 엑셀 일괄 다운로드`}</button>
       <span class="hint">정답키가 등록된 레벨만 · 미응시 노랑 · 재시험 초록</span>
     </div>
     <div class="dd" style="margin-bottom:16px">
@@ -2069,7 +2069,7 @@ async function exportDtQappExcel(){
     const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     const qappSheet=dtQappSheetFor(cls.levelCode,key,studs,idx); qappSheet.name='큐앱';
     const niceSheet=dtSheetFor(cls.levelCode,key,studs,idx); niceSheet.name='성적표';
-    const fname=('큐앱_'+noDays(cls.dispCode||cls.levelCode)+'_'+classDetail(cls.className)+'_'+semName(SEM)).replace(/[\\/:*?"<>|]/g,'_');
+    const fname=('큐앱_'+noDays(cls.dispCode||cls.levelCode)+'_'+classDetail(cls.className)+(cls.teacher?'_'+cls.teacher:'')+'_'+semName(SEM)).replace(/[\\/:*?"<>|]/g,'_');
     await writeXlsxColored([qappSheet,niceSheet],fname);
     toast(`큐앱 엑셀 다운로드 완료 ✓ (${studs.length}명)`);
   }catch(e){console.error(e);toast('엑셀 생성 실패: '+(e.message||e),false);}
