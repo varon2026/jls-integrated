@@ -1146,7 +1146,7 @@ function renderAnswerView(){
           <option value="">전체 (모든 분원)</option>
           ${Object.keys(BRANCHES).map(id=>`<option value="${id}" ${id===BRANCH?'selected':''}>${esc(BRANCHES[id])}</option>`).join('')}
         </select></span>`:''}
-      <button class="btn mini" onclick="exportScoresBulk()">${EXAM==='내신모의고사'?'📥 내신모의고사 큐앱+성적 엑셀 일괄 다운로드':(EXAM==='AT'||EXAM==='DT')?`📥 ${EXAM} 큐앱+성적 엑셀 일괄 다운로드`:`📊 ${EXAM} 성적 엑셀 일괄 다운로드`}</button>
+      <button class="btn mini" onclick="exportScoresBulk()">${EXAM==='내신모의고사'?'📥 내신모의고사 큐앱+성적 엑셀 일괄 다운로드':EXAM==='DT'?'📥 DT 큐앱 엑셀 일괄 다운로드':EXAM==='AT'?'📥 AT 큐앱+성적 엑셀 일괄 다운로드':`📊 ${EXAM} 성적 엑셀 일괄 다운로드`}</button>
       <span class="hint">정답키가 등록된 레벨만 · 미응시 노랑 · 재시험 초록</span>
     </div>
     <div class="dd" style="margin-bottom:16px">
@@ -1222,7 +1222,7 @@ function buildGrid(){
       <div class="hint">응시 ${studs.length}명 · <b style="color:var(--pos)">채점 ${gradedOf(cls)}/${studs.length}명</b> · ${key?`정답키 ${key.num_q}문항`:'<b style="color:var(--warn)">정답키 없음</b>'}</div>
       <div style="flex:1"></div>
       ${cutlineChip()}
-      ${key?`<button class="ghost mini" onclick="exportDtQappExcel()">📥 큐앱 엑셀↓ (성적표 포함)</button>
+      ${key?`<button class="ghost mini" onclick="exportDtQappExcel()">📥 큐앱 엑셀↓</button>
       <button class="ghost mini" onclick="exportScoresXlsx()">📊 성적 엑셀↓</button>`:''}
       ${isTeacherRO()?'':`<button class="ghost mini ${isOff?'':'danger'}" onclick="toggleOff('${esc(code)}')">${isOff?'✓ 미응시 해제':'✕ 이 레벨 시험없음(미응시)'}</button>
       ${key&&!isOff?`<button class="ghost mini" onclick="downloadAnsTemplate()">답안 양식↓</button>
