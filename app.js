@@ -2586,8 +2586,23 @@ function waitAlertBanner(){
   return `<div class="wait-alert">${head}<div class="wa-list">${rows}${waitDoneListHTML()}</div></div>`;
 }
 /* 이번에 '대기→등록'한 학생 목록 (취소 가능) */
+/* 이 목록은 '수업 듣기 전에 등록을 취소'하려고 만든 것이다.
+   예전엔 기간 제한이 없어서 지난 학기(가을)에 대기→등록한 학생이 겨울학기가 와도 계속 떠 있어 헷갈렸다.
+   그 학기가 시작한 지 1주일이 지나면 목록에서 뺀다. (학기 시작일 = 그 학기 첫 달 1일) */
+function semStartDateOf(semId){
+  const m=String(semId).match(/sem_(\d+)_(\w+)/); if(!m) return null;
+  const season=SEASONS.find(s=>s.key===m[2]); if(!season) return null;
+  /* 겨울학기는 12월에 시작한다(달 목록이 [12,1,2]라 최솟값을 쓰면 1월이 되어 틀린다) */
+  const startMonth = season.key==='winter' ? 12 : Math.min.apply(null,season.months);
+  return new Date(+m[1], startMonth-1, 1);
+}
+function waitCancelStillOpen(semId){
+  const st=semStartDateOf(semId); if(!st) return false;
+  const limit=new Date(st.getTime()+7*24*3600*1000);
+  return new Date() < limit;
+}
 function waitDoneListHTML(){
-  const done=(db.studentMovements||[]).filter(m=> m.memo==='레벨테스트 대기→등록' && m.branchId===session.branchId);
+  const done=(db.studentMovements||[]).filter(m=> m.memo==='레벨테스트 대기→등록' && m.branchId===session.branchId && waitCancelStillOpen(m.semesterId));
   if(!done.length) return '';
   const items=done.map(m=>{
     const s=(db.students||[]).find(x=>x.id===m.studentId)||{};
