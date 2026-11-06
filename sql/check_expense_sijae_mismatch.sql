@@ -1,41 +1,20 @@
--- 2026-11-06 — 운영비 현황 "현재시재"가 1,114,687원인데 실제 통장은 761,207원
--- (차이 353,480원). 원인 확인용 조회 SQL — 아무것도 바꾸지 않습니다. 결과만 보여주세요.
--- <branch_id> 자리에 해당 분원의 branch 값을 넣어서 돌려주세요 (운영비 화면 URL이나
--- 아래 1번 쿼리로 먼저 확인 가능합니다).
+-- 2026-11-06 — 운영비 현재시재-실제통장 차액(353,480원) 원인 확인. 읽기 전용.
 
--- ⚠️ 2026-11-06 수정 — 운영비 표는 메인 DB에 exp_ 접두어로 들어가 있다(expense-app/index.html의
--- Proxy가 entries→exp_entries로 자동 매핑). 그래서 아래는 public.entries가 아니라
--- public.exp_entries / public.exp_bank_transactions 로 바꿨다.
-
--- 0. 이 결과로 쓰는 branch 값이 뭔지 먼저 확인(분원 코드/이름이 어떻게 저장되는지)
-select distinct branch from public.exp_entries limit 20;
-
--- 1. 지금 시재 계산값 그대로 재현 (앱과 같은 계산: 입금 - 지출, 전체 기간)
-select
-  sum(case when kind='입금' then amt else 0 end) as 총입금,
-  sum(case when kind='지출' then amt else 0 end) as 총지출,
-  sum(case when kind='입금' then amt else -amt end) as 현재시재_계산값
+-- 4. 은행거래랑 안 묶이고 수동으로 입력된 내역이 얼마나 되는지 (여기서 틀린 게 있을 가능성)
+select kind, count(*) as 건수, sum(amt) as 합계
 from public.exp_entries
-where branch = '<branch_id>';
+where branch = '서수원 분원' and bank_tx_id is null
+group by kind;
 
--- 2. 가장 유력한 원인 — 통장에선 빠져나갔는데 아직 "등록" 안 돼서 시재에 안 잡힌 지출
---    (업로드는 됐지만 미처리 상태로 쌓여있는 출금 거래)
-select id, tx_date, description, withdrawal, deposit, status
-from public.exp_bank_transactions
-where branch = '<branch_id>'
-  and status <> '처리완료'
-  and withdrawal > 0
-order by tx_date;
-
-select sum(withdrawal) as 미처리_출금_합계
-from public.exp_bank_transactions
-where branch = '<branch_id>'
-  and status <> '처리완료'
-  and withdrawal > 0;
-
--- 3. 혹시 같은 은행거래가 두 번 "등록"돼서 중복으로 잡힌 건 없는지
-select bank_tx_id, count(*) as 건수, sum(amt) as 합계
+-- 5. 수동 입력 내역 전체 목록 (최근순) — 여기서 실수로 중복 입력했거나 금액 잘못 적은 게 없는지 눈으로 확인
+select id, date, kind, amt, acct, vendor, memo, payment_method
 from public.exp_entries
-where branch = '<branch_id>' and bank_tx_id is not null
-group by bank_tx_id
-having count(*) > 1;
+where branch = '서수원 분원' and bank_tx_id is null
+order by date desc, id desc;
+
+-- 6. 은행 엑셀에 실제로 찍혀있는 최신 잔액(국민은행이 알려주는 진짜 잔액) 확인
+select tx_date, tx_time, description, withdrawal, deposit, balance
+from public.exp_bank_transactions
+where branch = '서수원 분원'
+order by tx_date desc, tx_time desc nulls last, id desc
+limit 5;
