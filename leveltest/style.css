@@ -1547,10 +1547,17 @@ button.ghost {
      끝이 잘렸다. 다른 요소들(achv2Block·roadmap 등)은 이미 print에서 글자 크기를 줄이는데
      .intro-box(맨 위 "Why? 수능 500" 박스)만 안 줄어서 상대적으로 제일 크게 남아있었다 —
      여기만 줄여서 공간을 확보한다(브라우저로 실측: 7px 모자라던 것 → 0px로 딱 맞춤). */
+  /* 2026-11-06 — 운영자: 배포 후에도 "프로그램입니다"의 "프"만 혼자 다음 줄로 떨어짐.
+     내 브라우저(스크린샷 테스트)에서는 재현이 안 됐는데(렌더링 엔진마다 줄바꿈 폭 계산이
+     미묘하게 다른 듯) — 폭 계산에 의존하지 않는 안전한 방법으로: word-break:keep-all을
+     주면 한글은 띄어쓰기 단위로만 줄을 바꾸고 "프로그램입니다"처럼 붙어있는 글자 중간에서는
+     안 끊는다. 이 코드베이스 다른 곳(.general-mini-title 등)도 같은 패턴을 쓴다. */
   .page .intro-box {
     padding: 8px 12px !important;
     line-height: 1.35 !important;
     font-size: 10.5px !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
   }
 
   .achv2-block {
