@@ -1541,6 +1541,18 @@ button.ghost {
 
 /* print에서도 같은 톤 유지 */
 @media print {
+  /* 2026-11-06 — 운영자: "ACE 레테 성적표 표지 다음장 맨 끝 박스 세개(Achievement Ⅱ) 끝부분이
+     잘려서 나와" — 그 페이지(whyBody+summaryBody+achv2Block)를 실제로 재현해서 재보니
+     페이지 높이(297mm)보다 내용이 살짝(약 7px) 더 길어서 맨 아래 achv2Block(그 박스 세개)
+     끝이 잘렸다. 다른 요소들(achv2Block·roadmap 등)은 이미 print에서 글자 크기를 줄이는데
+     .intro-box(맨 위 "Why? 수능 500" 박스)만 안 줄어서 상대적으로 제일 크게 남아있었다 —
+     여기만 줄여서 공간을 확보한다(브라우저로 실측: 7px 모자라던 것 → 0px로 딱 맞춤). */
+  .page .intro-box {
+    padding: 8px 12px !important;
+    line-height: 1.35 !important;
+    font-size: 10.5px !important;
+  }
+
   .achv2-block {
     margin-top: 10px !important;
   }
