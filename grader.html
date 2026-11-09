@@ -1247,7 +1247,7 @@ function buildGrid(){
   studs.forEach((r,ri)=>{
     let cells=`<td class="stu"><b>${esc(r.name)}</b><div class="c">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
     ans.forEach((a,ci)=>{const sa=a.type==='sa';
-      cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="numeric" maxlength="1" ${sa?'placeholder="1/0"':''} ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?'주관식: 맞으면 1, 틀리면 0 입력':'객관식: 1~5'}" oninput="onCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
+      cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="numeric" maxlength="1" ${sa?'placeholder="1/0"':''} ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?'주관식: 맞으면 1, 틀리면 0 입력':'객관식: 1~5'}" oninput="onCell(this)" onfocus="cellVis(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
     parts.forEach(p=>{cells+=`<td class="sc" data-part="${esc(p)}">0</td>`;});
     cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}${examRemoveBtn(r.code)}</td>`;
     body+=`<tr data-sid="${r.studentId}" data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
@@ -1262,6 +1262,25 @@ function buildGrid(){
     ${SORTBTNS}
     <div class="gwrap"><table class="g"><thead><tr class="r1">${r1}</tr><tr class="r2">${r2}</tr></thead><tbody>${body}</tbody></table></div>`;
   loadSavedScores();
+}
+/* 답안 칸으로 옮겨 갈 때 화면 안(이름 칸과 총점·버튼 칸 사이)에 보이도록 표를 알아서 옆으로 밀어준다.
+   40번 넘게 있는 시험지는 칸이 화면 폭을 넘는데, 이름 칸(왼쪽)과 총점·버튼 칸(오른쪽)이 표 위에 고정(sticky)으로
+   떠 있어서 브라우저가 기본으로 해 주는 스크롤은 그 고정 칸 '뒤'까지만 밀어 주고 칸이 가려졌다.
+   그래서 입력하다 Enter/방향키로 넘어가면 다음 칸이 안 보여 직접 가로 스크롤을 옮겨야 했다. */
+function cellVis(inp){
+  requestAnimationFrame(()=>{
+    const wrap=inp.closest('.gwrap');if(!wrap)return;
+    const tr=inp.closest('tr');const stu=tr&&tr.querySelector('td.stu');const tot=tr&&tr.querySelector('td.tot');
+    const wr=wrap.getBoundingClientRect();
+    const L=stu?stu.getBoundingClientRect().right:wr.left;
+    const R=tot?tot.getBoundingClientRect().left:wr.right;
+    const m=56;   // 다음 칸이 하나쯤 더 보이게 여유를 둔다
+    const r=inp.getBoundingClientRect();
+    if(r.right>R-m) wrap.scrollLeft+=r.right-(R-m);
+    else if(r.left<L+m) wrap.scrollLeft-=(L+m)-r.left;
+    const th=wrap.querySelector('thead');const H=th?th.getBoundingClientRect().bottom:wr.top;
+    if(r.top<H+4) wrap.scrollTop-=(H+4)-r.top;
+  });
 }
 function onCell(inp){scoreRow(inp.closest('tr'));}
 function curKey(){const c=curClassObj();return c?keyOfLevel(c.levelCode):null;}
