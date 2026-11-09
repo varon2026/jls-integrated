@@ -307,10 +307,12 @@ const TITLES=[
   {k:'teacher',     label:'담임',            tier:'teacher', edit:false, manage:false, teacherView:true},
   /* 조교 — 스타트실·미통과 관리용. 학사관리에서 role 'assistant' 로 읽힌다 */
   {k:'assistant',   label:'조교',            tier:'branch',  edit:true,  manage:false},
+  /* 행정지원 — 분원 행정 업무 보조. 권한은 대리와 같게(명단 수정 가능, 계정관리는 불가). 2026-11-09 운영자 요청, 전 분원 공통 */
+  {k:'admin_support',label:'행정지원',        tier:'branch',  edit:true,  manage:false},
 ];
 // 계정관리 컨텍스트별 만들 수 있는 직급
 const HQ_TITLES=['branch_acct','admin','hq_staff','admin_staff','counsel_head']; // 본사(admin)가 만드는 것
-const BR_TITLES=['teacher','assistant','daeri','team','junior','gwajang','bm','counsel_head'];// 분원(행정직원)이 만드는 것
+const BR_TITLES=['teacher','assistant','daeri','team','junior','gwajang','bm','counsel_head','admin_support'];// 분원(행정직원)이 만드는 것
 const TITLE_MAP={}; TITLES.forEach(t=>TITLE_MAP[t.k]=t);
 // 직급 → 기본 메뉴 프리셋 (담임=자기반 인원+시험채점 / 그 외=전체 뷰, 행정직원이 세부 조정)
 function titlePresetMenus(tk){
