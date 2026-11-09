@@ -78,7 +78,7 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .g th{background:#f6f3fc;color:var(--ink3);font-size:11px;font-weight:800;position:sticky;top:0;z-index:1;padding:6px 5px;box-sizing:border-box}
 .g thead tr.r1 th{top:0;height:34px}
 .g thead tr.r2 th{top:34px;height:30px}
-.g th.act{position:sticky;right:0;z-index:6;background:#f6f3fc}
+.g th.act{background:#f6f3fc}   /* 재시험 칸은 고정하지 않는다(위쪽 머리칸 고정만 .g th 에서 상속) */
 .g th.part{background:#efeafb;color:var(--brand);font-size:12px}
 .g td.stu,.g th.stu{text-align:left;background:#fff;position:sticky;left:0;min-width:200px;z-index:2;padding:8px 12px}
 .g th.stu{z-index:3;background:#f6f3fc}
@@ -92,10 +92,10 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .g td.qcell.sa.ok input{background:var(--pos-s);border-color:var(--pos);color:var(--pos)}
 .g td.qcell.sa.partial input{background:#fff3d6;border-color:#e0a44c;color:#b7791f}
 .g td.sc{font-weight:800;color:var(--brand);background:#faf8ff;min-width:46px}
-.g td.tot{font-weight:800;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2));min-width:56px;width:58px;font-size:14px;position:sticky;right:78px;z-index:3}
-.g th.tot{position:sticky;right:78px;z-index:5;background:#f6f3fc}
+.g td.tot{font-weight:800;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2));min-width:56px;width:58px;font-size:14px;position:sticky;right:0;z-index:3}
+.g th.tot{position:sticky;right:0;z-index:5;background:#f6f3fc}   /* 최종만 오른쪽 끝 고정. 예전엔 right:78px 로 재시험 칸(실제로는 78px보다 넓다) 뒤에 반쯤 가려졌다 */
 .g tr:hover td.stu{background:var(--soft)}
-.g td.act{background:#fff;position:sticky;right:0;z-index:4;min-width:78px;width:78px}
+.g td.act{background:#fff;min-width:78px}
 .saq{font-size:9.5px;color:var(--neg);font-weight:800;display:block;margin-top:1px}
 .retest{font-size:10.5px;color:var(--ink3);font-weight:800}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;font-weight:700;color:var(--ink2);margin:10px 2px}
@@ -1241,7 +1241,7 @@ function buildGrid(){
   let r1=`<th class="stu" rowspan="2">학생</th>`, r2='';
   parts.forEach(p=>{const cnt=ans.filter(a=>(a.part||'전체')===p).length;r1+=`<th class="part" colspan="${cnt}">${esc(p)}</th>`;});
   parts.forEach(p=>{r1+=`<th rowspan="2">${esc(p)}<br>점수</th>`;});
-  r1+=`<th class="tot" rowspan="2">최종</th><th class="act" rowspan="2">재시험</th>`;
+  r1+=`<th class="act" rowspan="2">재시험</th><th class="tot" rowspan="2">최종</th>`;   // 최종이 맨 끝(오른쪽 고정)
   ans.forEach(a=>{r2+=`<th>${a.n}${a.type==='sa'?'<span class="saq">1/0</span>':''}</th>`;});
   const cols=ans.length; let body='';
   studs.forEach((r,ri)=>{
@@ -1249,7 +1249,7 @@ function buildGrid(){
     ans.forEach((a,ci)=>{const sa=a.type==='sa';
       cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="numeric" maxlength="1" ${sa?'placeholder="1/0"':''} ${isTeacherRO()?'readonly':''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?'주관식: 맞으면 1, 틀리면 0 입력':'객관식: 1~5'}" oninput="onCell(this)" onfocus="cellVis(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
     parts.forEach(p=>{cells+=`<td class="sc" data-part="${esc(p)}">0</td>`;});
-    cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}${examRemoveBtn(r.code)}</td>`;
+    cells+=`<td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}${examRemoveBtn(r.code)}</td><td class="tot">0</td>`;
     body+=`<tr data-sid="${r.studentId}" data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
   area.innerHTML=head+`
