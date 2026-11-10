@@ -3081,6 +3081,10 @@ function getReportGradeForExam(studentGrade, examName) {
 function isVTBundledGrade(grade) {
   return grade === "초등6" || grade === "중등1" || grade === "초등5";
 }
+/* 지금 레벨테스트가 탕정분원(아산탕정분원) 입장으로 열렸는지 — 표지·B레벨 등 탕정 전용 처리에 쓴다 */
+function isTangjeongEntry() {
+  return !!(window.__LT_ENTRY && window.__LT_ENTRY.branch === "br_22jcktj");
+}
 function getAssignedLevel(grade, examName, score, testDate = "") {
   /* promotedGradeFor로 먼저 "다음 학년 시험을 봤으면 다음 학년인 셈 치고" 나면,
      아래 g==="중등1" 등 기존 분기가 그대로 그 시험 기준표를 써서 채점한다 —
@@ -3106,6 +3110,11 @@ if (g === "초등6" || g === "초6") {
   if (s >= 54) return "PA2";
   if (s >= 41) return "PA1";
   if (s >= 30) return "HB";
+  /* 2026-11-09 — 탕정분원 요청: 30점 미만이 성적표에 '미배정'으로 떠서, B 레벨로 뜨게 한다.
+     B는 ACE에서 제일 낮은 단계라 그 아래가 없다. 하한선은 따로 두지 않고 1~29점 전부 B로 본다.
+     단 0점은 미응시·빈 시험지일 수 있어서 B로 자동 배정하지 않고 '미배정'으로 둔다
+     (백지로 낸 학생이 조용히 B반으로 잡히는 걸 막기 위해). 탕정분원 아닌 분원은 예전 그대로 '미배정'. */
+  if (isTangjeongEntry() && s > 0) return "B";
   return "미배정";
 }
 
