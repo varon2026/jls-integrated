@@ -1314,7 +1314,7 @@ async function saveBranchSettingsToDB(k){
   try{
     var b=BRANCHES[k]||{};
     var h=Object.assign({},SB_HEADERS,{'Prefer':'resolution=merge-duplicates,return=representation'});
-    var r=await fetch(SB_URL+'/branch_settings?on_conflict=branch',{method:'POST',headers:h,body:JSON.stringify({branch:k,account:b.account||'',account_holder:b.accountHolder||'',sms_template:b.smsTemplate||null,updated_at:new Date().toISOString()})});
+    var r=await fetch(SB_URL+'/bk_branch_settings?on_conflict=branch',{method:'POST',headers:h,body:JSON.stringify({branch:k,account:b.account||'',account_holder:b.accountHolder||'',sms_template:b.smsTemplate||null,updated_at:new Date().toISOString()})});
     if(!r.ok) return false;
     var j=await r.json();
     return Array.isArray(j)&&j.length>0;
@@ -1322,7 +1322,7 @@ async function saveBranchSettingsToDB(k){
 }
 async function loadBranchSettingsFromDB(){
   try{
-    var d=await sbGet('branch_settings','select=*');
+    var d=await sbGet('bk_branch_settings','select=*');
     if(!Array.isArray(d)) return; // 표가 아직 없으면 브라우저 저장값 그대로 사용
     var have={};
     d.forEach(function(r){
@@ -1431,38 +1431,38 @@ function sbPatch(table,params,body){var h=Object.assign({},SB_HEADERS,{'Prefer':
 async function call(action,payload){
   payload=payload||{};
   try{
-    if(action==='getTeachers'){var d=await sbGet('teachers','select=*&order=name&branch=eq.'+encodeURIComponent(currentBranch));return {ok:true,data:d.map(function(t){return {'교사ID':t.teacher_id,'이름':t.name,'담당과목':t.subject||'','연락처':t.contact||''};})};}
+    if(action==='getTeachers'){var d=await sbGet('bk_teachers','select=*&order=name&branch=eq.'+encodeURIComponent(currentBranch));return {ok:true,data:d.map(function(t){return {'교사ID':t.teacher_id,'이름':t.name,'담당과목':t.subject||'','연락처':t.contact||''};})};}
     if(action==='getVendors'){
-      var d=await sbGet('vendors','select=*&order=name');
+      var d=await sbGet('bk_vendors','select=*&order=name');
       return {ok:true,data:d};
     }
     if(action==='addVendor'){
-      await sbPost('vendors',{name:payload.name,vat_yn:payload.vatYn||false});
+      await sbPost('bk_vendors',{name:payload.name,vat_yn:payload.vatYn||false});
       return {ok:true,msg:'업체 등록 완료: '+payload.name};
     }
     if(action==='updateVendor'){
       var h2=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-      await fetch(SB_URL+'/vendors?name=eq.'+encodeURIComponent(payload.name),{method:'PATCH',headers:h2,body:JSON.stringify({vat_yn:payload.vatYn})});
+      await fetch(SB_URL+'/bk_vendors?name=eq.'+encodeURIComponent(payload.name),{method:'PATCH',headers:h2,body:JSON.stringify({vat_yn:payload.vatYn})});
       return {ok:true,msg:'업체 수정 완료'};
     }
     if(action==='addSemester'){
       var h2=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-      await fetch(SB_URL+'/semesters',{method:'POST',headers:h2,body:JSON.stringify({name:payload.name,branch:currentBranch})});
+      await fetch(SB_URL+'/bk_semesters',{method:'POST',headers:h2,body:JSON.stringify({name:payload.name,branch:currentBranch})});
       return {ok:true,msg:'학기 등록 완료: '+payload.name};
     }
     if(action==='deleteSemester'){
       var h2=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-      await fetch(SB_URL+'/semesters?name=eq.'+encodeURIComponent(payload.name)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'DELETE',headers:h2});
+      await fetch(SB_URL+'/bk_semesters?name=eq.'+encodeURIComponent(payload.name)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'DELETE',headers:h2});
       return {ok:true,msg:'삭제 완료'};
     }
-    if(action==='getBooks'){var d=await sbGetAll('books','select=*,level_namdongtanjls&order=name');return {ok:true,data:d.map(function(b){return {'바코드':b.barcode,'교재명':b.name,'과목':b.subject||'','출판사':b.publisher||'','업체':b.vendor||'','정가':b.price||0,'매입단가':b.purchase_price||0,'비고':b.note||'','레벨':b.level||'','레벨_남동탄':b.level_namdongtanjls||''};})};}
-    if(action==='getStudents'){/* 서버는 한 번에 1000줄까지만 준다. 학기별로 줄이 쌓여 넘으면 뒤쪽 학생(동명이인 포함)이 검색에서 빠졌다. 1000줄씩 나눠 전부 받는다. */var d=await sbGetAll('students','select=*&order=name,student_id&branch=eq.'+encodeURIComponent(currentBranch));return {ok:true,data:d.map(function(s){return {'학생ID':s.student_id,'이름':s.name,'학부모연락처':s.contact||'','학기':s.semester||'','학년':s.grade||'','반':s.class_name||'','학교':s.school||'','비고':s.note||'','구분':s.division||'CHESS','상태':s.status||'재원'};})};}
-    if(action==='getSemesters'){var _semBr=payload.branch||currentBranch;var d1=await sbGet('students','select=semester&order=semester.desc&branch=eq.'+encodeURIComponent(_semBr));var d2=await sbGet('sales_history','select=semester&order=semester.desc&branch=eq.'+encodeURIComponent(_semBr)+'&type=eq.출고');var d3=await sbGet('semesters','select=name&branch=eq.'+encodeURIComponent(_semBr)+'&order=created_at.desc');var sems=[...new Set([...d1,...d2].map(function(r){return r.semester;}).concat(d3.map(function(r){return r.name;})).filter(Boolean))].sort(function(a,b){return b.localeCompare(a,'ko');});return {ok:true,data:sems};}
+    if(action==='getBooks'){var d=await sbGetAll('bk_books','select=*,level_namdongtanjls&order=name');return {ok:true,data:d.map(function(b){return {'바코드':b.barcode,'교재명':b.name,'과목':b.subject||'','출판사':b.publisher||'','업체':b.vendor||'','정가':b.price||0,'매입단가':b.purchase_price||0,'비고':b.note||'','레벨':b.level||'','레벨_남동탄':b.level_namdongtanjls||''};})};}
+    if(action==='getStudents'){/* 서버는 한 번에 1000줄까지만 준다. 학기별로 줄이 쌓여 넘으면 뒤쪽 학생(동명이인 포함)이 검색에서 빠졌다. 1000줄씩 나눠 전부 받는다. */var d=await sbGetAll('bk_students','select=*&order=name,student_id&branch=eq.'+encodeURIComponent(currentBranch));return {ok:true,data:d.map(function(s){return {'학생ID':s.student_id,'이름':s.name,'학부모연락처':s.contact||'','학기':s.semester||'','학년':s.grade||'','반':s.class_name||'','학교':s.school||'','비고':s.note||'','구분':s.division||'CHESS','상태':s.status||'재원'};})};}
+    if(action==='getSemesters'){var _semBr=payload.branch||currentBranch;var d1=await sbGet('bk_students','select=semester&order=semester.desc&branch=eq.'+encodeURIComponent(_semBr));var d2=await sbGet('bk_sales_history','select=semester&order=semester.desc&branch=eq.'+encodeURIComponent(_semBr)+'&type=eq.출고');var d3=await sbGet('bk_semesters','select=name&branch=eq.'+encodeURIComponent(_semBr)+'&order=created_at.desc');var sems=[...new Set([...d1,...d2].map(function(r){return r.semester;}).concat(d3.map(function(r){return r.name;})).filter(Boolean))].sort(function(a,b){return b.localeCompare(a,'ko');});return {ok:true,data:sems};}
     if(action==='getStudentsBySemester'){
       var sParams='select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=class_name,name';
-      var sCur=await sbGet('students',sParams);
+      var sCur=await sbGet('bk_students',sParams);
       var hParams='select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(currentBranch);
-      var sHist=await sbGet('students_history',hParams);
+      var sHist=await sbGet('bk_students_history',hParams);
       var hLatest={};
       sHist.forEach(function(s){
         if(!hLatest[s.student_id]||new Date(s.snapshot_at)>new Date(hLatest[s.student_id].snapshot_at)) hLatest[s.student_id]=s;
@@ -1480,7 +1480,7 @@ async function call(action,payload){
     if(action==='getClassesBySemester'){
       var params='select=class_name&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=class_name';
       if(payload.division) params+='&division=eq.'+encodeURIComponent(payload.division);
-      var d=await sbGet('students',params);
+      var d=await sbGet('bk_students',params);
       // 지금 이 학기 명단만 필요한 화면(반별 일괄출고)은 과거 백업을 섞지 않는다.
       // students_history 는 덮어쓰기 전 스냅샷이라 예전 학기 반 이름이 영원히 남고,
       // 실제로 없는 반이 목록에 떠서 엉뚱한 반으로 출고될 수 있다.
@@ -1488,7 +1488,7 @@ async function call(action,payload){
       if(!payload.currentOnly){
         var hParams='select=class_name&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(currentBranch);
         if(payload.division) hParams+='&division=eq.'+encodeURIComponent(payload.division);
-        pool=pool.concat(await sbGet('students_history',hParams));
+        pool=pool.concat(await sbGet('bk_students_history',hParams));
       }
       var cls=[...new Set(pool.map(function(r){return r.class_name;}).filter(Boolean))].sort(function(a,b){return String(a).localeCompare(String(b),'ko');});
       return {ok:true,data:cls};
@@ -1496,10 +1496,10 @@ async function call(action,payload){
     if(action==='getStudentsBySemesterClass'){
       var params='select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&class_name=eq.'+encodeURIComponent(payload.classNum)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=name';
       if(payload.division) params+='&division=eq.'+encodeURIComponent(payload.division);
-      var d=await sbGet('students',params);
+      var d=await sbGet('bk_students',params);
       var hParams='select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&class_name=eq.'+encodeURIComponent(payload.classNum)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=name';
       if(payload.division) hParams+='&division=eq.'+encodeURIComponent(payload.division);
-      var dh=await sbGet('students_history',hParams);
+      var dh=await sbGet('bk_students_history',hParams);
       // students_history는 여러 snapshot_at 시점이 있을 수 있으므로 student_id별 최신 1건만
       var hLatest={};
       dh.forEach(function(s){
@@ -1512,31 +1512,31 @@ async function call(action,payload){
       return {ok:true,data:combined.map(function(s){return {'학생ID':s.student_id,'이름':s.name,'학년':s.grade||'','반':s.class_name||'','구분':s.division||'','상태':s.status||''};})};
     }    if(action==='loanBook'){
       var bc=String(payload.barcode||'').trim();
-      var book=(await sbGet('books','select=name&barcode=eq.'+encodeURIComponent(bc)))[0];
-      var teacher=(await sbGet('teachers','select=name&teacher_id=eq.'+encodeURIComponent(payload.teacherId)))[0];
+      var book=(await sbGet('bk_books','select=name&barcode=eq.'+encodeURIComponent(bc)))[0];
+      var teacher=(await sbGet('bk_teachers','select=name&teacher_id=eq.'+encodeURIComponent(payload.teacherId)))[0];
       if(!book) return {ok:false,msg:'등록되지 않은 교재입니다.'};
-      var active=await sbGet('loan_history','select=id&barcode=eq.'+encodeURIComponent(bc)+'&status=eq.대여중&branch=eq.'+encodeURIComponent(currentBranch));
+      var active=await sbGet('bk_loan_history','select=id&barcode=eq.'+encodeURIComponent(bc)+'&status=eq.대여중&branch=eq.'+encodeURIComponent(currentBranch));
       if(active.length) return {ok:false,msg:'이미 대여 중인 교재입니다.'};
-      await sbPost('loan_history',{barcode:bc,book_name:book.name,teacher_id:payload.teacherId,teacher_name:teacher?teacher.name:'',loan_date:new Date().toISOString().slice(0,10),return_due:payload.returnDate||null,semester:payload.semester||null,status:'대여중',branch:currentBranch});
+      await sbPost('bk_loan_history',{barcode:bc,book_name:book.name,teacher_id:payload.teacherId,teacher_name:teacher?teacher.name:'',loan_date:new Date().toISOString().slice(0,10),return_due:payload.returnDate||null,semester:payload.semester||null,status:'대여중',branch:currentBranch});
       return {ok:true,msg:'대여 처리 완료: '+book.name};
     }
     if(action==='returnBook'){
       var bc=String(payload.barcode||'').trim();
-      var active=await sbGet('loan_history','select=id,book_name&barcode=eq.'+encodeURIComponent(bc)+'&status=eq.대여중&branch=eq.'+encodeURIComponent(currentBranch));
+      var active=await sbGet('bk_loan_history','select=id,book_name&barcode=eq.'+encodeURIComponent(bc)+'&status=eq.대여중&branch=eq.'+encodeURIComponent(currentBranch));
       if(!active.length) return {ok:false,msg:'대여 중인 교재를 찾을 수 없습니다.'};
-      await sbPatch('loan_history','id=eq.'+active[0].id,{status:'반납완료',return_date:new Date().toISOString().slice(0,10)});
+      await sbPatch('bk_loan_history','id=eq.'+active[0].id,{status:'반납완료',return_date:new Date().toISOString().slice(0,10)});
       return {ok:true,msg:'반납 완료: '+active[0].book_name};
     }
     if(action==='getLoanHistory'){
       var params='select=*&order=loan_date.desc&limit=200&branch=eq.'+encodeURIComponent(currentBranch);
       if(payload.status) params+='&status=eq.'+encodeURIComponent(payload.status);
       if(payload.teacherId) params+='&teacher_id=eq.'+encodeURIComponent(payload.teacherId);
-      var d=await sbGet('loan_history',params);
+      var d=await sbGet('bk_loan_history',params);
       return {ok:true,data:d.map(function(r){return {'ID':r.id,'바코드':r.barcode,'교재명':r.book_name,'교사ID':r.teacher_id,'교사명':r.teacher_name,'대여일':r.loan_date,'반납예정일':r.return_due,'반납일':r.return_date,'상태':r.status,'학기':r.semester||''};})}; 
     }
     if(action==='addSales'){
       var bc=String(payload.barcode||'').trim();
-      var book=(await sbGet('books','select=name,price,purchase_price,vendor&barcode=eq.'+encodeURIComponent(bc)))[0];
+      var book=(await sbGet('bk_books','select=name,price,purchase_price,vendor&barcode=eq.'+encodeURIComponent(bc)))[0];
       if(!book){
         // ISBN으로 자동 검색 후 등록
         try{
@@ -1544,8 +1544,8 @@ async function call(action,payload){
           var searchData=await searchRes.json();
           if(searchData.ok&&searchData.data&&searchData.data.title){
             var h2=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-            await fetch(SB_URL+'/books',{method:'POST',headers:h2,body:JSON.stringify({barcode:bc,name:searchData.data.title,publisher:searchData.data.publisher||null,price:0,purchase_price:0})});
-            book=(await sbGet('books','select=name,price,purchase_price,vendor&barcode=eq.'+encodeURIComponent(bc)))[0];
+            await fetch(SB_URL+'/bk_books',{method:'POST',headers:h2,body:JSON.stringify({barcode:bc,name:searchData.data.title,publisher:searchData.data.publisher||null,price:0,purchase_price:0})});
+            book=(await sbGet('bk_books','select=name,price,purchase_price,vendor&barcode=eq.'+encodeURIComponent(bc)))[0];
             if(book){
               var bb=await call('getBooks');books=bb.data||[];
             }
@@ -1565,20 +1565,20 @@ async function call(action,payload){
       // vendors DB에서 직접 조회
       var isVATVendor=false;
       try{
-        var vd=await sbGet('vendors','select=vat_yn&name=eq.'+encodeURIComponent(vendor)+'&limit=1');
+        var vd=await sbGet('bk_vendors','select=vat_yn&name=eq.'+encodeURIComponent(vendor)+'&limit=1');
         isVATVendor=vd.length?vd[0].vat_yn:false;
       }catch(e){isVATVendor=false;}
       var taxAmount=(!isOut&&!isInitStock&&isVATVendor)?Math.round(unitPrice*qty*0.1):0;
       var studentName=payload.forcedName||'',className='';
       if(payload.studentId){
-        var st=(await sbGet('students','select=name,class_name,division&student_id=eq.'+encodeURIComponent(payload.studentId)+'&limit=1'))[0];
+        var st=(await sbGet('bk_students','select=name,class_name,division&student_id=eq.'+encodeURIComponent(payload.studentId)+'&limit=1'))[0];
         if(st){studentName=st.name;className=st.class_name||'';}
       }
       var memoStr=payload.memo||'';
       if(payload.branchTarget) memoStr=(memoStr?memoStr+' | ':'')+(payload.type==='분원출고'?'→':'←')+BRANCHES[payload.branchTarget]?.name;
       if(payload.handler) memoStr=(memoStr?memoStr+' | ':'')+'처리자:'+payload.handler;
       var divisionVal=st?st.division||null:null;
-      await sbPost('sales_history',{barcode:bc,book_name:book.name,type:payload.type,qty:qty,unit_price:unitPrice,total:unitPrice*qty+taxAmount,tax_amount:taxAmount,sale_date:new Date().toISOString().slice(0,10),student_id:payload.studentId||null,student_name:studentName||null,semester:payload.semester||null,class_name:className||null,division:divisionVal,pay_status:payload.payStatus||'미납',memo:memoStr||null,branch:effectiveBranch(),purchase_price:isOut?null:(payload.price!=null?Number(payload.price):null),vendor:vendor||null});
+      await sbPost('bk_sales_history',{barcode:bc,book_name:book.name,type:payload.type,qty:qty,unit_price:unitPrice,total:unitPrice*qty+taxAmount,tax_amount:taxAmount,sale_date:new Date().toISOString().slice(0,10),student_id:payload.studentId||null,student_name:studentName||null,semester:payload.semester||null,class_name:className||null,division:divisionVal,pay_status:payload.payStatus||'미납',memo:memoStr||null,branch:effectiveBranch(),purchase_price:isOut?null:(payload.price!=null?Number(payload.price):null),vendor:vendor||null});
       var msgTax=taxAmount>0?' (공급가 '+(unitPrice*qty).toLocaleString()+'원 + 세액 '+taxAmount.toLocaleString()+'원 = '+(unitPrice*qty+taxAmount).toLocaleString()+'원)':'';
       return {ok:true,msg:(payload.type)+' 처리 완료: '+book.name+msgTax};
     }
@@ -1587,15 +1587,15 @@ async function call(action,payload){
       if(payload.type) params+='&type=eq.'+encodeURIComponent(payload.type);
       if(payload.semester) params+='&semester=eq.'+encodeURIComponent(payload.semester);
       if(payload.studentId) params+='&student_id=eq.'+encodeURIComponent(payload.studentId);
-      var d=await sbGet('sales_history',params);
+      var d=await sbGet('bk_sales_history',params);
       return {ok:true,data:d.map(function(r){return {'ID':r.id,'바코드':r.barcode,'교재명':r.book_name,'유형':r.type,'수량':r.qty,'단가':r.unit_price,'합계':r.total,'날짜':r.sale_date,'학생ID':r.student_id||'','학생명':r.student_name||'','학기':r.semester||'','반':r.class_name||'','입금상태':r.pay_status||'','메모':r.memo||''};})}; 
     }
     if(action==='cancelSales'){
-      var r=(await sbGet('sales_history','select=*&id=eq.'+payload.saleId))[0];
+      var r=(await sbGet('bk_sales_history','select=*&id=eq.'+payload.saleId))[0];
       if(!r) return {ok:false,msg:'해당 이력을 찾을 수 없습니다.'};
       if(r.pay_status==='완납') return {ok:false,msg:'완납 처리된 항목은 취소할 수 없습니다.'};
       var h=Object.assign({},SB_HEADERS,{'Prefer':'return=representation'});
-      var _dr=await fetch(SB_URL+'/sales_history?id=eq.'+payload.saleId,{method:'DELETE',headers:h});
+      var _dr=await fetch(SB_URL+'/bk_sales_history?id=eq.'+payload.saleId,{method:'DELETE',headers:h});
       var _dd=_dr.ok?await _dr.json():[];
       if(!_dd.length) return {ok:false,msg:'삭제되지 않았어요. 화면을 새로고침해서 확인하세요.'};
       return {ok:true,msg:'삭제 완료'};
@@ -1615,7 +1615,7 @@ async function call(action,payload){
         pb.paid_date=pd||null;
       }
       if(payload.memo!==undefined) pb.memo=String(payload.memo||'').trim()||null;
-      await sbPatch('sales_history','id=eq.'+payload.saleId,pb);
+      await sbPatch('bk_sales_history','id=eq.'+payload.saleId,pb);
       return {ok:true,msg:'완납 처리되었습니다.'};
     }
     if(action==='getUnpaid'){
@@ -1626,7 +1626,7 @@ async function call(action,payload){
       if(payload.semester) params+='&semester=eq.'+encodeURIComponent(payload.semester);
       if(payload.classNum) params+='&class_name=eq.'+encodeURIComponent(payload.classNum);
       if(payload.division) params+='&division=eq.'+encodeURIComponent(payload.division);
-      var d=await sbGet('sales_history',params);
+      var d=await sbGet('bk_sales_history',params);
       // payments 합산 (내역 포함)
       // 학기 필터 없을 때: 학생 단위 전체 합산 / 있을 때: 학생+학기 단위
       var hasSem=!!payload.semester;
@@ -1636,7 +1636,7 @@ async function call(action,payload){
       else pmtParams+='&branch=not.in.(testjls,varon)';
       // 학기 필터 있어도 semester=null(전체조회에서 입금처리된 건)도 함께 가져옴
       if(hasSem) pmtParams+='&or=(semester.eq.'+encodeURIComponent(payload.semester)+',semester.is.null)';
-      var pmts=await sbGetAll('payments',pmtParams);
+      var pmts=await sbGetAll('bk_payments',pmtParams);
       var pmtMap={};    // 학생(+학기)별 입금 합계
       var pmtHistory={}; // 학생(+학기)별 입금 내역
       pmts.forEach(function(p){
@@ -1689,12 +1689,12 @@ async function call(action,payload){
     }
     if(action==='bulkSales'){
       var bc=String(payload.barcode||'').trim();
-      var book=(await sbGet('books','select=name,price&barcode=eq.'+encodeURIComponent(bc)))[0];
+      var book=(await sbGet('bk_books','select=name,price&barcode=eq.'+encodeURIComponent(bc)))[0];
       if(!book) return {ok:false,msg:'등록되지 않은 교재입니다.'};
       var unitPrice=payload.price!=null?Number(payload.price):(book.price||0);
       /* 정가가 0인 교재를 단가 없이 출고하면 학생 전원이 0원으로 기록되고, 이미 찍힌 금액은 정가를 고쳐도 안 바뀐다 */
       if(payload.price==null&&!(unitPrice>0)) return {ok:false,msg:'이 교재는 정가가 0원이라 출고할 수 없어요. 교재 등록 > 정가 수정에서 정가를 먼저 넣거나, 출고 화면 단가 칸에 금액을 입력하세요.'};
-      var sts=await sbGet('students','select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&class_name=eq.'+encodeURIComponent(payload.classNum)+'&branch=eq.'+encodeURIComponent(currentBranch));
+      var sts=await sbGet('bk_students','select=*&semester=eq.'+encodeURIComponent(payload.semester)+'&class_name=eq.'+encodeURIComponent(payload.classNum)+'&branch=eq.'+encodeURIComponent(currentBranch));
       if(!sts.length) return {ok:false,msg:'해당 반 학생이 없습니다.'};
       // 프론트에서 체크한 학생만 출고 (studentIds 전달 시)
       if(Array.isArray(payload.studentIds)&&payload.studentIds.length){
@@ -1703,7 +1703,7 @@ async function call(action,payload){
         if(!sts.length) return {ok:false,msg:'선택된 학생이 없습니다.'};
       }
       // 중복 판매 확인: 이미 해당 교재 판매된 학생 제외
-      var dupCheck=await sbGet('sales_history','select=student_id&type=eq.출고&barcode=eq.'+encodeURIComponent(bc)+'&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(effectiveBranch()));
+      var dupCheck=await sbGet('bk_sales_history','select=student_id&type=eq.출고&barcode=eq.'+encodeURIComponent(bc)+'&semester=eq.'+encodeURIComponent(payload.semester)+'&branch=eq.'+encodeURIComponent(effectiveBranch()));
       var dupIds=new Set(dupCheck.map(function(r){return r.student_id;}));
       var dupNames=sts.filter(function(s){return dupIds.has(s.student_id);}).map(function(s){return s.name;});
       var toProcess=sts.filter(function(s){return !dupIds.has(s.student_id);});
@@ -1711,7 +1711,7 @@ async function call(action,payload){
       if(dupNames.length) {
         // 중복 학생 있으면 제외하고 처리 (프론트에서 confirm은 이미 했으므로 여기선 그냥 제외)
       }
-      await sbPost('sales_history',toProcess.map(function(s){return {barcode:bc,book_name:book.name,type:'출고',qty:1,unit_price:unitPrice,total:unitPrice,sale_date:new Date().toISOString().slice(0,10),student_id:s.student_id,student_name:s.name,semester:payload.semester,class_name:payload.classNum,pay_status:'미납',memo:payload.memo||null,branch:effectiveBranch(),division:s.division||null};}));
+      await sbPost('bk_sales_history',toProcess.map(function(s){return {barcode:bc,book_name:book.name,type:'출고',qty:1,unit_price:unitPrice,total:unitPrice,sale_date:new Date().toISOString().slice(0,10),student_id:s.student_id,student_name:s.name,semester:payload.semester,class_name:payload.classNum,pay_status:'미납',memo:payload.memo||null,branch:effectiveBranch(),division:s.division||null};}));
       var msg=toProcess.length+'명 출고 완료';
       if(dupNames.length) msg+=' ('+dupNames.join(', ')+' '+dupNames.length+'명 중복 제외)';
       return {ok:true,msg:msg};
@@ -1719,14 +1719,14 @@ async function call(action,payload){
     if(action==='getStockStatus'){
       // stock_by_branch_all 뷰에서 해당 분원 재고 가져오기
       var _br=effectiveBranch();
-      var stockView=await sbGet('stock_by_branch_all','select=book_name,barcode,note,vendor,stock&branch=eq.'+encodeURIComponent(_br));
+      var stockView=await sbGet('bk_stock_by_branch_all','select=book_name,barcode,note,vendor,stock&branch=eq.'+encodeURIComponent(_br));
       var m={};
       stockView.forEach(function(r){
         m[r.barcode]={교재명:r.book_name,바코드:r.barcode,총입고:0,총출고:0,현재재고:Number(r.stock||0),최근업데이트:new Date().toISOString().slice(0,10)};
       });
       // books에 있지만 이력 없는 교재도 포함 (바론자체교재 + 분원자체교재)
-      var bks1=await sbGet('books','select=barcode,name&order=name&note=eq.바론자체교재');
-      var bks2=await sbGet('books','select=barcode,name&order=name&note=eq.분원자체교재&vendor=eq.'+encodeURIComponent(currentBranch));
+      var bks1=await sbGet('bk_books','select=barcode,name&order=name&note=eq.바론자체교재');
+      var bks2=await sbGet('bk_books','select=barcode,name&order=name&note=eq.분원자체교재&vendor=eq.'+encodeURIComponent(currentBranch));
       bks1.concat(bks2).forEach(function(b){
         if(!m[b.barcode]) m[b.barcode]={교재명:b.name.trim(),바코드:b.barcode,총입고:0,총출고:0,현재재고:0,최근업데이트:new Date().toISOString().slice(0,10)};
       });
@@ -1785,27 +1785,27 @@ async function call(action,payload){
       });
       return {ok:true,data:stockData};
     }
-    if(action==='addBook'){var bc=String(payload.barcode||'').trim();/* 서버가 거절해도(바코드 중복 등) 무조건 '등록 완료'가 떴다. 결과를 확인한다. */var _ab=await sbPost('books',{barcode:bc,name:payload.name,subject:payload.subject||null,publisher:payload.publisher||null,vendor:payload.vendor||null,price:payload.price?Number(String(payload.price).replace(/,/g,'')):0,purchase_price:payload.purchasePrice?Number(String(payload.purchasePrice).replace(/,/g,'')):0,note:payload.note||null});if(_ab&&!Array.isArray(_ab)&&(_ab.code||_ab.message)){return {ok:false,msg:(String(_ab.code)==='23505'?'이미 등록된 바코드입니다. 교재 목록에서 검색해보세요. ('+bc+')':'등록 실패: '+(_ab.message||_ab.code))};}return {ok:true,msg:'교재 등록 완료: '+payload.name};}
+    if(action==='addBook'){var bc=String(payload.barcode||'').trim();/* 서버가 거절해도(바코드 중복 등) 무조건 '등록 완료'가 떴다. 결과를 확인한다. */var _ab=await sbPost('bk_books',{barcode:bc,name:payload.name,subject:payload.subject||null,publisher:payload.publisher||null,vendor:payload.vendor||null,price:payload.price?Number(String(payload.price).replace(/,/g,'')):0,purchase_price:payload.purchasePrice?Number(String(payload.purchasePrice).replace(/,/g,'')):0,note:payload.note||null});if(_ab&&!Array.isArray(_ab)&&(_ab.code||_ab.message)){return {ok:false,msg:(String(_ab.code)==='23505'?'이미 등록된 바코드입니다. 교재 목록에서 검색해보세요. ('+bc+')':'등록 실패: '+(_ab.message||_ab.code))};}return {ok:true,msg:'교재 등록 완료: '+payload.name};}
     if(action==='addTeacher'){
       var tid=payload.id||('T'+Date.now().toString().slice(-6));
       // ID 중복 체크
-      var existing=await sbGet('teachers','select=teacher_id&teacher_id=eq.'+encodeURIComponent(tid)+'&branch=eq.'+encodeURIComponent(currentBranch));
+      var existing=await sbGet('bk_teachers','select=teacher_id&teacher_id=eq.'+encodeURIComponent(tid)+'&branch=eq.'+encodeURIComponent(currentBranch));
       if(existing.length) return {ok:false,msg:'이미 존재하는 교사 ID입니다: '+tid};
-      await sbPost('teachers',{teacher_id:tid,name:payload.name,subject:payload.subject||null,contact:payload.contact||null,branch:currentBranch});
+      await sbPost('bk_teachers',{teacher_id:tid,name:payload.name,subject:payload.subject||null,contact:payload.contact||null,branch:currentBranch});
       return {ok:true,msg:'선생님 등록 완료: '+payload.name+' (ID: '+tid+')'};
     }
-    if(action==='addStudent'){var h2=Object.assign({},SB_HEADERS,{'Prefer':'resolution=merge-duplicates,return=minimal'});await fetch(SB_URL+'/students?on_conflict=student_id,branch',{method:'POST',headers:h2,body:JSON.stringify({student_id:payload.id,name:payload.name,contact:payload.contact||null,semester:payload.semester||null,grade:payload.grade||null,class_name:payload.classNum||null,school:payload.school||null,note:payload.note||null,branch:currentBranch,status:payload.status||'재원',division:payload.division||'CHESS',updated_at:new Date().toISOString()})}); return {ok:true,msg:'학생 등록/업데이트 완료: '+payload.name+' ('+(payload.status||'재원')+')'};}
+    if(action==='addStudent'){var h2=Object.assign({},SB_HEADERS,{'Prefer':'resolution=merge-duplicates,return=minimal'});await fetch(SB_URL+'/bk_students?on_conflict=student_id,branch',{method:'POST',headers:h2,body:JSON.stringify({student_id:payload.id,name:payload.name,contact:payload.contact||null,semester:payload.semester||null,grade:payload.grade||null,class_name:payload.classNum||null,school:payload.school||null,note:payload.note||null,branch:currentBranch,status:payload.status||'재원',division:payload.division||'CHESS',updated_at:new Date().toISOString()})}); return {ok:true,msg:'학생 등록/업데이트 완료: '+payload.name+' ('+(payload.status||'재원')+')'};}
     if(action==='bulkAddStudents'){
       var rows=(payload.rows||[]).map(function(r){return {student_id:r.id,name:r.name,contact:r.contact||null,semester:payload.semester,grade:r.grade||null,class_name:r.classNum||null,school:r.school||null,note:r.note||null,branch:currentBranch,status:'재원',division:detectDivision(r.grade||'',r.classNum||''),updated_at:new Date().toISOString()};});
       // 업로드 직전, 현재 students 상태를 students_history에 스냅샷 백업
       try{
-        var curStudents=await sbGet('students','select=student_id,name,contact,grade,class_name,semester,note,created_at,branch,division,status,updated_at,school&branch=eq.'+encodeURIComponent(currentBranch));
+        var curStudents=await sbGet('bk_students','select=student_id,name,contact,grade,class_name,semester,note,created_at,branch,division,status,updated_at,school&branch=eq.'+encodeURIComponent(currentBranch));
         if(curStudents.length){
           var snapAt=new Date().toISOString();
           var snapRows=curStudents.map(function(s){return Object.assign({snapshot_at:snapAt},s);});
           var hSnap=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
           for(var si=0;si<snapRows.length;si+=200){
-            await fetch(SB_URL+'/students_history',{method:'POST',headers:hSnap,body:JSON.stringify(snapRows.slice(si,si+200))});
+            await fetch(SB_URL+'/bk_students_history',{method:'POST',headers:hSnap,body:JSON.stringify(snapRows.slice(si,si+200))});
           }
         }
       }catch(snapErr){ /* 스냅샷 실패해도 업로드는 계속 진행 */ }
@@ -1814,13 +1814,13 @@ async function call(action,payload){
       var CHUNK=50; var upserted=0; var failed=0;
       for(var i=0;i<rows.length;i+=CHUNK){
         var chunk=rows.slice(i,i+CHUNK);
-        var res=await fetch(SB_URL+'/students?on_conflict=student_id,branch',{method:'POST',headers:h2,body:JSON.stringify(chunk)});
+        var res=await fetch(SB_URL+'/bk_students?on_conflict=student_id,branch',{method:'POST',headers:h2,body:JSON.stringify(chunk)});
         if(res.ok){
           upserted+=chunk.length;
         } else {
           // 실패 시 1건씩 재시도
           for(var j=0;j<chunk.length;j++){
-            var res2=await fetch(SB_URL+'/students?on_conflict=student_id,branch',{method:'POST',headers:h2,body:JSON.stringify([chunk[j]])});
+            var res2=await fetch(SB_URL+'/bk_students?on_conflict=student_id,branch',{method:'POST',headers:h2,body:JSON.stringify([chunk[j]])});
             if(res2.ok) upserted++; else failed++;
           }
         }
@@ -1830,7 +1830,7 @@ async function call(action,payload){
       var wh=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
       await Promise.all(withdrawIds.map(function(wid){
         withdrew++;
-        return fetch(SB_URL+'/students?student_id=eq.'+encodeURIComponent(wid)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:wh,body:JSON.stringify({status:'퇴원',updated_at:new Date().toISOString()})});
+        return fetch(SB_URL+'/bk_students?student_id=eq.'+encodeURIComponent(wid)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:wh,body:JSON.stringify({status:'퇴원',updated_at:new Date().toISOString()})});
       }));
       var msg='업로드 완료 · '+upserted+'명 처리';
       if(withdrew) msg+=' / 퇴원 처리 '+withdrew+'명';
@@ -1862,12 +1862,12 @@ async function call(action,payload){
         if(base.indexOf('포트폴리오')>-1) return 'portfolio';
         return isSpecial?'special':'grammar';
       }
-      var bks=await sbGet('books','select=barcode,name,note&order=name&note=in.(바론자체교재,소모품)');
+      var bks=await sbGet('bk_books','select=barcode,name,note&order=name&note=in.(바론자체교재,소모품)');
       // stock_by_branch 뷰에서 분원별 재고 집계 (페이지네이션으로 전체 가져오기)
       var stockRows=[];
       var _sp=0;var _sdone=false;
       while(!_sdone){
-        var _sc=await fetch(SB_URL+'/stock_by_branch?select=book_name,branch,stock&limit=2000&offset='+(_sp*2000),{headers:SB_HEADERS}).then(function(r){return r.json();});
+        var _sc=await fetch(SB_URL+'/bk_stock_by_branch?select=book_name,branch,stock&limit=2000&offset='+(_sp*2000),{headers:SB_HEADERS}).then(function(r){return r.json();});
         if(!_sc||!_sc.length){_sdone=true;}
         else{stockRows=stockRows.concat(_sc);if(_sc.length<2000)_sdone=true;}
         _sp++;if(_sp>20)_sdone=true;
@@ -1986,10 +1986,10 @@ var _tt;
 // ── 분원간 입고 대기 ──────────────────────────────────────
 async function checkPendingTransfers(){
   try{
-    var d=await sbGet('transfers','select=*&from_branch=eq.'+encodeURIComponent(currentBranch)+'&status=eq.대기중&order=created_at.desc');
+    var d=await sbGet('bk_transfers','select=*&from_branch=eq.'+encodeURIComponent(currentBranch)+'&status=eq.대기중&order=created_at.desc');
     // 바론에서 내 분원으로 즉시 입고된 알림 (최근 7일)
     var sevenDaysAgo=new Date(Date.now()-7*24*60*60*1000).toISOString();
-    var baronIncoming=await sbGet('transfers','select=*&to_branch=eq.'+encodeURIComponent(currentBranch)+'&from_branch=eq.baronbooks&status=eq.완료&created_at=gte.'+encodeURIComponent(sevenDaysAgo)+'&order=created_at.desc');
+    var baronIncoming=await sbGet('bk_transfers','select=*&to_branch=eq.'+encodeURIComponent(currentBranch)+'&from_branch=eq.baronbooks&status=eq.완료&created_at=gte.'+encodeURIComponent(sevenDaysAgo)+'&order=created_at.desc');
     if(baronIncoming.length){
       var notifId='baron-incoming-banner';
       var existing=document.getElementById(notifId);
@@ -2021,7 +2021,7 @@ async function checkPendingTransfers(){
 
 async function loadPendingTransfers(){
   try{
-    var d=await sbGet('transfers','select=*&from_branch=eq.'+encodeURIComponent(currentBranch)+'&status=eq.대기중&order=created_at.desc');
+    var d=await sbGet('bk_transfers','select=*&from_branch=eq.'+encodeURIComponent(currentBranch)+'&status=eq.대기중&order=created_at.desc');
     if(!d.length){document.getElementById('pending-transfer-section')&&(document.getElementById('pending-transfer-section').style.display='none');return;}
     var sec=document.getElementById('pending-transfer-section');
     if(!sec){
@@ -2065,7 +2065,7 @@ async function acceptTransfer(btn){
   var toName=(BRANCHES[toBranch]||{}).name||toBranch||'타분원';
   // 매입단가가 0이면 books 테이블에서 직접 조회
   if(!price){
-    var bk=(await sbGet('books','select=purchase_price&barcode=eq.'+encodeURIComponent(barcode)+'&limit=1'))[0];
+    var bk=(await sbGet('bk_books','select=purchase_price&barcode=eq.'+encodeURIComponent(barcode)+'&limit=1'))[0];
     price=bk?Number(bk.purchase_price||0):0;
   }
   if(!confirm('['+name+'] '+qty+'권을 '+toName+'에 출고할까요?')) return;
@@ -2076,7 +2076,7 @@ async function acceptTransfer(btn){
     if(cached2){
       curStock2=Number(cached2['현재재고']||0);
     } else {
-      var inRows2=await sbGet('sales_history','select=qty,type&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&type=in.(입고,출고,분원입고,분원출고)');
+      var inRows2=await sbGet('bk_sales_history','select=qty,type&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&type=in.(입고,출고,분원입고,분원출고)');
       inRows2.forEach(function(r){if(r.type==='입고') curStock2+=Number(r.qty||0);else curStock2-=Number(r.qty||0);});
     }
     if(curStock2<qty){
@@ -2086,13 +2086,13 @@ async function acceptTransfer(btn){
   try{
     var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
     // transfers 상태 완료로 변경
-    await fetch(SB_URL+'/transfers?id=eq.'+tid,{method:'PATCH',headers:h,body:JSON.stringify({status:'완료',confirmed_at:new Date().toISOString()})});
+    await fetch(SB_URL+'/bk_transfers?id=eq.'+tid,{method:'PATCH',headers:h,body:JSON.stringify({status:'완료',confirmed_at:new Date().toISOString()})});
     // 내 분원(from_branch)에서 분원출고 처리 (재고 차감)
     await call('addSales',{barcode:barcode,type:'분원출고',qty:qty,price:price,memo:'→'+toName,branchTarget:toBranch});
     // 상대 분원(to_branch)에 분원입고 기록
     // → 상대 분원 DB에 직접 저장 (branch를 toBranch로)
     var iBody={barcode:barcode,book_name:name,type:'분원입고',qty:qty,unit_price:price,total:price*qty,sale_date:new Date().toISOString().slice(0,10),memo:'←'+(BRANCHES[currentBranch]||{}).name||currentBranch,branch:toBranch,purchase_price:price};
-    await sbPost('sales_history',iBody);
+    await sbPost('bk_sales_history',iBody);
     toast(toName+'으로 출고 완료!',true);
     checkPendingTransfers();
     loadPendingTransfers();
@@ -2104,7 +2104,7 @@ async function rejectTransfer(tid){
   if(!confirm('출고 요청을 거절할까요?')) return;
   try{
     var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-    await fetch(SB_URL+'/transfers?id=eq.'+tid,{method:'PATCH',headers:h,body:JSON.stringify({status:'거절'})});
+    await fetch(SB_URL+'/bk_transfers?id=eq.'+tid,{method:'PATCH',headers:h,body:JSON.stringify({status:'거절'})});
     toast('거절했습니다.',true);
     loadPendingTransfers();
     checkPendingTransfers();
@@ -2814,7 +2814,7 @@ async function doSales(){
     if(_dupIds.length){
       var _dq='select=student_id,student_name,semester&type=eq.출고&student_id=in.('+_dupIds.map(function(x){return encodeURIComponent(x);}).join(',')+')&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch);
       if(semester) _dq+='&semester=eq.'+encodeURIComponent(semester);
-      var dup=await sbGet('sales_history',_dq);
+      var dup=await sbGet('bk_sales_history',_dq);
       if(Array.isArray(dup)&&dup.length){
         var _dn=[];dup.forEach(function(r){var n=r.student_name||r.student_id;if(_dn.indexOf(n)<0)_dn.push(n);});
         var bookName=(findBookByBarcode(barcode)||{})['교재명']||barcode;
@@ -2830,7 +2830,7 @@ async function doSales(){
       var curStock=getEffectiveStock(barcode);
       // stockCache에 없으면 DB 직접 조회
       if(curStock===0&&!(stockCache||[]).find(function(r){return normalizeBarcode(r['바코드'])===normalizeBarcode(barcode);})){
-        var inRows=await sbGet('sales_history','select=qty,type&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&type=in.(입고,출고,입고취소,출고취소)');
+        var inRows=await sbGet('bk_sales_history','select=qty,type&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&type=in.(입고,출고,입고취소,출고취소)');
         inRows.forEach(function(r){
           if(r.type==='입고') curStock+=Number(r.qty||0);
           else if(r.type==='출고') curStock-=Number(r.qty||0);
@@ -2849,9 +2849,9 @@ async function doSales(){
   if(type==='분원출고'){
     try{
       var book=findBookByBarcode(barcode)||{};
-      var bkPP=(await sbGet('books','select=purchase_price&barcode=eq.'+encodeURIComponent(barcode)+'&limit=1'))[0];
+      var bkPP=(await sbGet('bk_books','select=purchase_price&barcode=eq.'+encodeURIComponent(barcode)+'&limit=1'))[0];
       var purchasePrice=bkPP?Number(bkPP.purchase_price||0):0;
-      if(!purchasePrice){var recentPurchase=await sbGet('sales_history','select=purchase_price&barcode=eq.'+encodeURIComponent(barcode)+'&type=eq.입고&branch=eq.'+encodeURIComponent(currentBranch)+'&order=sale_date.desc&limit=1');purchasePrice=recentPurchase.length?Number(recentPurchase[0].purchase_price||0):0;}
+      if(!purchasePrice){var recentPurchase=await sbGet('bk_sales_history','select=purchase_price&barcode=eq.'+encodeURIComponent(barcode)+'&type=eq.입고&branch=eq.'+encodeURIComponent(currentBranch)+'&order=sale_date.desc&limit=1');purchasePrice=recentPurchase.length?Number(recentPurchase[0].purchase_price||0):0;}
       var bookName=(book['교재명']||barcode);
       var today=new Date().toISOString().slice(0,10);
       var fromBranch=currentBranch==='varon'?'baronbooks':currentBranch;
@@ -2861,12 +2861,12 @@ async function doSales(){
       // 보내는 분원 분원출고
       await call('addSales',{barcode:barcode,type:'분원출고',qty:qty,price:0,memo:'→'+toName,branchTarget:branchTarget});
       // 받는 분원 분원입고 자동처리
-      await fetch(SB_URL+'/sales_history',{method:'POST',headers:h2,body:JSON.stringify({
+      await fetch(SB_URL+'/bk_sales_history',{method:'POST',headers:h2,body:JSON.stringify({
         branch:branchTarget,barcode:barcode,book_name:bookName,type:'분원입고',qty:qty,
         unit_price:0,total:0,purchase_price:purchasePrice,sale_date:today,memo:'←'+fromName
       })});
       // 받는 분원 알림
-      await fetch(SB_URL+'/transfers',{method:'POST',headers:h2,body:JSON.stringify({
+      await fetch(SB_URL+'/bk_transfers',{method:'POST',headers:h2,body:JSON.stringify({
         from_branch:fromBranch,to_branch:branchTarget,barcode:barcode,book_name:bookName,
         qty:qty,purchase_price:purchasePrice,handler:handler||null,status:'완료'
       })});
@@ -3046,7 +3046,7 @@ async function doBulk(){
     if(_bulkCached){
       _bulkStock=Number(_bulkCached['현재재고']||0);
     } else {
-      var _bRows=await sbGet('sales_history','select=qty,type&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&type=in.(입고,출고,입고취소,출고취소)');
+      var _bRows=await sbGet('bk_sales_history','select=qty,type&barcode=eq.'+encodeURIComponent(barcode)+'&branch=eq.'+encodeURIComponent(currentBranch)+'&type=in.(입고,출고,입고취소,출고취소)');
       _bRows.forEach(function(r){
         if(r.type==='입고') _bulkStock+=Number(r.qty||0);
         else if(r.type==='출고') _bulkStock-=Number(r.qty||0);
@@ -3523,26 +3523,26 @@ async function processPaymentQueue(){
         // ── 학기 지정된 경우: 기존 방식 그대로 ──
         var _semQ=_sem?'&semester=eq.'+encodeURIComponent(_sem):'';
         var body={branch:currentBranch,student_id:_sid,student_name:_sid?null:_sname,semester:_sem||null,paid_amount:q.amt,paid_date:pd,memo:q.memo||null};
-        var res=await fetch(SB_URL+'/payments',{method:'POST',headers:h,body:JSON.stringify(body)});
+        var res=await fetch(SB_URL+'/bk_payments',{method:'POST',headers:h,body:JSON.stringify(body)});
         if(!res.ok) throw new Error('payment fail');
         var _idQ=_sid?'&student_id=eq.'+encodeURIComponent(_sid):'&student_id=is.null&student_name=eq.'+encodeURIComponent(_sname);
-        var salesRes=await sbGet('sales_history','select=id,total&type=eq.출고'+_idQ+_semQ+'&branch=eq.'+encodeURIComponent(currentBranch));
+        var salesRes=await sbGet('bk_sales_history','select=id,total&type=eq.출고'+_idQ+_semQ+'&branch=eq.'+encodeURIComponent(currentBranch));
         var totalSales=salesRes.reduce(function(s,r){return s+Number(r.total||0);},0);
-        var pmtRes=await sbGet('payments','select=paid_amount'+((_sid)?'&student_id=eq.'+encodeURIComponent(_sid):'&student_id=is.null&student_name=eq.'+encodeURIComponent(_sname))+_semQ+'&branch=eq.'+encodeURIComponent(currentBranch));
+        var pmtRes=await sbGet('bk_payments','select=paid_amount'+((_sid)?'&student_id=eq.'+encodeURIComponent(_sid):'&student_id=is.null&student_name=eq.'+encodeURIComponent(_sname))+_semQ+'&branch=eq.'+encodeURIComponent(currentBranch));
         var totalPaid=pmtRes.reduce(function(s,r){return s+Number(r.paid_amount||0);},0);
         var newStatus=totalPaid>totalSales?'과납':totalPaid===totalSales?'완납':totalPaid>0?'부분납':'미납';
-        await fetch(SB_URL+'/sales_history?type=eq.출고'+_idQ+_semQ+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph,body:JSON.stringify({pay_status:newStatus})});
+        await fetch(SB_URL+'/bk_sales_history?type=eq.출고'+_idQ+_semQ+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph,body:JSON.stringify({pay_status:newStatus})});
 
       } else {
         // ── 전체 조회에서 처리: 학기별 자동 분배 ──
         // 해당 학생의 학기별 미납 목록 조회 (오래된 학기 순)
         var _idQ2=_sid?'&student_id=eq.'+encodeURIComponent(_sid):'&student_id=is.null&student_name=eq.'+encodeURIComponent(_sname);
-        var allSales=await sbGet('sales_history','select=semester,sale_date,total&type=eq.출고'+_idQ2+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=sale_date.asc');
+        var allSales=await sbGet('bk_sales_history','select=semester,sale_date,total&type=eq.출고'+_idQ2+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=sale_date.asc');
         // 학기별 출고 합계
         var salesBySem={};
         allSales.forEach(function(r){var s=r.semester||'';if(!salesBySem[s])salesBySem[s]=0;salesBySem[s]+=Number(r.total||0);});
         // 학기별 기존 payments 조회
-        var allPmts=await sbGet('payments','select=semester,paid_amount'+(_sid?'&student_id=eq.'+encodeURIComponent(_sid):'&student_id=is.null&student_name=eq.'+encodeURIComponent(_sname))+'&branch=eq.'+encodeURIComponent(currentBranch));
+        var allPmts=await sbGet('bk_payments','select=semester,paid_amount'+(_sid?'&student_id=eq.'+encodeURIComponent(_sid):'&student_id=is.null&student_name=eq.'+encodeURIComponent(_sname))+'&branch=eq.'+encodeURIComponent(currentBranch));
         var paidBySem={};
         allPmts.forEach(function(p){var s=p.semester||'';if(!paidBySem[s])paidBySem[s]=0;paidBySem[s]+=Number(p.paid_amount||0);});
         // 미납 학기 목록 (첫 출고날짜 오래된 순)
@@ -3560,19 +3560,19 @@ async function processPaymentQueue(){
           remaining-=payAmt;
           // 해당 학기 payments INSERT
           var semBody={branch:currentBranch,student_id:_sid,student_name:_sid?null:_sname,semester:sk||null,paid_amount:payAmt,paid_date:pd,memo:q.memo||null};
-          var semRes=await fetch(SB_URL+'/payments',{method:'POST',headers:h,body:JSON.stringify(semBody)});
+          var semRes=await fetch(SB_URL+'/bk_payments',{method:'POST',headers:h,body:JSON.stringify(semBody)});
           if(!semRes.ok) throw new Error('sem payment fail');
           // pay_status 업데이트
           var newPaid=semPaid+payAmt;
           var newStatus=newPaid>=semSales?'완납':newPaid>0?'부분납':'미납';
           var semSemQ=sk?'&semester=eq.'+encodeURIComponent(sk):'&semester=is.null';
-          await fetch(SB_URL+'/sales_history?type=eq.출고'+_idQ2+semSemQ+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph,body:JSON.stringify({pay_status:newStatus})});
+          await fetch(SB_URL+'/bk_sales_history?type=eq.출고'+_idQ2+semSemQ+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph,body:JSON.stringify({pay_status:newStatus})});
         }
         // 남은 금액이 있으면 마지막 학기에 추가 (초과 입금)
         if(remaining>0&&semKeys.length>0){
           var lastSk=semKeys[semKeys.length-1];
           var lastBody={branch:currentBranch,student_id:_sid,student_name:_sid?null:_sname,semester:lastSk||null,paid_amount:remaining,paid_date:pd,memo:q.memo||null};
-          await fetch(SB_URL+'/payments',{method:'POST',headers:h,body:JSON.stringify(lastBody)});
+          await fetch(SB_URL+'/bk_payments',{method:'POST',headers:h,body:JSON.stringify(lastBody)});
         }
       }
   }));
@@ -3619,12 +3619,12 @@ async function cancelPayment(studentId, semester){
     var delParams=idQ+'&branch=eq.'+encodeURIComponent(currentBranch);
     if(semester) delParams+='&semester=eq.'+encodeURIComponent(semester);
     // 빈 문자열(전체)이면 학기 조건 안 붙임 — 모든 학기 payments 삭제
-    var delRes=await fetch(SB_URL+'/payments?'+delParams,{method:'DELETE',headers:h});
+    var delRes=await fetch(SB_URL+'/bk_payments?'+delParams,{method:'DELETE',headers:h});
     if(!delRes.ok){var err=await delRes.text();toast('취소 실패: '+err,false);return;}
     // sales_history pay_status 미납으로 되돌리기
     var salesParams='type=eq.출고'+idQAmp+'&branch=eq.'+encodeURIComponent(currentBranch);
     if(semester) salesParams+='&semester=eq.'+encodeURIComponent(semester);
-    var patchRes=await fetch(SB_URL+'/sales_history?'+salesParams,{method:'PATCH',headers:h,body:JSON.stringify({pay_status:'미납'})});
+    var patchRes=await fetch(SB_URL+'/bk_sales_history?'+salesParams,{method:'PATCH',headers:h,body:JSON.stringify({pay_status:'미납'})});
     if(!patchRes.ok){var err2=await patchRes.text();toast('미납 전환 실패: '+err2,false);return;}
     toast('입금 취소 완료 — 미납으로 전환됨',true);
     loadUnpaid();
@@ -3649,7 +3649,7 @@ async function doPayment(studentId, semester, gid, totalAmount, studentName){
     // 학기 지정된 경우에만 먼저 INSERT (전체조회는 분배 로직에서 직접 INSERT)
     if(semester){
       var body={branch:currentBranch,student_id:studentId,student_name:studentName||null,semester:semester||null,paid_amount:amt,paid_date:pd,memo:memo||null};
-      var res=await fetch(SB_URL+'/payments',{method:'POST',headers:h,body:JSON.stringify(body)});
+      var res=await fetch(SB_URL+'/bk_payments',{method:'POST',headers:h,body:JSON.stringify(body)});
       if(!res.ok){var err=await res.text();toast('처리 실패: '+err,false);return;}
     }
     var sem=document.getElementById('unpaid-semester').value||semester;
@@ -3662,18 +3662,18 @@ async function doPayment(studentId, semester, gid, totalAmount, studentName){
 
     if(semester){ // 이미 위에서 INSERT 완료, pay_status 업데이트만
       var _semQ2='&semester=eq.'+encodeURIComponent(semester);
-      var salesRes=await sbGet('sales_history','select=id,total&type=eq.출고'+_doIdQ+_semQ2+'&branch=eq.'+encodeURIComponent(currentBranch));
+      var salesRes=await sbGet('bk_sales_history','select=id,total&type=eq.출고'+_doIdQ+_semQ2+'&branch=eq.'+encodeURIComponent(currentBranch));
       var totalSales=salesRes.reduce(function(s,r){return s+Number(r.total||0);},0);
-      var pmtRes=await sbGet('payments','select=paid_amount'+_doIdQ+_semQ2+'&branch=eq.'+encodeURIComponent(currentBranch));
+      var pmtRes=await sbGet('bk_payments','select=paid_amount'+_doIdQ+_semQ2+'&branch=eq.'+encodeURIComponent(currentBranch));
       var totalPaid=pmtRes.reduce(function(s,r){return s+Number(r.paid_amount||0);},0);
       var newStatus=totalPaid>totalSales?'과납':totalPaid===totalSales?'완납':totalPaid>0?'부분납':'미납';
-      await fetch(SB_URL+'/sales_history?type=eq.출고'+_doIdQ+_semQ2+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph2,body:JSON.stringify({pay_status:newStatus})});
+      await fetch(SB_URL+'/bk_sales_history?type=eq.출고'+_doIdQ+_semQ2+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph2,body:JSON.stringify({pay_status:newStatus})});
     } else {
       // 전체 조회 처리: 학기별 자동 분배
-      var allSales2=await sbGet('sales_history','select=semester,sale_date,total&type=eq.출고'+_doIdQ+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=sale_date.asc');
+      var allSales2=await sbGet('bk_sales_history','select=semester,sale_date,total&type=eq.출고'+_doIdQ+'&branch=eq.'+encodeURIComponent(currentBranch)+'&order=sale_date.asc');
       var salesBySem2={};
       allSales2.forEach(function(r){var s=r.semester||'';if(!salesBySem2[s])salesBySem2[s]=0;salesBySem2[s]+=Number(r.total||0);});
-      var allPmts2=await sbGet('payments','select=semester,paid_amount'+_doIdQ+'&branch=eq.'+encodeURIComponent(currentBranch));
+      var allPmts2=await sbGet('bk_payments','select=semester,paid_amount'+_doIdQ+'&branch=eq.'+encodeURIComponent(currentBranch));
       var paidBySem2={};
       allPmts2.forEach(function(p){var s=p.semester||'';if(!paidBySem2[s])paidBySem2[s]=0;paidBySem2[s]+=Number(p.paid_amount||0);});
       var semFirstDate2={};
@@ -3687,20 +3687,20 @@ async function doPayment(studentId, semester, gid, totalAmount, studentName){
         var payAmt2=Math.min(remaining2,semBalance2);
         remaining2-=payAmt2;
         var semBody2={branch:currentBranch,student_id:_doSid,student_name:_doSid?null:_doSname,semester:sk2||null,paid_amount:payAmt2,paid_date:pd,memo:memo||null};
-        var semRes2=await fetch(SB_URL+'/payments',{method:'POST',headers:Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'}),body:JSON.stringify(semBody2)});
+        var semRes2=await fetch(SB_URL+'/bk_payments',{method:'POST',headers:Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'}),body:JSON.stringify(semBody2)});
         if(!semRes2.ok) continue;
         var newPaid2=(paidBySem2[sk2]||0)+payAmt2;
         var newStatus2=newPaid2>(salesBySem2[sk2]||0)?'과납':newPaid2===(salesBySem2[sk2]||0)?'완납':newPaid2>0?'부분납':'미납';
         var semSemQ2=sk2?'&semester=eq.'+encodeURIComponent(sk2):'&semester=is.null';
-        await fetch(SB_URL+'/sales_history?type=eq.출고'+_doIdQ+semSemQ2+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph2,body:JSON.stringify({pay_status:newStatus2})});
+        await fetch(SB_URL+'/bk_sales_history?type=eq.출고'+_doIdQ+semSemQ2+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph2,body:JSON.stringify({pay_status:newStatus2})});
       }
       // 모든 학기 채우고도 남은 금액 → 마지막 학기에 과납으로 추가
       if(remaining2>0&&semKeys2.length>0){
         var lastSk=semKeys2[semKeys2.length-1];
         var overBody={branch:currentBranch,student_id:_doSid,student_name:_doSid?null:_doSname,semester:lastSk||null,paid_amount:remaining2,paid_date:pd,memo:memo||null};
-        await fetch(SB_URL+'/payments',{method:'POST',headers:Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'}),body:JSON.stringify(overBody)});
+        await fetch(SB_URL+'/bk_payments',{method:'POST',headers:Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'}),body:JSON.stringify(overBody)});
         var lastSemQ=lastSk?'&semester=eq.'+encodeURIComponent(lastSk):'&semester=is.null';
-        await fetch(SB_URL+'/sales_history?type=eq.출고'+_doIdQ+lastSemQ+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph2,body:JSON.stringify({pay_status:'과납'})});
+        await fetch(SB_URL+'/bk_sales_history?type=eq.출고'+_doIdQ+lastSemQ+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:ph2,body:JSON.stringify({pay_status:'과납'})});
       }
     }
     toast('입금 처리 완료! ('+amt.toLocaleString()+'원)',true);
@@ -3833,7 +3833,7 @@ async function loadHistory(){
       if(params.teacherId) loanQ+='&teacher_id=eq.'+encodeURIComponent(params.teacherId);
       if(params.status) loanQ+='&status=eq.'+encodeURIComponent(params.status);
       if(loanSemFilter) loanQ+='&semester=eq.'+encodeURIComponent(loanSemFilter);
-      var data=await sbGet('loan_history',loanQ);
+      var data=await sbGet('bk_loan_history',loanQ);
       el.innerHTML=data.length?'<div class="twrap"><table><thead><tr><th>분원</th><th>교재명</th><th>바코드</th><th>선생님</th><th>대여일</th><th>반납예정</th><th>반납일</th><th>학기</th><th>상태</th></tr></thead><tbody>'+
         data.map(function(r){
           var brName=(BRANCHES[r.branch||'']||{}).name||r.branch||'-';
@@ -3858,7 +3858,7 @@ async function loadHistory(){
       if(typeVal) salesQ+='&type=eq.'+encodeURIComponent(typeVal);
       if(isBranch) salesQ+='&type=in.(분원출고,분원입고)';
       if(semVal) salesQ+='&semester=eq.'+encodeURIComponent(semVal);
-      var data=await sbGet('sales_history',salesQ);
+      var data=await sbGet('bk_sales_history',salesQ);
       var divFilter=document.getElementById('filter-division')?document.getElementById('filter-division').value:'';
       if(divFilter){
         data=data.filter(function(r){return (r.division||'')=== divFilter;});
@@ -3916,7 +3916,7 @@ async function deleteHistoryRow(id,bookName,type,payStatus,btn){
     /* 예전엔 return=minimal 이라 서버가 실제로 한 줄도 안 지웠어도 '삭제 완료'로 보였다.
        지워진 줄을 돌려받아서 0줄이면 실패로 알린다. */
     var h=Object.assign({},SB_HEADERS,{'Prefer':'return=representation'});
-    var res=await fetch(SB_URL+'/sales_history?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:h});
+    var res=await fetch(SB_URL+'/bk_sales_history?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:h});
     var _del=res.ok?await res.json():[];
     if(res.ok&&!_del.length){toast('삭제되지 않았어요(이미 지워졌거나 권한 없음). 화면을 새로고침해서 확인하세요.',false);return;}
     if(res.ok){
@@ -3962,7 +3962,7 @@ async function doEditLevel(){
   var newLevel=document.getElementById('level-edit-value').value.trim();
   var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
   try{
-    await fetch(SB_URL+'/books?barcode=eq.'+encodeURIComponent(_levelEditBarcode),{method:'PATCH',headers:h,body:JSON.stringify({level:newLevel||null})});
+    await fetch(SB_URL+'/bk_books?barcode=eq.'+encodeURIComponent(_levelEditBarcode),{method:'PATCH',headers:h,body:JSON.stringify({level:newLevel||null})});
     var bk=books.find(function(b){return b['바코드']===_levelEditBarcode;});
     if(bk) bk['레벨']=newLevel;
     toast('레벨 저장 완료: '+newLevel,true);
@@ -4015,10 +4015,10 @@ async function doEditVendor(){
   if(!newVendor) return toast('업체명을 입력해주세요.',false);
   try{
     var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-    var res=await fetch(SB_URL+'/books?barcode=eq.'+encodeURIComponent(_vendorEditBarcode),{method:'PATCH',headers:h,body:JSON.stringify({vendor:newVendor})});
+    var res=await fetch(SB_URL+'/bk_books?barcode=eq.'+encodeURIComponent(_vendorEditBarcode),{method:'PATCH',headers:h,body:JSON.stringify({vendor:newVendor})});
     if(!res.ok){var err=await res.text();toast('수정 실패: '+err,false);return;}
     // vendors 테이블 upsert
-    await fetch(SB_URL+'/vendors',{method:'POST',headers:Object.assign({},SB_HEADERS,{'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({name:newVendor,vat_yn:vatYn})});
+    await fetch(SB_URL+'/bk_vendors',{method:'POST',headers:Object.assign({},SB_HEADERS,{'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify({name:newVendor,vat_yn:vatYn})});
     var vr=await call('getVendors');vendors=vr.data||[];
     toast('업체가 수정됐어요! ('+newVendor+(vatYn?' · 부가세 적용':'')+')' ,true);
     var bk=books.find(function(b){return b['바코드']===_vendorEditBarcode;});
@@ -4074,7 +4074,7 @@ async function doEditPrice(){
   if(newPrice===''||isNaN(Number(newPrice))) return toast('새 가격을 숫자로 입력해주세요.',false);
   try{
     var h=Object.assign({},SB_HEADERS,{'Prefer':'return=representation'});
-    var res=await fetch(SB_URL+'/books?barcode=eq.'+encodeURIComponent(_priceEditBarcode),{method:'PATCH',headers:h,body:JSON.stringify({price:Number(newPrice)})});
+    var res=await fetch(SB_URL+'/bk_books?barcode=eq.'+encodeURIComponent(_priceEditBarcode),{method:'PATCH',headers:h,body:JSON.stringify({price:Number(newPrice)})});
     if(!res.ok){var err=await res.text();toast('수정 실패: '+err,false);return;}
     var _upd=await res.json();
     if(!_upd.length){toast('수정된 교재가 없어요. 바코드를 확인하세요.',false);return;}
@@ -4096,7 +4096,7 @@ async function doAddBranchBook(){
   if(!name) return toast('교재명을 입력해주세요.',false);
   try{
     var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-    var res=await fetch(SB_URL+'/books',{method:'POST',headers:h,body:JSON.stringify({
+    var res=await fetch(SB_URL+'/bk_books',{method:'POST',headers:h,body:JSON.stringify({
       barcode:barcode, name:name, price:price, purchase_price:0,
       note:'분원자체교재', vendor:currentBranch, branch:currentBranch
     })});
@@ -4113,7 +4113,7 @@ async function loadBranchBookList(){
   var el=document.getElementById('branch-book-list');
   if(!el) return;
   try{
-    var d=await sbGet('books','select=barcode,name,price&note=eq.분원자체교재&vendor=eq.'+encodeURIComponent(currentBranch)+'&order=name');
+    var d=await sbGet('bk_books','select=barcode,name,price&note=eq.분원자체교재&vendor=eq.'+encodeURIComponent(currentBranch)+'&order=name');
     if(!d.length){el.innerHTML='<div class="empty" style="padding:12px">등록된 자체 교재가 없습니다.</div>';return;}
     el.innerHTML='<div class="twrap"><table><thead><tr><th>바코드</th><th>교재명</th><th>판매가</th><th></th></tr></thead><tbody>'+
       d.map(function(b){
@@ -4129,7 +4129,7 @@ async function deleteBranchBook(barcode){
   if(!confirm('['+barcode+'] 삭제할까요?')) return;
   try{
     var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-    await fetch(SB_URL+'/books?barcode=eq.'+encodeURIComponent(barcode)+'&note=eq.분원자체교재',{method:'DELETE',headers:h});
+    await fetch(SB_URL+'/bk_books?barcode=eq.'+encodeURIComponent(barcode)+'&note=eq.분원자체교재',{method:'DELETE',headers:h});
     toast('삭제 완료',true);
     var bb=await call('getBooks');books=bb.data||[];
     loadBranchBookList();
@@ -4299,7 +4299,7 @@ async function deleteTeacher(tid,name){
   if(!confirm('['+name+'] 선생님을 삭제할까요?\n대여 이력은 유지됩니다.')) return;
   try{
     var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-    var res=await fetch(SB_URL+'/teachers?teacher_id=eq.'+encodeURIComponent(tid)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'DELETE',headers:h});
+    var res=await fetch(SB_URL+'/bk_teachers?teacher_id=eq.'+encodeURIComponent(tid)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'DELETE',headers:h});
     if(res.ok){toast(name+' 선생님 삭제 완료',true);var tb=await call('getTeachers');teachers=tb.data||[];populateSelects();loadTeacherList();}
     else toast('삭제 실패',false);
   }catch(e){toast('오류 발생',false);}
@@ -4322,7 +4322,7 @@ async function loadSemesterList(){
   var el=document.getElementById('semester-list');
   if(!el) return;
   try{
-    var d=await sbGet('semesters','select=*&branch=eq.'+encodeURIComponent(currentBranch)+'&order=created_at.desc');
+    var d=await sbGet('bk_semesters','select=*&branch=eq.'+encodeURIComponent(currentBranch)+'&order=created_at.desc');
     if(!d.length){el.innerHTML='<div class="empty" style="padding:12px">등록된 학기가 없습니다.</div>';return;}
     el.innerHTML='<div class="twrap"><table><thead><tr><th>학기명</th><th>등록일</th><th></th></tr></thead><tbody>'+
       d.map(function(s){
@@ -4498,7 +4498,7 @@ async function toggleStudentStatus(studentId, currentStatus, el){
   if(!confirm('['+label+'] 학생을 '+newStatus+' 처리할까요?')) return;
   var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
   try{
-    await fetch(SB_URL+'/students?student_id=eq.'+encodeURIComponent(studentId)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:h,body:JSON.stringify({status:newStatus,updated_at:new Date().toISOString()})});
+    await fetch(SB_URL+'/bk_students?student_id=eq.'+encodeURIComponent(studentId)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:h,body:JSON.stringify({status:newStatus,updated_at:new Date().toISOString()})});
     el.textContent=newStatus;
     el.className='badge '+(newStatus==='퇴원'?'b-red':'b-green')+' cursor:pointer;white-space:nowrap';
     el.className='badge '+(newStatus==='퇴원'?'b-red':'b-green');
@@ -4543,7 +4543,7 @@ async function saveStudentEdit(){
     updated_at:new Date().toISOString()
   };
   try{
-    var res=await fetch(SB_URL+'/students?student_id=eq.'+encodeURIComponent(id)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:h,body:JSON.stringify(body)});
+    var res=await fetch(SB_URL+'/bk_students?student_id=eq.'+encodeURIComponent(id)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:h,body:JSON.stringify(body)});
     if(res.ok){
       var sb=await call('getStudents');students=sb.data||[];
       populateSelects();loadStudentList();
@@ -4558,7 +4558,7 @@ async function toggleDivision(studentId, currentDiv, el){
   var newDiv=currentDiv==='ACE'?'CHESS':'ACE';
   var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
   try{
-    await fetch(SB_URL+'/students?student_id=eq.'+encodeURIComponent(studentId)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:h,body:JSON.stringify({division:newDiv})});
+    await fetch(SB_URL+'/bk_students?student_id=eq.'+encodeURIComponent(studentId)+'&branch=eq.'+encodeURIComponent(currentBranch),{method:'PATCH',headers:h,body:JSON.stringify({division:newDiv})});
     el.textContent=newDiv;
     el.className='badge '+(newDiv==='ACE'?'b-blue':'b-green');
     el.onclick=function(){toggleDivision(studentId,newDiv,el);};
@@ -4837,7 +4837,7 @@ async function checkWithdrawAndUpload(){
   if(!semester){toast('학기를 입력해야 업로드할 수 있어요.',false);return;}
 
   // 현재 재원생 조회 (status가 퇴원이 아닌 학생)
-  var existing=await sbGet('students','select=student_id,name,class_name,semester,status&branch=eq.'+encodeURIComponent(currentBranch)+'&order=semester.desc');
+  var existing=await sbGet('bk_students','select=student_id,name,class_name,semester,status&branch=eq.'+encodeURIComponent(currentBranch)+'&order=semester.desc');
   // student_id 기준 중복 제거 - 가장 최근 학기 1건만 유지
   var seenIds={};
   var deduped=existing.filter(function(s){
@@ -5116,7 +5116,7 @@ function clearBarcodes(){if(!confirm('생성된 바코드를 모두 지울까요
 async function deleteBarcodeHistory(id){
   if(!confirm('이 바코드 이력을 삭제할까요?')) return;
   var h=Object.assign({},SB_HEADERS,{'Prefer':'return=minimal'});
-  await fetch(SB_URL+'/barcode_history?id=eq.'+id,{method:'DELETE',headers:h});
+  await fetch(SB_URL+'/bk_barcode_history?id=eq.'+id,{method:'DELETE',headers:h});
   loadBarcodeHistory();
 }
 function toggleBarcode(idx){generatedBarcodes[idx].selected=!generatedBarcodes[idx].selected;renderBarcodeGrid();}
@@ -5179,7 +5179,7 @@ async function loadBarcodeHistory(){
   el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   try{
     var encoded=encodeURIComponent('%'+kw+'%');
-    var d=await sbGet('barcode_history','select=*&or=(label.ilike.'+encoded+',code.ilike.'+encoded+')&order=created_at.desc');
+    var d=await sbGet('bk_barcode_history','select=*&or=(label.ilike.'+encoded+',code.ilike.'+encoded+')&order=created_at.desc');
     _bcHistoryCache=d||[];
     renderBarcodeHistory();
   }catch(e){el.innerHTML='<div class="empty">불러오기 실패</div>';}
@@ -5189,7 +5189,7 @@ async function loadAllBarcodeHistory(){
   if(!el) return;
   el.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   try{
-    var d=await sbGet('barcode_history','select=*&order=created_at.desc');
+    var d=await sbGet('bk_barcode_history','select=*&order=created_at.desc');
     _bcHistoryCache=d||[];
     renderBarcodeHistory();
   }catch(e){el.innerHTML='<div class="empty">불러오기 실패</div>';}
@@ -5688,9 +5688,9 @@ async function loadFinanceSummary(){
   // 학기 필터 초기화
   var semSel=document.getElementById('finance-semester');
   if(semSel&&semSel.options.length<=1){
-    var semList1=await sbGetAll('students','select=semester&order=semester.desc');
-    var semList2=await sbGetAll('semesters','select=name&order=created_at.desc');
-    var semList3=await sbGetAll('sales_history','select=semester&order=semester.desc&type=eq.입고');
+    var semList1=await sbGetAll('bk_students','select=semester&order=semester.desc');
+    var semList2=await sbGetAll('bk_semesters','select=name&order=created_at.desc');
+    var semList3=await sbGetAll('bk_sales_history','select=semester&order=semester.desc&type=eq.입고');
     var sems=[...new Set([
       ...semList1.map(function(r){return r.semester;}),
       ...semList2.map(function(r){return r.name;}),
@@ -5714,9 +5714,9 @@ async function loadFinanceSummary(){
     if(_dateFilter.to) salesParams+='&sale_date=lte.'+_dateFilter.to;
     if(!isAdmin()) salesParams+='&branch=eq.'+encodeURIComponent(currentBranch);
     if(selectedSem) salesParams+='&semester=eq.'+encodeURIComponent(selectedSem);
-    var sales=await sbGetAll('sales_history',salesParams);
+    var sales=await sbGetAll('bk_sales_history',salesParams);
     // books vendor 맵
-    var booksData=await sbGetAll('books','select=barcode,name,vendor&order=barcode');
+    var booksData=await sbGetAll('bk_books','select=barcode,name,vendor&order=barcode');
     var vendorMap={};var bookNameMap={};
     booksData.forEach(function(b){vendorMap[b.barcode]=b.vendor||'미등록';bookNameMap[b.barcode]=b.name||b.barcode;});
 
@@ -5724,7 +5724,7 @@ async function loadFinanceSummary(){
     var pmtParams='select=paid_amount,branch,semester,student_id,student_name';
     if(!isAdmin()) pmtParams+='&branch=eq.'+encodeURIComponent(currentBranch);
     if(selectedSem) pmtParams+='&semester=eq.'+encodeURIComponent(selectedSem);
-    var pmts=await sbGetAll('payments',pmtParams);
+    var pmts=await sbGetAll('bk_payments',pmtParams);
 
     // 분원별 집계
     var byBranch={};
@@ -6114,7 +6114,7 @@ async function _uploadBankRows(rows,filename){
 
   // DB에서 기존 데이터 조회 후 JS에서 중복 제거 → 신규만 INSERT
   try{
-    var existing=await sbGet('bank_transactions',
+    var existing=await sbGet('bk_bank_transactions',
       'select=tx_datetime,counterpart,deposit,withdraw&branch=eq.'+encodeURIComponent(currentBranch)+'&limit=5000');
     // 기존 데이터 key set 생성 (줄바꿈 정규화 포함)
     var existingKeys=new Set(existing.map(function(e){
@@ -6146,7 +6146,7 @@ async function _uploadBankRows(rows,filename){
     for(var i=0;i<toInsert.length;i+=CHUNK){
       var chunk=toInsert.slice(i,i+CHUNK);
       try{
-        var res=await fetch(SB_URL+'/bank_transactions',{method:'POST',headers:h,body:JSON.stringify(chunk)});
+        var res=await fetch(SB_URL+'/bk_bank_transactions',{method:'POST',headers:h,body:JSON.stringify(chunk)});
         if(res.ok) saved+=chunk.length;
         else{var err=await res.text();console.error('bank insert err:',err);}
       }catch(e){console.error(e);}
@@ -6183,9 +6183,9 @@ async function loadBankHistory(){
       // 검색어가 있으면 limit 없이 DB에서 직접 검색 (counterpart/summary/memo 각각 or 조건)
       var kw=encodeURIComponent('%'+search+'%');
       var searchParams=params+'&or=(counterpart.ilike.'+kw+',summary.ilike.'+kw+',memo.ilike.'+kw+')';
-      data=await sbGet('bank_transactions',searchParams);
+      data=await sbGet('bk_bank_transactions',searchParams);
     } else {
-      data=await sbGet('bank_transactions',params+'&limit=900');
+      data=await sbGet('bk_bank_transactions',params+'&limit=900');
     }
     if(!data.length){el.innerHTML='<div class="empty">조회 결과가 없습니다</div>';return;}
     var totalDeposit=data.reduce(function(s,r){return s+Number(r.deposit||0);},0);
