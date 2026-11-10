@@ -1288,7 +1288,19 @@ function cellVis(inp){
     if(r.top<H+4) wrap.scrollTop-=(H+4)-r.top;
   });
 }
-function onCell(inp){scoreRow(inp.closest('tr'));}
+/* 칸에 한 글자를 치면 오른쪽 칸으로 자동 이동한다(방향키·Enter는 그대로).
+   예전엔 숫자를 칠 때마다 → 를 눌러야 해서 40문항 입력이 느렸다.
+   · 사람이 직접 친 입력만 넘긴다(isTrusted) — OMR 스캔이 값을 채울 때는 포커스가 튀면 안 된다.
+   · 한 글자 칸(maxlength=1)만 넘긴다. 0~5.5 같은 부분점수 칸은 몇 글자인지 몰라 넘기지 않는다.
+   · 줄 끝에서는 navKey처럼 다음 학생 첫 칸으로 간다. */
+function autoNext(inp){
+  const ev=window.event;
+  if(!ev||ev.isTrusted===false||ev.isComposing) return;
+  if(inp.readOnly||inp.maxLength!==1||inp.value.length!==1) return;
+  const cols=inp.closest('tr').querySelectorAll('input[data-c]').length;
+  navKey({key:'ArrowRight',preventDefault(){}},inp,cols);
+}
+function onCell(inp){scoreRow(inp.closest('tr'));autoNext(inp);}
 function curKey(){const c=curClassObj();return c?keyOfLevel(c.levelCode):null;}
 function scoreRow(tr){
   const key=curKey();if(!key)return;const ans=key.answers||[];
@@ -1476,7 +1488,7 @@ function aceScoreRow(tr,ans){
   got=Math.round(got*10)/10;
   const t=tr.querySelector('td.tot');if(t)t.textContent=got;updateHist(tr);return{got,tot};
 }
-function onAceCell(inp){aceScoreRow(inp.closest('tr'),aceAns(CURTAB));}
+function onAceCell(inp){aceScoreRow(inp.closest('tr'),aceAns(CURTAB));autoNext(inp);}
 function computeAce(responses,ans){
   const rmap={};(responses||[]).forEach(r=>rmap[r.n]=r);
   let got=0;const subG={};
@@ -1667,6 +1679,7 @@ function onNaesinCell(inp){
   const ans=naesinAns(CURTAB);
   aceScoreRow(tr,ans);
   flagNaesinOverMax(tr,ans);
+  autoNext(inp);
 }
 /* 학년 보정 패널 — 반 이름으로 자동분류된 학년이 틀린 학생(자기 학년 아닌 반에 낀 경우)을
    사람이 직접 고쳐주는 곳. 정답키가 없어서 아래 채점표 자체가 안 뜨는 반(buildNaesinGrid가
