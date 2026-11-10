@@ -1155,6 +1155,8 @@ function renderAnswerView(){
       <div class="ddlist" id="ddList" style="display:none"><div class="ddopts">${opts||'<div style="padding:16px" class="hint">대상 반이 없어요</div>'}</div></div>
     </div>
     ${(EXAM==='DT'&&cur&&cur.chess)?`<button class="btn" onclick="openDtComment()" title="성적표 코멘트(IMS)에 붙여넣을 레벨 이동 안내문">📝 DT 코멘트</button>`:''}
+    ${((EXAM==='DT'||EXAM==='AT')&&cur)?`<button class="ghost" style="font-weight:800" onclick="OMR.openPrint()" title="학생별 이름·반·담임·QR이 찍힌 OMR을 한 번에 출력">🖨 OMR 출력</button>`:''}
+    ${((EXAM==='DT'||EXAM==='AT')&&cur&&!isTeacherRO())?`<button class="ghost" style="font-weight:800" onclick="OMR.openScan()" title="스캔한 OMR을 올리면 답안칸이 채워져요">📷 OMR 스캔</button>`:''}
     </div>
     <div id="gradeArea"></div>`;
   if(CURCLASS){ if(EXAM==='AT') buildAceArea(); else if(EXAM==='내신모의고사') buildNaesinArea(); else buildGrid(); }
@@ -1533,7 +1535,7 @@ function buildAceArea(){
     </div>
     ${examRemovedPanel(cls)}
     <div id="aceContent">${content}</div>`;
-  if(CURTAB==='총점')loadAceSummary(); else loadAceSaved(CURTAB).then(applyAceCutline);
+  if(CURTAB==='총점')loadAceSummary(); else loadAceSaved(CURTAB).then(applyAceCutline).then(function(){ if(window.OMR&&OMR.applyBuffer) OMR.applyBuffer(); });   // OMR 스캔에서 읽어 둔 이 탭 답안
 }
 function buildAceGrid(section){
   const cls=curClassObj();const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
@@ -2325,5 +2327,7 @@ async function exportScoresBulk(){
 })();
 </script>
 <script src="dt-comment.js?v=20261110"></script>
+<script src="omr/omr.js?v=20261110"></script>
+<script src="omr/omr-ui.js?v=20261110"></script>
 </body>
 </html>
