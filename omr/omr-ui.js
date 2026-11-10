@@ -18,9 +18,13 @@ function modal(html){
   return m;
 }
 function closeModal(){var m=document.getElementById('omrMask');if(m)m.remove();}
+/* 시험 운영 중이라 서수원분원 반에서만 연다(분원 이름으로 판정 — 미통과 관리의 retestOn과 같은 방식).
+   다른 분원에는 버튼이 안 보이고, 코드로 불러도 막힌다. 전 분원으로 열 때는 이 함수만 true로 바꾸면 된다. */
+function enabledFor(cls){return !!cls&&/서수원/.test(String(cls.branchName||''));}
 function ctxCheck(){
   if(typeof EXAM==='undefined'||(EXAM!=='DT'&&EXAM!=='AT')){O.toastMsg('DT·AT 답안입력 화면에서 쓰세요',false);return null;}
   var cls=curClassObj();if(!cls){O.toastMsg('반을 먼저 선택해주세요',false);return null;}
+  if(!enabledFor(cls)){O.toastMsg('OMR 기능은 아직 서수원분원에서만 시험 중이에요',false);return null;}
   return cls;
 }
 function gradeOf(r){var g=(typeof gradeKey==='function')?gradeKey(r.grade):'';return g||r.grade||'';}
@@ -294,5 +298,5 @@ function report(sum,total){
   modal(h);
 }
 
-O.openPrint=openPrint;O.doPrint=doPrint;O.openScan=openScan;O.doScan=doScan;O.closeModal=closeModal;O.applyBuffer=applyBuffer;O.applyResults=applyResults;
+O.enabledFor=enabledFor;O.openPrint=openPrint;O.doPrint=doPrint;O.openScan=openScan;O.doScan=doScan;O.closeModal=closeModal;O.applyBuffer=applyBuffer;O.applyResults=applyResults;
 })();
