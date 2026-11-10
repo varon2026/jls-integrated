@@ -82,12 +82,16 @@ function parsePayload(t){
 }
 function templateKey(p){
   if(!p) return null;
-  if(p.exam==='DT'){ var lv=p.level.toUpperCase().slice(0,3); return {DSB:'dsb',DSC:'dsc',LSA:'lsa'}[lv]||null; }
+  if(p.exam==='DT'){ return dtTemplateFor(p.level); }
   if(p.exam==='AT') return p.sec==='G'?'at_grammar':(p.sec==='R'?'at_reading':null);
   return null;
 }
 /* 이 레벨을 OMR로 뽑을 틀이 있는지 */
-function dtTemplateFor(levelCode){ var lv=String(levelCode||'').toUpperCase().slice(0,3); return {DSB:'dsb',DSC:'dsc',LSA:'lsa'}[lv]||null; }
+/* OMR 틀은 3종뿐이고 레벨 '이상'이 같은 틀을 쓴다(운영자 확정):
+   DSB → dsb(3칸) / DSC·DSD → dsc / LSA·LSB·LSC·LSD·MSA·MSB → lsa.
+   예전엔 DSB·DSC·LSA 정확히 세 레벨만 알아봐서 MSA1·DSD·LSB 반은 '틀이 없다'고 막혔다.
+   IS·DSA는 OMR을 안 쓴다(어린 학생 — 시험지에 풀고 선생님이 입력). */
+function dtTemplateFor(levelCode){ var lv=String(levelCode||'').toUpperCase().slice(0,3); return {DSB:'dsb',DSC:'dsc',DSD:'dsc',LSA:'lsa',LSB:'lsa',LSC:'lsa',LSD:'lsa',MSA:'lsa',MSB:'lsa'}[lv]||null; }
 
 /* ---------------- 칸 판정 ---------------- */
 /* 한 문항의 보기별 값 → {st:'ok'|'blank'|'multi'|'unsure', v:번호|null, c:[칸번호...]} */

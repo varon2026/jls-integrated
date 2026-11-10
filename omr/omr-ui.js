@@ -99,7 +99,7 @@ function openPrint(){
   var tpl=null,variantHtml='';
   if(EXAM==='DT'){
     tpl=O.dtTemplateFor(cls.levelCode);
-    if(!tpl){modal('<div style="font-size:18px;font-weight:800">OMR 출력</div><div style="margin:14px 0;font-size:14px;line-height:1.7"><b>'+esc(cls.levelCode)+'</b> 레벨은 OMR 틀이 아직 없어요.<br>지금은 <b>DSB · DSC · LSA</b> 레벨만 출력할 수 있어요. 다른 레벨 OMR 틀 파일을 주시면 추가할게요.</div><div style="text-align:right"><button class="ghost mini" onclick="OMR.closeModal()">닫기</button></div>');return;}
+    if(!tpl){modal('<div style="font-size:18px;font-weight:800">OMR 출력</div><div style="margin:14px 0;font-size:14px;line-height:1.7"><b>'+esc(cls.levelCode)+'</b> 레벨은 OMR 틀이 아직 없어요.<br>지금은 <b>DSB 이상</b> 레벨만 출력할 수 있어요(IS·DSA는 OMR을 안 써요).</div><div style="text-align:right"><button class="ghost mini" onclick="OMR.closeModal()">닫기</button></div>');return;}
   }else{
     var vs=variantsForBase(cls.levelCode);
     if(!vs.length){O.toastMsg('이 반은 AT 정답키(시험지)가 없어요',false);return;}
