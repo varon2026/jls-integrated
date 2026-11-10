@@ -34,6 +34,9 @@ var TEMPLATE={dsb:['omr/templates/dsb.pdf',1],dsc:['omr/templates/dsc.pdf',1],ls
               at_grammar:['omr/templates/at.pdf',1],at_reading:['omr/templates/at.pdf',2]};
 /* 칸 판정 기준(실제 스캔 7장으로 정함): 빈 칸은 -0.1~0.04, 칠한 칸은 0.08 이상, 그 사이는 '애매' */
 var T_LO=0.04,T_HI=0.08,T_STRONG=0.15;
+/* 위치 맞춤 일치도(ECC 상관)가 이보다 낮으면 그 장은 읽지 않는다. 정상 스캔은 0.95~0.99, 실패했던 장은 0.52였다.
+   위치가 틀린 채로 읽으면 엉뚱한 칸을 '확정'해 버려서, 못 읽었다고 알리고 선생님이 직접 입력하게 한다 */
+var MIN_CC=0.85;
 
 /* ---------------- 공통 도우미 ---------------- */
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -146,18 +149,34 @@ function readQR(cv,gray){
   }finally{ pts.delete(); det.delete&&det.delete(); }
   return null;
 }
+/* QR 네 귀퉁이 → 틀 좌표로 가는 '회전+크기+이동'(원근 없음)을 최소제곱으로 구한다.
+   예전엔 네 점으로 원근 변환까지 계산했는데, 스캔한 종이는 평평한데도 QR 모서리 한 점이 4~5px만 어긋나면
+   원근 성분이 생겨 먼 쪽 칸이 크게 틀어졌다. 그 상태로 시작한 위치 맞춤(ECC)이 엉뚱한 곳으로 빠져서
+   김지안 장(서수원 AT)이 노란 칸 투성이가 됐다(틀리게 '확정'한 칸도 있었다). */
+function similarityFromPts(src,dst){
+  var n=src.length,sx=0,sy=0,du=0,dv=0,i;
+  for(i=0;i<n;i++){sx+=src[i][0];sy+=src[i][1];du+=dst[i][0];dv+=dst[i][1];}
+  sx/=n;sy/=n;du/=n;dv/=n;
+  var Sxx=0,Sxy=0,den=0;
+  for(i=0;i<n;i++){
+    var x=src[i][0]-sx,y=src[i][1]-sy,u=dst[i][0]-du,v=dst[i][1]-dv;
+    Sxx+=x*u+y*v;Sxy+=x*v-y*u;den+=x*x+y*y;
+  }
+  var a=Sxx/den,b=Sxy/den;
+  return [a,-b,du-(a*sx-b*sy), b,a,dv-(b*sx+a*sy)];
+}
 async function alignPage(cv,gray,key,qrPts){
   var g=GEOM[key],q=QRPOS[key],W=g.W,H=g.H;
-  var src=cv.matFromArray(4,1,cv.CV_32FC2,[].concat.apply([],qrPts));
   var x=q[0],y=q[1],s=q[2];
-  var dst=cv.matFromArray(4,1,cv.CV_32FC2,[x*PX,y*PX,(x+s)*PX,y*PX,(x+s)*PX,(y+s)*PX,x*PX,(y+s)*PX]);
-  var M=cv.getPerspectiveTransform(src,dst);
+  var dstPts=[[x*PX,y*PX],[(x+s)*PX,y*PX],[(x+s)*PX,(y+s)*PX],[x*PX,(y+s)*PX]];
+  var m=similarityFromPts(qrPts,dstPts);
+  var M=cv.matFromArray(2,3,cv.CV_64F,m);
   var warp=new cv.Mat();
-  cv.warpPerspective(gray,warp,M,new cv.Size(W*PX,H*PX),cv.INTER_AREA,cv.BORDER_CONSTANT,new cv.Scalar(255));
-  src.delete();dst.delete();M.delete();
+  cv.warpAffine(gray,warp,M,new cv.Size(W*PX,H*PX),cv.INTER_LINEAR,cv.BORDER_CONSTANT,new cv.Scalar(255));
+  M.delete();
   var tpl=await templateMat(key);
   // 큰 그림 → 세밀하게 3단계로 위치 맞추기(빈 틀과 비교)
-  var Wf=[1,0,0,0,1,0,0,0,1],cc=0;
+  var Wf=[1,0,0,0,1,0,0,0,1],cc=0,stageCC=[];
   var stages=[[0.125,3.0],[0.25,2.0],[0.5,1.5]];
   for(var si=0;si<stages.length;si++){
     var s2=stages[si][0],sig=stages[si][1]/2;      // 축소한 뒤 흐리게 (파이썬에서 원본에 σ=단계값/(2×배율)로 흐린 것과 같다)
@@ -170,7 +189,7 @@ async function alignPage(cv,gray,key,qrPts){
     var mask=new cv.Mat(b.rows,b.cols,cv.CV_8U,new cv.Scalar(255));
     IGNORE[key].forEach(function(r){cv.rectangle(mask,new cv.Point(Math.floor(r[0]*PX*s2),Math.floor(r[1]*PX*s2)),new cv.Point(Math.floor(r[2]*PX*s2)-1,Math.floor(r[3]*PX*s2)-1),new cv.Scalar(0),-1);});
     var crit=new cv.TermCriteria(cv.TermCriteria_EPS+cv.TermCriteria_COUNT,200,1e-6),ok=true;
-    try{ cc=cv.findTransformECC(a32,b32,Wm,cv.MOTION_HOMOGRAPHY,crit,mask,5); }catch(e){ ok=false; }
+    try{ cc=cv.findTransformECC(a32,b32,Wm,cv.MOTION_HOMOGRAPHY,crit,mask,5); stageCC.push(+cc.toFixed(3)); }catch(e){ ok=false; stageCC.push('오류'); }
     if(ok){ var wv=Array.prototype.slice.call(Wm.data32F); Wf=mul3(mul3(inv3(S),wv),S); }
     a.delete();b.delete();a32.delete();b32.delete();Wm.delete();mask.delete();
     if(!ok) break;
@@ -178,7 +197,7 @@ async function alignPage(cv,gray,key,qrPts){
   var out=new cv.Mat(),Wmat=cv.matFromArray(3,3,cv.CV_32F,Wf);
   cv.warpPerspective(warp,out,Wmat,new cv.Size(W*PX,H*PX),cv.INTER_LINEAR+cv.WARP_INVERSE_MAP,cv.BORDER_CONSTANT,new cv.Scalar(255));
   Wmat.delete();warp.delete();
-  return {img:out,cc:cc};
+  return {img:out,cc:cc,stages:stageCC,W:Wf};
 }
 /* 칸마다 '안쪽 평균 / 바깥 고리 중앙값'으로 얼마나 진한지 → 같은 장·같은 열의 중앙값을 빼서 빈 칸이 0이 되게 */
 function measure(key,img){
@@ -218,6 +237,7 @@ async function readCanvas(canvas){
     var p=parsePayload(qr.text),key=templateKey(p);
     if(!p||!key) return {ok:false,error:'지원하지 않는 OMR이에요 ('+qr.text.slice(0,40)+')'};
     var al=await alignPage(cv,gray,key,qr.pts);
+    if(!(al.cc>=MIN_CC)){ al.img.delete(); return {ok:false,error:'칸 위치를 맞추지 못했어요(일치도 '+(al.cc||0).toFixed(2)+') — 비뚤게 스캔됐거나 접힌 것 같아요. 다시 스캔하거나 직접 입력하세요',payload:p,key:key,cc:al.cc}; }
     var m=measure(key,al.img);al.img.delete();
     var answers={};Object.keys(m).forEach(function(q){answers[q]=judge(m[q]);});
     return {ok:true,payload:p,key:key,answers:answers,vals:m,cc:al.cc};

@@ -223,7 +223,10 @@ function applyResults(results,cls){
   // 덮어쓸 학생이 있는지 먼저 확인
   var good=[];
   results.forEach(function(p){
-    if(!p.ok){sum.fail.push((p.file||'')+' '+p.page+'쪽: '+p.error);return;}
+    if(!p.ok){
+      var who=(p.payload&&rows[p.payload.code])?(rows[p.payload.code].dataset.name+' 학생 '):'';
+      sum.fail.push((p.file||'')+' '+p.page+'쪽 '+who+'— '+p.error);return;
+    }
     var pl=p.payload,nm=(rows[pl.code]&&rows[pl.code].dataset.name)||pl.code;
     if(pl.exam!==EXAM){sum.skip.push(nm+': '+pl.exam+' 시험지예요 (지금은 '+EXAM+' 화면)');return;}
     if(pl.sem!==SEM){sum.skip.push(nm+': 다른 학기('+pl.sem+') 시험지예요');return;}
