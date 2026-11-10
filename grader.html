@@ -1149,9 +1149,12 @@ function renderAnswerView(){
       <button class="btn mini" onclick="exportScoresBulk()">${EXAM==='내신모의고사'?'📥 내신모의고사 큐앱+성적 엑셀 일괄 다운로드':EXAM==='AT'?'📥 AT 큐앱+성적 엑셀 일괄 다운로드':`📊 ${EXAM} 성적 엑셀 일괄 다운로드`}</button>
       <span class="hint">정답키가 등록된 레벨만 · 미응시 노랑 · 재시험 초록</span>
     </div>
-    <div class="dd" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+    <div class="dd" style="flex:1 1 360px;max-width:520px">
       <div class="ddbox" onclick="toggleDD()"><span id="ddLabel">${cur?esc(noDays(cur.dispCode||cur.levelCode))+' · '+esc(classDetail(cur.className)):'<span class=ph>— 반을 선택하세요 —</span>'}</span><span style="color:var(--ink3)">▾</span></div>
       <div class="ddlist" id="ddList" style="display:none"><div class="ddopts">${opts||'<div style="padding:16px" class="hint">대상 반이 없어요</div>'}</div></div>
+    </div>
+    ${(EXAM==='DT'&&cur&&cur.chess)?`<button class="btn" onclick="openDtComment()" title="성적표 코멘트(IMS)에 붙여넣을 레벨 이동 안내문">📝 DT 코멘트</button>`:''}
     </div>
     <div id="gradeArea"></div>`;
   if(CURCLASS){ if(EXAM==='AT') buildAceArea(); else if(EXAM==='내신모의고사') buildNaesinArea(); else buildGrid(); }
@@ -2321,5 +2324,6 @@ async function exportScoresBulk(){
   catch(e){ console.error(e); $('content').innerHTML='<div class="loading" style="color:var(--neg)">데이터를 불러오지 못했어요.<br>'+esc(e.message||e)+'</div>'; }
 })();
 </script>
+<script src="dt-comment.js?v=20261110"></script>
 </body>
 </html>
