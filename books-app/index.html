@@ -1587,7 +1587,7 @@ async function call(action,payload){
       if(payload.type) params+='&type=eq.'+encodeURIComponent(payload.type);
       if(payload.semester) params+='&semester=eq.'+encodeURIComponent(payload.semester);
       if(payload.studentId) params+='&student_id=eq.'+encodeURIComponent(payload.studentId);
-      var d=await sbGet('bk_sales_history',params);
+      var d=await sbGetAll('bk_sales_history',params);
       return {ok:true,data:d.map(function(r){return {'ID':r.id,'바코드':r.barcode,'교재명':r.book_name,'유형':r.type,'수량':r.qty,'단가':r.unit_price,'합계':r.total,'날짜':r.sale_date,'학생ID':r.student_id||'','학생명':r.student_name||'','학기':r.semester||'','반':r.class_name||'','입금상태':r.pay_status||'','메모':r.memo||''};})}; 
     }
     if(action==='cancelSales'){
@@ -1626,7 +1626,7 @@ async function call(action,payload){
       if(payload.semester) params+='&semester=eq.'+encodeURIComponent(payload.semester);
       if(payload.classNum) params+='&class_name=eq.'+encodeURIComponent(payload.classNum);
       if(payload.division) params+='&division=eq.'+encodeURIComponent(payload.division);
-      var d=await sbGet('bk_sales_history',params);
+      var d=await sbGetAll('bk_sales_history',params);
       // payments 합산 (내역 포함)
       // 학기 필터 없을 때: 학생 단위 전체 합산 / 있을 때: 학생+학기 단위
       var hasSem=!!payload.semester;
