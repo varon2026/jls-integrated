@@ -114,6 +114,23 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 .ot-table.wk{font-size:1.25cqw}
 .ot-table.wk tbody th{width:9%}
 
+/* 첫 주 일정 — 과목 이름표 + 교재 + 과제 목록 카드. 원본 표를 사진으로 붙이면 글씨가 너무 작아서 글자로 풀어 쓴 것 */
+.wk{padding:4.2cqw 3cqw 2.6cqw;gap:1.2cqw}
+.wk .bar{padding:1cqw 2cqw;font-size:2.8cqw}
+.wk-grid{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:1.6cqw;flex:1;min-height:0}
+.wk-col{display:flex;flex-direction:column;gap:1cqw;min-width:0}
+.wk-per{background:#EEF3FF;border:1.5px solid #CFDCF7;color:#2E4FA6;font-weight:800;font-size:1.7cqw;text-align:center;padding:.6cqw;border-radius:.8cqw;flex:none}
+.wk-card{border:1.5px solid #CFDCF7;border-radius:.9cqw;padding:.9cqw 1.2cqw;font-size:1.55cqw;line-height:1.42;flex:1 1 auto;min-height:0}
+.wk-tag{display:inline-block;font-weight:800;font-size:1.65cqw;padding:.25cqw 1.1cqw;border-radius:999px;margin-bottom:.5cqw}
+.k-test{background:#FDE2E4;color:#9A2E3E}.k-gram{background:#D9F3E6;color:#1F6B4A}.k-read{background:#E2ECFF;color:#2E4FA6}.k-list{background:#FFF0BD;color:#7A5B00}.k-util{background:#EBDDF7;color:#5B3A86}
+.wk-book{font-weight:800;margin-bottom:.3cqw}
+.wk-l{margin:.1cqw 0}
+.wk-h{display:inline-block;margin-top:.5cqw;font-weight:800;color:#2E4FA6;border-bottom:1.5px solid #CFDCF7}
+.wk-ul{list-style:none;margin:.3cqw 0 0;padding:0}
+.wk-ul li{margin:.2cqw 0;padding-left:1.2cqw;text-indent:-1.2cqw}
+.wk-n{margin-top:.6cqw;padding:.5cqw .8cqw;border-radius:.6cqw;background:#FFF6D6;color:#5C4500;font-size:1.4cqw}
+.wk-foot{margin:0;font-size:1.3cqw;color:#5A6B95;flex:none}
+
 /* 시간표 */
 .time{padding:4.2cqw 4cqw 3.6cqw;display:flex;flex-direction:column;gap:2cqw}
 .time .cols{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2cqw;flex:1;min-height:0}
@@ -172,7 +189,7 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
   .ot-slide.full img{width:1280px}
 }
 </style>
-<script src="default-content.js?v=5"></script>
+<script src="default-content.js?v=10"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -309,7 +326,7 @@ function render(){
 }
 
 /* ---------- 수정 모드 ---------- */
-var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto])';
+var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per';
 function decorateEdit(){
   document.querySelectorAll('.ot-slide').forEach(function(s){
     s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
