@@ -93,6 +93,8 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .g td.qcell.sa.partial input{background:#fff3d6;border-color:#e0a44c;color:#b7791f}
 .g td.sc{font-weight:800;color:var(--brand);background:#faf8ff;min-width:46px}
 .g td.tot{font-weight:800;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2));min-width:56px;width:58px;font-size:14px;position:sticky;right:0;z-index:3}
+body.ro [onclick^="saveScores"],body.ro [onclick^="saveAce"],body.ro [onclick^="saveNaesin"],body.ro .rtbtn,body.ro label:has(input[onchange^="uploadAns"]){display:none !important}
+body.ro .g td.qcell input{background:#fafafa;cursor:default}
 .g th.tot{position:sticky;right:0;z-index:5;background:#f6f3fc}   /* 최종만 오른쪽 끝 고정. 예전엔 right:78px 로 재시험 칸(실제로는 78px보다 넓다) 뒤에 반쯤 가려졌다 */
 /* 답안 입력칸을 5문항씩 끊어 색을 번갈아 칠한다(1~5 흰색 / 6~10 연보라 …) — 40문항을 칠 때 지금 몇 번인지 눈으로 잡기 위함.
    입력칸 자체는 정답·오답 색(초록·빨강)이 쓰고 있어서, 칸 배경(td)만 칠하고 5문항이 시작되는 칸엔 왼쪽 선을 긋는다. */
@@ -403,6 +405,9 @@ function readParams(){const p=new URLSearchParams(location.search);if(p.get('rol
 function isTeacherRO(){ return !!TEACHER; }   // 담임모드 = 읽기전용
 async function loadAll(){
   initSb(); readParams();
+  /* 담임 계정은 보기 전용 — 입력칸·저장·재시험·엑셀 올리기 버튼을 모두 숨기고(.ro), 각 저장 함수도 한 번 더 막는다.
+     예전엔 DT 입력칸만 readonly 였고 AT·ACE 입력칸과 저장 버튼은 열려 있어서 담임이 AT 답안을 입력·저장할 수 있었다. */
+  document.body.classList.toggle('ro',isTeacherRO());
   const [b,st,se]=await Promise.all([sb.from('branches').select('*'),fetchAll('students','id,code,name,school,grade'),sb.from('semesters').select('*')]);
   BRANCHES={}; (b.data||[]).forEach(x=>BRANCHES[x.id]=x.name);
   STUDENTS={}; st.forEach(x=>STUDENTS[x.id]=x);
@@ -1371,6 +1376,7 @@ function reScore(tr){
   else scoreRow(tr);
 }
 function retest(btn){
+  if(isTeacherRO()){toast('담임 계정은 보기만 할 수 있어요',false);return;}
   const tr=btn.closest('tr');
   const anyInput=[...tr.querySelectorAll('td.qcell input')].some(i=>i.value.trim()!=='');
   if(!anyInput){toast('현재 답안을 먼저 입력한 뒤 재시험을 누르세요');return;}
@@ -1401,6 +1407,7 @@ function cancelRetest(btn){
    학생이 없다"고만 뜨고 저장된 성적은 그대로 남음). 그래서 화면 지우기와 DB 삭제를
    버튼 하나로 한 번에 하게 만들었다. */
 async function resetRow(btn){
+  if(isTeacherRO()){toast('담임 계정은 보기만 할 수 있어요',false);return;}
   const tr=btn.closest('tr');
   if(!confirm(`${tr.dataset.name} 학생의 채점을 완전히 지울까요?\n저장된 성적이 있으면 함께 삭제되고, 다시 미채점 상태가 됩니다.`))return;
   if(EXAM==='AT'){
@@ -1435,6 +1442,7 @@ async function toggleOff(code){
   if(error){toast('저장 실패: '+error.message,false);return;}toast(off.has(code)?code+' 미응시':code+' 미응시 해제');render();
 }
 async function saveScores(){
+  if(isTeacherRO()){toast('담임 계정은 보기만 할 수 있어요',false);return;}
   const key=curKey();if(!key){toast('정답키가 없어요',false);return;}const ans=key.answers||[];
   const trs=[...document.querySelectorAll('#gradeArea tbody tr')].filter(tr=>[...tr.querySelectorAll('td.qcell input')].some(i=>i.value.trim()!==''));
   if(!trs.length){toast('입력된 학생이 없어요',false);return;}
@@ -1475,6 +1483,7 @@ function downloadAnsTemplate(){
   XLSX.writeFile(wb,`답안양식_${ctx.label}.xlsx`);toast('답안 양식 다운로드 · 회원코드 기준으로 채워서 올리세요');
 }
 function uploadAns(inp){
+  if(isTeacherRO()){toast('담임 계정은 보기만 할 수 있어요',false);return;}
   const f=inp.files[0];if(!f)return;const ctx=gradeCtx();if(!ctx.ans.length){toast('정답키가 없어요',false);inp.value='';return;}
   const rd=new FileReader();
   rd.onload=()=>{try{
@@ -1589,7 +1598,7 @@ function buildAceGrid(section){
   const cols=ans.length;let body='';
   studs.forEach((r,ri)=>{
     let cells=`<td class="stu"><b>${esc(r.name)}</b><div class="c">${esc(r.school||'')} ${esc(gradeKey(r.grade)||'')} · ${esc(r.code||'')}${ROLE==='admin'&&!BRANCH?' · '+esc(r.branchName):''}</div><div class="hist" style="font-size:11px;font-weight:800;color:var(--brand);margin-top:2px"></div></td>`;
-    ans.forEach((a,ci)=>{const sa=a.type==='sa';cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="${sa?'decimal':'numeric'}" ${sa?'':'maxlength="1"'} ${sa?`placeholder="0~${a.pt||2}"`:''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?`주관식: 획득 점수 입력 (0~${a.pt||2}, 부분점수 가능)`:'객관식: 1~5'}" oninput="onAceCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
+    ans.forEach((a,ci)=>{const sa=a.type==='sa';cells+=`<td class="qcell${sa?' sa':''}" data-n="${a.n}"><input inputmode="${sa?'decimal':'numeric'}" ${sa?'':'maxlength="1"'} ${sa?`placeholder="0~${a.pt||2}"`:''} data-r="${ri}" data-c="${ci}" data-n="${a.n}" title="${sa?`주관식: 획득 점수 입력 (0~${a.pt||2}, 부분점수 가능)`:'객관식: 1~5'}" ${isTeacherRO()?'readonly':''} oninput="onAceCell(this)" onkeydown="navKey(event,this,${cols})"></td>`;});
     cells+=`<td class="tot">0</td><td class="act"><button class="ghost mini rtbtn" onclick="retest(this)">재시험</button>${isTeacherRO()?'':'<button class="ghost mini danger" style="margin-top:4px" onclick="resetRow(this)">초기화</button>'}${examRemoveBtn(r.code)}</td>`;
     body+=`<tr data-code="${esc(r.code)}" data-name="${esc(r.name)}" data-class="${esc(r.className)}" data-branch="${esc(r.branchName)}">${cells}</tr>`;
   });
@@ -1643,6 +1652,7 @@ async function loadAceSummary(){
     <div class="gwrap"><table class="g"><thead><tr class="r1"><th class="stu">학생</th><th>독해<br>/50</th><th>문법<br>/50</th><th>총점<br>/100</th>${subHdr}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 async function saveAce(){
+  if(isTeacherRO()){toast('담임 계정은 보기만 할 수 있어요',false);return;}
   const section=CURTAB;if(section==='총점')return;
   const ans=aceAns(section);if(!ans.length){toast('정답키가 없어요',false);return;}
   const trs=[...document.querySelectorAll('#aceContent tbody tr')].filter(tr=>[...tr.querySelectorAll('td.qcell input')].some(i=>i.value.trim()!==''));
@@ -1891,6 +1901,7 @@ async function loadNaesinSummary(){
     <div class="gwrap"><table class="g"><thead><tr class="r1"><th class="stu" style="${NAESIN_STU_W};${NAESIN_TH}">학생</th><th style="${NAESIN_TH}">지필<br>/${wMax}</th><th style="${NAESIN_TH}">듣기<br>/${lMax}</th><th style="${NAESIN_TH}">수행<br>/${pMax}</th><th style="${NAESIN_TH}">총점<br>/${totMax}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 async function saveNaesin(){
+  if(isTeacherRO()){toast('담임 계정은 보기만 할 수 있어요',false);return;}
   const section=CURTAB;if(section==='총점')return;
   const cls=curClassObj();if(!cls)return;const code=cls.levelCode;
   const ans=naesinAns(section);if(!ans.length){toast('정답키가 없어요',false);return;}
