@@ -116,12 +116,24 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 
 /* 시간표 */
 .time{padding:4.2cqw 4cqw 3.6cqw;display:flex;flex-direction:column;gap:2cqw}
-.time .cols{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2cqw;flex:1}
+.time .cols{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2cqw;flex:1;min-height:0}
 .col{display:flex;flex-direction:column;gap:1.2cqw}
-.col .day{font-family:var(--disp);background:#EEF3FF;border:1.5px solid #CFDCF7;color:#2E4FA6;text-align:center;font-size:3cqw;font-weight:400;padding:1.6cqw;border-radius:1cqw}
-.col .per{background:#F4F6FB;color:#5A6B95;text-align:center;font-size:1.8cqw;font-weight:700;padding:.9cqw;border-radius:.6cqw}
-.col .sub{background:#fff;border:1.5px solid #CFDCF7;color:#1C2A4A;text-align:center;font-size:1.9cqw;padding:1.3cqw 1cqw;border-radius:.6cqw;line-height:1.55;flex:1}
-.col .sub b{color:#D9622B;font-size:2.1cqw}
+.col .day{font-family:var(--disp);background:#EEF3FF;border:1.5px solid #CFDCF7;color:#2E4FA6;text-align:center;font-size:3cqw;font-weight:400;height:7.6cqw;display:flex;align-items:center;justify-content:center;border-radius:1cqw;flex:none}
+.col .per{background:#F4F6FB;color:#5A6B95;text-align:center;font-size:1.8cqw;font-weight:700;height:4cqw;display:flex;align-items:center;justify-content:center;border-radius:.6cqw;flex:none}
+.col .sub{background:#fff;border:1.5px solid #CFDCF7;color:#1C2A4A;text-align:center;font-size:1.8cqw;padding:.8cqw 1cqw;border-radius:.6cqw;line-height:1.45;flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center}
+.col .sub .in{width:100%}
+/* 칸 크기는 글 길이와 상관없이 전부 같게: 과목 칸은 남는 높이를 똑같이 나눠 갖고(flex-basis 0), 요일·교시 띠는 높이를 고정한다.
+   예전엔 글이 두 줄인 칸만 커져서 칸 크기가 들쭉날쭉했다. */
+.col .sub b{color:#D9622B;font-size:2cqw}
+/* 한 칸에 교시가 3개(화목반)거나 아래에 안내 글이 붙는 시간표는 같은 높이 안에 더 많이 들어가야 해서 띠·글자를 조금 줄인다 */
+.time.tight{gap:1.2cqw}
+.time.tight .cols{gap:1.4cqw}
+.time.tight .col{gap:.8cqw}
+.time.tight .col .day{height:4.8cqw;font-size:2.4cqw}
+.time.tight .col .per{height:3cqw;font-size:1.4cqw}
+.time.tight .col .sub{font-size:1.5cqw;padding:.3cqw .8cqw;line-height:1.3}
+.time.tight .col .sub b{font-size:1.7cqw}
+.time.tight .bar{padding:1cqw 2cqw;font-size:2.8cqw}
 .hint-edit{margin:0;color:#7A5B00;background:#FFF6D6;border-radius:.8cqw;padding:.8cqw 1.4cqw;font-size:1.5cqw}
 
 /* 표지·끝 — 흰 바탕에 글자만 */
@@ -160,7 +172,7 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
   .ot-slide.full img{width:1280px}
 }
 </style>
-<script src="default-content.js?v=4"></script>
+<script src="default-content.js?v=5"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -228,6 +240,8 @@ function parseDoc(html,seg){
   d.querySelectorAll('*').forEach(function(n){[].slice.call(n.attributes).forEach(function(a){if(/^on/i.test(a.name)||/^\s*javascript:/i.test(a.value))n.removeAttribute(a.name);});});
   /* 끝 슬라이드 문구: 예전엔 '정상에서 곧 만나요!' — 'ACE 수업에서 만나요!'로 바꿨다(운영자). 이미 저장해 둔 옛 문구도 같이 바꿔 보여준다. */
   d.querySelectorAll('.cover.end h1').forEach(function(h){ if(/정상에서\s*곧\s*만나요/.test(h.textContent)) h.innerHTML='ACE 수업에서<br>만나요!'; });
+  /* 시간표 칸: 과목·교재 글을 한 덩어리(.in)로 감싸 칸 한가운데 두는 모양을 통일한다(저장된 예전 내용도 같이) */
+  d.querySelectorAll('.col .sub').forEach(function(sub){ if(!sub.querySelector(':scope > .in')){ var w=d.createElement('div'); w.className='in'; while(sub.firstChild) w.appendChild(sub.firstChild); sub.appendChild(w); } });
   var out=[].slice.call(d.body.querySelectorAll(':scope > section.ot-slide'));
   out.forEach(function(s){s.setAttribute('data-seg',seg);});
   return out;
