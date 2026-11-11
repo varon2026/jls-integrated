@@ -1291,12 +1291,17 @@ function cellVis(inp){
 /* 칸에 한 글자를 치면 오른쪽 칸으로 자동 이동한다(방향키·Enter는 그대로).
    예전엔 숫자를 칠 때마다 → 를 눌러야 해서 40문항 입력이 느렸다.
    · 사람이 직접 친 입력만 넘긴다(isTrusted) — OMR 스캔이 값을 채울 때는 포커스가 튀면 안 된다.
-   · 한 글자 칸(maxlength=1)만 넘긴다. 0~5.5 같은 부분점수 칸은 몇 글자인지 몰라 넘기지 않는다.
+   · 점수 직접 입력 칸은 숫자 한 자리(또는 .5)면 넘긴다. 1.5 처럼 정수+소수는 한 자리에서 이미 넘어가므로 이 방식으로는 못 친다.
    · 줄 끝에서는 navKey처럼 다음 학생 첫 칸으로 간다. */
 function autoNext(inp){
   const ev=window.event;
   if(!ev||ev.isTrusted===false||ev.isComposing) return;
-  if(inp.readOnly||inp.maxLength!==1||inp.value.length!==1) return;
+  if(inp.readOnly) return;
+  const v=inp.value;
+  /* 한 글자 칸(객관식)은 한 글자면 넘어간다. 점수 직접 입력 칸(ACE·AT 서술형, 부분점수 허용)은 글자 수가 정해져 있지 않아
+     예전엔 안 넘어갔다(AT 문법 21~25번). 숫자 한 자리를 치면 넘어가고, 소수점부터 시작하는 .5 는 숫자까지 치면 넘어간다. */
+  const done=inp.maxLength===1?v.length===1:/^\d$|^\d?\.\d$/.test(v);
+  if(!done) return;
   const cols=inp.closest('tr').querySelectorAll('input[data-c]').length;
   navKey({key:'ArrowRight',preventDefault(){}},inp,cols);
 }
