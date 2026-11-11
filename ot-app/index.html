@@ -118,20 +118,11 @@ ol.items li:nth-child(5n+5)::before{background:#fdb5b5}
 
 /* 표지·끝 */
 .cover{display:grid;place-items:center;text-align:center;color:#fff}
-.cv-in{position:relative;z-index:2;padding-bottom:6cqw}
+.cv-in{position:relative;z-index:2}
 .cover h1{font-family:var(--disp);font-size:6.8cqw;margin:.6cqw 0 0;font-weight:400;line-height:1.2;text-shadow:0 .3cqw 0 rgba(0,0,0,.18)}
 .cover .en{font-size:3.6cqw;font-family:var(--hand);font-weight:700}
 .cls-name{display:inline-block;margin-top:2.4cqw;background:#fff3c9;color:#214e9e;font-family:var(--disp);font-weight:400;font-size:3cqw;padding:.8cqw 3cqw;border-radius:999px}
 .cls-name:empty{display:none}
-.cv-chars{position:absolute;left:0;right:0;bottom:0;height:24%;display:flex;align-items:flex-end;justify-content:center;gap:1cqw;z-index:1;pointer-events:none}
-.cv-chars i{display:block;position:relative;border-radius:50% 50% 0 0;height:100%}
-.cv-chars i::before,.cv-chars i::after{content:"";position:absolute;top:22%;width:16%;height:30%;border-radius:50%;background:#fff;box-shadow:inset -.3cqw -.2cqw 0 #111}
-.cv-chars i::before{left:26%}.cv-chars i::after{left:54%}
-.cv-chars i:nth-child(1){background:#fdb5b5;width:20%;height:110%}
-.cv-chars i:nth-child(2){background:#f9e8a8;width:14%;height:78%}
-.cv-chars i:nth-child(3){background:#aed26a;width:22%;height:84%}
-.cv-chars i:nth-child(4){background:#c09ce0;width:20%;height:100%}
-.cv-chars i:nth-child(5){background:#f45a0a;width:16%;height:92%;border-radius:40% 40% 0 0}
 .cover.mid{background:#fff;color:#214e9e}
 .cover.mid h1{color:#214e9e;text-shadow:none}
 .cover.mid .en{color:#214e9e}
@@ -163,7 +154,7 @@ ol.items li:nth-child(5n+5)::before{background:#fdb5b5}
   .ot-slide.full img{width:1280px}
 }
 </style>
-<script src="default-content.js?v=2"></script>
+<script src="default-content.js?v=3"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -229,6 +220,8 @@ function parseDoc(html,seg){
   var d=new DOMParser().parseFromString('<body>'+html+'</body>','text/html');
   d.querySelectorAll('script,iframe,object,embed,link,style').forEach(function(n){n.remove();});
   d.querySelectorAll('*').forEach(function(n){[].slice.call(n.attributes).forEach(function(a){if(/^on/i.test(a.name)||/^\s*javascript:/i.test(a.value))n.removeAttribute(a.name);});});
+  /* 끝 슬라이드 문구: 예전엔 '정상에서 곧 만나요!' — 'ACE 수업에서 만나요!'로 바꿨다(운영자). 이미 저장해 둔 옛 문구도 같이 바꿔 보여준다. */
+  d.querySelectorAll('.cover.end h1').forEach(function(h){ if(/정상에서\s*곧\s*만나요/.test(h.textContent)) h.innerHTML='ACE 수업에서<br>만나요!'; });
   var out=[].slice.call(d.body.querySelectorAll(':scope > section.ot-slide'));
   out.forEach(function(s){s.setAttribute('data-seg',seg);});
   return out;
@@ -264,9 +257,6 @@ function paintNotice(){
 }
 
 function deco(slide){
-  if(slide.classList.contains('cover')&&!slide.querySelector('.cv-chars')){
-    var c=document.createElement('div');c.className='cv-chars';c.setAttribute('data-deco','1');c.innerHTML='<i></i><i></i><i></i><i></i><i></i>';slide.appendChild(c);
-  }
   var a=slide.querySelector('[data-auto="cls"]');if(a)a.textContent=clsLabel()+' · 진급 OT';
 }
 
