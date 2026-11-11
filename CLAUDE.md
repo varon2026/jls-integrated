@@ -51,8 +51,15 @@ CRLF 파일을 LF로 저장하면 diff가 파일 전체로 번집니다. 편집 
 ```
 index.html  ← 통합관리 (app.js · inwon.js · books.js)
   ├─ 대시보드   인원현황 / 경영분석 / 전형현황 / 반배정표 / 반개설현황(본사만)
-  ├─ 원무       레벨테스트 / 인원현황(아래 iframe) / 시험채점(grader.html)
+  ├─ 원무       레벨테스트 / 신입생 안내
+  ├─ 학사관리   인원현황(아래 iframe) / 시상관리 / 진급 OT 안내(엄윤경 계정만)
+  ├─ 시험       시험채점(grader.html) / 초등5 ACE 진급시험
   └─ 총무       교재관리(books-app) / 운영비(expense-app)
+
+  ※ 원무·학사관리·시험은 예전에 '원무' 한 화면이었다. 지금도 화면(state.view)은 'wonmu' 하나이고
+    어느 묶음인지만 wonmuState.group('wonmu'|'hak'|'exam')으로 들고 있다(`WONMU_GROUPS`·`WONMU_GROUP_OF`·`groupVisible`).
+    허브 카드는 묶음별로 걸러서 보여주고(`renderWonmuHub`의 `G`), 메뉴 권한 키(leveltest·inwon·grading·award)는 그대로다.
+    새 카드를 만들면 어느 묶음에 둘지 `G===…` 조건을 꼭 붙일 것. 안 붙이면 모든 묶음 허브에 뜬다.
 
 inwon-app/index.html  ← 학사관리 (별도 앱)
   통합관리 안에 ?embed=1 iframe 으로 뜹니다.
