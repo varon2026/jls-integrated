@@ -316,6 +316,25 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .imgcard .pics{display:flex;flex-direction:column;gap:2cqw;align-items:stretch}
 .imgcard .pics img.fit{flex:none}
 
+
+/* ---- 운영자 요청 보정 ----
+   · 첫 주 일정: 글자 굵기는 기본(400)으로, 교재·범위·과제 글자 크기는 하나로 통일. 과목 제목(단어 TEST 등)·교시 제목은 그대로.
+     예전엔 교재 줄과 '총 40개 단어' 같은 한두 줄만 굵고 커서 이상해 보였다. */
+.wkp .w2-row,.wkp .w2-book,.wkp .w2-ol li,.wkp .w2-ol.sm li{font-size:calc(2.08cqw*var(--s));font-weight:400}
+.wkp .w2-row b:not(.w2-l),.wkp .w2-ol .pg{font-weight:400}
+.wkp .w2-l{font-weight:400}
+/* 시간표 교시 칸: '1교시' 아래 줄에 시간. 가운데서 어정쩡하게 끊기지 않게 시간은 한 덩어리(parseDoc 이 <br> 를 넣는다) */
+.time .col .per{line-height:1.35;white-space:nowrap}
+/* 노트 두 개를 한 쪽에(.multi) — 02 준비물 + 03 내 교재 */
+.nb.multi{gap:calc(1.8cqw*var(--s))}
+.nbm{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:calc(1.4cqw*var(--s))}
+.nb.multi .nb-l{padding:calc(1.3cqw*var(--s)) 3.4cqw}
+.nb.multi .nb-l h2{font-size:calc(3.3cqw*var(--s))}
+.nb.multi .nb-n{min-width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));font-size:calc(2cqw*var(--s))}
+.nb.multi .nb-r{padding:calc(2cqw*var(--s)) 4cqw}
+.nb.multi ol.items li{font-size:calc(2.3cqw*var(--s));padding-left:calc(5.2cqw*var(--s))}
+.nb.multi ol.items li::before{width:calc(3.6cqw*var(--s));height:calc(3.6cqw*var(--s));font-size:calc(1.6cqw*var(--s))}
+
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -327,7 +346,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=15"></script>
+<script src="default-content.js?v=16"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -397,6 +416,11 @@ function parseDoc(html,seg){
   d.querySelectorAll('.cover.end h1').forEach(function(h){ if(/정상에서\s*곧\s*만나요/.test(h.textContent)) h.innerHTML='ACE 수업에서<br>만나요!'; });
   /* 시간표 칸: 과목·교재 글을 한 덩어리(.in)로 감싸 칸 한가운데 두는 모양을 통일한다(저장된 예전 내용도 같이) */
   d.querySelectorAll('.col .sub').forEach(function(sub){ if(!sub.querySelector(':scope > .in')){ var w=d.createElement('div'); w.className='in'; while(sub.firstChild) w.appendChild(sub.firstChild); sub.appendChild(w); } });
+  /* 시간표 교시 칸: '1교시 (5:50-6:50)' → 1교시 / (5:50 - 6:50) 두 줄. 칸이 좁아 시간 한가운데서 줄이 끊겼다. 저장된 옛 내용도 같이 바꿔 보여준다 */
+  d.querySelectorAll('.time .col .per').forEach(function(p){
+    var m=p.textContent.trim().match(/^(\d+교시)\s*\(\s*([^)]+?)\s*\)$/);
+    if(m)p.innerHTML=m[1]+'<br>('+m[2].replace(/\s*[-–]\s*/,' - ')+')';
+  });
   var out=[].slice.call(d.body.querySelectorAll(':scope > section.ot-slide'));
   out.forEach(function(s){s.setAttribute('data-seg',seg);});
   return out;
@@ -473,7 +497,7 @@ function fitPort(s){
   if(s.matches('.cover,.imgcard,.full'))return;
   var over=function(){
     if(s.scrollHeight>s.clientHeight+1)return true;
-    return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.card-b,.time .cols,.time .col'),function(p){return p.scrollHeight>p.clientHeight+1;});
+    return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.nbm,.card-b,.time .cols,.time .col'),function(p){return p.scrollHeight>p.clientHeight+1;});
   };
   var lo=0.5,hi=s.classList.contains('wkp')?1.9:2.2;
   for(var i=0;i<14;i++){var m=(lo+hi)/2;s.style.setProperty('--s',m);if(over())hi=m;else lo=m;}
