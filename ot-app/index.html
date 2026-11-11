@@ -60,72 +60,78 @@ body{font-family:"NanumSquare","Apple SD Gothic Neo","Malgun Gothic",system-ui,s
 .tip{max-width:900px;margin:22px auto 0;text-align:center;color:#6B7BA0;font-size:13px;font-weight:700}
 @media(max-width:720px){.levels{grid-template-columns:repeat(2,1fr);gap:14px}.lv b{font-size:26px}}
 
-/* ---------- 슬라이드 ---------- */
-.ot-slide{font-family:inherit;container-type:inline-size;position:relative;width:100%;max-width:1100px;margin:0 auto 22px;aspect-ratio:16/9;background:#5387e4;border-radius:14px;overflow:hidden;color:#1d2f66;box-shadow:0 6px 24px rgba(33,78,158,.18);font-size:2cqw;line-height:1.4}
-.ot-slide.full{aspect-ratio:auto;background:#5387e4}
+/* ---------- 슬라이드 ----------
+   인쇄 잉크를 아끼려고 바탕은 흰색, 색은 연한 파스텔로만 쓴다(예전엔 바탕이 전부 파랑이라 잉크를 많이 먹었다).
+   위쪽 가는 색줄과 연한 제목 띠 정도만 색이 들어간다. 진한 파랑은 글자·테두리에만 쓴다. */
+.ot-slide{font-family:inherit;container-type:inline-size;position:relative;width:100%;max-width:1100px;margin:0 auto 22px;aspect-ratio:16/9;background:#fff;border:1px solid #CFDCF7;border-radius:14px;overflow:hidden;color:#1C2A4A;box-shadow:0 4px 16px rgba(46,79,166,.10);font-size:2cqw;line-height:1.4}
+.ot-slide:not(.full)::before{content:"";position:absolute;left:0;right:0;top:0;height:1.3cqw;background:linear-gradient(90deg,#FDB5B5 0 20%,#F9E8A8 20% 40%,#AED26A 40% 60%,#9DB8F0 60% 80%,#C09CE0 80%)}
+.ot-slide.full{aspect-ratio:auto}
 .ot-slide.full img{display:block;width:100%;height:auto}
 .ot-slide [contenteditable]{outline:none}
 .editing .ot-slide [contenteditable="true"]:hover{outline:2px dashed #8fb4f5;outline-offset:2px}
 .editing .ot-slide [contenteditable="true"]:focus{outline:2px solid #ffb400;outline-offset:2px;background:rgba(255,248,220,.6)}
 
-/* 노트형: 왼쪽 파란 제목판 + 오른쪽 흰 칸 */
-.nb{display:grid;grid-template-columns:27% 1fr;gap:2cqw;padding:3.6cqw 4cqw}
-.nb-l{background:#214e9e;border-radius:1.2cqw;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3cqw 1.6cqw}
-.nb-n{background:#8fb4f5;color:#214e9e;border-radius:50%;min-width:4.4cqw;height:4.4cqw;display:grid;place-items:center;font-size:2cqw;font-weight:800;padding:0 .6cqw}
+/* 노트형: 왼쪽 연한 제목판 + 오른쪽 칸 */
+.nb{display:grid;grid-template-columns:27% 1fr;gap:2cqw;padding:4.2cqw 4cqw 3.6cqw}
+.nb-l{background:#EEF3FF;border:1.5px solid #CFDCF7;border-radius:1.2cqw;color:#2E4FA6;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3cqw 1.6cqw}
+.nb-n{background:#FDE2E4;color:#9A2E3E;border-radius:50%;min-width:4.4cqw;height:4.4cqw;display:grid;place-items:center;font-size:2cqw;font-weight:800;padding:0 .6cqw}
 .nb-l h2{font-family:var(--disp);font-size:3.5cqw;line-height:1.3;margin:1.6cqw 0 0;font-weight:400}
-.nb-r{background:#fff;border-radius:1.2cqw;padding:2.8cqw 3.2cqw;display:flex;flex-direction:column;justify-content:center;gap:1.4cqw;min-width:0}
+.nb-r{background:#fff;border:1.5px solid #CFDCF7;border-radius:1.2cqw;padding:2.8cqw 3.2cqw;display:flex;flex-direction:column;justify-content:center;gap:1.4cqw;min-width:0}
 ol.items{counter-reset:c;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1.3cqw}
-ol.items li{counter-increment:c;position:relative;padding-left:5.4cqw;font-size:2.8cqw;font-weight:700;line-height:1.45;color:#1b2f6b}
-ol.items li::before{content:counter(c,decimal-leading-zero);position:absolute;left:0;top:.05em;width:3.9cqw;height:3.9cqw;border-radius:50%;display:grid;place-items:center;font-size:1.7cqw;font-weight:800;background:#fdb5b5;color:#214e9e}
-ol.items li:nth-child(5n+2)::before{background:#f9e8a8}
-ol.items li:nth-child(5n+3)::before{background:#a9ebd3}
-ol.items li:nth-child(5n+4)::before{background:#f9e8a8}
-ol.items li:nth-child(5n+5)::before{background:#fdb5b5}
+ol.items li{counter-increment:c;position:relative;padding-left:5.4cqw;font-size:2.8cqw;font-weight:700;line-height:1.45;color:#1C2A4A}
+ol.items li::before{content:counter(c,decimal-leading-zero);position:absolute;left:0;top:.05em;width:3.9cqw;height:3.9cqw;border-radius:50%;display:grid;place-items:center;font-size:1.7cqw;font-weight:800;background:#FDE2E4;color:#9A2E3E}
+ol.items li:nth-child(5n+2)::before{background:#FFF0BD;color:#7A5B00}
+ol.items li:nth-child(5n+3)::before{background:#D9F3E6;color:#1F6B4A}
+ol.items li:nth-child(5n+4)::before{background:#FFF0BD;color:#7A5B00}
+ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 .nb.big ol.items li{font-size:3.6cqw}
 .nb-r img{max-width:100%;display:block;border-radius:.8cqw;margin:0 auto}
 .nb.imgonly .nb-r{justify-content:center;padding:1.6cqw}
 .nb.imgonly .nb-r img{width:100%;max-height:100%;object-fit:contain}
 .nb.tall .nb-r img{width:auto;height:100%;max-height:48cqw}
-.hl{margin-top:1cqw;padding:1.4cqw 2cqw;border-radius:1cqw;background:#fff3c9;font-size:2.5cqw;font-weight:700;line-height:1.6}
+.hl{margin-top:1cqw;padding:1.4cqw 2cqw;border-radius:1cqw;background:#FFF6D6;font-size:2.5cqw;font-weight:700;line-height:1.6}
 
-/* 카드형: 파란 제목 띠 + 흰 본문 */
-.card{padding:3.6cqw 4cqw;display:flex;flex-direction:column;gap:2cqw}
-.bar{background:#214e9e;color:#fff;border-radius:1.2cqw;text-align:center;padding:1.5cqw 2cqw;font-size:3.3cqw;margin:0;font-weight:400;font-family:var(--disp)}
-.bar .n{background:#8fb4f5;color:#214e9e;border-radius:50%;display:inline-grid;place-items:center;min-width:3.6cqw;height:3.6cqw;font-size:1.8cqw;margin-right:1.4cqw;vertical-align:middle;padding:0 .5cqw}
-.card-b{background:#fff;border-radius:1.2cqw;padding:2.4cqw 3.2cqw;flex:1;min-width:0}
+/* 카드형: 연한 제목 띠 + 본문 */
+.card{padding:4.2cqw 4cqw 3.6cqw;display:flex;flex-direction:column;gap:2cqw}
+.bar{background:#EEF3FF;border:1.5px solid #CFDCF7;color:#2E4FA6;border-radius:1.2cqw;text-align:center;padding:1.5cqw 2cqw;font-size:3.3cqw;margin:0;font-weight:400;font-family:var(--disp)}
+.bar .n{background:#FDE2E4;color:#9A2E3E;border-radius:50%;display:inline-grid;place-items:center;min-width:3.6cqw;height:3.6cqw;font-size:1.8cqw;margin-right:1.4cqw;vertical-align:middle;padding:0 .5cqw}
+.card-b{background:#fff;border:1.5px solid #CFDCF7;border-radius:1.2cqw;padding:2.4cqw 3.2cqw;flex:1;min-width:0}
 .card-b ol.items{gap:1.5cqw}
 .pics img{display:block;max-width:100%;margin:0 auto;border-radius:.8cqw}
 .pics img.wide{width:100%}
+/* 사진·표만 크게 올리는 카드(첫 주 일정·시험지 부착 위치) — 슬라이드 한 장 안에 들어가게 여백을 줄인다 */
+.imgcard{padding:3.2cqw 2.6cqw 1.8cqw;gap:1.2cqw}
+.imgcard .bar{padding:.9cqw 2cqw;font-size:2.7cqw}
+.imgcard .card-b{padding:.8cqw;display:grid;place-items:center}
+.pics img.fit{width:auto;max-width:100%;max-height:44cqw;border-radius:0}
 .caps{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:1.6cqw;list-style:none;padding:0;margin:1.2cqw 0 0;font-size:1.7cqw;font-weight:700;text-align:center}
 .msg{font-size:2.9cqw;line-height:1.8;font-weight:600;padding:1cqw 1cqw}
 .msg i{display:block;margin:1cqw 0;color:#5a6d9d;font-style:normal;font-size:2.5cqw}
 .ot-table{width:100%;border-collapse:collapse;font-size:1.85cqw;line-height:1.5}
 .ot-table th,.ot-table td{border:1px solid #cfd8ef;padding:.9cqw 1.2cqw;vertical-align:top;text-align:left}
-.ot-table thead th{background:#e4ecfb;text-align:center;font-weight:800}
-.ot-table tbody th{background:#f1f5fd;white-space:nowrap}
+.ot-table thead th{background:#EEF3FF;text-align:center;font-weight:800}
+.ot-table tbody th{background:#F7F9FE;white-space:nowrap}
 .ot-table.wk{font-size:1.25cqw}
 .ot-table.wk tbody th{width:9%}
 
 /* 시간표 */
-.time{padding:3.6cqw 4cqw;display:flex;flex-direction:column;gap:2cqw}
+.time{padding:4.2cqw 4cqw 3.6cqw;display:flex;flex-direction:column;gap:2cqw}
 .time .cols{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2cqw;flex:1}
 .col{display:flex;flex-direction:column;gap:1.2cqw}
-.col .day{font-family:var(--disp);background:#214e9e;color:#fff;text-align:center;font-size:3cqw;font-weight:400;padding:1.8cqw;border-radius:1cqw}
-.col .per{background:#5b86d6;color:#fff;text-align:center;font-size:1.8cqw;font-weight:700;padding:.9cqw;border-radius:.6cqw}
-.col .sub{background:#2e63c7;color:#fff;text-align:center;font-size:1.9cqw;padding:1.3cqw 1cqw;border-radius:.6cqw;line-height:1.55;flex:1}
-.col .sub b{color:#fff35c;font-size:2.1cqw}
-.hint-edit{margin:0;color:#fff;font-size:1.5cqw;opacity:.9}
+.col .day{font-family:var(--disp);background:#EEF3FF;border:1.5px solid #CFDCF7;color:#2E4FA6;text-align:center;font-size:3cqw;font-weight:400;padding:1.6cqw;border-radius:1cqw}
+.col .per{background:#F4F6FB;color:#5A6B95;text-align:center;font-size:1.8cqw;font-weight:700;padding:.9cqw;border-radius:.6cqw}
+.col .sub{background:#fff;border:1.5px solid #CFDCF7;color:#1C2A4A;text-align:center;font-size:1.9cqw;padding:1.3cqw 1cqw;border-radius:.6cqw;line-height:1.55;flex:1}
+.col .sub b{color:#D9622B;font-size:2.1cqw}
+.hint-edit{margin:0;color:#7A5B00;background:#FFF6D6;border-radius:.8cqw;padding:.8cqw 1.4cqw;font-size:1.5cqw}
 
-/* 표지·끝 */
-.cover{display:grid;place-items:center;text-align:center;color:#fff}
+/* 표지·끝 — 흰 바탕에 글자만 */
+.cover{display:grid;place-items:center;text-align:center;color:#2E4FA6}
+.cover::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.3cqw;background:linear-gradient(90deg,#FDB5B5 0 20%,#F9E8A8 20% 40%,#AED26A 40% 60%,#9DB8F0 60% 80%,#C09CE0 80%)}
 .cv-in{position:relative;z-index:2}
-.cover h1{font-family:var(--disp);font-size:6.8cqw;margin:.6cqw 0 0;font-weight:400;line-height:1.2;text-shadow:0 .3cqw 0 rgba(0,0,0,.18)}
-.cover .en{font-size:3.6cqw;font-family:var(--hand);font-weight:700}
-.cls-name{display:inline-block;margin-top:2.4cqw;background:#fff3c9;color:#214e9e;font-family:var(--disp);font-weight:400;font-size:3cqw;padding:.8cqw 3cqw;border-radius:999px}
+.cover h1{font-family:var(--disp);font-size:6.8cqw;margin:.6cqw 0 0;font-weight:400;line-height:1.2;color:#2E4FA6}
+.cover .en{font-size:3.6cqw;font-family:var(--hand);font-weight:700;color:#E8693A}
+.cls-name{display:inline-block;margin-top:2.4cqw;background:#FFF3C9;color:#2E4FA6;font-family:var(--disp);font-weight:400;font-size:3cqw;padding:.8cqw 3cqw;border-radius:999px}
 .cls-name:empty{display:none}
-.cover.mid{background:#fff;color:#214e9e}
-.cover.mid h1{color:#214e9e;text-shadow:none}
-.cover.mid .en{color:#214e9e}
 
 /* ---------- 수정 모드 ---------- */
 .seglab,.ot-tools{display:none}
@@ -154,7 +160,7 @@ ol.items li:nth-child(5n+5)::before{background:#fdb5b5}
   .ot-slide.full img{width:1280px}
 }
 </style>
-<script src="default-content.js?v=3"></script>
+<script src="default-content.js?v=4"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -346,10 +352,10 @@ function decorateOne(s){
 }
 function decorateEditIn(el){el.querySelectorAll('td,th').forEach(function(c){c.setAttribute('contenteditable','true');});}
 function newSlide(kind,seg){
-  var s=document.createElement('section');s.className='ot-slide '+(kind==='shot'?'card':kind);s.setAttribute('data-seg',seg);
+  var s=document.createElement('section');s.className='ot-slide '+(kind==='shot'?'card imgcard':kind);s.setAttribute('data-seg',seg);
   if(kind==='nb') s.innerHTML='<div class="nb-l"><span class="nb-n">00</span><h2>제목</h2></div><div class="nb-r"><ol class="items"><li>내용을 적어 주세요</li><li>내용을 적어 주세요</li><li>내용을 적어 주세요</li></ol></div>';
   else if(kind==='card') s.innerHTML='<h2 class="bar">제목</h2><div class="card-b"><ol class="items plain"><li>내용을 적어 주세요</li><li>내용을 적어 주세요</li></ol></div>';
-  else s.innerHTML='<h2 class="bar">제목</h2><div class="card-b"><div class="pics"><img class="wide" src="" alt="사진을 눌러 바꿔 주세요" style="min-height:14cqw;background:#e4ecfb"></div></div>';
+  else s.innerHTML='<h2 class="bar">제목</h2><div class="card-b"><div class="pics"><img class="fit" src="" alt="사진을 눌러 바꿔 주세요" style="min-height:14cqw;min-width:30cqw;background:#EEF3FF"></div></div>';
   return s;
 }
 function fmt(cmd,val){document.execCommand(cmd,false,val||null);DIRTY=true;}
