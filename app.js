@@ -264,13 +264,11 @@ function permOf(role){ const saved=loadPerms(); return saved[role] || ROLE_PRESE
 const ALL_MENUS=['dashboard','leveltest','inwon','grading','award','chongmu','insa','unyoung'];
 const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황','inwon.roster':'신규·퇴원명단','inwon.closing':'인원마감표','inwon.students':'학생관리','inwon.segments':'세그먼트공지','inwon.accounts':'계정관리','inwon.data':'데이터관리','inwon.retest':'미통과 관리','inwon.retestup':'성적 올리기',grading:'시험채점',award:'시상관리',chongmu:'교재관리',insa:'인사',unyoung:'운영비'};
 /* ===== 직급(title) & 권한 프리셋 (계정 시스템 v2) ===== */
-// 메뉴 트리(계층): 대시보드 / 원무[레벨테스트] / 학사관리[인원현황(6세부)·시상관리] / 시험[시험채점] / 총무[교재관리·운영비] / 인사
+// 메뉴 트리(계층): 대시보드 / 원무(레벨테스트) / 학사관리[인원현황(6세부)·시상관리] / 시험(시험채점) / 총무[교재관리·운영비] / 인사
 // 원무·총무는 k 없는 '묶음'(권한 아님, 접기/펴기만). 실제 권한은 그 밑 항목들.
 const MENU_TREE=[
   {k:'dashboard',label:'대시보드'},
-  {label:'원무',sub:[
-    {k:'leveltest',label:'레벨테스트'},
-  ]},
+  {k:'leveltest',label:'원무 · 레벨테스트'},   // 항목이 하나뿐인 묶음은 칩 하나로 바로 체크(한 번 더 안 눌러도 되게)
   {label:'학사관리',sub:[
     {k:'inwon',label:'인원현황',sub:[
       {k:'inwon.roster',  label:'신규·퇴원명단'},
@@ -286,9 +284,7 @@ const MENU_TREE=[
     ]},
     {k:'award',label:'시상관리'},
   ]},
-  {label:'시험',sub:[
-    {k:'grading',label:'시험채점'},
-  ]},
+  {k:'grading',label:'시험 · 시험채점'},
   {label:'총무',sub:[
     {k:'chongmu',label:'교재관리'},
     {k:'unyoung',label:'운영비'},
