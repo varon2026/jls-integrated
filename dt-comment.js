@@ -127,6 +127,9 @@ function nextSemId(id){
   return `sem_${s.y}_${ord[i+1]}`;
 }
 function nextLevel(lv){const i=LEVELS.indexOf(lv);return i>=0&&i<LEVELS.length-1?LEVELS[i+1]:'';}
+/* 문법교재 칸에 이 값이 저장돼 있으면 '문법수업' 줄을 코멘트에서 통째로 뺀다(분원이 그 레벨에 문법수업을 안 할 때).
+   새 표 칸 없이 기존 book 칸에 넣는다 — 표를 고치지 않아도 되도록. */
+const GR_NONE='__none';
 function grammarFor(branch,lv){return OVR[branch+'|'+lv]||GR_DEFAULT[lv]||'';}
 
 /* CHESS 코멘트 만들기 — 맨 윗줄 + (엑셀 본문, 문법교재만 교체) */
@@ -134,6 +137,11 @@ function chessText(cur,next,branch,pending){
   const tpl=TPL[next];if(!tpl)return '';
   const book=pending!=null?pending:grammarFor(branch,next);
   let body=tpl;
+  if(book===GR_NONE){
+    /* 문법수업 줄 삭제. 예전엔 지울 방법이 없어서 안 하는 분원도 교재 이름이 코멘트에 그대로 나갔다. */
+    body=body.replace(/\n?[^\n]*\{GRAMMAR\}[^\n]*/,'');   // '문법수업' '문법 수업' '문법수업:' 표기가 레벨마다 달라서 {GRAMMAR} 가 든 줄 전체를 뺀다
+    return `${semLabel(SEM)} ${cur} → ${semLabel(nextSemId(SEM))} ${next}\n\n`+body.replace(/\s+$/,'');
+  }
   if(body.indexOf('{GRAMMAR}')<0){
     /* 엑셀 본문에 문법수업 줄이 없던 레벨(DSA1·DSA2)은 새 표에 문법교재가 생겼으므로 마지막 번호 다음 줄로 덧붙인다 */
     if(book){const nums=[...body.matchAll(/^\s*(\d+)\.\s/gm)].map(m=>+m[1]);body+='\n'+((nums.length?Math.max.apply(null,nums):0)+1)+'. 문법수업 : {GRAMMAR}';}
@@ -222,12 +230,12 @@ function render(){
 function grammarEditor(cls,next){
   const saved=OVR[cls.branchId+'|'+next];
   const effective=ST.pending!=null?ST.pending:(saved||GR_DEFAULT[next]||'');
-  const list=GR_CHOICES.slice();if(effective&&list.indexOf(effective)<0)list.push(effective);
+  const list=GR_CHOICES.slice();if(effective&&effective!==GR_NONE&&list.indexOf(effective)<0)list.push(effective);
   const brName=(typeof BRANCHES==='object'&&BRANCHES[cls.branchId])||cls.branchName||'';
-  const opts=list.map(b=>`<option value="${E(b)}" ${b===effective?'selected':''}>${E(b)}${b===GR_DEFAULT[next]?' (기본)':''}</option>`).join('')+'<option value="__custom">직접 입력…</option>';
+  const opts=list.map(b=>`<option value="${E(b)}" ${b===effective?'selected':''}>${E(b)}${b===GR_DEFAULT[next]?' (기본)':''}</option>`).join('')+`<option value="${GR_NONE}" ${effective===GR_NONE?'selected':''}>문법수업 안 함 (이 줄 빼기)</option><option value="__custom">직접 입력…</option>`;
   const changed=ST.pending!=null&&ST.pending!==(saved||GR_DEFAULT[next]||'');
   return `<div style="margin-top:18px;padding:14px 16px;border:1px dashed var(--brand);border-radius:12px;background:#fcfbff">
-    <div style="font-size:13px;font-weight:800;color:var(--ink2)">문법교재 · ${E(next)} · ${E(brName)}${saved?' <span style="color:var(--brand)">(이 분원 설정 사용 중)</span>':''}</div>
+    <div style="font-size:13px;font-weight:800;color:var(--ink2)">문법교재 · ${E(next)} · ${E(brName)}${saved?(saved===GR_NONE?' <span style="color:var(--brand)">(이 분원: 문법수업 안 함)</span>':' <span style="color:var(--brand)">(이 분원 설정 사용 중)</span>'):''}</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
       <select onchange="DTC.pickGrammar(this.value)" style="font:inherit;font-weight:700;font-size:13.5px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;cursor:pointer;min-width:260px">${opts}</select>
       <button class="btn mini" ${changed?'':'disabled'} onclick="DTC.saveGrammar()" style="padding:8px 14px;${changed?'':'opacity:.45;cursor:default'}">저장</button>
