@@ -99,7 +99,12 @@ const ACE=[
   "body": "■수업시간: 화목 1부 15:30~18:30(180')\n\n■교재\n- 독해/듣기 : NEW Total English Map Basic A1~A3\n- 문법 : Grammar Map Basic A1 + Work Book (기본편)\n- 활용 : Careers & Inspiring People (Foundation)\n\n■단어시험: 화요일: 독해단어 40개 + 활용단어 40개시험 / 목요일: 독해단어 40개"
  },
  {
-  "label": "PA2 반",
+  "label": "PA2 반 (월수금)",
+  "name": "Pre Ace2",
+  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해/듣기 : NEW Total English Map Inter B1~B3\n- 문법 : NEW Grammar Map Basic A + New Grammar Map Basic A Work Book (기본편)\n- 활용 : Science & Technology (Explorer)\n\n■단어시험: 일일 40개 시험"
+ },
+ {
+  "label": "PA2 반 (화목)",
   "name": "Pre Ace2",
   "body": "■수업시간 : 화목 1부 15:30~18:30(180')\n\n■교재\n- 독해/듣기 : NEW Total English Map Inter B1~B3\n- 문법 : NEW Grammar Map Basic A + New Grammar Map Basic A Work Book (기본편)\n- 활용 : Science & Technology (Explorer)\n\n■단어시험: 화요일: 독해단어 40개 + 활용단어 50개시험 / 목요일: 독해단어 40개"
  }
@@ -107,7 +112,9 @@ const ACE=[
 
 let OVR={};          // 'branchId|LEVEL' -> 분원이 고른 문법교재
 let TABLE_OK=true;   // dt_comment_grammar 표가 있는지 (없으면 저장을 막고 알린다)
-let ST={cls:null,tab:'chess',next:'',ace:0,pending:null};
+let TXT={};          // 'branchId|CHESS|DSB1' / 'branchId|ACE|PA1 반 (월수금)' -> 분원이 고쳐 저장한 코멘트 본문(맨 윗줄 제외)
+let TEXT_OK=true;    // dt_comment_text 표가 있는지 (없으면 저장을 막고 알린다)
+let ST={cls:null,tab:'chess',next:'',ace:0,pending:null,edit:null};
 
 const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const yy=n=>String(n).slice(-2);
@@ -134,7 +141,8 @@ function grammarFor(branch,lv){return OVR[branch+'|'+lv]||GR_DEFAULT[lv]||'';}
 
 /* CHESS 코멘트 만들기 — 맨 윗줄 + (엑셀 본문, 문법교재만 교체) */
 function chessText(cur,next,branch,pending){
-  const tpl=TPL[next];if(!tpl)return '';
+  const ov=TXT[branch+'|CHESS|'+next];   // 분원이 고쳐 저장한 본문이 있으면 그것을 쓴다
+  const tpl=ov!=null?ov:TPL[next];if(!tpl)return '';
   const book=pending!=null?pending:grammarFor(branch,next);
   let body=tpl;
   if(book===GR_NONE){
@@ -142,7 +150,7 @@ function chessText(cur,next,branch,pending){
     body=body.replace(/\n?[^\n]*\{GRAMMAR\}[^\n]*/,'');   // '문법수업' '문법 수업' '문법수업:' 표기가 레벨마다 달라서 {GRAMMAR} 가 든 줄 전체를 뺀다
     return `${semLabel(SEM)} ${cur} → ${semLabel(nextSemId(SEM))} ${next}\n\n`+body.replace(/\s+$/,'');
   }
-  if(body.indexOf('{GRAMMAR}')<0){
+  if(ov==null&&body.indexOf('{GRAMMAR}')<0){
     /* 엑셀 본문에 문법수업 줄이 없던 레벨(DSA1·DSA2)은 새 표에 문법교재가 생겼으므로 마지막 번호 다음 줄로 덧붙인다 */
     if(book){const nums=[...body.matchAll(/^\s*(\d+)\.\s/gm)].map(m=>+m[1]);body+='\n'+((nums.length?Math.max.apply(null,nums):0)+1)+'. 문법수업 : {GRAMMAR}';}
   }
@@ -150,9 +158,10 @@ function chessText(cur,next,branch,pending){
   const head=`${semLabel(SEM)} ${cur} → ${semLabel(nextSemId(SEM))} ${next}`;
   return head+'\n\n'+body;
 }
-function aceText(i){
+function aceText(i,branch){
   const a=ACE[i];if(!a)return '';
-  return `${semLabel(SEM)} CHESS → ${semLabel(nextSemId(SEM))} ACE ${a.name}\n\n${a.body}`;
+  const ov=branch!=null?TXT[branch+'|ACE|'+a.label]:null;
+  return `${semLabel(SEM)} CHESS → ${semLabel(nextSemId(SEM))} ACE ${a.name}\n\n${ov!=null?ov:a.body}`;
 }
 
 async function loadOvr(){
@@ -161,6 +170,11 @@ async function loadOvr(){
     if(error){TABLE_OK=false;return;}
     TABLE_OK=true;OVR={};(data||[]).forEach(r=>{OVR[r.branch_id+'|'+r.level_code]=r.book;});
   }catch(e){TABLE_OK=false;}
+  try{
+    const {data,error}=await sb.from('dt_comment_text').select('*');
+    if(error){TEXT_OK=false;return;}
+    TEXT_OK=true;TXT={};(data||[]).forEach(r=>{TXT[r.branch_id+'|'+r.text_key]=r.body;});
+  }catch(e){TEXT_OK=false;}
 }
 
 function canEdit(){return !isTeacherRO();}   // 담임은 복사만. 본사·분원 계정은 문법교재를 고를 수 있다
@@ -198,8 +212,7 @@ function render(){
         <select onchange="DTC.setNext(this.value)" style="font:inherit;font-weight:800;font-size:14px;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:#fff;cursor:pointer">${opts}</select>
         <span style="font-size:12px;color:var(--ink3)">점프·스테이 학생은 진행 레벨을 확인해서 골라주세요</span>
       </div>
-      ${next?`<pre id="dtcText" style="white-space:pre-wrap;word-break:keep-all;background:#faf8ff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:0;font:inherit;font-size:14px;line-height:1.65;max-height:48vh;overflow:auto;user-select:all">${E(text)}</pre>
-      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn" onclick="DTC.copy()">📋 코멘트 복사하기</button></div>`
+      ${next?previewBlock(text,'CHESS|'+next,true)
       :`<div style="padding:18px;background:var(--warn-s);color:var(--warn);border-radius:12px;font-weight:700;font-size:13.5px">${E(cur)} 다음 레벨이 정해져 있지 않아요. 위에서 레벨을 골라주세요.</div>`}
       ${grNote}`;
   }else{
@@ -210,8 +223,7 @@ function render(){
         <select onchange="DTC.setAce(+this.value)" style="font:inherit;font-weight:800;font-size:14px;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:#fff;cursor:pointer">${opts}</select>
         <span style="font-size:12px;color:var(--ink3)">5학년 이관 결과에서 학생이 배정된 반을 골라주세요</span>
       </div>
-      <pre id="dtcText" style="white-space:pre-wrap;word-break:keep-all;background:#faf8ff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:0;font:inherit;font-size:14px;line-height:1.65;max-height:52vh;overflow:auto;user-select:all">${E(aceText(ST.ace))}</pre>
-      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn" onclick="DTC.copy()">📋 코멘트 복사하기</button></div>`;
+      ${previewBlock(aceText(ST.ace,cls.branchId),'ACE|'+(ACE[ST.ace]||{}).label,false)}`;
   }
   m.innerHTML=`<div style="background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(60,50,110,.3);width:min(760px,100%);padding:22px 26px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -224,6 +236,63 @@ function render(){
     <div style="display:flex;gap:8px;margin-top:14px">${tabBtn('chess','CHESS 코멘트')}${tabBtn('ace','ACE 코멘트')}</div>
     ${panel}
   </div>`;
+}
+
+/* 코멘트 미리보기 + (본사·분원 계정만) 수정/저장.
+   맨 윗줄(학기·레벨)은 자동이라 고치지 않고, 그 아래 본문만 분원별로 고쳐 저장한다.
+   예전엔 본문이 코드에 박혀 있어 문구가 바뀔 때마다 코드를 고쳐야 했다. */
+function defaultBodyOf(key){
+  if(key.indexOf('CHESS|')===0){
+    /* 엑셀 본문에 문법수업 줄이 없던 레벨(DSA1·DSA2)은 지금 화면에 보이는 것과 같게 줄을 붙여서 고치기 시작한다 */
+    const lv=key.slice(6);let t=TPL[lv]||'';
+    if(t&&t.indexOf('{GRAMMAR}')<0&&grammarFor(ST.cls.branchId,lv)){const nums=[...t.matchAll(/^\s*(\d+)\.\s/gm)].map(m=>+m[1]);t+='\n'+((nums.length?Math.max.apply(null,nums):0)+1)+'. 문법수업 : {GRAMMAR}';}
+    return t;
+  }
+  const a=ACE.find(x=>'ACE|'+x.label===key);return a?a.body:'';
+}
+function previewBlock(text,key,isChess){
+  const cls=ST.cls,tk=cls.branchId+'|'+key,ov=TXT[tk];
+  const tag=ov!=null?'<span style="font-size:12px;font-weight:800;color:var(--brand)">이 분원 수정본 사용 중</span>':'';
+  if(ST.edit&&ST.edit.key===key){
+    const head=String(text).split('\n\n')[0];
+    return `<div style="font-size:13.5px;font-weight:700;color:var(--ink2);padding:10px 14px;background:#f3f1fa;border-radius:10px 10px 0 0;border:1px solid var(--line);border-bottom:0">${E(head)} <span style="font-weight:600;color:var(--ink3);font-size:12px">← 맨 윗줄은 학기·레벨에 맞춰 자동으로 들어가요</span></div>
+      <textarea id="dtcEdit" oninput="DTC.draft(this.value)" style="width:100%;box-sizing:border-box;min-height:300px;font:inherit;font-size:14px;line-height:1.65;border:1px solid var(--brand);border-radius:0 0 12px 12px;padding:14px 16px;resize:vertical">${E(ST.edit.draft)}</textarea>
+      <div style="font-size:12px;color:var(--ink3);margin-top:6px;line-height:1.6">${isChess?'문법교재가 들어갈 자리는 <b>{GRAMMAR}</b> 라고 적어두세요. 아래 [문법교재] 드롭다운에서 고른 교재가 그 자리에 들어가요. ':''}${TEXT_OK?'저장하면 이 분원 담임 선생님이 복사하는 코멘트가 바로 바뀌어요.':'<b style="color:var(--warn)">저장 표가 아직 없어요 — sql/dt_comment_text.sql 을 Supabase에서 한 번 실행해주세요. (지금은 저장이 안 돼요)</b>'}</div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="ghost" onclick="DTC.cancelEdit()">취소</button><button class="btn" onclick="DTC.saveText()">💾 저장</button></div>`;
+  }
+  const ed=canEdit()?`<button class="ghost mini" onclick="DTC.startEdit()">✏️ 수정</button>${ov!=null?'<button class="ghost mini" onclick="DTC.resetText()">기본 문구로</button>':''}`:'';
+  return `<pre id="dtcText" style="white-space:pre-wrap;word-break:keep-all;background:#faf8ff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:0;font:inherit;font-size:14px;line-height:1.65;max-height:48vh;overflow:auto;user-select:all">${E(text)}</pre>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px"><div style="display:flex;align-items:center;gap:8px;flex:1">${ed}${tag}</div><button class="btn" onclick="DTC.copy()">📋 코멘트 복사하기</button></div>`;
+}
+function guardEdit(){
+  if(!ST.edit)return true;
+  const key=ST.edit.key,cur=TXT[ST.cls.branchId+'|'+key],base=cur!=null?cur:defaultBodyOf(key);
+  if(ST.edit.draft!==base&&!confirm('고치던 코멘트가 저장되지 않았어요. 버리고 넘어갈까요?'))return false;
+  ST.edit=null;return true;
+}
+function curKey(){return ST.tab==='ace'?'ACE|'+(ACE[ST.ace]||{}).label:'CHESS|'+ST.next;}
+function startEdit(){
+  if(!canEdit()||!ST.cls)return;
+  const key=curKey(),ov=TXT[ST.cls.branchId+'|'+key];
+  ST.edit={key,draft:ov!=null?ov:defaultBodyOf(key)};render();
+}
+async function saveText(){
+  const cls=ST.cls;if(!canEdit()||!cls||!ST.edit)return;
+  const key=ST.edit.key,body=ST.edit.draft.replace(/\s+$/,'');
+  if(!body.trim()){toast('내용이 비어 있어요. 기본 문구로 되돌리려면 [기본 문구로]를 눌러주세요',false);return;}
+  if(!TEXT_OK){toast('sql/dt_comment_text.sql 을 먼저 실행해주세요',false);return;}
+  const {error}=await sb.from('dt_comment_text').upsert({branch_id:cls.branchId,text_key:key,body,updated_by:(typeof CURUSER!=='undefined'&&CURUSER)||(typeof TEACHER!=='undefined'&&TEACHER)||'',updated_at:new Date().toISOString()},{onConflict:'branch_id,text_key'});
+  if(error){toast('저장 실패: '+error.message,false);return;}
+  TXT[cls.branchId+'|'+key]=body;ST.edit=null;
+  toast('코멘트가 저장됐어요 ✓ 이제 이 분원 담임 코멘트에 바로 반영돼요');render();
+}
+async function resetText(){
+  const cls=ST.cls;if(!canEdit()||!cls)return;
+  const key=curKey();
+  if(!confirm('이 분원에서 고친 문구를 지우고 기본 문구로 되돌릴까요?'))return;
+  const {error}=await sb.from('dt_comment_text').delete().eq('branch_id',cls.branchId).eq('text_key',key);
+  if(error){toast('되돌리기 실패: '+error.message,false);return;}
+  delete TXT[cls.branchId+'|'+key];ST.edit=null;toast('기본 문구로 되돌렸어요 ✓');render();
 }
 
 /* 관리자(본사·분원 계정) 전용: 코멘트 밑 문법교재 선택 — 분원마다 레벨별 문법교재가 다를 수 있다 */
@@ -271,22 +340,24 @@ async function resetGrammar(){
 }
 
 window.DTC={
-  close,copy,saveGrammar,resetGrammar,
-  tab:k=>{ST.tab=k;render();},
-  setNext:v=>{ST.next=v;ST.pending=null;render();},
-  setAce:i=>{ST.ace=i;render();},
+  close,copy,saveGrammar,resetGrammar,startEdit,saveText,resetText,
+  draft:v=>{if(ST.edit)ST.edit.draft=v;},
+  cancelEdit:()=>{if(guardEdit())render();},
+  tab:k=>{if(!guardEdit())return render();ST.tab=k;render();},
+  setNext:v=>{if(!guardEdit())return render();ST.next=v;ST.pending=null;render();},
+  setAce:i=>{if(!guardEdit())return render();ST.ace=i;render();},
   pickGrammar:v=>{
     if(v==='__custom'){const t=prompt('문법교재 이름을 입력하세요');if(!t||!t.trim()){render();return;}v=t.trim();}
     ST.pending=v;render();
   },
   /* 테스트용: 학기·분원·레벨만 넣어 코멘트 글을 뽑는다 */
-  _text:chessText,_ace:aceText,_semLabel:semLabel,_nextSem:nextSemId,_levels:LEVELS,_tpl:TPL,_gdef:GR_DEFAULT,_ovr:()=>OVR
+  _text:chessText,_ace:aceText,_txt:()=>TXT,_setTxt:(k,v)=>{TXT[k]=v;},_semLabel:semLabel,_nextSem:nextSemId,_levels:LEVELS,_tpl:TPL,_gdef:GR_DEFAULT,_ovr:()=>OVR
 };
 /* 'DT 답안입력' 반 선택 옆 버튼이 부른다 */
 window.openDtComment=async function(){
   const cls=(typeof curClassObj==='function')?curClassObj():null;
   if(!cls){toast('반을 먼저 선택해주세요',false);return;}
-  ST={cls,tab:'chess',next:nextLevel(cls.levelCode)||'',ace:0,pending:null};
+  ST={cls,tab:'chess',next:nextLevel(cls.levelCode)||'',ace:0,pending:null,edit:null};
   await loadOvr();
   render();
 };
