@@ -258,6 +258,8 @@ function paintHeader(){
   var hd=document.getElementById('hd'),l=lvOf(LV);
   if(!l){hd.classList.remove('on');return;}
   hd.classList.add('on');
+  /* 수정 버튼: 첫 화면에서 반을 골라 들어온 경우에도 떠야 한다(예전엔 주소로 바로 열 때만 켜져서 '수정 버튼이 없다'고 했다) */
+  document.getElementById('bEdit').style.display=(CAN_EDIT&&!EDIT)?'':'none';
   document.getElementById('hTitle').textContent=l.label;
   var d=document.getElementById('days');
   if(!l.days){d.innerHTML='';return;}
