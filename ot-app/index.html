@@ -131,6 +131,33 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 .wk-n{margin-top:.6cqw;padding:.5cqw .8cqw;border-radius:.6cqw;background:#FFF6D6;color:#5C4500;font-size:1.4cqw}
 .wk-foot{margin:0;font-size:1.3cqw;color:#5A6B95;flex:none}
 
+/* 첫 주 일정 (새 모양) — 장식 없이 글자와 가는 선만. 큰 요일 제목, 과목 제목, 라벨+내용 표, 번호 목록.
+   줄바꿈은 단어 단위(word-break:keep-all), 묶음(Chapter 1·Unit 1+2·A type)은 .nw 로 쪼개지지 않게 한다. */
+.wk2{padding:3.1cqw 4.4cqw 0;word-break:keep-all;overflow-wrap:normal;line-height:1.5}
+.w2-head{display:flex;align-items:baseline;gap:1.45cqw;padding-bottom:1.1cqw;border-bottom:.18cqw solid #1C2A4A}
+.w2-day{font-size:4cqw;font-weight:800;letter-spacing:-.02em}
+.w2-per{font-size:2.55cqw;font-weight:700}
+.w2-time{font-size:2cqw;font-weight:400;color:#5A6B95}
+.w2-sp{flex:1}
+.w2-wk{font-size:1.27cqw;font-weight:700;color:#8A95B8}
+.w2-cols{display:grid;grid-template-columns:1fr 1fr;margin-top:1.45cqw}
+.w2-col{padding:0 2.5cqw 0 0}
+.w2-col+.w2-col{padding:0 0 0 2.5cqw;border-left:.09cqw solid #D9DFEE}
+.w2-sub{font-size:2.4cqw;font-weight:800;margin-bottom:.75cqw}
+.w2-row{display:grid;grid-template-columns:4.2cqw 1fr;gap:.9cqw;font-size:1.64cqw;line-height:1.45;margin-bottom:.45cqw}
+.w2-l{font-size:1.27cqw;font-weight:700;color:#8A95B8;padding-top:.18cqw}
+.w2-book{font-weight:800;font-size:1.82cqw}
+.nw{white-space:nowrap}
+.w2-hwl{font-size:1.27cqw;font-weight:800;color:#8A95B8;margin:.9cqw 0 .55cqw;padding-top:.8cqw;border-top:.09cqw solid #D9DFEE}
+.w2-ol{list-style:none;counter-reset:n;margin:0;padding:0}
+.w2-ol li{counter-increment:n;position:relative;padding-left:2.55cqw;font-size:1.73cqw;font-weight:700;line-height:1.45;margin-bottom:.7cqw}
+.w2-ol li::before{content:counter(n);position:absolute;left:0;top:0;font-weight:800;color:#8A95B8}
+.w2-ol.sm li{font-size:1.41cqw;margin-bottom:.3cqw;line-height:1.4}
+.w2-ol .pg{font-weight:800;color:#2E4FA6;white-space:nowrap}
+.w2-ol li small{display:block;font-size:1.45cqw;font-weight:400;color:#5A6B95;margin-top:.2cqw;line-height:1.45}
+.w2-ref{font-size:1.32cqw;font-weight:400;color:#5A6B95;line-height:1.5;margin-top:.9cqw}
+.w2-foot{position:absolute;left:4.4cqw;right:4.4cqw;bottom:1.1cqw;font-size:1.2cqw;font-weight:400;color:#8A95B8;white-space:nowrap}
+
 /* 시간표 */
 .time{padding:4.2cqw 4cqw 3.6cqw;display:flex;flex-direction:column;gap:2cqw}
 .time .cols{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2cqw;flex:1;min-height:0}
@@ -189,7 +216,7 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
   .ot-slide.full img{width:1280px}
 }
 </style>
-<script src="default-content.js?v=10"></script>
+<script src="default-content.js?v=11"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -326,7 +353,7 @@ function render(){
 }
 
 /* ---------- 수정 모드 ---------- */
-var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per';
+var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per,.w2-day,.w2-per,.w2-time,.w2-wk,.w2-sub,.w2-l,.w2-v,.w2-hwl,.w2-ref,.w2-foot';
 function decorateEdit(){
   document.querySelectorAll('.ot-slide').forEach(function(s){
     s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
