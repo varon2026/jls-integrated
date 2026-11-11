@@ -361,7 +361,11 @@ const WONMU_GROUPS=[
 const WONMU_GROUP_OF={leveltest:'wonmu',booking:'wonmu',inwon:'hak',award:'hak',ace5:'exam',exam:'exam'};
 function wGroup(){ return wonmuState.group||'wonmu'; }
 function gInfo(g){ return WONMU_GROUPS.find(x=>x.g===(g||wGroup()))||WONMU_GROUPS[0]; }
+/* 예전 '원무' 화면에 들어올 수 있던 조건(레벨테스트·인원현황·시험채점 중 하나). 묶음을 나눠도 이 문턱은 그대로 둔다 —
+   안 그러면 총무 권한만 있는 분원 계정(자동으로 시상관리가 열리는 계정)에게 시상관리·신입생 안내가 새로 열린다. */
+function wonmuEntry(){ return hasMenu('leveltest') || hasMenu('inwon') || hasMenu('grading'); }
 function groupVisible(g){
+  if(!wonmuEntry()) return false;
   if(g==='wonmu') return hasMenu('leveltest') || session.role==='branch' || session.role==='admin';   // 신입생 안내 카드는 분원·본사 관리자에게 열려 있다
   if(g==='hak')   return hasMenu('inwon') || hasMenu('award') || (session.username==='엄윤경');
   if(g==='exam')  return hasMenu('grading');
