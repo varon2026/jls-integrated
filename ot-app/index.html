@@ -257,20 +257,77 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 .wkp .w2-ref{font-size:calc(1.64cqw*var(--s));margin-top:calc(1.01cqw*var(--s))}
 .wkp .w2-foot{position:static;flex:none;white-space:normal;font-size:1.57cqw;border-top:0.13cqw solid #D9DFEE;padding-top:1.01cqw;margin-top:1.01cqw}
 
-/* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (16:9) ---------- */
-@page{size:13.333in 7.5in;margin:0}
-@page port{size:210mm 297mm;margin:0}
+
+/* ---------- 전체 세로(A4) 모양 ----------
+   운영자 결정: 첫 주 일정만이 아니라 OT 안내 전체를 세로(A4, 소책자용)로 한다.
+   가로 슬라이드를 폭만 좁혀 세로로 눕히면 아래가 텅 비므로, 종류별로 위→아래 배치로 다시 짰다
+   (노트형: 제목 띠가 위·목록이 아래 / 카드형 / 시간표: 요일을 가로 줄로). 글자 크기(--s)는 fitPort 가 쪽에 꽉 차게 맞춘다. */
+.ot-slide{aspect-ratio:794/1123;max-width:794px;--s:1}
+.ot-slide.full{aspect-ratio:auto}
+.nb{display:flex;flex-direction:column;gap:calc(2.4cqw*var(--s));padding:5.2cqw 5cqw 4.6cqw}
+.nb-l{flex:none;flex-direction:row;justify-content:flex-start;gap:calc(2.2cqw*var(--s));text-align:left;padding:calc(2.4cqw*var(--s)) 3.4cqw}
+.nb-n{min-width:calc(5cqw*var(--s));height:calc(5cqw*var(--s));font-size:calc(2.3cqw*var(--s))}
+.nb-l h2{margin:0;font-size:calc(4.2cqw*var(--s));line-height:1.25}
+.nb-r{flex:1;min-height:0;padding:calc(3.2cqw*var(--s)) 4cqw;justify-content:space-around;gap:calc(2.4cqw*var(--s))}
+.nb-r>ol.items{flex:1 1 auto;justify-content:space-around;gap:calc(1.6cqw*var(--s))}
+ol.items li{padding-left:calc(6cqw*var(--s));font-size:calc(2.7cqw*var(--s));line-height:1.5}
+ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));font-size:calc(1.9cqw*var(--s))}
+.nb.big ol.items li{font-size:calc(3.4cqw*var(--s))}
+.nb-r img{flex:0 1 auto;min-height:26cqw;max-height:none;width:100%;object-fit:contain}
+.nb-r>ol.items+img,.nb-r>ol.items+.hl{margin-top:0}
+.nb.imgonly .nb-r{padding:2cqw}
+.nb.tall .nb-r img{height:100%;max-height:none;width:auto;max-width:100%}
+.hl{font-size:calc(2.5cqw*var(--s));padding:calc(1.8cqw*var(--s)) calc(2.4cqw*var(--s))}
+.card{padding:5.2cqw 5cqw 4.6cqw;gap:calc(2.4cqw*var(--s))}
+.bar{flex:none;font-size:calc(4cqw*var(--s));padding:calc(2cqw*var(--s)) 2.4cqw}
+.bar .n{min-width:calc(4.4cqw*var(--s));height:calc(4.4cqw*var(--s));font-size:calc(2.2cqw*var(--s))}
+.card-b{min-height:0;padding:calc(3cqw*var(--s)) 4cqw;display:flex;flex-direction:column;justify-content:space-around;gap:calc(2.4cqw*var(--s))}
+.card-b>ol.items{flex:1 1 auto;justify-content:space-around}
+.pics{flex:1 1 auto;min-height:26cqw;display:flex;align-items:center}
+.pics img,.pics img.wide{width:100%;max-height:100%;object-fit:contain}
+.msg{font-size:calc(3.2cqw*var(--s));padding:0}
+.msg i{font-size:calc(2.8cqw*var(--s))}
+.ot-table{font-size:calc(2.2cqw*var(--s))}
+.ot-table th,.ot-table td{padding:calc(1.2cqw*var(--s)) calc(1.5cqw*var(--s))}
+.imgcard{padding:5.2cqw 3.6cqw 3.6cqw}
+.imgcard .bar{font-size:3.4cqw;padding:1.4cqw 2cqw}
+.imgcard .card-b{padding:1.2cqw;display:grid;place-items:center}
+.imgcard .pics{display:block;min-height:0}
+.pics img.fit{width:100%;max-width:100%;max-height:none;height:auto}
+.time{padding:5.2cqw 5cqw 4.6cqw;gap:calc(2.4cqw*var(--s))}
+.time .cols{display:flex;flex-direction:column;gap:calc(2cqw*var(--s));grid-auto-flow:row}
+.time .col{flex:1 1 0;min-height:0;display:grid;grid-template-columns:27% 1fr;column-gap:calc(1.4cqw*var(--s));row-gap:calc(1.2cqw*var(--s));align-content:stretch;grid-auto-rows:1fr}
+.time .col .day{grid-column:1/-1;height:auto;grid-row:auto;font-size:calc(3.2cqw*var(--s));padding:calc(1.2cqw*var(--s)) 0}
+.time .col .per{height:auto;font-size:calc(2cqw*var(--s));padding:calc(0.8cqw*var(--s)) calc(0.6cqw*var(--s))}
+.time .col .sub{font-size:calc(2.1cqw*var(--s));padding:calc(0.8cqw*var(--s)) calc(1.4cqw*var(--s));justify-content:flex-start;text-align:left}
+.time .col .sub b{font-size:calc(2.4cqw*var(--s))}
+.time .col .day{grid-auto-rows:auto}
+.time.tight{gap:calc(2cqw*var(--s))}
+.time.tight .col{gap:0;row-gap:calc(1cqw*var(--s))}
+.time.tight .col .day{height:auto;font-size:calc(3cqw*var(--s))}
+.time.tight .col .per{height:auto;font-size:calc(1.9cqw*var(--s))}
+.time.tight .col .sub{font-size:calc(2cqw*var(--s));padding:calc(0.8cqw*var(--s)) calc(1.4cqw*var(--s));line-height:1.4}
+.time.tight .col .sub b{font-size:calc(2.3cqw*var(--s))}
+.time.tight .bar{font-size:calc(4cqw*var(--s));padding:calc(2cqw*var(--s)) 2.4cqw}
+.cover h1{font-size:9.6cqw}
+.cover .en{font-size:5.4cqw}
+.cover .cls-name{font-size:3.6cqw}
+.cover.mid h1{font-size:9.6cqw}
+.imgcard .pics{display:flex;flex-direction:column;gap:2cqw;align-items:stretch}
+.imgcard .pics img.fit{flex:none}
+
+/* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
+@page{size:210mm 297mm;margin:0}
 @media print{
   body{background:#fff}
   .hd,.edbar,.notice,.addrow,.ot-tools,.seglab,.toast{display:none !important}
   .wrap{padding:0}
-  .ot-slide{width:1280px;max-width:none;margin:0;border-radius:0;box-shadow:none;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .ot-slide:not(.full){height:720px;aspect-ratio:auto}
-  .ot-slide.port{page:port;width:794px;height:1123px}
-  .ot-slide.full img{width:1280px}
+  .ot-slide{width:794px;max-width:none;margin:0;border-radius:0;box-shadow:none;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ot-slide:not(.full){height:1123px;aspect-ratio:auto}
+  .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=14"></script>
+<script src="default-content.js?v=15"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -411,14 +468,20 @@ function render(){
 /* 세로 쪽 글자 크기 자동 맞춤 — 내용이 쪽을 꽉 채우도록 --s 를 이진탐색한다(0.6~1.9).
    예전 가로 슬라이드는 내용이 적은 요일에 아래가 텅 비어 보였다. 수정 중에도 글을 고치면 다시 맞춘다. */
 function fitPort(s){
-  var over=function(){return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col'),function(p){return p.scrollHeight>p.clientHeight+1;});};
-  var lo=0.6,hi=1.9;
+  /* 종류마다 '넘치는지'를 보는 칸이 다르다. 사진만 있는 슬라이드·표지는 맞출 글자가 없어 건너뛴다. */
+  if(s.matches('.imgonly')){s.style.setProperty('--s',1.7);return;}
+  if(s.matches('.cover,.imgcard,.full'))return;
+  var over=function(){
+    if(s.scrollHeight>s.clientHeight+1)return true;
+    return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.card-b,.time .cols,.time .col'),function(p){return p.scrollHeight>p.clientHeight+1;});
+  };
+  var lo=0.5,hi=s.classList.contains('wkp')?1.9:2.2;
   for(var i=0;i<14;i++){var m=(lo+hi)/2;s.style.setProperty('--s',m);if(over())hi=m;else lo=m;}
-  s.style.setProperty('--s',lo);
+  s.style.setProperty('--s',lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
 }
-function fitAll(){document.querySelectorAll('.ot-slide.port').forEach(fitPort);}
+function fitAll(){document.querySelectorAll('.ot-slide').forEach(fitPort);}
 var _fitT=null;
-document.addEventListener('input',function(e){var s=e.target.closest&&e.target.closest('.ot-slide.port');if(!s)return;clearTimeout(_fitT);_fitT=setTimeout(function(){fitPort(s);},250);});
+document.addEventListener('input',function(e){var s=e.target.closest&&e.target.closest('.ot-slide');if(!s)return;clearTimeout(_fitT);_fitT=setTimeout(function(){fitPort(s);},250);});
 window.addEventListener('resize',function(){clearTimeout(_fitT);_fitT=setTimeout(fitAll,150);});
 
 
