@@ -94,6 +94,12 @@ table.g{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
 .g td.sc{font-weight:800;color:var(--brand);background:#faf8ff;min-width:46px}
 .g td.tot{font-weight:800;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2));min-width:56px;width:58px;font-size:14px;position:sticky;right:0;z-index:3}
 .g th.tot{position:sticky;right:0;z-index:5;background:#f6f3fc}   /* 최종만 오른쪽 끝 고정. 예전엔 right:78px 로 재시험 칸(실제로는 78px보다 넓다) 뒤에 반쯤 가려졌다 */
+/* 답안 입력칸을 5문항씩 끊어 색을 번갈아 칠한다(1~5 흰색 / 6~10 연보라 …) — 40문항을 칠 때 지금 몇 번인지 눈으로 잡기 위함.
+   입력칸 자체는 정답·오답 색(초록·빨강)이 쓰고 있어서, 칸 배경(td)만 칠하고 5문항이 시작되는 칸엔 왼쪽 선을 긋는다. */
+.g td.qcell.qb1,.g th.qb1{background:#f1eefb}
+.g td.qcell.qs,.g th.qs{border-left:2px solid #c9bfe8}
+/* 최종 점수 밑에 틀린 개수(-1, -3 …). 글자(textContent)로 넣으면 점수를 읽는 코드가 깨져서 ::after 로만 그린다. */
+.g td.tot[data-wrong]::after{content:"-" attr(data-wrong);display:block;font-size:11.5px;font-weight:700;color:#ffd0d3;margin-top:1px}
 .g tr:hover td.stu{background:var(--soft)}
 .g td.act{background:#fff;min-width:78px}
 .saq{font-size:9.5px;color:var(--neg);font-weight:800;display:block;margin-top:1px}
@@ -1304,6 +1310,23 @@ function autoNext(inp){
   const cols=inp.closest('tr').querySelectorAll('input[data-c]').length;
   navKey({key:'ArrowRight',preventDefault(){}},inp,cols);
 }
+/* 5문항씩 색 구분 — 표가 새로 그려질 때마다(innerHTML) 다시 칠한다. 문항 번호(data-n / 머리글의 숫자)로 블록을 정해서
+   DT·AT·ACE·내신 표를 한 곳에서 처리한다. 숫자가 아닌 칸(내신 수행평가 등)은 건드리지 않는다. */
+function markBlocks(){
+  document.querySelectorAll('table.g').forEach(t=>{
+    if(!t.querySelector('td.qcell'))return;
+    const mark=(el,n)=>{const b=Math.floor((n-1)/5);el.classList.toggle('qb1',b%2===1);el.classList.toggle('qs',n>1&&(n-1)%5===0);};
+    t.querySelectorAll('td.qcell').forEach(td=>{const n=td.dataset.n;if(/^\d+$/.test(n))mark(td,+n);});
+    t.querySelectorAll('thead th').forEach(th=>{
+      if(th.colSpan>1||th.rowSpan>1)return;
+      const f=th.firstChild;const m=f&&f.nodeType===3?String(f.nodeValue).trim().match(/^(\d+)$/):null;
+      if(m)mark(th,+m[1]);
+    });
+  });
+}
+(function(){let q=0;const run=()=>{q=0;markBlocks();};
+  const start=()=>new MutationObserver(()=>{if(!q)q=requestAnimationFrame(run);}).observe(document.body,{childList:true,subtree:true});
+  if(document.body)start();else document.addEventListener('DOMContentLoaded',start);})();
 function onCell(inp){scoreRow(inp.closest('tr'));autoNext(inp);}
 function curKey(){const c=curClassObj();return c?keyOfLevel(c.levelCode):null;}
 function scoreRow(tr){
@@ -1327,6 +1350,8 @@ function navKey(e,inp,cols){
   const nx=document.querySelector(`#gradeArea input[data-r="${tr}"][data-c="${tc}"]`);if(nx){nx.focus();nx.select();}
 }
 function updateHist(tr){
+  /* 틀린 개수 — 점수를 매기는 모든 경로(DT·AT·ACE·내신)가 끝에 이 함수를 부른다. 답을 입력했는데 틀린 문항만 센다(빈칸은 안 셈). */
+  {const w=tr.querySelectorAll('td.qcell.no').length,tt=tr.querySelector('td.tot');if(tt){if(w>0)tt.dataset.wrong=w;else delete tt.dataset.wrong;}}
   const h=tr.querySelector('.hist');if(!h)return;
   const prev=JSON.parse(tr.dataset.prev||'[]');const att=+(tr.dataset.attempt||1);
   if(att<=1 && !prev.length){h.innerHTML='';return;}   // 재시험 안 본 학생은 표식 없음
