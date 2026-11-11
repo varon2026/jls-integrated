@@ -83,7 +83,7 @@ function waitSemOptLabel(x){ return x.same ? (x.name+' (같은 학기 · 다음 
 /* ---------- 데이터 레이어 (기존 포팅, 읽기 전용) ---------- */
 const TABLES = [
   { key:'branches', table:'branches', fromRow:r=>({id:r.id,name:r.name}) },
-  { key:'users', table:'users', fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,isManager:!!r.is_manager,menus:r.menus,title:r.title||null,active:r.active!==false,canManage:!!r.can_manage,canEdit:!!r.can_edit}) },
+  { key:'users', table:'users', fromRow:r=>({id:r.id,username:r.username,password:r.password,role:r.role,branchId:r.branch_id,teacherName:r.teacher_name,isManager:!!r.is_manager,menus:r.menus,title:r.title||null,active:r.active!==false,canManage:!!r.can_manage,canEdit:!!r.can_edit||r.title==='team'}) },   /* 팀장은 항상 수정 가능 — 예전에 뷰어로 만든 팀장 계정도 DB를 안 고치고 바로 풀린다 */
   { key:'semesters', table:'semesters', fromRow:r=>({id:r.id,name:r.name}) },
   { key:'students', table:'students', fromRow:r=>({id:r.id,code:r.code,name:r.name,school:r.school,grade:r.grade}) },
   { key:'semesterRecords', table:'semester_records', fromRow:r=>({id:r.id,studentId:r.student_id,branchId:r.branch_id,semesterId:r.semester_id,className:r.class_name,classLabel:r.class_label,teacher:r.teacher,targetType:r.target_type,status:r.status,origin:r.origin,enrollDate:r.enroll_date,withdrawDate:r.withdraw_date,transfer:!!r.transfer,transferIn:!!r.transfer_in,transferTo:r.transfer_to,kind:r.kind||'regular',grade:r.grade||''}) },
@@ -301,7 +301,7 @@ const TITLES=[
   {k:'counsel_head',label:'상담실장',        tier:'branch',  edit:true,  manage:true},
   {k:'bm',          label:'원장/부원장(BM)', tier:'branch',  edit:false, manage:false, editToggle:true},
   {k:'daeri',       label:'대리',            tier:'branch',  edit:true,  manage:false},
-  {k:'team',        label:'팀장',            tier:'branch',  edit:false, manage:false, editToggle:true},
+  {k:'team',        label:'팀장',            tier:'branch',  edit:true,  manage:false},   // 대리와 같게: 명단 수정 가능, 계정관리는 불가. 예전엔 '수정 권한' 체크를 안 하면 뷰어로 만들어져 홈페이지를 못 고쳤다
   {k:'junior',      label:'주임',            tier:'branch',  edit:false, manage:false, editToggle:true},
   {k:'gwajang',     label:'과장',            tier:'branch',  edit:false, manage:false, editToggle:true},
   {k:'teacher',     label:'담임',            tier:'teacher', edit:false, manage:false, teacherView:true},
