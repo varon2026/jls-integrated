@@ -5,21 +5,32 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>진급 OT 안내 · JLS</title>
 <style>
-/* 진급 OT 안내 — 체스 → 에이스(HB·PA1·PA2·B) 진급생 OT 때 나눠주는 슬라이드.
+@import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css');
+/* 글씨체는 홈페이지 그대로: 본문 NanumSquare + 제목 Jua + 손글씨 Gaegu (신입생 안내와 같은 조합). 바뀌면 안 된다. */
+:root{--disp:"Jua","Apple SD Gothic Neo",sans-serif;--hand:"Gaegu","Jua",cursive}
+/* 진급 OT 안내 — 체스 → 에이스(B·HB·PA1·PA2) 진급생 OT 때 나눠주는 슬라이드.
    작년에는 PDF 5개였고 고칠 때마다 파일을 다시 만들어야 해서 화면 안으로 옮겼다.
    · 슬라이드는 가로 크기(cqw)에 맞춰 글자·간격이 같이 커지고 줄어든다 → 화면·인쇄가 같은 모양.
    · 공통 슬라이드는 한 곳(common)에 두고 반별 슬라이드(시간표·첫 주 일정·시험지 부착 위치)만 따로 둔다. */
 *{box-sizing:border-box}
 html,body{margin:0}
-body{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;background:#eaf0fb;color:#1d2f66}
-.hd{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid #d6def2;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.hd h1{font-size:17px;margin:0;font-weight:800;color:#214e9e}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{border:1px solid #cfd8ef;background:#fff;color:#214e9e;font:inherit;font-size:13px;font-weight:800;padding:7px 14px;border-radius:999px;cursor:pointer;text-decoration:none}
-.chip.on{background:#214e9e;color:#fff;border-color:#214e9e}
+body{font-family:"NanumSquare","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;background:#EAF1FF;color:#1C2A4A;word-break:keep-all;line-height:1.6}
+.hd{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid #CFDCF7;padding:10px 16px;display:none;align-items:center;gap:10px;flex-wrap:wrap}
+.hd.on{display:flex}
+.back{border:1px solid #CFDCF7;background:#fff;color:#2E4FA6;font:inherit;font-size:13px;font-weight:800;padding:7px 13px;border-radius:10px;cursor:pointer}
+/* 요일 체크박스 — 월수금/화목 중 하나만 켜진다(PA1·PA2). 버튼을 두 개씩 만들지 않고 반을 고른 뒤 여기서 고른다. */
+.days{display:flex;gap:8px;align-items:center}
+.days .dl{font-size:12px;color:#6B7BA0;font-weight:800;margin-right:2px}
+.dchk{display:inline-flex;align-items:center;gap:7px;border:1.5px solid #CFDCF7;background:#fff;color:#5A6B95;font-size:14px;font-weight:800;padding:7px 14px 7px 10px;border-radius:12px;cursor:pointer;user-select:none}
+.dchk input{appearance:none;-webkit-appearance:none;width:17px;height:17px;border:2px solid #AEBFDD;border-radius:5px;margin:0;display:grid;place-items:center;cursor:pointer;background:#fff}
+.dchk input:checked{background:#2E4FA6;border-color:#2E4FA6}
+.dchk input:checked::after{content:"";width:4px;height:8px;border:solid #fff;border-width:0 2.2px 2.2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.dchk.on{border-color:#2E4FA6;background:#EEF2FB;color:#2E4FA6}
+.hd h1{font-family:var(--disp);font-size:21px;margin:0;font-weight:400;color:#2E4FA6}
 .sp{flex:1}
-.btn{border:0;background:#214e9e;color:#fff;font:inherit;font-size:13px;font-weight:800;padding:8px 16px;border-radius:10px;cursor:pointer}
-.btn.ghost{background:#fff;color:#214e9e;border:1px solid #cfd8ef}
+.btn{border:0;background:#2E4FA6;color:#fff;font:inherit;font-size:13px;font-weight:800;padding:8px 16px;border-radius:10px;cursor:pointer}
+.btn.ghost{background:#fff;color:#2E4FA6;border:1px solid #CFDCF7}
 .btn.warn{background:#c8375e}
 .btn:disabled{opacity:.5;cursor:default}
 .edbar{display:none;position:sticky;top:57px;z-index:29;background:#fff8dc;border-bottom:1px solid #ecd98a;padding:8px 16px;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;font-weight:700;color:#7a5b00}
@@ -28,16 +39,29 @@ body{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sa
 .edbar .sw{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #d9c46c;cursor:pointer;padding:0}
 .notice{max-width:1100px;margin:12px auto 0;padding:10px 14px;border-radius:10px;background:#fff0f0;color:#b3263e;font-weight:700;font-size:13px;line-height:1.6}
 .wrap{padding:18px 12px 60px}
-.intro{max-width:760px;margin:30px auto;text-align:center}
-.intro h2{font-size:26px;margin:0 0 8px;color:#214e9e}
-.intro p{color:#5a6d9d;margin:0 0 20px}
-.pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
-.pick a{display:block;background:#fff;border:1px solid #d6def2;border-radius:16px;padding:20px 14px;text-decoration:none;color:#214e9e;font-weight:800;font-size:17px}
-.pick a small{display:block;margin-top:6px;color:#7a8bb5;font-weight:600;font-size:12.5px}
-.pick a:hover{border-color:#214e9e}
+.wrap{padding:0 12px 60px}
+.wrap.landing{padding:0 0 60px}
+
+/* ---------- 첫 화면: 신입생 안내 첫 화면과 같은 느낌 (파란 히어로 + 흰 카드) ---------- */
+.hero{background:linear-gradient(165deg,#5A86E8 0%,#3E66D6 100%);color:#fff;padding:40px 16px 96px;text-align:center;position:relative;overflow:hidden}
+.hero .deco{position:absolute;opacity:.85;pointer-events:none}
+.hero .brand{display:inline-block;font-size:13px;font-weight:700;background:rgba(255,255,255,.2);border-radius:999px;padding:5px 14px;position:relative;z-index:1}
+.hero .welcome{font-family:var(--hand);font-size:22px;margin-top:12px;position:relative;z-index:1}
+.hero h1{font-family:var(--disp);font-weight:400;margin:4px 0 0;font-size:clamp(32px,8vw,44px);letter-spacing:-.01em;position:relative;z-index:1}
+.hero p{margin:12px auto 0;max-width:30em;font-size:14px;opacity:.95;position:relative;z-index:1}
+.levels{max-width:900px;margin:-64px auto 0;padding:0 16px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;position:relative;z-index:2}
+.lv{display:block;background:#fff;border-radius:20px;padding:28px 12px 22px;text-align:center;text-decoration:none;color:#1C2A4A;box-shadow:0 2px 0 #CFDCF7,0 10px 24px rgba(46,79,166,.12);position:relative;cursor:pointer;border:0;font:inherit}
+.lv::before{content:"";position:absolute;left:18px;right:18px;top:-9px;height:13px;background:repeating-linear-gradient(90deg,#AEBFDD 0 2px,transparent 2px 20px);filter:drop-shadow(0 2px .5px rgba(28,42,74,.2))}
+.lv:hover{transform:translateY(-2px)}
+.lv .dot{width:54px;height:54px;border-radius:50%;margin:0 auto 12px;display:grid;place-items:center;font-family:var(--disp);font-size:20px;color:#1C2A4A}
+.lv b{display:block;font-family:var(--disp);font-weight:400;font-size:30px;line-height:1.1}
+.lv small{display:block;margin-top:6px;color:#6B7BA0;font-size:12.5px;font-weight:700}
+.lv i{display:inline-block;margin-top:10px;font-style:normal;font-size:11.5px;font-weight:800;color:#2E4FA6;background:#EEF2FB;border-radius:999px;padding:3px 10px}
+.tip{max-width:900px;margin:22px auto 0;text-align:center;color:#6B7BA0;font-size:13px;font-weight:700}
+@media(max-width:720px){.levels{grid-template-columns:repeat(2,1fr);gap:14px}.lv b{font-size:26px}}
 
 /* ---------- 슬라이드 ---------- */
-.ot-slide{container-type:inline-size;position:relative;width:100%;max-width:1100px;margin:0 auto 22px;aspect-ratio:16/9;background:#5387e4;border-radius:14px;overflow:hidden;color:#1d2f66;box-shadow:0 6px 24px rgba(33,78,158,.18);font-size:2cqw;line-height:1.4}
+.ot-slide{font-family:inherit;container-type:inline-size;position:relative;width:100%;max-width:1100px;margin:0 auto 22px;aspect-ratio:16/9;background:#5387e4;border-radius:14px;overflow:hidden;color:#1d2f66;box-shadow:0 6px 24px rgba(33,78,158,.18);font-size:2cqw;line-height:1.4}
 .ot-slide.full{aspect-ratio:auto;background:#5387e4}
 .ot-slide.full img{display:block;width:100%;height:auto}
 .ot-slide [contenteditable]{outline:none}
@@ -48,7 +72,7 @@ body{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sa
 .nb{display:grid;grid-template-columns:27% 1fr;gap:2cqw;padding:3.6cqw 4cqw}
 .nb-l{background:#214e9e;border-radius:1.2cqw;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3cqw 1.6cqw}
 .nb-n{background:#8fb4f5;color:#214e9e;border-radius:50%;min-width:4.4cqw;height:4.4cqw;display:grid;place-items:center;font-size:2cqw;font-weight:800;padding:0 .6cqw}
-.nb-l h2{font-size:3.3cqw;line-height:1.3;margin:1.6cqw 0 0;font-weight:800}
+.nb-l h2{font-family:var(--disp);font-size:3.5cqw;line-height:1.3;margin:1.6cqw 0 0;font-weight:400}
 .nb-r{background:#fff;border-radius:1.2cqw;padding:2.8cqw 3.2cqw;display:flex;flex-direction:column;justify-content:center;gap:1.4cqw;min-width:0}
 ol.items{counter-reset:c;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1.3cqw}
 ol.items li{counter-increment:c;position:relative;padding-left:5.4cqw;font-size:2.8cqw;font-weight:700;line-height:1.45;color:#1b2f6b}
@@ -66,7 +90,7 @@ ol.items li:nth-child(5n+5)::before{background:#fdb5b5}
 
 /* 카드형: 파란 제목 띠 + 흰 본문 */
 .card{padding:3.6cqw 4cqw;display:flex;flex-direction:column;gap:2cqw}
-.bar{background:#214e9e;color:#fff;border-radius:1.2cqw;text-align:center;padding:1.5cqw 2cqw;font-size:3cqw;margin:0;font-weight:800}
+.bar{background:#214e9e;color:#fff;border-radius:1.2cqw;text-align:center;padding:1.5cqw 2cqw;font-size:3.3cqw;margin:0;font-weight:400;font-family:var(--disp)}
 .bar .n{background:#8fb4f5;color:#214e9e;border-radius:50%;display:inline-grid;place-items:center;min-width:3.6cqw;height:3.6cqw;font-size:1.8cqw;margin-right:1.4cqw;vertical-align:middle;padding:0 .5cqw}
 .card-b{background:#fff;border-radius:1.2cqw;padding:2.4cqw 3.2cqw;flex:1;min-width:0}
 .card-b ol.items{gap:1.5cqw}
@@ -86,7 +110,7 @@ ol.items li:nth-child(5n+5)::before{background:#fdb5b5}
 .time{padding:3.6cqw 4cqw;display:flex;flex-direction:column;gap:2cqw}
 .time .cols{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2cqw;flex:1}
 .col{display:flex;flex-direction:column;gap:1.2cqw}
-.col .day{background:#214e9e;color:#fff;text-align:center;font-size:2.8cqw;font-weight:800;padding:1.8cqw;border-radius:1cqw}
+.col .day{font-family:var(--disp);background:#214e9e;color:#fff;text-align:center;font-size:3cqw;font-weight:400;padding:1.8cqw;border-radius:1cqw}
 .col .per{background:#5b86d6;color:#fff;text-align:center;font-size:1.8cqw;font-weight:700;padding:.9cqw;border-radius:.6cqw}
 .col .sub{background:#2e63c7;color:#fff;text-align:center;font-size:1.9cqw;padding:1.3cqw 1cqw;border-radius:.6cqw;line-height:1.55;flex:1}
 .col .sub b{color:#fff35c;font-size:2.1cqw}
@@ -95,9 +119,9 @@ ol.items li:nth-child(5n+5)::before{background:#fdb5b5}
 /* 표지·끝 */
 .cover{display:grid;place-items:center;text-align:center;color:#fff}
 .cv-in{position:relative;z-index:2;padding-bottom:6cqw}
-.cover h1{font-size:6.6cqw;margin:.6cqw 0 0;font-weight:800;line-height:1.2;text-shadow:0 .3cqw 0 rgba(0,0,0,.18)}
-.cover .en{font-size:3cqw;font-family:"Comic Sans MS","Segoe Print",cursive;font-weight:700}
-.cls-name{display:inline-block;margin-top:2.4cqw;background:#fff3c9;color:#214e9e;font-weight:800;font-size:2.6cqw;padding:.8cqw 3cqw;border-radius:999px}
+.cover h1{font-family:var(--disp);font-size:6.8cqw;margin:.6cqw 0 0;font-weight:400;line-height:1.2;text-shadow:0 .3cqw 0 rgba(0,0,0,.18)}
+.cover .en{font-size:3.6cqw;font-family:var(--hand);font-weight:700}
+.cls-name{display:inline-block;margin-top:2.4cqw;background:#fff3c9;color:#214e9e;font-family:var(--disp);font-weight:400;font-size:3cqw;padding:.8cqw 3cqw;border-radius:999px}
 .cls-name:empty{display:none}
 .cv-chars{position:absolute;left:0;right:0;bottom:0;height:24%;display:flex;align-items:flex-end;justify-content:center;gap:1cqw;z-index:1;pointer-events:none}
 .cv-chars i{display:block;position:relative;border-radius:50% 50% 0 0;height:100%}
@@ -139,12 +163,13 @@ ol.items li:nth-child(5n+5)::before{background:#fdb5b5}
   .ot-slide.full img{width:1280px}
 }
 </style>
-<script src="default-content.js?v=1"></script>
+<script src="default-content.js?v=2"></script>
 </head>
 <body>
-<div class="hd">
-  <h1>진급 OT 안내</h1>
-  <div class="chips" id="chips"></div>
+<div class="hd" id="hd">
+  <button class="back" id="bBack" onclick="goLanding()">‹ 반 선택</button>
+  <h1 id="hTitle">진급 OT 안내</h1>
+  <div class="days" id="days"></div>
   <div class="sp"></div>
   <span id="who" style="font-size:12px;color:#7a8bb5;font-weight:700"></span>
   <button class="btn ghost" id="bPrint" onclick="window.print()">🖨 인쇄 / PDF</button>
@@ -171,16 +196,19 @@ var SUPA_URL='https://hplndiuoohantbalixwu.supabase.co';
 var SUPA_KEY='sb_publishable_xO8KB46SzMx8KeuEE-OVSw_su22mv9X';
 var sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPA_URL,SUPA_KEY):null;
 
-var CLASSES=[
-  {k:'hb',    label:'HB반',        sub:'초6 · 월수금'},
-  {k:'pa1mwf',label:'PA1반 월수금', sub:'PRE ACE 1'},
-  {k:'pa1tt', label:'PA1반 화목',   sub:'PRE ACE 1'},
-  {k:'pa2',   label:'PA2반 화목',   sub:'PRE ACE 2'},
-  {k:'b',     label:'B반',          sub:'ACE Bridge'}
+/* 레벨 순서는 B → HB → PA1 → PA2 (운영자 지정). 월수금/화목이 있는 반(PA1·PA2)은 버튼을 둘로 나누지 않고
+   반을 고른 뒤 화면 위 체크박스로 고른다. 저장 키(doc)는 예전 이름 그대로 — pa2 는 '화목'반이다. */
+var LEVELS=[
+  {k:'b',  label:'B반',  sub:'ACE Bridge',      doc:'b',  color:'#FDB5B5'},
+  {k:'hb', label:'HB반', sub:'ACE High Bridge', doc:'hb', color:'#F9E8A8'},
+  {k:'pa1',label:'PA1반',sub:'Pre Ace 1',       days:{mwf:'pa1mwf',tt:'pa1tt'}, color:'#AED26A'},
+  {k:'pa2',label:'PA2반',sub:'Pre Ace 2',       days:{mwf:'pa2mwf',tt:'pa2'},   color:'#C09CE0'}
 ];
+var DAYS=[{k:'mwf',label:'월수금'},{k:'tt',label:'화목'}];
+var LV=null, DAY=null;
 var DB={};            // DB에 저장된 수정본 { doc_key: html }
 var TABLE_OK=true;    // ot_guides 표가 있는지
-var CUR=null, EDIT=false, DIRTY=false;
+var CUR=null, EDIT=false, DIRTY=false;   // CUR = 지금 반의 저장 키 앞머리(hb, pa1mwf …). 첫 화면에서는 null
 var SEGS=['common','front','back'];
 
 /* 수정은 엄윤경 계정 한 명만 (운영자 결정). 통합관리에서 들어오면 sessionStorage 에 로그인 정보가 있다. */
@@ -189,7 +217,10 @@ var CAN_EDIT=(whoAmI()==='엄윤경');
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function toast(m,bad){var t=document.createElement('div');t.className='toast'+(bad?' bad':'');t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove();},bad?4500:2600);}
-function clsOf(k){return CLASSES.filter(function(c){return c.k===k;})[0];}
+function lvOf(k){return LEVELS.filter(function(c){return c.k===k;})[0];}
+function dayLabel(k){var d=DAYS.filter(function(x){return x.k===k;})[0];return d?d.label:'';}
+function setCur(){var l=lvOf(LV);CUR=l?(l.days?l.days[DAY]:l.doc):null;}
+function clsLabel(){var l=lvOf(LV);return l?(l.label+(l.days?' '+dayLabel(DAY):'')):'';}
 function docKey(seg){return seg==='common'?'common':CUR+'_'+seg;}
 function docHtml(key){ return DB[key]!=null?DB[key]:(OT_DEFAULT[key]||''); }
 
@@ -210,10 +241,23 @@ function load(cb){
   },function(){TABLE_OK=false;cb();});
 }
 
-function paintChips(){
-  var h='';CLASSES.forEach(function(c){h+='<a class="chip'+(c.k===CUR?' on':'')+'" href="?cls='+c.k+(location.search.indexOf('embed=1')>=0?'&embed=1':'')+'">'+esc(c.label)+'</a>';});
-  document.getElementById('chips').innerHTML=h;
+function paintHeader(){
+  var hd=document.getElementById('hd'),l=lvOf(LV);
+  if(!l){hd.classList.remove('on');return;}
+  hd.classList.add('on');
+  document.getElementById('hTitle').textContent=l.label;
+  var d=document.getElementById('days');
+  if(!l.days){d.innerHTML='';return;}
+  var h='<span class="dl">수업 요일</span>';
+  DAYS.forEach(function(x){h+='<label class="dchk'+(x.k===DAY?' on':'')+'"><input type="checkbox" '+(x.k===DAY?'checked ':'')+'onchange="pickDay(\''+x.k+'\')">'+x.label+'</label>';});
+  d.innerHTML=h;
 }
+/* 화면 이동(주소는 바꾸되 새로 불러오지 않는다 — 고치던 내용이 있으면 먼저 물어본다) */
+function urlFor(){var q=new URLSearchParams(location.search),e=q.get('embed')==='1'?'&embed=1':'';return LV?'?cls='+LV+(lvOf(LV).days?'&day='+DAY:'')+e:(e?'?embed=1':location.pathname);}
+function leaveEdit(){ if(EDIT){ if(DIRTY&&!confirm('고친 내용이 저장되지 않았어요. 버리고 넘어갈까요?'))return false; EDIT=false;DIRTY=false;document.body.classList.remove('editing');['bSave','bCancel'].forEach(function(i){document.getElementById(i).style.display='none';});['bEdit','bPrint'].forEach(function(i){document.getElementById(i).style.display='';});document.getElementById('bEdit').style.display=CAN_EDIT?'':'none'; } return true; }
+function go(lv,day){ if(!leaveEdit()){paintHeader();return;} LV=lv;DAY=day||null;setCur();try{history.replaceState(null,'',urlFor());}catch(e){} paintHeader();render();window.scrollTo(0,0); }
+function goLanding(){ go(null,null); }
+function pickDay(k){ go(LV,k); }
 function paintNotice(){
   var n=document.getElementById('notice');
   n.innerHTML=(!TABLE_OK&&CAN_EDIT)?'<div class="notice">⚠️ 저장 표(ot_guides)가 아직 없어요. Supabase SQL Editor 에서 <b>sql/ot_guides.sql</b> 을 한 번 실행해야 저장이 돼요. (지금은 화면만 볼 수 있고, 수정해도 저장이 안 돼요)</div>':'';
@@ -223,7 +267,7 @@ function deco(slide){
   if(slide.classList.contains('cover')&&!slide.querySelector('.cv-chars')){
     var c=document.createElement('div');c.className='cv-chars';c.setAttribute('data-deco','1');c.innerHTML='<i></i><i></i><i></i><i></i><i></i>';slide.appendChild(c);
   }
-  var a=slide.querySelector('[data-auto="cls"]');if(a)a.textContent=clsOf(CUR).label+' · 진급 OT';
+  var a=slide.querySelector('[data-auto="cls"]');if(a)a.textContent=clsLabel()+' · 진급 OT';
 }
 
 function composeSlides(){
@@ -235,10 +279,17 @@ function composeSlides(){
 function render(){
   var root=document.getElementById('root');
   if(!CUR){
-    root.innerHTML='<div class="intro"><h2>진급 OT 안내</h2><p>체스에서 에이스로 올라가는 학생들에게 나눠주는 OT 자료예요. 반을 골라 주세요.</p><div class="pick">'+
-      CLASSES.map(function(c){return '<a href="?cls='+c.k+(location.search.indexOf('embed=1')>=0?'&embed=1':'')+'">'+esc(c.label)+'<small>'+esc(c.sub)+'</small></a>';}).join('')+'</div></div>';
+    root.className='wrap landing';
+    var star=function(pos,sz){return '<svg class="deco" style="'+pos+'" width="'+sz+'" height="'+sz+'" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1v22M1 12h22M4.2 4.2l15.6 15.6M19.8 4.2 4.2 19.8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';};
+    root.innerHTML='<div class="hero">'+star('left:6%;top:18px',30)+star('right:8%;top:60px',22)+star('right:18%;top:14px',16)+star('left:15%;top:72px',14)+
+      '<span class="brand">JLS 정상어학원</span><div class="welcome">Welcome to JLS!</div><h1>진급 OT 안내</h1>'+
+      '<p>체스에서 에이스로 올라가는 학생들을 위한 OT 자료예요.<br>반을 골라 주세요.</p></div>'+
+      '<div class="levels">'+LEVELS.map(function(l){return '<button class="lv" onclick="go(\''+l.k+'\''+(l.days?',\'mwf\'':'')+')"><span class="dot" style="background:'+l.color+'">'+esc(l.label.replace('반',''))+'</span><b>'+esc(l.label)+'</b><small>'+esc(l.sub)+'</small>'+(l.days?'<i>월수금 · 화목</i>':'')+'</button>';}).join('')+'</div>'+
+      '<div class="tip">PA1 · PA2반은 반을 고른 뒤 월수금 / 화목 중에 골라요</div>';
     document.getElementById('bPrint').style.display='none';return;
   }
+  document.getElementById('root').className='wrap';
+  document.getElementById('bPrint').style.display=EDIT?'none':'';
   var slides=composeSlides();
   root.innerHTML='';
   slides.forEach(function(s,i){root.appendChild(s);deco(s);});
@@ -378,9 +429,15 @@ function saveAll(){
 window.addEventListener('beforeunload',function(e){if(EDIT&&DIRTY){e.preventDefault();e.returnValue='';}});
 
 (function init(){
-  var q=new URLSearchParams(location.search);CUR=q.get('cls');if(CUR&&!clsOf(CUR))CUR=null;
+  var q=new URLSearchParams(location.search),c=q.get('cls'),d=q.get('day');
+  /* 예전 주소(?cls=pa1mwf 처럼 반과 요일이 붙은 꼴)도 알아듣는다 */
+  var legacy={pa1mwf:['pa1','mwf'],pa1tt:['pa1','tt'],pa2mwf:['pa2','mwf']};
+  if(legacy[c]){d=legacy[c][1];c=legacy[c][0];}
+  LV=lvOf(c)?c:null;
+  if(LV&&lvOf(LV).days){ DAY=(d==='tt'||d==='mwf')?d:'mwf'; }
+  setCur();
   document.getElementById('who').textContent=CAN_EDIT?'수정 권한: 엄윤경':'';
-  paintChips();
+  paintHeader();
   load(function(){
     paintNotice();
     if(CUR&&CAN_EDIT)document.getElementById('bEdit').style.display='';
