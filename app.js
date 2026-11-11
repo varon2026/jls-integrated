@@ -243,7 +243,7 @@ const IC={
 const icon=(k,s)=>_sv(IC[k]||'', s);
 const MODULES=[
   {key:'dashboard', ic:'dashboard', name:'대시보드', sub:'인원현황·마감', items:[['인원 마감',''],['분원 현황','']]},
-  {key:'wonmu', ic:'wonmu', name:'원무', sub:'원생·상담·레벨테스트', items:[['신규예약',''],['레벨테스트',''],['상담관리',''],['원생현황',''],['등록/퇴원율',''],['대시보드','']]},
+  {key:'wonmu', ic:'wonmu', name:'신규', sub:'원생·상담·레벨테스트', items:[['신규예약',''],['레벨테스트',''],['상담관리',''],['원생현황',''],['등록/퇴원율',''],['대시보드','']]},
   {key:'chongmu', ic:'chongmu', name:'총무', sub:'교재·청소·소모품·A/S', items:[['교재재고',''],['청소업체',''],['소모품',''],['A/S 관리','']]},
   {key:'insa', ic:'insa', name:'인사·서류', sub:'입퇴사·교육청·서류', items:[['입·퇴사',''],['교육청 신고',''],['서류보관',''],['자격/안전교육','']]},
   {key:'unyoung', ic:'unyoung', name:'운영비', sub:'수입·지출·예산·결산', items:[['수입/지출',''],['예산관리',''],['결산',''],['정산','']]},
@@ -268,7 +268,7 @@ const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'�
 // 원무·총무는 k 없는 '묶음'(권한 아님, 접기/펴기만). 실제 권한은 그 밑 항목들.
 const MENU_TREE=[
   {k:'dashboard',label:'대시보드'},
-  {k:'leveltest',label:'원무 · 레벨테스트'},   // 항목이 하나뿐인 묶음은 칩 하나로 바로 체크(한 번 더 안 눌러도 되게)
+  {k:'leveltest',label:'신규 · 레벨테스트'},   // 항목이 하나뿐인 묶음은 칩 하나로 바로 체크(한 번 더 안 눌러도 되게)
   {label:'학사관리',sub:[
     {k:'inwon',label:'인원현황',sub:[
       {k:'inwon.roster',  label:'신규·퇴원명단'},
@@ -350,11 +350,11 @@ function baseUserMenus(){
 }
 function hasMenu(k){ return userMenus().includes(k); }
 /* 예전엔 '원무' 하나에 레벨테스트·인원현황·시험채점·시상관리·안내 자료가 전부 들어 있어 정신이 없었다.
-   사이드바를 세 묶음(원무 / 학사관리 / 시험)으로 나눈다. 화면(state.view)은 그대로 'wonmu' 하나이고
+   사이드바를 세 묶음(신규 / 학사관리 / 시험)으로 나눈다('신규'는 예전 '원무' 이름). 화면(state.view)은 그대로 'wonmu' 하나이고
    어느 묶음인지만 wonmuState.group 으로 들고 있다 — 그래야 기존 화면들(레벨테스트·인원현황·시상관리…)을 안 건드린다.
    메뉴 권한 키(leveltest·inwon·grading·award)는 그대로라 계정에 저장된 권한도 그대로 유지된다. */
 const WONMU_GROUPS=[
-  {g:'wonmu', name:'원무',     ic:'wonmu', desc:'레벨테스트 · 신입생 안내'},
+  {g:'wonmu', name:'신규',     ic:'wonmu', desc:'레벨테스트 · 신입생 안내'},   // 예전 이름은 '원무' — 뜻이 넓어 헷갈린다고 '신규'로 바꿨다(내부 키 wonmu 는 그대로)
   {g:'hak',   name:'학사관리', ic:'hak',   desc:'인원현황 · 시상관리 · 진급 OT 안내'},
   {g:'exam',  name:'시험',     ic:'clip',  desc:'시험채점 · 초등5 ACE 진급시험'},
 ];
@@ -2543,7 +2543,7 @@ function openGuide(){
   wonmuState.guideBranch=cur;
   const picker=brs.length ? '<select onchange="guideSetBranch(this.value)" style="margin-left:8px;padding:4px 8px;border-radius:8px;border:1px solid #D6DEF2;font-size:13px">'+brs.map(x=>'<option value="'+x.id+'"'+(x.id===cur?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>' : '';
   const s=guideSrc();
-  ov.innerHTML='<div class="lt-ov-bar"><button class="lt-ov-close" onclick="guideBack()">‹ 원무 홈</button><span class="lt-ov-title">신입생 안내</span>'+picker
+  ov.innerHTML='<div class="lt-ov-bar"><button class="lt-ov-close" onclick="guideBack()">‹ 신규 홈</button><span class="lt-ov-title">신입생 안내</span>'+picker
     +'<a class="lt-ov-open" href="'+s.open+'" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px;font-weight:700;color:#8b6ee8;text-decoration:none">새 탭으로 열기 ↗</a></div>'
     +'<iframe id="guideFrame" class="lt-ov-frame" src="'+s.url+'" title="신입생 안내"></iframe>';
   document.body.style.overflow='hidden';
@@ -3056,9 +3056,9 @@ function openResInCalendar(id){
   wonmuGo('booking'); window.scrollTo(0,0);
 }
 function renderLtDetail(b){
-  if(!bookState.loaded){ b.innerHTML='<div class="lt-back" onclick="wonmuGo(\'hub\')">‹ 원무 홈</div><div class="book-loading">레벨테스트 불러오는 중…</div>'; ensureReservations().then(()=>{ if(state.view==='wonmu') renderWonmuBody(); }); return; }
+  if(!bookState.loaded){ b.innerHTML='<div class="lt-back" onclick="wonmuGo(\'hub\')">‹ 신규 홈</div><div class="book-loading">레벨테스트 불러오는 중…</div>'; ensureReservations().then(()=>{ if(state.view==='wonmu') renderWonmuBody(); }); return; }
   const tab=wonmuState.ltTab||'status';
-  const tabBar=`<div class="lt-headrow"><div class="lt-back" onclick="wonmuGo('hub')">‹ 원무 홈</div>
+  const tabBar=`<div class="lt-headrow"><div class="lt-back" onclick="wonmuGo('hub')">‹ 신규 홈</div>
     <div class="lt-tabs"><button class="${tab==='status'?'on':''}" onclick="ltSetTab('status')">현황</button><button class="${tab==='analysis'?'on':''}" onclick="ltSetTab('analysis')">분석</button></div></div>`;
   if(tab==='analysis'){ b.innerHTML = tabBar + renderLtAnalysis(); return; }
   let periods=semesterYM(state.semId);
