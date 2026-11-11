@@ -566,6 +566,8 @@ sql/lt_counsel_logs.sql         레벨테스트 상담 기록
 
 - **파일**: `ot-app/index.html`(보기·수정·인쇄 전부) · `ot-app/default-content.js`(작년 PDF를 옮긴 기본 내용) · `ot-app/img/`(사진·시험지 부착 위치 이미지) · `sql/ot_guides.sql`.
   허브 카드와 오버레이는 `app.js`의 `openOt()` — 신입생 안내(`openGuide`)와 같은 방식입니다. `?cls=hb|pa1mwf|pa1tt|pa2|b` 로 바로 열립니다.
+- ⚠️ **허브 카드도 `엄윤경` 계정에만 보입니다**(`app.js` `session.username==='엄윤경'`). 다른 계정에 열 때는 그 조건만 바꾸면 됩니다.
+  다만 `ot-app/index.html?cls=hb` 주소를 직접 열면 누구나 **볼 수는 있습니다**(수정 버튼만 숨김). 새 탭은 로그인 정보가 안 넘어와 수정이 안 되므로 오버레이의 '새 탭으로 열기'는 뺐습니다.
 - ⚠️ **수정은 `엄윤경` 계정 한 명만**(본사·분원 계정도 못 고침, 운영자 결정). 통합관리가 sessionStorage 에 넣어 둔 `username` 으로 판정합니다(`CAN_EDIT`).
   브라우저 화면 단계의 제한이라 DB 자체를 막는 건 아닙니다(다른 표와 같은 수준).
 - **구조**: 슬라이드는 `common`(전 반 공통) / `반_front`(시간표·첫 주 일정) / `반_back`(시험지 부착 위치) 세 영역으로 저장합니다(`ot_guides.doc_key`).
