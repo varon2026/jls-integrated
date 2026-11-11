@@ -340,6 +340,10 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .nb.multi ol.items li{font-size:calc(2.3cqw*var(--s));padding-left:calc(5.2cqw*var(--s))}
 .nb.multi ol.items li::before{width:calc(3.6cqw*var(--s));height:calc(3.6cqw*var(--s));font-size:calc(1.6cqw*var(--s))}
 
+/* 사진만 있는 칸(.pic): 테두리·안쪽 여백을 없애 사진이 쪽 폭을 꽉 채우게(운영자: 사진 테두리 빼고 박스를 더 크게) */
+.nb-r.pic,.nb.multi .nb-r.pic{border:0;padding:0;background:transparent}
+.nb-r.pic{justify-content:center}
+.nb-r.pic img{flex:none;width:100%;height:auto;min-height:0;border-radius:0}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -351,7 +355,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=19"></script>
+<script src="default-content.js?v=20"></script>
 </head>
 <body>
 <div class="hd" id="hd">
