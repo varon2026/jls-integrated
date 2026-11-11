@@ -178,7 +178,7 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 .wk3 .w2-ol li small{font-size:1.18cqw}
 .wk3 .w2-ref{font-size:1.2cqw}
 /* 과목 제목 색(글자색만 — 인쇄 잉크 절약) */
-.k-t{color:#B03A58}.k-g{color:#1F7A52}.k-r{color:#2E4FA6}.k-l{color:#8A6200}.k-u{color:#5B3A86}
+.k-t,.k-g,.k-r,.k-l,.k-u{color:#D23B3B}
 
 /* 시간표 */
 .time{padding:4.2cqw 4cqw 3.6cqw;display:flex;flex-direction:column;gap:2cqw}
@@ -211,6 +211,7 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 .cls-name{display:inline-block;margin-top:2.4cqw;background:#FFF3C9;color:#2E4FA6;font-family:var(--disp);font-weight:400;font-size:3cqw;padding:.8cqw 3cqw;border-radius:999px}
 .cls-name:empty{display:none}
 
+
 /* ---------- 수정 모드 ---------- */
 .seglab,.ot-tools{display:none}
 .editing .seglab{display:block;position:absolute;left:10px;top:8px;z-index:6;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:#fff3c9;color:#7a5b00;box-shadow:0 1px 4px rgba(0,0,0,.2)}
@@ -227,18 +228,49 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 .toast.bad{background:#c8375e}
 .cover.is-auto .cls-name{display:inline-block}
 
+
+/* ---------- 첫 주 일정 — 세로(A4) 소책자 모양 (.port .wkp) ----------
+   요일 한 장 = A4 세로 한 쪽. 1·2·3교시를 위→아래로 쌓고, 내용이 쪽을 꽉 채우도록 글자 크기(--s)를 화면에서 자동으로 맞춘다
+   (fitPort). 예전 가로 슬라이드는 아래가 비어 보인다는 지적이 있었다. 글자 크기는 전부 cqw 라 화면·인쇄 모양이 같다.
+   ⚠️ 과목 제목은 색 하나로 통일(운영자) — 과목마다 색이 달라 정신 사납다고 했다. */
+.ot-slide.port{aspect-ratio:794/1123;max-width:794px}
+.wkp{--s:1;display:flex;flex-direction:column;padding:5.04cqw 6.80cqw 4.28cqw;word-break:keep-all;overflow-wrap:normal;line-height:1.5}
+.wkp::before{content:"";position:absolute;left:0;right:0;top:0;height:1.51cqw;background:linear-gradient(90deg,#FDB5B5 0 20%,#F9E8A8 20% 40%,#AED26A 40% 60%,#9DB8F0 60% 80%,#C09CE0 80%)}
+.wkp .w2-head{flex:none;border-bottom:0.25cqw solid #1C2A4A;padding-bottom:1.26cqw}
+.wkp .w2-day{font-size:5.04cqw}
+.wkp .w2-wk{font-size:1.76cqw}
+.wp-body{flex:1;display:flex;flex-direction:column;min-height:0;margin-top:1.76cqw}
+.wp-band{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+.wp-band+.wp-band{margin-top:2.27cqw}
+.wp-ph{flex:none;display:flex;align-items:baseline;gap:1.51cqw;font-size:calc(3.27cqw*var(--s));font-weight:800;padding-bottom:0.63cqw;margin-bottom:0.76cqw;border-bottom:0.38cqw solid #1C2A4A}
+.wp-pt{font-size:calc(2.14cqw*var(--s));font-weight:400;color:#5A6B95}
+.wp-bb{flex:1;display:flex;flex-direction:column;min-height:0}
+.wkp .w2-col,.wkp .w2-col+.w2-col{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;padding:0 0 1.51cqw;border:0}
+.wkp .w2-col+.w2-col{border-top:0.19cqw solid #1C2A4A;padding-top:1.51cqw}
+.wkp .w2-sub{font-size:calc(2.90cqw*var(--s));margin-bottom:calc(0.50cqw*var(--s))}
+.wkp .w2-row{grid-template-columns:calc(5.04cqw*var(--s)) 1fr;gap:1.01cqw;font-size:calc(2.02cqw*var(--s));line-height:1.45;margin-bottom:calc(0.25cqw*var(--s))}
+.wkp .w2-l{font-size:calc(1.57cqw*var(--s))}
+.wkp .w2-book{font-size:calc(2.14cqw*var(--s))}
+.wkp .w2-hwl{font-size:calc(1.51cqw*var(--s));margin:calc(1.01cqw*var(--s)) 0 calc(0.63cqw*var(--s));padding-top:calc(0.76cqw*var(--s));border-top:0.19cqw dotted #AEB8D4}
+.wkp .w2-ol li,.wkp .w2-ol.sm li{font-size:calc(2.08cqw*var(--s));padding-left:calc(3.02cqw*var(--s));margin-bottom:calc(0.50cqw*var(--s));line-height:1.42}
+.wkp .w2-ol li small{font-size:calc(1.76cqw*var(--s))}
+.wkp .w2-ref{font-size:calc(1.64cqw*var(--s));margin-top:calc(1.01cqw*var(--s))}
+.wkp .w2-foot{position:static;flex:none;white-space:normal;font-size:1.57cqw;border-top:0.13cqw solid #D9DFEE;padding-top:1.01cqw;margin-top:1.01cqw}
+
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (16:9) ---------- */
 @page{size:13.333in 7.5in;margin:0}
+@page port{size:210mm 297mm;margin:0}
 @media print{
   body{background:#fff}
   .hd,.edbar,.notice,.addrow,.ot-tools,.seglab,.toast{display:none !important}
   .wrap{padding:0}
   .ot-slide{width:1280px;max-width:none;margin:0;border-radius:0;box-shadow:none;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .ot-slide:not(.full){height:720px;aspect-ratio:auto}
+  .ot-slide.port{page:port;width:794px;height:1123px}
   .ot-slide.full img{width:1280px}
 }
 </style>
-<script src="default-content.js?v=13"></script>
+<script src="default-content.js?v=14"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -372,10 +404,26 @@ function render(){
   root.innerHTML='';
   slides.forEach(function(s,i){root.appendChild(s);deco(s);});
   if(EDIT)decorateEdit();
+  fitAll();
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitAll);
 }
 
+/* 세로 쪽 글자 크기 자동 맞춤 — 내용이 쪽을 꽉 채우도록 --s 를 이진탐색한다(0.6~1.9).
+   예전 가로 슬라이드는 내용이 적은 요일에 아래가 텅 비어 보였다. 수정 중에도 글을 고치면 다시 맞춘다. */
+function fitPort(s){
+  var over=function(){return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col'),function(p){return p.scrollHeight>p.clientHeight+1;});};
+  var lo=0.6,hi=1.9;
+  for(var i=0;i<14;i++){var m=(lo+hi)/2;s.style.setProperty('--s',m);if(over())hi=m;else lo=m;}
+  s.style.setProperty('--s',lo);
+}
+function fitAll(){document.querySelectorAll('.ot-slide.port').forEach(fitPort);}
+var _fitT=null;
+document.addEventListener('input',function(e){var s=e.target.closest&&e.target.closest('.ot-slide.port');if(!s)return;clearTimeout(_fitT);_fitT=setTimeout(function(){fitPort(s);},250);});
+window.addEventListener('resize',function(){clearTimeout(_fitT);_fitT=setTimeout(fitAll,150);});
+
+
 /* ---------- 수정 모드 ---------- */
-var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per,.w2-day,.w2-per,.w2-time,.w2-wk,.w2-sub,.w2-l,.w2-v,.w2-hwl,.w2-ref,.w2-foot,.w3-ph,.w3-pt';
+var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per,.w2-day,.w2-per,.w2-time,.w2-wk,.w2-sub,.w2-l,.w2-v,.w2-hwl,.w2-ref,.w2-foot,.w3-ph,.w3-pt,.wp-ph,.wp-pt';
 function decorateEdit(){
   document.querySelectorAll('.ot-slide').forEach(function(s){
     s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
