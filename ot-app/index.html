@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>진급 OT 안내 · JLS</title>
+<style>
+/* 진급 OT 안내 — 체스 → 에이스(HB·PA1·PA2·B) 진급생 OT 때 나눠주는 슬라이드.
+   작년에는 PDF 5개였고 고칠 때마다 파일을 다시 만들어야 해서 화면 안으로 옮겼다.
+   · 슬라이드는 가로 크기(cqw)에 맞춰 글자·간격이 같이 커지고 줄어든다 → 화면·인쇄가 같은 모양.
+   · 공통 슬라이드는 한 곳(common)에 두고 반별 슬라이드(시간표·첫 주 일정·시험지 부착 위치)만 따로 둔다. */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;background:#eaf0fb;color:#1d2f66}
+.hd{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid #d6def2;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hd h1{font-size:17px;margin:0;font-weight:800;color:#214e9e}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid #cfd8ef;background:#fff;color:#214e9e;font:inherit;font-size:13px;font-weight:800;padding:7px 14px;border-radius:999px;cursor:pointer;text-decoration:none}
+.chip.on{background:#214e9e;color:#fff;border-color:#214e9e}
+.sp{flex:1}
+.btn{border:0;background:#214e9e;color:#fff;font:inherit;font-size:13px;font-weight:800;padding:8px 16px;border-radius:10px;cursor:pointer}
+.btn.ghost{background:#fff;color:#214e9e;border:1px solid #cfd8ef}
+.btn.warn{background:#c8375e}
+.btn:disabled{opacity:.5;cursor:default}
+.edbar{display:none;position:sticky;top:57px;z-index:29;background:#fff8dc;border-bottom:1px solid #ecd98a;padding:8px 16px;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;font-weight:700;color:#7a5b00}
+.editing .edbar{display:flex}
+.edbar .tb{border:1px solid #d9c46c;background:#fff;border-radius:8px;font:inherit;font-weight:800;padding:5px 11px;cursor:pointer;color:#5b4500}
+.edbar .sw{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #d9c46c;cursor:pointer;padding:0}
+.notice{max-width:1100px;margin:12px auto 0;padding:10px 14px;border-radius:10px;background:#fff0f0;color:#b3263e;font-weight:700;font-size:13px;line-height:1.6}
+.wrap{padding:18px 12px 60px}
+.intro{max-width:760px;margin:30px auto;text-align:center}
+.intro h2{font-size:26px;margin:0 0 8px;color:#214e9e}
+.intro p{color:#5a6d9d;margin:0 0 20px}
+.pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.pick a{display:block;background:#fff;border:1px solid #d6def2;border-radius:16px;padding:20px 14px;text-decoration:none;color:#214e9e;font-weight:800;font-size:17px}
+.pick a small{display:block;margin-top:6px;color:#7a8bb5;font-weight:600;font-size:12.5px}
+.pick a:hover{border-color:#214e9e}
+
+/* ---------- 슬라이드 ---------- */
+.ot-slide{container-type:inline-size;position:relative;width:100%;max-width:1100px;margin:0 auto 22px;aspect-ratio:16/9;background:#5387e4;border-radius:14px;overflow:hidden;color:#1d2f66;box-shadow:0 6px 24px rgba(33,78,158,.18);font-size:2cqw;line-height:1.4}
+.ot-slide.full{aspect-ratio:auto;background:#5387e4}
+.ot-slide.full img{display:block;width:100%;height:auto}
+.ot-slide [contenteditable]{outline:none}
+.editing .ot-slide [contenteditable="true"]:hover{outline:2px dashed #8fb4f5;outline-offset:2px}
+.editing .ot-slide [contenteditable="true"]:focus{outline:2px solid #ffb400;outline-offset:2px;background:rgba(255,248,220,.6)}
+
+/* 노트형: 왼쪽 파란 제목판 + 오른쪽 흰 칸 */
+.nb{display:grid;grid-template-columns:27% 1fr;gap:2cqw;padding:3.6cqw 4cqw}
+.nb-l{background:#214e9e;border-radius:1.2cqw;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3cqw 1.6cqw}
+.nb-n{background:#8fb4f5;color:#214e9e;border-radius:50%;min-width:4.4cqw;height:4.4cqw;display:grid;place-items:center;font-size:2cqw;font-weight:800;padding:0 .6cqw}
+.nb-l h2{font-size:3.3cqw;line-height:1.3;margin:1.6cqw 0 0;font-weight:800}
+.nb-r{background:#fff;border-radius:1.2cqw;padding:2.8cqw 3.2cqw;display:flex;flex-direction:column;justify-content:center;gap:1.4cqw;min-width:0}
+ol.items{counter-reset:c;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1.3cqw}
+ol.items li{counter-increment:c;position:relative;padding-left:5.4cqw;font-size:2.8cqw;font-weight:700;line-height:1.45;color:#1b2f6b}
+ol.items li::before{content:counter(c,decimal-leading-zero);position:absolute;left:0;top:.05em;width:3.9cqw;height:3.9cqw;border-radius:50%;display:grid;place-items:center;font-size:1.7cqw;font-weight:800;background:#fdb5b5;color:#214e9e}
+ol.items li:nth-child(5n+2)::before{background:#f9e8a8}
+ol.items li:nth-child(5n+3)::before{background:#a9ebd3}
+ol.items li:nth-child(5n+4)::before{background:#f9e8a8}
+ol.items li:nth-child(5n+5)::before{background:#fdb5b5}
+.nb.big ol.items li{font-size:3.6cqw}
+.nb-r img{max-width:100%;display:block;border-radius:.8cqw;margin:0 auto}
+.nb.imgonly .nb-r{justify-content:center;padding:1.6cqw}
+.nb.imgonly .nb-r img{width:100%;max-height:100%;object-fit:contain}
+.nb.tall .nb-r img{width:auto;height:100%;max-height:48cqw}
+.hl{margin-top:1cqw;padding:1.4cqw 2cqw;border-radius:1cqw;background:#fff3c9;font-size:2.5cqw;font-weight:700;line-height:1.6}
+
+/* 카드형: 파란 제목 띠 + 흰 본문 */
+.card{padding:3.6cqw 4cqw;display:flex;flex-direction:column;gap:2cqw}
+.bar{background:#214e9e;color:#fff;border-radius:1.2cqw;text-align:center;padding:1.5cqw 2cqw;font-size:3cqw;margin:0;font-weight:800}
+.bar .n{background:#8fb4f5;color:#214e9e;border-radius:50%;display:inline-grid;place-items:center;min-width:3.6cqw;height:3.6cqw;font-size:1.8cqw;margin-right:1.4cqw;vertical-align:middle;padding:0 .5cqw}
+.card-b{background:#fff;border-radius:1.2cqw;padding:2.4cqw 3.2cqw;flex:1;min-width:0}
+.card-b ol.items{gap:1.5cqw}
+.pics img{display:block;max-width:100%;margin:0 auto;border-radius:.8cqw}
+.pics img.wide{width:100%}
+.caps{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:1.6cqw;list-style:none;padding:0;margin:1.2cqw 0 0;font-size:1.7cqw;font-weight:700;text-align:center}
+.msg{font-size:2.9cqw;line-height:1.8;font-weight:600;padding:1cqw 1cqw}
+.msg i{display:block;margin:1cqw 0;color:#5a6d9d;font-style:normal;font-size:2.5cqw}
+.ot-table{width:100%;border-collapse:collapse;font-size:1.85cqw;line-height:1.5}
+.ot-table th,.ot-table td{border:1px solid #cfd8ef;padding:.9cqw 1.2cqw;vertical-align:top;text-align:left}
+.ot-table thead th{background:#e4ecfb;text-align:center;font-weight:800}
+.ot-table tbody th{background:#f1f5fd;white-space:nowrap}
+.ot-table.wk{font-size:1.25cqw}
+.ot-table.wk tbody th{width:9%}
+
+/* 시간표 */
+.time{padding:3.6cqw 4cqw;display:flex;flex-direction:column;gap:2cqw}
+.time .cols{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2cqw;flex:1}
+.col{display:flex;flex-direction:column;gap:1.2cqw}
+.col .day{background:#214e9e;color:#fff;text-align:center;font-size:2.8cqw;font-weight:800;padding:1.8cqw;border-radius:1cqw}
+.col .per{background:#5b86d6;color:#fff;text-align:center;font-size:1.8cqw;font-weight:700;padding:.9cqw;border-radius:.6cqw}
+.col .sub{background:#2e63c7;color:#fff;text-align:center;font-size:1.9cqw;padding:1.3cqw 1cqw;border-radius:.6cqw;line-height:1.55;flex:1}
+.col .sub b{color:#fff35c;font-size:2.1cqw}
+.hint-edit{margin:0;color:#fff;font-size:1.5cqw;opacity:.9}
+
+/* 표지·끝 */
+.cover{display:grid;place-items:center;text-align:center;color:#fff}
+.cv-in{position:relative;z-index:2;padding-bottom:6cqw}
+.cover h1{font-size:6.6cqw;margin:.6cqw 0 0;font-weight:800;line-height:1.2;text-shadow:0 .3cqw 0 rgba(0,0,0,.18)}
+.cover .en{font-size:3cqw;font-family:"Comic Sans MS","Segoe Print",cursive;font-weight:700}
+.cls-name{display:inline-block;margin-top:2.4cqw;background:#fff3c9;color:#214e9e;font-weight:800;font-size:2.6cqw;padding:.8cqw 3cqw;border-radius:999px}
+.cls-name:empty{display:none}
+.cv-chars{position:absolute;left:0;right:0;bottom:0;height:24%;display:flex;align-items:flex-end;justify-content:center;gap:1cqw;z-index:1;pointer-events:none}
+.cv-chars i{display:block;position:relative;border-radius:50% 50% 0 0;height:100%}
+.cv-chars i::before,.cv-chars i::after{content:"";position:absolute;top:22%;width:16%;height:30%;border-radius:50%;background:#fff;box-shadow:inset -.3cqw -.2cqw 0 #111}
+.cv-chars i::before{left:26%}.cv-chars i::after{left:54%}
+.cv-chars i:nth-child(1){background:#fdb5b5;width:20%;height:110%}
+.cv-chars i:nth-child(2){background:#f9e8a8;width:14%;height:78%}
+.cv-chars i:nth-child(3){background:#aed26a;width:22%;height:84%}
+.cv-chars i:nth-child(4){background:#c09ce0;width:20%;height:100%}
+.cv-chars i:nth-child(5){background:#f45a0a;width:16%;height:92%;border-radius:40% 40% 0 0}
+.cover.mid{background:#fff;color:#214e9e}
+.cover.mid h1{color:#214e9e;text-shadow:none}
+.cover.mid .en{color:#214e9e}
+
+/* ---------- 수정 모드 ---------- */
+.seglab,.ot-tools{display:none}
+.editing .seglab{display:block;position:absolute;left:10px;top:8px;z-index:6;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:#fff3c9;color:#7a5b00;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.editing .seglab.c{background:#ffe0e0;color:#b3263e}
+.editing .ot-tools{display:flex;position:absolute;right:10px;top:8px;z-index:6;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:70%}
+.ot-tools button{border:0;background:#fff;color:#214e9e;font:inherit;font-size:12px;font-weight:800;padding:5px 9px;border-radius:8px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.ot-tools button.d{color:#c8375e}
+.editing .ot-slide img{cursor:pointer}
+.editing .ot-slide img:hover{outline:3px dashed #ffb400}
+.addrow{display:none;max-width:1100px;margin:-8px auto 14px;text-align:center}
+.editing .addrow{display:block}
+.addrow button{border:1px dashed #8fb4f5;background:#fff;color:#214e9e;font:inherit;font-size:12.5px;font-weight:800;padding:6px 14px;border-radius:999px;margin:0 3px;cursor:pointer}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1d2f66;color:#fff;padding:11px 20px;border-radius:12px;font-weight:700;font-size:14px;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast.bad{background:#c8375e}
+.cover.is-auto .cls-name{display:inline-block}
+
+/* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (16:9) ---------- */
+@page{size:13.333in 7.5in;margin:0}
+@media print{
+  body{background:#fff}
+  .hd,.edbar,.notice,.addrow,.ot-tools,.seglab,.toast{display:none !important}
+  .wrap{padding:0}
+  .ot-slide{width:1280px;max-width:none;margin:0;border-radius:0;box-shadow:none;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ot-slide:not(.full){height:720px;aspect-ratio:auto}
+  .ot-slide.full img{width:1280px}
+}
+</style>
+<script src="default-content.js?v=1"></script>
+</head>
+<body>
+<div class="hd">
+  <h1>진급 OT 안내</h1>
+  <div class="chips" id="chips"></div>
+  <div class="sp"></div>
+  <span id="who" style="font-size:12px;color:#7a8bb5;font-weight:700"></span>
+  <button class="btn ghost" id="bPrint" onclick="window.print()">🖨 인쇄 / PDF</button>
+  <button class="btn" id="bEdit" onclick="startEdit()" style="display:none">✏️ 수정</button>
+  <button class="btn" id="bSave" onclick="saveAll()" style="display:none">💾 저장</button>
+  <button class="btn ghost" id="bCancel" onclick="cancelEdit()" style="display:none">취소</button>
+</div>
+<div class="edbar" id="edbar">
+  <span>글자</span>
+  <button class="tb" onmousedown="event.preventDefault();fmt('bold')"><b>B</b> 굵게</button>
+  <button class="sw" title="검정" style="background:#1b2f6b" onmousedown="event.preventDefault();fmt('foreColor','#1b2f6b')"></button>
+  <button class="sw" title="빨강" style="background:#d6283f" onmousedown="event.preventDefault();fmt('foreColor','#d6283f')"></button>
+  <button class="sw" title="파랑" style="background:#2e63c7" onmousedown="event.preventDefault();fmt('foreColor','#2e63c7')"></button>
+  <button class="sw" title="흰색" style="background:#fff" onmousedown="event.preventDefault();fmt('foreColor','#ffffff')"></button>
+  <button class="tb" onmousedown="event.preventDefault();fmt('removeFormat')">서식 지우기</button>
+  <span style="margin-left:10px">· 글자를 눌러 바로 고치고, 사진을 누르면 바꿀 수 있어요. <b style="color:#b3263e">빨간 '공통' 표시 슬라이드는 모든 반에 같이 바뀌어요.</b></span>
+</div>
+<div id="notice"></div>
+<div class="wrap" id="root"></div>
+<input type="file" id="file" accept="image/*" style="display:none">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+var SUPA_URL='https://hplndiuoohantbalixwu.supabase.co';
+var SUPA_KEY='sb_publishable_xO8KB46SzMx8KeuEE-OVSw_su22mv9X';
+var sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPA_URL,SUPA_KEY):null;
+
+var CLASSES=[
+  {k:'hb',    label:'HB반',        sub:'초6 · 월수금'},
+  {k:'pa1mwf',label:'PA1반 월수금', sub:'PRE ACE 1'},
+  {k:'pa1tt', label:'PA1반 화목',   sub:'PRE ACE 1'},
+  {k:'pa2',   label:'PA2반 화목',   sub:'PRE ACE 2'},
+  {k:'b',     label:'B반',          sub:'ACE Bridge'}
+];
+var DB={};            // DB에 저장된 수정본 { doc_key: html }
+var TABLE_OK=true;    // ot_guides 표가 있는지
+var CUR=null, EDIT=false, DIRTY=false;
+var SEGS=['common','front','back'];
+
+/* 수정은 엄윤경 계정 한 명만 (운영자 결정). 통합관리에서 들어오면 sessionStorage 에 로그인 정보가 있다. */
+function whoAmI(){ try{ var s=JSON.parse(sessionStorage.getItem('jls_int_session')||'null'); return s&&s.username||''; }catch(e){ return ''; } }
+var CAN_EDIT=(whoAmI()==='엄윤경');
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function toast(m,bad){var t=document.createElement('div');t.className='toast'+(bad?' bad':'');t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove();},bad?4500:2600);}
+function clsOf(k){return CLASSES.filter(function(c){return c.k===k;})[0];}
+function docKey(seg){return seg==='common'?'common':CUR+'_'+seg;}
+function docHtml(key){ return DB[key]!=null?DB[key]:(OT_DEFAULT[key]||''); }
+
+/* 저장된 내용을 그릴 때 스크립트·이벤트 속성은 걸러낸다(혹시 모를 붙여넣기 대비) */
+function parseDoc(html,seg){
+  var d=new DOMParser().parseFromString('<body>'+html+'</body>','text/html');
+  d.querySelectorAll('script,iframe,object,embed,link,style').forEach(function(n){n.remove();});
+  d.querySelectorAll('*').forEach(function(n){[].slice.call(n.attributes).forEach(function(a){if(/^on/i.test(a.name)||/^\s*javascript:/i.test(a.value))n.removeAttribute(a.name);});});
+  var out=[].slice.call(d.body.querySelectorAll(':scope > section.ot-slide'));
+  out.forEach(function(s){s.setAttribute('data-seg',seg);});
+  return out;
+}
+function load(cb){
+  if(!sb){TABLE_OK=false;cb();return;}
+  sb.from('ot_guides').select('doc_key,content_html').then(function(r){
+    if(r.error){TABLE_OK=false;}else{TABLE_OK=true;DB={};(r.data||[]).forEach(function(x){DB[x.doc_key]=x.content_html;});}
+    cb();
+  },function(){TABLE_OK=false;cb();});
+}
+
+function paintChips(){
+  var h='';CLASSES.forEach(function(c){h+='<a class="chip'+(c.k===CUR?' on':'')+'" href="?cls='+c.k+(location.search.indexOf('embed=1')>=0?'&embed=1':'')+'">'+esc(c.label)+'</a>';});
+  document.getElementById('chips').innerHTML=h;
+}
+function paintNotice(){
+  var n=document.getElementById('notice');
+  n.innerHTML=(!TABLE_OK&&CAN_EDIT)?'<div class="notice">⚠️ 저장 표(ot_guides)가 아직 없어요. Supabase SQL Editor 에서 <b>sql/ot_guides.sql</b> 을 한 번 실행해야 저장이 돼요. (지금은 화면만 볼 수 있고, 수정해도 저장이 안 돼요)</div>':'';
+}
+
+function deco(slide){
+  if(slide.classList.contains('cover')&&!slide.querySelector('.cv-chars')){
+    var c=document.createElement('div');c.className='cv-chars';c.setAttribute('data-deco','1');c.innerHTML='<i></i><i></i><i></i><i></i><i></i>';slide.appendChild(c);
+  }
+  var a=slide.querySelector('[data-auto="cls"]');if(a)a.textContent=clsOf(CUR).label+' · 진급 OT';
+}
+
+function composeSlides(){
+  var common=parseDoc(docHtml('common'),'common'),front=parseDoc(docHtml(docKey('front')),'front'),back=parseDoc(docHtml(docKey('back')),'back');
+  /* 순서: 표지(공통 첫 장) → 반별 앞 → 공통 본문 → 반별 뒤(시험지 부착 위치) → 끝(공통 마지막 장) */
+  var first=common.length>1?common.shift():null,last=common.length>0?common.pop():null;
+  return [].concat(first?[first]:[],front,common,back,last?[last]:[]);
+}
+function render(){
+  var root=document.getElementById('root');
+  if(!CUR){
+    root.innerHTML='<div class="intro"><h2>진급 OT 안내</h2><p>체스에서 에이스로 올라가는 학생들에게 나눠주는 OT 자료예요. 반을 골라 주세요.</p><div class="pick">'+
+      CLASSES.map(function(c){return '<a href="?cls='+c.k+(location.search.indexOf('embed=1')>=0?'&embed=1':'')+'">'+esc(c.label)+'<small>'+esc(c.sub)+'</small></a>';}).join('')+'</div></div>';
+    document.getElementById('bPrint').style.display='none';return;
+  }
+  var slides=composeSlides();
+  root.innerHTML='';
+  slides.forEach(function(s,i){root.appendChild(s);deco(s);});
+  if(EDIT)decorateEdit();
+}
+
+/* ---------- 수정 모드 ---------- */
+var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto])';
+function decorateEdit(){
+  document.querySelectorAll('.ot-slide').forEach(function(s){
+    s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
+    var ca=s.querySelector('[data-auto="cls"]');if(ca)ca.removeAttribute('contenteditable');
+    var seg=s.getAttribute('data-seg');
+    var lab=document.createElement('span');lab.className='seglab'+(seg==='common'?' c':'');lab.setAttribute('data-ui','1');lab.textContent=seg==='common'?'공통 · 모든 반에 같이 바뀜':'이 반만';s.appendChild(lab);
+    var t=document.createElement('div');t.className='ot-tools';t.setAttribute('data-ui','1');
+    var has=!!s.querySelector('table');
+    t.innerHTML='<button data-a="up">↑</button><button data-a="down">↓</button><button data-a="dup">복제</button>'+(has?'<button data-a="row">행 추가</button><button data-a="col">열 추가</button>':'')+'<button class="d" data-a="del">삭제</button>';
+    s.appendChild(t);
+    var add=document.createElement('div');add.className='addrow';add.setAttribute('data-ui','1');add.setAttribute('data-for',seg);
+    add.innerHTML='<button data-add="nb">＋ 노트형 슬라이드</button><button data-add="card">＋ 카드형 슬라이드</button><button data-add="shot">＋ 사진 슬라이드</button>';
+    s.insertAdjacentElement('afterend',add);
+  });
+}
+document.addEventListener('click',function(e){
+  if(!EDIT)return;
+  var b=e.target.closest('.ot-tools button');
+  if(b){var s=b.closest('.ot-slide'),a=b.getAttribute('data-a');DIRTY=true;
+    if(a==='del'){if(confirm('이 슬라이드를 지울까요?')){var ad=s.nextElementSibling;if(ad&&ad.classList.contains('addrow'))ad.remove();s.remove();}}
+    else if(a==='up'||a==='down'){var sib=moveTarget(s,a==='up');if(sib){var ad2=s.nextElementSibling; if(a==='up'){sib.before(s);s.after(ad2);}else{var sibAd=sib.nextElementSibling;sibAd.after(s);s.after(ad2);} }}
+    else if(a==='dup'){var c=s.cloneNode(true);c.querySelectorAll('[data-ui]').forEach(function(x){x.remove();});var ad3=s.nextElementSibling;ad3.after(c);decorateOne(c);}
+    else if(a==='row'){var tb=s.querySelector('table tbody');if(tb){var tr=tb.lastElementChild.cloneNode(true);tr.querySelectorAll('td,th').forEach(function(c){if(c.tagName==='TD')c.innerHTML='<br>';});tb.appendChild(tr);decorateEditIn(tr);}}
+    else if(a==='col'){s.querySelectorAll('table tr').forEach(function(tr){var c=document.createElement(tr.parentNode.tagName==='THEAD'?'th':'td');c.innerHTML='<br>';tr.appendChild(c);c.setAttribute('contenteditable','true');});}
+    return;
+  }
+  var ab=e.target.closest('.addrow button');
+  if(ab){var row=ab.closest('.addrow'),seg=row.getAttribute('data-for'),kind=ab.getAttribute('data-add');DIRTY=true;
+    var n=newSlide(kind,seg);row.after(n);decorateOne(n);return;}
+  var im=e.target.closest('.ot-slide img');
+  if(im){pickImage(im);}
+});
+function moveTarget(s,up){ /* 같은 영역(공통/반별 앞/뒤) 안에서만 옮긴다 — 저장이 영역별로 되기 때문 */
+  var seg=s.getAttribute('data-seg'),n=s;
+  do{ n=up?n.previousElementSibling:n.nextElementSibling; }while(n&&!(n.classList&&n.classList.contains('ot-slide')));
+  if(!n)return null;
+  if(n.getAttribute('data-seg')!==seg){toast('다른 영역(공통↔반별)으로는 옮길 수 없어요',true);return null;}
+  if(!up&&false)return null;
+  return n;
+}
+function decorateOne(s){
+  /* 새로 만든·복제한 슬라이드 하나에만 수정 도구를 붙인다 */
+  var tmp=document.createElement('div');
+  s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
+  var seg=s.getAttribute('data-seg');
+  var lab=document.createElement('span');lab.className='seglab'+(seg==='common'?' c':'');lab.setAttribute('data-ui','1');lab.textContent=seg==='common'?'공통 · 모든 반에 같이 바뀜':'이 반만';s.appendChild(lab);
+  var t=document.createElement('div');t.className='ot-tools';t.setAttribute('data-ui','1');
+  t.innerHTML='<button data-a="up">↑</button><button data-a="down">↓</button><button data-a="dup">복제</button>'+(s.querySelector('table')?'<button data-a="row">행 추가</button><button data-a="col">열 추가</button>':'')+'<button class="d" data-a="del">삭제</button>';
+  s.appendChild(t);
+  if(!(s.nextElementSibling&&s.nextElementSibling.classList.contains('addrow'))){
+    var add=document.createElement('div');add.className='addrow';add.setAttribute('data-ui','1');add.setAttribute('data-for',seg);
+    add.innerHTML='<button data-add="nb">＋ 노트형 슬라이드</button><button data-add="card">＋ 카드형 슬라이드</button><button data-add="shot">＋ 사진 슬라이드</button>';
+    s.insertAdjacentElement('afterend',add);
+  }
+  deco(s);
+}
+function decorateEditIn(el){el.querySelectorAll('td,th').forEach(function(c){c.setAttribute('contenteditable','true');});}
+function newSlide(kind,seg){
+  var s=document.createElement('section');s.className='ot-slide '+(kind==='shot'?'card':kind);s.setAttribute('data-seg',seg);
+  if(kind==='nb') s.innerHTML='<div class="nb-l"><span class="nb-n">00</span><h2>제목</h2></div><div class="nb-r"><ol class="items"><li>내용을 적어 주세요</li><li>내용을 적어 주세요</li><li>내용을 적어 주세요</li></ol></div>';
+  else if(kind==='card') s.innerHTML='<h2 class="bar">제목</h2><div class="card-b"><ol class="items plain"><li>내용을 적어 주세요</li><li>내용을 적어 주세요</li></ol></div>';
+  else s.innerHTML='<h2 class="bar">제목</h2><div class="card-b"><div class="pics"><img class="wide" src="" alt="사진을 눌러 바꿔 주세요" style="min-height:14cqw;background:#e4ecfb"></div></div>';
+  return s;
+}
+function fmt(cmd,val){document.execCommand(cmd,false,val||null);DIRTY=true;}
+document.addEventListener('input',function(e){if(EDIT&&e.target.closest&&e.target.closest('.ot-slide'))DIRTY=true;});
+
+/* 사진 바꾸기 — 큰 사진은 줄여서(가로 1600) guide-images 저장소에 올린다 */
+var PICK_IMG=null;
+function pickImage(im){PICK_IMG=im;document.getElementById('file').click();}
+document.getElementById('file').addEventListener('change',function(e){
+  var f=e.target.files[0];e.target.value='';if(!f||!PICK_IMG)return;
+  if(!sb){toast('저장소에 연결하지 못했어요',true);return;}
+  var img=new Image(),url=URL.createObjectURL(f);
+  img.onload=function(){
+    var W=Math.min(1600,img.width),H=Math.round(img.height*W/img.width),cv=document.createElement('canvas');cv.width=W;cv.height=H;cv.getContext('2d').drawImage(img,0,0,W,H);URL.revokeObjectURL(url);
+    cv.toBlob(function(b){
+      var path='ot/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg',target=PICK_IMG;
+      toast('사진을 올리는 중…');
+      sb.storage.from('guide-images').upload(path,b,{contentType:'image/jpeg'}).then(function(r){
+        if(r.error){toast('사진 올리기 실패: '+r.error.message,true);return;}
+        target.src=sb.storage.from('guide-images').getPublicUrl(path).data.publicUrl;DIRTY=true;toast('사진을 바꿨어요 ✓ (저장을 눌러야 반영돼요)');
+      });
+    },'image/jpeg',0.86);
+  };
+  img.onerror=function(){toast('사진을 읽지 못했어요',true);};img.src=url;
+});
+
+function startEdit(){
+  if(!CAN_EDIT)return;
+  EDIT=true;DIRTY=false;document.body.classList.add('editing');
+  ['bEdit','bPrint'].forEach(function(i){document.getElementById(i).style.display='none';});
+  ['bSave','bCancel'].forEach(function(i){document.getElementById(i).style.display='';});
+  render();
+}
+function cancelEdit(){
+  if(DIRTY&&!confirm('고친 내용이 저장되지 않았어요. 버리고 나갈까요?'))return;
+  EDIT=false;DIRTY=false;document.body.classList.remove('editing');
+  ['bSave','bCancel'].forEach(function(i){document.getElementById(i).style.display='none';});
+  ['bEdit','bPrint'].forEach(function(i){document.getElementById(i).style.display='';});
+  document.getElementById('bEdit').style.display=CAN_EDIT?'':'none';
+  render();
+}
+/* 화면에서 영역별(공통/반별 앞/뒤)로 모아서, 수정 도구를 뺀 깨끗한 HTML 로 만든다 */
+function serialize(seg){
+  var out='';
+  document.querySelectorAll('.ot-slide[data-seg="'+seg+'"]').forEach(function(s){
+    var c=s.cloneNode(true);
+    c.querySelectorAll('[data-ui],[data-deco]').forEach(function(x){x.remove();});
+    c.querySelectorAll('[contenteditable]').forEach(function(x){x.removeAttribute('contenteditable');});
+    var a=c.querySelector('[data-auto="cls"]');if(a)a.textContent='';
+    out+=c.outerHTML;
+  });
+  return out;
+}
+function saveAll(){
+  if(!CAN_EDIT)return;
+  if(!TABLE_OK){toast('sql/ot_guides.sql 을 먼저 실행해 주세요. 지금은 저장이 안 돼요',true);return;}
+  var me=whoAmI(),now=new Date().toISOString();
+  var rows=SEGS.map(function(seg){return {doc_key:docKey(seg),content_html:serialize(seg),updated_by:me,updated_at:now};});
+  document.getElementById('bSave').disabled=true;
+  sb.from('ot_guides').upsert(rows,{onConflict:'doc_key'}).then(function(r){
+    document.getElementById('bSave').disabled=false;
+    if(r.error){toast('저장 실패: '+r.error.message,true);return;}
+    rows.forEach(function(x){DB[x.doc_key]=x.content_html;});
+    DIRTY=false;toast('저장했어요 ✓ 공통 슬라이드는 모든 반에 반영돼요');cancelEdit();
+  });
+}
+window.addEventListener('beforeunload',function(e){if(EDIT&&DIRTY){e.preventDefault();e.returnValue='';}});
+
+(function init(){
+  var q=new URLSearchParams(location.search);CUR=q.get('cls');if(CUR&&!clsOf(CUR))CUR=null;
+  document.getElementById('who').textContent=CAN_EDIT?'수정 권한: 엄윤경':'';
+  paintChips();
+  load(function(){
+    paintNotice();
+    if(CUR&&CAN_EDIT)document.getElementById('bEdit').style.display='';
+    render();
+  });
+})();
+</script>
+</body>
+</html>

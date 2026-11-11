@@ -2522,6 +2522,22 @@ function guideSetBranch(id){
   if(f) f.src=s.url;
   const a=document.querySelector('#guideOverlay .lt-ov-open'); if(a) a.href=s.open;
 }
+/* ---------- 진급 OT 안내 오버레이 (신입생 안내와 같은 형태) ---------- */
+function openOt(){
+  let ov=document.getElementById('otOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='otOverlay'; document.body.appendChild(ov); }
+  ov.className='lt-overlay';
+  ov.innerHTML='<div class="lt-ov-bar"><button class="lt-ov-close" onclick="otBack()">‹ 원무 홈</button><span class="lt-ov-title">진급 OT 안내</span>'
+    +'</div>'
+    +'<iframe id="otFrame" class="lt-ov-frame" src="ot-app/index.html?embed=1" title="진급 OT 안내"></iframe>';
+  document.body.style.overflow='hidden';
+}
+function otBack(){
+  const ov=document.getElementById('otOverlay'); if(ov) ov.remove(); document.body.style.overflow='';
+  state.view='wonmu'; wonmuState.view='hub';
+  if(typeof buildSidebar==='function') buildSidebar();
+  render(); window.scrollTo(0,0);
+}
 function closeGuide(){ const ov=document.getElementById('guideOverlay'); if(ov) ov.remove(); document.body.style.overflow=''; }
 function guideBack(){
   closeGuide();
@@ -2863,6 +2879,13 @@ function renderWonmuHub(b){
   if(session.role==='branch' || session.role==='admin'){
     h+=`<div class="hub-card" onclick="openGuide()">
       <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>신입생 안내</h3><p>${session.role==='branch'?'우리 분원 신입생 안내 페이지를 고쳐요':'분원을 골라 학부모님 화면으로 봐요'}</p></div><div class="hc-go">들어가기 ›</div></div></div>`;
+  }
+
+  // 진급 OT 안내 — 체스→에이스 진급생 OT 자료. 아직 엄윤경 계정만 쓴다(운영자 결정): 카드가 다른 계정에는 아예 안 보인다.
+  if(session.username==='엄윤경'){
+    h+=`<div class="hub-card" onclick="openOt()">
+      <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>진급 OT 안내</h3><p>체스 → 에이스 진급생 OT 자료 · 반별로 보고 인쇄해요</p></div><div class="hc-go">열기 ›</div></div>
+      <div class="hc-foot"><span class="l">HB · PA1 · PA2 · B</span><span class="r"><span class="b">슬라이드 · PDF 인쇄</span></span></div></div>`;
   }
 
   // 시상관리 카드 — DT·AT 자동 1등 · MIP · 베스트북 · 베스트스피치. 담임은 이 카드를 안 보고
