@@ -237,6 +237,7 @@ const IC={
   insa:'<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>',
   unyoung:'<path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v3"/><path d="M3 5v14a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-3"/><path d="M18 12a2 2 0 0 0 0 4h3v-4Z"/>',
   perm:'<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  hak:'<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>',
   clip:'<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
 };
 const icon=(k,s)=>_sv(IC[k]||'', s);
@@ -263,12 +264,14 @@ function permOf(role){ const saved=loadPerms(); return saved[role] || ROLE_PRESE
 const ALL_MENUS=['dashboard','leveltest','inwon','grading','award','chongmu','insa','unyoung'];
 const MENU_LABEL={dashboard:'대시보드',leveltest:'레벨테스트',inwon:'인원현황','inwon.roster':'신규·퇴원명단','inwon.closing':'인원마감표','inwon.students':'학생관리','inwon.segments':'세그먼트공지','inwon.accounts':'계정관리','inwon.data':'데이터관리','inwon.retest':'미통과 관리','inwon.retestup':'성적 올리기',grading:'시험채점',award:'시상관리',chongmu:'교재관리',insa:'인사',unyoung:'운영비'};
 /* ===== 직급(title) & 권한 프리셋 (계정 시스템 v2) ===== */
-// 메뉴 트리(계층): 대시보드 / 원무[레벨테스트·인원현황(6세부)·시험채점] / 총무[교재관리·운영비] / 인사
+// 메뉴 트리(계층): 대시보드 / 원무[레벨테스트] / 학사관리[인원현황(6세부)·시상관리] / 시험[시험채점] / 총무[교재관리·운영비] / 인사
 // 원무·총무는 k 없는 '묶음'(권한 아님, 접기/펴기만). 실제 권한은 그 밑 항목들.
 const MENU_TREE=[
   {k:'dashboard',label:'대시보드'},
   {label:'원무',sub:[
     {k:'leveltest',label:'레벨테스트'},
+  ]},
+  {label:'학사관리',sub:[
     {k:'inwon',label:'인원현황',sub:[
       {k:'inwon.roster',  label:'신규·퇴원명단'},
       {k:'inwon.closing', label:'인원마감표'},
@@ -281,8 +284,10 @@ const MENU_TREE=[
       {k:'inwon.retest',  label:'미통과 관리'},
       {k:'inwon.retestup',label:'성적 올리기'},
     ]},
-    {k:'grading',label:'시험채점'},
     {k:'award',label:'시상관리'},
+  ]},
+  {label:'시험',sub:[
+    {k:'grading',label:'시험채점'},
   ]},
   {label:'총무',sub:[
     {k:'chongmu',label:'교재관리'},
@@ -348,9 +353,29 @@ function baseUserMenus(){
   return out;
 }
 function hasMenu(k){ return userMenus().includes(k); }
+/* 예전엔 '원무' 하나에 레벨테스트·인원현황·시험채점·시상관리·안내 자료가 전부 들어 있어 정신이 없었다.
+   사이드바를 세 묶음(원무 / 학사관리 / 시험)으로 나눈다. 화면(state.view)은 그대로 'wonmu' 하나이고
+   어느 묶음인지만 wonmuState.group 으로 들고 있다 — 그래야 기존 화면들(레벨테스트·인원현황·시상관리…)을 안 건드린다.
+   메뉴 권한 키(leveltest·inwon·grading·award)는 그대로라 계정에 저장된 권한도 그대로 유지된다. */
+const WONMU_GROUPS=[
+  {g:'wonmu', name:'원무',     ic:'wonmu', desc:'레벨테스트 · 신입생 안내'},
+  {g:'hak',   name:'학사관리', ic:'hak',   desc:'인원현황 · 시상관리 · 진급 OT 안내'},
+  {g:'exam',  name:'시험',     ic:'clip',  desc:'시험채점 · 초등5 ACE 진급시험'},
+];
+const WONMU_GROUP_OF={leveltest:'wonmu',booking:'wonmu',inwon:'hak',award:'hak',ace5:'exam',exam:'exam'};
+function wGroup(){ return wonmuState.group||'wonmu'; }
+function gInfo(g){ return WONMU_GROUPS.find(x=>x.g===(g||wGroup()))||WONMU_GROUPS[0]; }
+function groupVisible(g){
+  if(g==='wonmu') return hasMenu('leveltest') || session.role==='branch' || session.role==='admin';   // 신입생 안내 카드는 분원·본사 관리자에게 열려 있다
+  if(g==='hak')   return hasMenu('inwon') || hasMenu('award') || (session.username==='엄윤경');
+  if(g==='exam')  return hasMenu('grading');
+  return false;
+}
+function firstWonmuGroup(){ const x=WONMU_GROUPS.find(y=>groupVisible(y.g)); return x?x.g:'wonmu'; }
+function navGroup(g){ wonmuState.group=g; wonmuState.view='hub'; state.view='wonmu'; buildSidebar(); render(); window.scrollTo(0,0); }
 function canModule(moduleKey){
   if(moduleKey==='perm'||moduleKey==='accounts') return curCanManage();
-  if(moduleKey==='wonmu') return hasMenu('leveltest')||hasMenu('inwon')||hasMenu('grading');
+  if(moduleKey==='wonmu') return WONMU_GROUPS.some(x=>groupVisible(x.g));
   if(moduleKey==='chongmu') return hasMenu('chongmu')||hasMenu('unyoung');  // 운영비가 총무 안으로 흡수됨
   return hasMenu(moduleKey);
 }
@@ -415,9 +440,10 @@ function enterApp(){
   $('sbScope').textContent = session.role==='admin' ? '통합관리 · 전체' : ('통합관리 · '+(br?br.name:'분원'));
   // 담임: 통합 셸 없이 인원현황(담임 화면)으로 바로 — 학원 전체 인원 같은 건 안 보여줌
   /* 담임·조교는 통합관리에서 볼 게 없다 — 바로 학사관리(인원현황)로 보낸다 */
-  if(session.role==='teacher'||session.role==='assistant'){ state.view='wonmu'; wonmuState.view='inwon'; render(); return; }
+  if(session.role==='teacher'||session.role==='assistant'){ state.view='wonmu'; wonmuState.group='hak'; wonmuState.view='inwon'; render(); return; }
   state.view = firstView();
   wonmuState.view = 'hub';   // 원무 내부 상태도 초기화 (다음에 원무 들어가면 첫 화면부터)
+  wonmuState.group = firstWonmuGroup();
   buildSidebar();
   render();
 }
@@ -426,6 +452,12 @@ function buildSidebar(){
   MODULES.forEach(m=>{
     if(m.key==='unyoung') return;   // 운영비는 총무 안으로 흡수 — 사이드바 별도 표시 안 함
     if(!canModule(m.key)) return;
+    if(m.key==='wonmu'){   // 원무 → 원무 / 학사관리 / 시험 세 항목
+      WONMU_GROUPS.forEach(x=>{ if(!groupVisible(x.g)) return;
+        const on=(state.view==='wonmu' && wGroup()===x.g);
+        h+=`<div class="sb-item ${on?'active':''}" onclick="navGroup('${x.g}')"><span class="ic">${icon(x.ic)}</span>${x.name}</div>`; });
+      return;
+    }
     h+=`<div class="sb-item ${state.view===m.key?'active':''}" onclick="nav('${m.key}')"><span class="ic">${icon(m.ic)}</span>${m.name}</div>`;
   });
   h+='<div class="sb-sect">설정</div>';
@@ -433,7 +465,7 @@ function buildSidebar(){
   h+=`<div class="sb-item" onclick="changeMyPw()"><span class="ic">${icon('perm')}</span>비밀번호 변경</div>`;
   $('sbNav').innerHTML=h;
 }
-function nav(v){ if(v==='wonmu') wonmuState.view='hub'; if(v==='chongmu' && typeof chongmuView!=='undefined') chongmuView='hub'; state.view=v; buildSidebar(); render(); window.scrollTo(0,0); closeSidebar(); }
+function nav(v){ if(v==='wonmu'){ wonmuState.view='hub'; if(!groupVisible(wGroup())) wonmuState.group=firstWonmuGroup(); } if(v==='chongmu' && typeof chongmuView!=='undefined') chongmuView='hub'; state.view=v; buildSidebar(); render(); window.scrollTo(0,0); closeSidebar(); }
 /* ── 분원 전환 (운영 담당자 전용) ──────────────────────────────────────────
    지난 학기 잠금을 풀 수 있는 사람은 한 명인데 그 계정이 한 분원에 묶여 있어서,
    다른 분원 자료를 손볼 방법이 없었다. 그 계정에서만 분원을 바꿀 수 있게 한다.
@@ -513,7 +545,7 @@ function render(){
   $('semPick').style.display='flex';        // 학기는 어느 화면에서나 고를 수 있다
   if(v==='dashboard'){ renderDashHome(c); }
   else if(v==='accounts'){ $('crumbs').innerHTML='<span class="mut">설정 › </span><b>계정 관리</b>'; renderAccounts(c); }
-  else if(v==='wonmu'){ $('crumbs').innerHTML='<b>원무</b>'; renderWonmu(c); }
+  else if(v==='wonmu'){ $('crumbs').innerHTML='<b>'+gInfo().name+'</b>'; renderWonmu(c); }
   else if(v==='chongmu'){ $('crumbs').innerHTML = (chongmuView==='books') ? '<b>총무</b><span class="mut"> › 교재 재고관리</span>' : (chongmuView==='expense') ? '<b>총무</b><span class="mut"> › 운영비 관리</span>' : '<b>총무</b>'; renderChongmu(c); }
   else { const m=MODULES.find(x=>x.key===v); $('crumbs').innerHTML=`<b>${m.name}</b>`; renderStub(c,m); }
 }
@@ -2452,19 +2484,19 @@ const IC_CAL='<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke
 const IC_ROSTER='<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/></svg>';
 
 function renderWonmu(c){ c.innerHTML='<div class="wscope" id="wonmuBody"></div>'; renderWonmuBody(); }
-function wonmuGo(v){ wonmuState.view=v; renderWonmuBody(); window.scrollTo(0,0); }
+function wonmuGo(v){ if(WONMU_GROUP_OF[v]) wonmuState.group=WONMU_GROUP_OF[v]; wonmuState.view=v; buildSidebar(); renderWonmuBody(); window.scrollTo(0,0); }
 function renderWonmuBody(){
   const body=$('wonmuBody'); if(!body) return;
   const v=wonmuState.view, cr=$('crumbs');
   const contentEl=$('content'); if(contentEl) contentEl.classList.toggle('wide', v==='ace5');
-  const home='<span class="cl" onclick="wonmuGo(\'hub\')">원무</span>';
+  const home='<span class="cl" onclick="wonmuGo(\'hub\')">'+gInfo().name+'</span>';
   if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
   else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
   else if(v==='award'){ if(cr) cr.innerHTML=`${home} › <b>시상관리</b>`; renderAward(body); }
   else if(v==='ace5'){ if(cr) cr.innerHTML=`${home} › <b>초등5 ACE 진급시험</b>`; renderAceE5(body); }
   else if(v==='booking'){ if(cr) cr.innerHTML=`${home} › <span class="cl" onclick="wonmuGo('leveltest')">레벨테스트</span> › <b>예약 입력</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'leveltest\')">‹ 레벨테스트로</div><div id="bkInner"></div>'; renderBooking($('bkInner')); }
-  else if(v==='exam'){ if(cr) cr.innerHTML='<b>원무</b>'; wonmuState.view='hub'; renderWonmuHub(body); openExam(); }
-  else { if(cr) cr.innerHTML='<b>원무</b>'; renderWonmuHub(body); }
+  else if(v==='exam'){ if(cr) cr.innerHTML='<b>'+gInfo().name+'</b>'; wonmuState.view='hub'; renderWonmuHub(body); openExam(); }
+  else { if(cr) cr.innerHTML='<b>'+gInfo().name+'</b>'; renderWonmuHub(body); }
 }
 
 /* ---------- 초등5 ACE 진급시험 — 사이드바를 그대로 두고 wonmuBody 안에 iframe만 넣는다.
@@ -2488,7 +2520,7 @@ function aceE5Src(){
 function renderAceE5(b){
   const src=aceE5Src();
   b.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="lt-back" style="margin-bottom:0" onclick="wonmuGo('hub')">‹ 원무로</div>
+      <div class="lt-back" style="margin-bottom:0" onclick="wonmuGo('hub')">‹ 시험으로</div>
       <a href="${src}" target="_blank" rel="noopener" style="font-size:12.5px;font-weight:700;color:var(--wink2);text-decoration:none">새 탭으로 열기 ↗</a>
     </div>
     <iframe src="${src}" title="초등5 ACE 진급시험" allow="clipboard-write"
@@ -2527,21 +2559,21 @@ function openOt(){
   let ov=document.getElementById('otOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='otOverlay'; document.body.appendChild(ov); }
   ov.className='lt-overlay';
-  ov.innerHTML='<div class="lt-ov-bar"><button class="lt-ov-close" onclick="otBack()">‹ 원무 홈</button><span class="lt-ov-title">진급 OT 안내</span>'
+  ov.innerHTML='<div class="lt-ov-bar"><button class="lt-ov-close" onclick="otBack()">‹ 학사관리 홈</button><span class="lt-ov-title">진급 OT 안내</span>'
     +'</div>'
     +'<iframe id="otFrame" class="lt-ov-frame" src="ot-app/index.html?embed=1" title="진급 OT 안내"></iframe>';
   document.body.style.overflow='hidden';
 }
 function otBack(){
   const ov=document.getElementById('otOverlay'); if(ov) ov.remove(); document.body.style.overflow='';
-  state.view='wonmu'; wonmuState.view='hub';
+  state.view='wonmu'; wonmuState.group='hak'; wonmuState.view='hub';
   if(typeof buildSidebar==='function') buildSidebar();
   render(); window.scrollTo(0,0);
 }
 function closeGuide(){ const ov=document.getElementById('guideOverlay'); if(ov) ov.remove(); document.body.style.overflow=''; }
 function guideBack(){
   closeGuide();
-  state.view='wonmu'; wonmuState.view='hub';
+  state.view='wonmu'; wonmuState.group='wonmu'; wonmuState.view='hub';
   if(typeof buildSidebar==='function') buildSidebar();
   render(); window.scrollTo(0,0);
 }
@@ -2820,7 +2852,8 @@ async function waitNotEnrolledConfirm(resId){
   if(ok){ waitModalClose(); toast('미등록 처리 완료 ✓'); renderWonmuBody(); }
 }
 function renderWonmuHub(b){
-  if(!bookState.loaded){ b.innerHTML='<div class="page-h"><div><h2><span class="h-ic">'+icon('wonmu',24)+'</span><span class="em">원무</span></h2><p>불러오는 중…</p></div></div><div class="book-loading">현황 불러오는 중…</div>'; ensureReservations().then(()=>{ if(state.view==='wonmu') renderWonmuBody(); }); return; }
+  const G=wGroup(), GI=gInfo();
+  if(!bookState.loaded){ b.innerHTML='<div class="page-h"><div><h2><span class="h-ic">'+icon(GI.ic,24)+'</span><span class="em">'+GI.name+'</span></h2><p>불러오는 중…</p></div></div><div class="book-loading">현황 불러오는 중…</div>'; ensureReservations().then(()=>{ if(state.view==='wonmu') renderWonmuBody(); }); return; }
   const brs=branchList();
   const semYms=semesterYM(state.semId).map(p=>p.ym);   // 학기 전체 월들
   const inSem=r=>{ const ym=String(r.reserved_date||'').slice(0,7); return semYms.length?semYms.includes(ym):true; };
@@ -2833,12 +2866,12 @@ function renderWonmuHub(b){
   const hcTot=hcRows.reduce((a,r)=>({active:a.active+r.active,nw:a.nw+r.nw,wd:a.wd+r.wd,tr:a.tr+(r.tr||0)}),{active:0,nw:0,wd:0,tr:0});
   const wdRate=wdRateSem(hcTot.active, hcTot.wd, hcTot.tr);
 
-  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon('wonmu',24)}</span><span class="em">원무</span></h2><p>원생 · 상담 · 레벨테스트 — 보고 싶은 걸 골라 들어가세요</p></div></div>`;
-  h+=waitAlertBanner();
+  let h=`<div class="page-h"><div><h2><span class="h-ic">${icon(GI.ic,24)}</span><span class="em">${GI.name}</span></h2><p>${GI.desc} — 보고 싶은 걸 골라 들어가세요</p></div></div>`;
+  if(G==='wonmu') h+=waitAlertBanner();
   h+=`<div class="whub">`;
 
   // 레벨테스트 카드 (레벨테스트 메뉴 권한 있을 때만)
-  if(hasMenu('leveltest')){
+  if(G==='wonmu' && hasMenu('leveltest')){
   h+=`<div class="hub-card" onclick="wonmuGo('leveltest')">
     <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>레벨테스트</h3><p>예약 · 참석 · 등록 현황 + 성적 · 코멘트</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="legend"><div class="ls"><div class="li"><span class="sw r0"></span>예약</div><div class="li"><span class="sw r1"></span>참석</div><div class="li"><span class="sw r2"></span>등록</div></div><span class="mo">${esc(semName(state.semId))} · 분원별</span></div>`;
@@ -2848,7 +2881,7 @@ function renderWonmuHub(b){
   }
 
   // 인원현황 카드 (인원현황 메뉴 권한 있을 때만)
-  if(hasMenu('inwon')){
+  if(G==='hak' && hasMenu('inwon')){
   h+=`<div class="hub-card" onclick="wonmuGo('inwon')">
     <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>인원현황</h3><p>재원 · 신규 · 퇴원 · 반별 · 담임별 · 상담</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="legend"><div class="ls"><div class="li"><span class="sw h1"></span>현재 재원</div></div><span class="mo h">${esc(semName(state.semId))} · 분원별</span></div>`;
@@ -2861,7 +2894,7 @@ function renderWonmuHub(b){
   }
 
   // 시험채점 카드 (DT · AT · 내신모의고사) — 레벨테스트/인원현황과 독립
-  if(hasMenu('grading')){
+  if(G==='exam' && hasMenu('grading')){
   h+=`<div class="hub-card" onclick="openExam()">
     <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>시험채점 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT · AT · 내신모의고사</span></h3><p>정답키로 반별 즉시 채점 · 분원별 진행률 · 엑셀 다운(큐앱)</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="hc-foot"><span class="l">답안 입력하면 즉시 O/X·점수</span><span class="r"><span class="b">분원별 진행률</span></span></div></div>`;
@@ -2869,31 +2902,31 @@ function renderWonmuHub(b){
 
   // 초등5 ACE 진급시험 카드 — 체스반 재원생 중 초5만 뽑아 답안입력(ace-e5-grading.html).
   // 시험채점과 같은 권한 키(grading)를 쓴다 — 결국 같은 '시험 채점' 일이라 따로 권한을 안 늘렸다.
-  if(hasMenu('grading')){
+  if(G==='exam' && hasMenu('grading')){
   h+=`<div class="hub-card" onclick="wonmuGo('ace5')">
     <div class="hc-head"><div class="hc-ic lt">${IC_CAL}</div><div class="hc-t"><h3>초등5 ACE 진급시험</h3><p>체스반 재원생 중 초5만 가나다순으로 · 답안입력 · 자동채점 · 레벨배정</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="hc-foot"><span class="l">객관식·Voca·Translation 한 번에</span><span class="r"><span class="b">임시레벨 자동 계산</span></span></div></div>`;
   }
 
   // 신입생 안내 — 분원관리자는 자기 분원 편집, 본사관리자는 분원을 골라 학부모 화면 보기
-  if(session.role==='branch' || session.role==='admin'){
+  if(G==='wonmu' && (session.role==='branch' || session.role==='admin')){
     h+=`<div class="hub-card" onclick="openGuide()">
       <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>신입생 안내</h3><p>${session.role==='branch'?'우리 분원 신입생 안내 페이지를 고쳐요':'분원을 골라 학부모님 화면으로 봐요'}</p></div><div class="hc-go">들어가기 ›</div></div></div>`;
   }
 
-  // 진급 OT 안내 — 체스→에이스 진급생 OT 자료. 아직 엄윤경 계정만 쓴다(운영자 결정): 카드가 다른 계정에는 아예 안 보인다.
-  if(session.username==='엄윤경'){
-    h+=`<div class="hub-card" onclick="openOt()">
-      <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>진급 OT 안내</h3><p>체스 → 에이스 진급생 OT 자료 · 반별로 보고 인쇄해요</p></div><div class="hc-go">열기 ›</div></div>
-      <div class="hc-foot"><span class="l">HB · PA1 · PA2 · B</span><span class="r"><span class="b">슬라이드 · PDF 인쇄</span></span></div></div>`;
-  }
-
   // 시상관리 카드 — DT·AT 자동 1등 · MIP · 베스트북 · 베스트스피치. 담임은 이 카드를 안 보고
   // inwon-app 사이드바에서 바로 들어간다(로그인하면 원무 허브 자체를 안 거친다).
-  if(hasMenu('award')){
+  if(G==='hak' && hasMenu('award')){
   h+=`<div class="hub-card" onclick="wonmuGo('award')">
     <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>시상관리 <span style="font-size:12px;color:var(--wink3);font-weight:700">DT·AT·MIP·BEST BOOK·BEST SPEECH</span></h3><p>레벨별 DT·AT 자동 1등 · 담임이 반배정표에서 바로 후보 선택</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="hc-foot"><span class="l">담임이 반배정표에서 바로 선택</span><span class="r"><span class="b">분원 관리자가 확인</span></span></div></div>`;
+  }
+
+  // 진급 OT 안내 — 체스→에이스 진급생 OT 자료. 아직 엄윤경 계정만 쓴다(운영자 결정): 카드가 다른 계정에는 아예 안 보인다.
+  if(G==='hak' && session.username==='엄윤경'){
+    h+=`<div class="hub-card" onclick="openOt()">
+      <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>진급 OT 안내</h3><p>체스 → 에이스 진급생 OT 자료 · 반별로 보고 인쇄해요</p></div><div class="hc-go">열기 ›</div></div>
+      <div class="hc-foot"><span class="l">HB · PA1 · PA2 · B</span><span class="r"><span class="b">슬라이드 · PDF 인쇄</span></span></div></div>`;
   }
   h+=`</div>`;
   b.innerHTML=h;
@@ -3631,9 +3664,9 @@ function openExam(){
   let ov=document.getElementById('examOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='examOverlay'; document.body.appendChild(ov); }
   ov.className='lt-overlay';
-  // 인원현황·교재관리와 동일한 형태의 상단바: ‹ 원무 홈 (이전페이지로) · 제목 · 새 탭으로 열기
+  // 인원현황·교재관리와 동일한 형태의 상단바: ‹ 시험 홈 (이전페이지로) · 제목 · 새 탭으로 열기
   ov.innerHTML='<div class="lt-ov-bar">'
-    +'<button class="lt-ov-close" onclick="examBack()">‹ 원무 홈</button>'
+    +'<button class="lt-ov-close" onclick="examBack()">‹ 시험 홈</button>'
     +'<span class="lt-ov-title">시험채점</span>'
     +'<a class="lt-ov-open" href="grader.html?'+_gq+'" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px;font-weight:700;color:#8b6ee8;text-decoration:none">새 탭으로 열기 ↗</a>'
     +'</div>'
@@ -3644,7 +3677,7 @@ function closeExam(){ const ov=document.getElementById('examOverlay'); if(ov) ov
 /* 시험채점 상단바 '‹ 원무 홈' — 오버레이 닫고 원무 홈(허브)으로 복귀 (인원현황/교재관리와 동일한 동작) */
 function examBack(){
   closeExam();
-  state.view='wonmu'; wonmuState.view='hub';
+  state.view='wonmu'; wonmuState.group='exam'; wonmuState.view='hub';
   if(typeof buildSidebar==='function') buildSidebar();
   render(); window.scrollTo(0,0);
 }

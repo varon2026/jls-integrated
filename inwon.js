@@ -127,7 +127,7 @@ function renderInwonNative(b){
   });
   const totWbase=tot.active+tot.withdraw; const totWrate=totWbase>0?Math.round(tot.withdraw/totWbase*100):0;
 
-  let h = `<div class="lt-back" onclick="wonmuGo('hub')">‹ 원무 홈</div>`;
+  let h = `<div class="lt-back" onclick="wonmuGo('hub')">‹ ${gInfo().name} 홈</div>`;
   h += `<div class="iw-head"><h2>인원현황</h2><div class="sub">${brs.length}개 분원 통합 현황 · ${esc(semName(semId))}</div></div>`;
 
   h += `<div class="iw-kpi-row">
