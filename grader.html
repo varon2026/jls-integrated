@@ -553,7 +553,15 @@ async function applyAceCutline(){
     if(!dRec||!gRec){btn.style.display='';return;}   // 한쪽 미채점 → 판단 보류(계속 표시)
     const d=computeAce(dRec.responses,dAns),g=computeAce(gRec.responses,gAns);
     const total=Math.round(((d.got||0)+(g.got||0))*10)/10;
-    btn.style.display=(total>=cut)?'none':'';
+    /* ⚠️ 재시험 버튼을 '지금 합계'만 보고 숨기면 안 된다. 독해를 먼저 재시험 쳐서 입력하면 (새 독해 + 예전 문법) 합이
+       기준을 넘어 문법 재시험 버튼이 사라져 문법을 못 입력했다(서수원 — 둘 다 재시험 보는 학생).
+       그래서 ① 처음 본 시험의 합계가 기준 이상이면 숨기고(재시험 대상이 아님) ② 재시험 대상이면 독해·문법 둘 다
+       재시험을 입력한 뒤에야, 그때의 합계가 기준 이상일 때만 숨긴다. 한쪽만 재시험을 본 상태에선 계속 보인다. */
+    const dPrev=Array.isArray(dRec.prev_scores)?dRec.prev_scores:[],gPrev=Array.isArray(gRec.prev_scores)?gRec.prev_scores:[];
+    const d1=dPrev.length?dPrev[0]:(d.got||0),g1=gPrev.length?gPrev[0]:(g.got||0);
+    const baseTotal=Math.round((d1+g1)*10)/10;
+    const dRe=dPrev.length>0||(+(dRec.round||1))>1,gRe=gPrev.length>0||(+(gRec.round||1))>1;
+    btn.style.display=(baseTotal>=cut||(dRe&&gRe&&total>=cut))?'none':'';
   });
 }
 /* ============================================================================
