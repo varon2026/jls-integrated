@@ -344,6 +344,12 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .nb-r.pic,.nb.multi .nb-r.pic{border:0;padding:0;background:transparent}
 .nb-r.pic{justify-content:center}
 .nb-r.pic img{flex:none;width:100%;height:auto;min-height:0;border-radius:0}
+/* 글자 크기를 전 반 같게 고정했으므로(위 fitPort) 내용이 적은 쪽은 위에서부터 차례로 쌓는다 — 예전처럼 늘려 퍼뜨리면 블록 사이가 휑하게 벌어진다 */
+.wkp .wp-band{flex:0 0 auto}
+.wkp .wp-bb{flex:0 0 auto}
+.wkp .w2-col,.wkp .w2-col+.w2-col{flex:0 0 auto;justify-content:flex-start}
+.wkp .w2-col{padding-bottom:calc(1.8cqw)}
+.wkp .w2-col+.w2-col{padding-top:calc(1.8cqw)}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -355,7 +361,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=20"></script>
+<script src="default-content.js?v=22"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -508,9 +514,10 @@ function fitPort(s){
     if(s.scrollHeight>s.clientHeight+1)return true;
     return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.nbm,.card-b,.time .cols,.time .col'),function(p){return p.scrollHeight>p.clientHeight+1;});
   };
-  var lo=0.5,hi=s.classList.contains('wkp')?1.9:2.2;
+  /* 첫 주 일정(.wkp)은 전 반 글자 크기를 같게(운영자 요청: 쪽마다 크기가 달라 들쭉날쭉) — 1.0배 고정, 안 들어갈 때만 줄인다(키우지 않음) */
+  var lo=0.5,hi=s.classList.contains('wkp')?1.0:2.2;
   for(var i=0;i<14;i++){var m=(lo+hi)/2;s.style.setProperty('--s',m);if(over())hi=m;else lo=m;}
-  s.style.setProperty('--s',lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
+  s.style.setProperty('--s',s.classList.contains('wkp')?lo:lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
 }
 function fitAll(){document.querySelectorAll('.ot-slide').forEach(fitPort);}
 var _fitT=null;
