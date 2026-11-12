@@ -330,6 +330,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .wkp .w2-l{font-weight:400}
 /* 시간표 교시 칸: '1교시' 아래 줄에 시간. 가운데서 어정쩡하게 끊기지 않게 시간은 한 덩어리(parseDoc 이 <br> 를 넣는다) */
 .time .col .per{line-height:1.35;white-space:nowrap}
+.time .col .sub{min-height:min-content}
 /* 노트 두 개를 한 쪽에(.multi) — 02 준비물 + 03 내 교재 */
 .nb.multi{gap:calc(1.8cqw*var(--s))}
 .nbm{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:calc(1.4cqw*var(--s))}
@@ -361,7 +362,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=22"></script>
+<script src="default-content.js?v=23"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -436,6 +437,8 @@ function parseDoc(html,seg){
     var m=p.textContent.trim().match(/^(\d+교시)\s*\(\s*([^)]+?)\s*\)$/);
     if(m)p.innerHTML=m[1]+'<br>('+m[2].replace(/\s*[-–]\s*/,' - ')+')';
   });
+  /* 시간표 교재 칸: 'Grammar Map Basic A-1<br>+ Workbook' 처럼 어정쩡하게 두 줄로 끊어 넣은 건 한 줄로 잇는다(칸 밖으로 삐져나왔다). 저장된 옛 내용도 같이 */
+  d.querySelectorAll('.time .col .sub').forEach(function(sub){ sub.innerHTML=sub.innerHTML.replace(/<br\s*\/?>\s*(?=\+)/g,' '); });
   var out=[].slice.call(d.body.querySelectorAll(':scope > section.ot-slide'));
   out.forEach(function(s){s.setAttribute('data-seg',seg);});
   return out;
