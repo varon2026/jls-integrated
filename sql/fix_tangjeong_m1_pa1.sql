@@ -92,7 +92,7 @@ where r.id in (select id from public.bak_ltr_tj_m1_pa1_20261112)
 
 select count(*) as 아직_미배정_예약
 from public.level_test_reservations v
-where v.id in (select reservation_id from public.bak_ltres_tj_m1_pa1_20261112 where reservation_id is not null)
+where v.id in (select id from public.bak_ltres_tj_m1_pa1_20261112)
   and coalesce(v.test_level,'') <> 'PA1';
 
 
