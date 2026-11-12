@@ -112,7 +112,7 @@ const ACE=[
  {
   "label": "A1 반 (월수금)",
   "name": "Ace1",
-  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해 : Reading Map Basic B-1\n- 듣기 : Listening Map Basic B-1\n- 문법 : (NEW)GRAMMAR MAP Pre Intermediate A-1\n- 활용 : The World of Art Explorer\n\n■단어시험: 단어 시험 50개 / 금요일 활용 단어시험 60개+ 단어시험 50"
+  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해 : Reading Map Basic B-1\n- 듣기 : Listening Map Basic B-1\n- 문법 : (NEW)GRAMMAR MAP Pre Intermediate A-1\n- 활용 : The World of Art Explorer\n\n■단어시험: 월요일,수요일 단어 시험 50개 / 금요일 활용 단어시험 60개"
  },
  {
   "label": "A1 반 (화목)",
