@@ -130,6 +130,48 @@ body.ro .g td.qcell input{background:#fafafa;cursor:default}
    지적(운영자)이 있었음. 무한정 넓히진 않되(사람 눈이 한 줄에 다 못 읽음), 카드 안 표는
    이 폭을 100% 채우도록(칸 너비는 %로 재배분, 아래 참고) 만들어서 "왼쪽만 쓰고 오른쪽은
    허허벌판"인 느낌을 없앤다. */
+
+/* ---- 재시험 일정 캘린더(월간) — 한눈에 보기 박스 밑. 재시험·보강 일정을 날짜 칸에 모아서 본다 ---- */
+.rtcal{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:16px;box-shadow:0 4px 18px rgba(80,70,120,.05)}
+.rtcal-hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.rtcal-hd h3{font-size:17px;font-weight:800}
+.rtcal-nav{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:800;font-size:16px}
+.rtcal-nav button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 11px;cursor:pointer;font:inherit;font-weight:800;color:var(--ink2)}
+.rtcal-nav button:hover{background:var(--soft);color:var(--brand)}
+.rtcal-flt{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:13px;font-weight:700}
+.rtcal-pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 13px;color:var(--ink2);cursor:pointer;font:inherit;font-size:12.5px;font-weight:800}
+.rtcal-pill.on{background:var(--soft);border-color:#cfc2f6;color:var(--brand)}
+.rtcal-sel{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font:inherit;font-size:12.5px;font-weight:800;color:var(--ink2);background:#fff}
+.rtcal-lg{margin-left:auto;display:flex;gap:14px;color:var(--ink2);font-size:12px;font-weight:700}
+.rtcal-lg i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.rtcal-wrap{display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start}
+@media(max-width:1000px){.rtcal-wrap{grid-template-columns:1fr}}
+.rtcal-tbl{width:100%;border-collapse:collapse;table-layout:fixed}
+.rtcal-tbl th{font-size:12px;color:var(--ink3);padding:6px 0;font-weight:800}
+.rtcal-tbl th:first-child{color:#d2566b}
+.rtcal-tbl td{height:104px;border:1px solid var(--line2);vertical-align:top;padding:4px 5px;cursor:pointer;overflow:hidden}
+.rtcal-tbl td:hover{background:#faf8ff}
+.rtcal-tbl td.out{background:#fcfbfe}.rtcal-tbl td.out .d{color:#cfcadd}
+.rtcal-tbl td.sel{outline:2px solid var(--brand);outline-offset:-2px}
+.rtcal-tbl .d{font-weight:800;font-size:12px;color:var(--ink2);margin-bottom:2px}
+.rtcal-tbl td.today .d{background:var(--brand);color:#fff;border-radius:999px;display:inline-block;padding:0 7px}
+.rtcal-ch{display:block;border-radius:6px;padding:1px 5px;margin-bottom:2px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
+.rtcal-ch.dt{background:var(--rdt-soft);color:#2b5bb8}
+.rtcal-ch.at{background:var(--rat-soft);color:#1d7a4c}
+.rtcal-ch.mk{background:var(--warn-s);color:#9a5b00}
+.rtcal-ch.done{opacity:.42;text-decoration:line-through}
+.rtcal-more{font-size:11px;color:var(--ink2);font-weight:800}
+.rtcal-day{border:1px solid var(--line);border-radius:12px;padding:14px}
+.rtcal-day h4{font-size:15px;font-weight:800;margin-bottom:6px}
+.rtcal-row{display:flex;align-items:flex-start;gap:9px;border-top:1px solid var(--line2);padding:8px 4px;font-size:13px;cursor:pointer;border-radius:6px}
+.rtcal-row:hover{background:#faf8ff}
+.rtcal-row .tm{font-weight:800;color:var(--brand);width:44px;flex:none}
+.rtcal-row b{font-weight:800}
+.rtcal-row small{display:block;color:var(--ink3);font-size:11.5px;font-weight:700;margin-top:1px}
+.rtcal-row.done{opacity:.5}
+.rtcal-empty{color:var(--ink3);font-weight:700;font-size:13px;padding:14px 2px}
+tr.rtcal-flash td{animation:rtcalflash 1.6s ease}
+@keyframes rtcalflash{0%,60%{background:#fff3c4}100%{background:transparent}}
 .rtmg-page{max-width:1520px}
 /* 화면 맨 위 — "지금 총 몇 명 처리해야 하는지"가 제일 먼저 보여야 한다는 지적 반영.
    컷라인 숫자보다 이 배너가 시각적으로 훨씬 커야 함(우선순위). */
@@ -682,7 +724,7 @@ function rtSchedBtn(x,type,field){
 }
 function rtDtBlock(list){
   if(!list.length)return `<div class="rtmg-block dt"><div class="bh">체스 · DT — 재시험 대상<span class="n">0명</span></div><div class="rtmg-empty">체스(DT) 재시험 대상이 없습니다</div></div>`;
-  const rows=list.map(x=>`<tr>
+  const rows=list.map(x=>`<tr data-rt="DT|${esc(x.code)}">
     <td class="stu">${esc(x.name)}<span class="c" title="${esc(gradeKey(x.grade)||'')} · ${esc(x.school||'')}">${esc(gradeKey(x.grade)||'')}</span></td>
     <td>${esc(x.teacher||'')}<span class="c" title="${esc(x.classLabel||'')}">${esc(x.classLabel||'')}</span></td>
     <td><span class="rtmg-num">${x.baseTotal}</span></td>
@@ -701,7 +743,7 @@ function rtDtBlock(list){
 }
 function rtAtBlock(list){
   if(!list.length)return `<div class="rtmg-block at"><div class="bh">에이스 · AT — 재시험 대상<span class="n">0명</span></div><div class="rtmg-empty">에이스(AT) 재시험 대상이 없습니다</div></div>`;
-  const rows=list.map(x=>`<tr>
+  const rows=list.map(x=>`<tr data-rt="AT|${esc(x.code)}">
     <td class="stu">${esc(x.name)}<span class="c" title="${esc(gradeKey(x.grade)||'')} · ${esc(x.school||'')}">${esc(gradeKey(x.grade)||'')}</span></td>
     <td>${esc(x.teacher||'')}<span class="c" title="${esc(x.classLabel||'')}">${esc(x.classLabel||'')}</span></td>
     <td>${x.baseRead==null?'<span class="hint">—</span>':x.baseRead}</td>
@@ -765,6 +807,81 @@ function rtHero(dt,at){
       </div>
     </div>`;
 }
+
+/* ============================================================================
+   재시험 일정 캘린더(월간) — 운영자 요청: 선생님들이 잡은 재시험·보강 일정을 달력으로도 보고 싶다.
+   새 표는 없다. 이미 불러온 RT_DT/RT_AT(scheduledAt·makeupAt)를 그대로 날짜 칸에 올린다.
+   범위는 목록과 같은 rtScoped() — 본사=전 분원, 분원=자기 분원, 담임=자기 반(따로 짜면 숫자가 어긋난다).
+   읽기 전용: 일정 수정은 아래 목록의 버튼으로 하고, 달력에서 학생을 누르면 목록의 그 줄로 이동한다.
+   보강 완료된 건은 흐리게 보인다(운영자 확정). 주간 보기는 일부러 만들지 않았다(운영자: 월간만).
+   ============================================================================ */
+let RT_CAL={y:null,m:null,sel:null,type:'all',sched:true,mk:true,teacher:''};
+const RT_WD=['일','월','화','수','목','금','토'];
+function rtDKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function rtTm(d){return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function rtCalAll(){
+  const s=rtScoped();const ev=[];
+  [['DT',s.dt],['AT',s.at]].forEach(([type,list])=>list.forEach(x=>{
+    if(x.scheduledAt)ev.push({kind:'sched',type,x,at:new Date(x.scheduledAt),done:false});
+    if(x.makeupAt)ev.push({kind:'mk',type,x,at:new Date(x.makeupAt),done:!!x.makeupDone});
+  }));
+  return ev.filter(e=>!isNaN(e.at.getTime()));
+}
+function rtCalFiltered(){
+  return rtCalAll().filter(e=>(RT_CAL.type==='all'||e.type===RT_CAL.type)
+    &&(e.kind==='sched'?RT_CAL.sched:RT_CAL.mk)
+    &&(!RT_CAL.teacher||String(e.x.teacher||'')===RT_CAL.teacher));
+}
+function rtCalCard(){return `<div class="rtcal" id="rtCalHost">${rtCalHtml()}</div>`;}
+function rtCalRepaint(){const h=$('rtCalHost');if(h)h.innerHTML=rtCalHtml();}
+function rtCalHtml(){
+  const now=new Date();
+  if(RT_CAL.y==null){RT_CAL.y=now.getFullYear();RT_CAL.m=now.getMonth();}
+  const todayKey=rtDKey(now);
+  const all=rtCalAll();
+  const ev=rtCalFiltered();
+  const byDay={};ev.forEach(e=>{(byDay[rtDKey(e.at)]=byDay[rtDKey(e.at)]||[]).push(e);});
+  Object.values(byDay).forEach(a=>a.sort((p,q)=>p.at-q.at));
+  const first=new Date(RT_CAL.y,RT_CAL.m,1);const start=new Date(RT_CAL.y,RT_CAL.m,1-first.getDay());
+  const weeks=Math.ceil((first.getDay()+new Date(RT_CAL.y,RT_CAL.m+1,0).getDate())/7);
+  let body='';
+  for(let w=0;w<weeks;w++){body+='<tr>';
+    for(let c=0;c<7;c++){
+      const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+w*7+c);const k=rtDKey(d);
+      const out=d.getMonth()!==RT_CAL.m;const list=byDay[k]||[];
+      const sel=(RT_CAL.sel||todayKey)===k;
+      const chips=list.slice(0,3).map(e=>`<span class="rtcal-ch ${e.kind==='mk'?'mk':(e.type==='DT'?'dt':'at')}${e.done?' done':''}" title="${esc(e.x.name)} · ${e.kind==='mk'?'보강':'재시험'} · ${e.type==='DT'?'체스':'에이스'} · ${esc(e.x.teacher||'')}">${rtTm(e.at)} ${esc(e.x.name)}</span>`).join('');
+      const more=list.length>3?`<div class="rtcal-more">+${list.length-3}건 더보기</div>`:'';
+      body+=`<td class="${out?'out':''}${k===todayKey?' today':''}${sel?' sel':''}" onclick="rtCalSel('${k}')"><div class="d">${d.getDate()}</div>${chips}${more}</td>`;
+    }body+='</tr>';}
+  const selKey=RT_CAL.sel||todayKey;const sd=new Date(selKey+'T00:00:00');
+  const dl=byDay[selKey]||[];
+  const showBranch=(!TEACHER&&ROLE==='admin'&&!BRANCH);
+  const side=dl.length?dl.map(e=>`<div class="rtcal-row${e.done?' done':''}" onclick="rtCalGo('${e.type}','${esc(e.x.code)}')"><span class="tm">${rtTm(e.at)}</span><div><b>${esc(e.x.name)}</b>${e.done?' <span class="hint">· 보강 완료</span>':''}<small>${e.kind==='mk'?'보강':'재시험'} · ${e.type==='DT'?'체스':'에이스'} · ${esc(e.x.teacher||'')}${showBranch?' · '+esc(e.x.branchName||''):''}</small></div></div>`).join('')
+    :'<div class="rtcal-empty">이날은 일정이 없어요</div>';
+  const teachers=[...new Set(all.map(e=>String(e.x.teacher||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  const tsel=TEACHER?'':`<select class="rtcal-sel" onchange="rtCalTeacher(this.value)"><option value="">담임 전체</option>${teachers.map(t=>`<option value="${esc(t)}"${t===RT_CAL.teacher?' selected':''}>${esc(t)}</option>`).join('')}</select>`;
+  const pill=(on,fn,txt)=>`<button class="rtcal-pill${on?' on':''}" onclick="${fn}">${txt}</button>`;
+  return `<div class="rtcal-hd"><h3>일정 캘린더</h3>
+    <div class="rtcal-nav"><button onclick="rtCalMonth(-1)">‹</button><span>${RT_CAL.y}년 ${RT_CAL.m+1}월</span><button onclick="rtCalMonth(1)">›</button><button onclick="rtCalToday()">오늘</button></div></div>
+    <div class="rtcal-flt">${pill(RT_CAL.type==='all',"rtCalType('all')",'전체')}${pill(RT_CAL.type==='DT',"rtCalType('DT')",'체스(DT)')}${pill(RT_CAL.type==='AT',"rtCalType('AT')",'에이스(AT)')}
+      <span style="width:8px"></span>${pill(RT_CAL.sched,"rtCalKind('sched')",'재시험')}${pill(RT_CAL.mk,"rtCalKind('mk')",'보강')}<span style="width:8px"></span>${tsel}
+      <div class="rtcal-lg"><span><i style="background:var(--rdt)"></i>체스</span><span><i style="background:var(--rat)"></i>에이스</span><span><i style="background:var(--warn)"></i>보강</span></div></div>
+    <div class="rtcal-wrap"><div><table class="rtcal-tbl"><thead><tr>${RT_WD.map(w=>`<th>${w}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>
+    <div class="rtcal-day"><h4>${sd.getMonth()+1}/${sd.getDate()}(${RT_WD[sd.getDay()]}) · ${dl.length}건</h4>${side}</div></div>`;
+}
+function rtCalSel(k){RT_CAL.sel=k;rtCalRepaint();}
+function rtCalMonth(d){const x=new Date(RT_CAL.y,RT_CAL.m+d,1);RT_CAL.y=x.getFullYear();RT_CAL.m=x.getMonth();rtCalRepaint();}
+function rtCalToday(){const n=new Date();RT_CAL.y=n.getFullYear();RT_CAL.m=n.getMonth();RT_CAL.sel=rtDKey(n);rtCalRepaint();}
+function rtCalType(t){RT_CAL.type=t;rtCalRepaint();}
+function rtCalKind(k){RT_CAL[k]=!RT_CAL[k];rtCalRepaint();}
+function rtCalTeacher(v){RT_CAL.teacher=v;rtCalRepaint();}
+/* 달력에서 학생을 누르면 아래 목록의 그 학생 줄로 이동해서 잠깐 깜빡인다 */
+function rtCalGo(type,code){
+  const tr=document.querySelector('tr[data-rt="'+type+'|'+code+'"]');if(!tr)return;
+  tr.scrollIntoView({behavior:'smooth',block:'center'});
+  tr.classList.remove('rtcal-flash');void tr.offsetWidth;tr.classList.add('rtcal-flash');
+}
 function renderRetestView(){
   const host=$('content');
   if(!cutlineActive()){
@@ -784,11 +901,11 @@ function renderRetestView(){
     </div>`;
   let bodyHtml;
   if(TEACHER){
-    bodyHtml=rtRenderTeacherBox(TEACHER);
+    bodyHtml=rtCalCard()+rtRenderTeacherBox(TEACHER);
   }else if(ROLE==='admin'&&!BRANCH){
-    bodyHtml=rtRenderSummary('branch',null)+rtRenderBoxes(null);
+    bodyHtml=rtRenderSummary('branch',null)+rtCalCard()+rtRenderBoxes(null);
   }else{
-    bodyHtml=rtRenderSummary('teacher',BRANCH)+rtRenderBoxes(BRANCH);
+    bodyHtml=rtRenderSummary('teacher',BRANCH)+rtCalCard()+rtRenderBoxes(BRANCH);
   }
   host.innerHTML=`<div class="rtmg-page">
     <div class="h2">재시험관리</div>
