@@ -107,6 +107,17 @@ const ACE=[
   "label": "PA2 반 (화목)",
   "name": "Pre Ace2",
   "body": "■수업시간 : 화목 1부 15:30~18:30(180')\n\n■교재\n- 독해/듣기 : NEW Total English Map Inter B1~B3\n- 문법 : NEW Grammar Map Basic A + New Grammar Map Basic A Work Book (기본편)\n- 활용 : Science & Technology (Explorer)\n\n■단어시험: 화요일: 독해단어 40개 + 활용단어 50개시험 / 목요일: 독해단어 40개"
+ },
+ /* 2026-11-12 A1반 추가(운영자 — 월수금·화목 둘 다). 본문은 운영자가 준 문구 그대로(단어시험 줄의 띄어쓰기까지). */
+ {
+  "label": "A1 반 (월수금)",
+  "name": "Ace1",
+  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해 : Reading Map Basic B-1\n- 듣기 : Listening Map Basic B-1\n- 문법 : (NEW)GRAMMAR MAP Pre Intermediate A-1\n- 활용 : The World of Art Explorer\n\n■단어시험: 단어 시험 50개 + 금요일 활용 단어시험 60개+ 단어시험 50"
+ },
+ {
+  "label": "A1 반 (화목)",
+  "name": "Ace1",
+  "body": "■수업시간: 화목 1부 15:30~18:30(180')\n\n■교재\n- 독해 : Reading Map Basic B-1\n- 듣기 : Listening Map Basic B-1\n- 문법 : (NEW)GRAMMAR MAP Pre Intermediate A-1\n- 활용 : The World of Art Explorer\n\n■단어시험: 화요일: 단어 50개 + 활용단어 60개시험 / 목요일: 단어 40개"
  }
 ];
 
@@ -161,7 +172,9 @@ function chessText(cur,next,branch,pending){
 function aceText(i,branch){
   const a=ACE[i];if(!a)return '';
   const ov=branch!=null?TXT[branch+'|ACE|'+a.label]:null;
-  return `${semLabel(SEM)} CHESS → ${semLabel(nextSemId(SEM))} ACE ${a.name}\n\n${ov!=null?ov:a.body}`;
+  /* 반 이름이 이미 'Ace'로 시작하면(Ace1) 앞에 'ACE '를 또 붙이지 않는다 — 운영자 문구가 '26-27년 겨울 Ace1'이다('ACE Ace1'로 겹쳐 보였음) */
+  const lead=/^Ace/i.test(a.name)?'':'ACE ';
+  return `${semLabel(SEM)} CHESS → ${semLabel(nextSemId(SEM))} ${lead}${a.name}\n\n${ov!=null?ov:a.body}`;
 }
 
 async function loadOvr(){
