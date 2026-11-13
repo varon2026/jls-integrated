@@ -1093,7 +1093,15 @@ function noDays(s){
   s=String(s||'');
   return s.replace(/^\s*[월화수목금토일]+\s*\d*\s*부?\s*·?\s*/,'').trim()||s;
 }
-function keyOfLevel(code){return KEYS.find(k=>k.test_type===EXAM&&normLv(k.level)===normLv(code));}
+/* 정답키는 원래 전 분원 공통(레벨당 하나)이다. 단 '이번 학기만 이 분원은 예전 정답키로' 같은 예외가 생겨서(2026 가을 서·수원 MSB1이
+   시험지 리뉴얼 전 버전으로 시험을 봤다) exam_keys 에 branch_id(+semester)가 붙은 키를 따로 둘 수 있게 했다.
+   분원을 넘기면(반 화면) 그 분원·그 학기 전용 키가 있으면 그걸 쓰고, 없으면 공통 키. 분원을 안 넘기면(정답 등록 화면 등) 공통 키만 본다.
+   ⚠️ 공통 키를 찾을 때 분원 전용 키를 섞으면 정답 등록·일괄 교체가 예외 키를 덮어쓴다 — 그래서 !k.branch_id 로 거른다. */
+function keyOfLevel(code,br){
+  const lv=normLv(code),all=KEYS.filter(k=>k.test_type===EXAM&&normLv(k.level)===lv);
+  if(br){const o=all.find(k=>k.branch_id===br&&(!k.semester||k.semester===semName(SEM)));if(o)return o;}
+  return all.find(k=>!k.branch_id);
+}
 
 /* ---- 사이드바(아코디언) ---- */
 function renderSide(){
@@ -1250,7 +1258,7 @@ function onBulk(inp,forceSection){
       for(const lv of lvs){
         const fresh=groups[lv].sort((a,b)=>a.n-b.n);
         const fileParts=new Set(fresh.map(a=>a.part||'전체'));
-        const existing=KEYS.find(k=>k.test_type===EXAM&&normLv(k.level)===normLv(lv));
+        const existing=KEYS.find(k=>k.test_type===EXAM&&normLv(k.level)===normLv(lv)&&!k.branch_id);
         // 같은 영역만 교체, 다른 영역은 유지 → 독해/문법 파일 따로 올려도 한 레벨로 합쳐짐
         let merged=fresh;
         if(existing){ const keep=(existing.answers||[]).filter(a=>!fileParts.has(a.part||'전체')); merged=keep.concat(fresh); }
@@ -1385,7 +1393,7 @@ function buildGrid(){
   const cls=curClassObj(); if(!cls){area.innerHTML='';return;}
   const code=cls.levelCode;
   const studs=cls.recs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-  const key=keyOfLevel(code);
+  const key=keyOfLevel(code,cls.branchId);
   const off=disabledSet(); const isOff=off.has(code);
   const head=`<div class="card" style="padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <div style="font-size:16px;font-weight:800">${esc(noDays(cls.dispCode||code))} <span style="font-size:13px;color:var(--ink3);font-weight:700">${esc(classDetail(cls.className))}${ROLE==='admin'&&!BRANCH?' · '+esc(cls.branchName):''}${cls.teacher?' · 담임 '+esc(cls.teacher):''}</span></div>
@@ -1487,7 +1495,7 @@ function markBlocks(){
   const start=()=>new MutationObserver(()=>{if(!q)q=requestAnimationFrame(run);}).observe(document.body,{childList:true,subtree:true});
   if(document.body)start();else document.addEventListener('DOMContentLoaded',start);})();
 function onCell(inp){scoreRow(inp.closest('tr'));autoNext(inp);}
-function curKey(){const c=curClassObj();return c?keyOfLevel(c.levelCode):null;}
+function curKey(){const c=curClassObj();return c?keyOfLevel(c.levelCode,c.branchId):null;}
 function scoreRow(tr){
   const key=curKey();if(!key)return;const ans=key.answers||[];
   const parts=[...new Set(ans.map(a=>a.part||'전체'))];const got={},pt={};parts.forEach(p=>{got[p]=0;pt[p]=0;});
@@ -2455,7 +2463,7 @@ async function exportScoresXlsx(){
       const sh=naesinSheetFor(code,studs,idx);sh.name=_sheetName(code);
       await writeXlsxColored([sh],`${EXAM}_${code}_${semName(SEM)}`);
     }else{
-      const key=keyOfLevel(cls.levelCode);if(!key){toast('정답키가 없어요',false);return;}
+      const key=keyOfLevel(cls.levelCode,cls.branchId);if(!key){toast('정답키가 없어요',false);return;}
       const data=await fetchAll('exam_scores','*',q=>q.eq('test_type',EXAM).eq('key_id',key.id).eq('semester',semName(SEM)));
       const idx={};data.forEach(r=>_latest(idx,r.student_code+'|'+key.id,r));
       const sh=dtSheetFor(cls.levelCode,key,studs,idx);
