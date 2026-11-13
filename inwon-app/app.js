@@ -7105,10 +7105,12 @@ const trecs = activeRecordsOf(branchId, semId).filter(r=>r.teacher===teacher);
 const rates = calcRates(rateRecordsOfTeacher(branchId, semId, teacher), branchId, semId);
   const classes = classesOf(branchId, semId, teacher);
 
+  /* 학생 시험 기록 검색(exam-history.js) — 담임은 자기 반 학생만 검색된다. 오른쪽 위 검색창. */
   let html = `
-    <div class="page-head">
-      <h2>${esc(teacher)} <span style="font-size:14px;font-weight:500;color:var(--ink-3)">선생님</span></h2>
-      <div class="sub">${esc(b?b.name:'')} · 학생 ${trecs.length}명 · 반 ${classes.length}개 · ${esc(db.semesters.find(s=>s.id===semId)?.name||'')}</div>
+    <div class="page-head" style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap">
+      <div><h2>${esc(teacher)} <span style="font-size:14px;font-weight:500;color:var(--ink-3)">선생님</span></h2>
+      <div class="sub">${esc(b?b.name:'')} · 학생 ${trecs.length}명 · 반 ${classes.length}개 · ${esc(db.semesters.find(s=>s.id===semId)?.name||'')}</div></div>
+      <div id="exhSearch" style="margin-left:auto"></div>
     </div>
     <div class="sect-head"><h3>전체 상담 진행률</h3></div>
     ${ratePanel(rates)}
@@ -7174,6 +7176,12 @@ const rates = calcRates(rateRecordsOfTeacher(branchId, semId, teacher), branchId
   }
   html += incompletePanel(rateRecordsOfTeacher(branchId, semId, teacher), branchId, semId, teacher);
   el('content').innerHTML = html;
+  if(typeof ExamHistory!=='undefined' && document.getElementById('exhSearch')){
+    ExamHistory.attach({ host:'exhSearch', sb:sb, placeholder:'우리 반 학생 이름 검색 (시험 기록)',
+      semesters:()=>db.semesters||[],
+      candidates:()=>trecs.map(r=>{ const st=getStudent(r.studentId); return st ? { code:st.code, name:st.name, school:st.school, grade:st.grade, branchName:b?b.name:'', className:r.classLabel||r.className||'', teacher:r.teacher||'', status:'active' } : null; }).filter(Boolean)
+    });
+  }
 }
 
 /* ============================================================================

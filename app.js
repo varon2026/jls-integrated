@@ -563,6 +563,24 @@ function render(){
 /* ============================================================================
    대시보드 홈: 인원 현황 / 경영 분석 토글 (기존 인원 계산은 그대로 재사용·읽기전용)
    ============================================================================ */
+/* 학생 시험 기록 검색(exam-history.js) — 대시보드 맨 위. 본사는 전 분원, 분원 계정은 자기 분원 학생만 검색된다.
+   후보는 학생마다 '가장 최근 학기 기록'의 분원·반·담임·상태를 대표로 쓴다(지난 학기에 퇴원했으면 퇴원으로 표시). */
+function examHistoryMount(){
+  const h=document.getElementById('exhSearch'); if(!h || typeof ExamHistory==='undefined') return;
+  ExamHistory.attach({ host:h, sb:sb,
+    semesters:()=>db.semesters||[],
+    candidates:()=>{
+      const recBy={};
+      (db.semesterRecords||[]).forEach(r=>{ if((r.kind||'regular')==='exam') return;
+        if(session.role!=='admin' && r.branchId!==session.branchId) return;
+        const c=recBy[r.studentId]; if(!c || semRank(r.semesterId)>semRank(c.semesterId)) recBy[r.studentId]=r; });
+      const out=[];
+      (db.students||[]).forEach(st=>{ const r=recBy[st.id]; if(!r) return;
+        const br=(db.branches||[]).find(b=>b.id===r.branchId);
+        out.push({ code:st.code, name:st.name, school:st.school, grade:st.grade, branchName:br?br.name:'', className:r.classLabel||r.className||'', teacher:r.teacher||'', status:r.status==='withdraw'?'withdraw':'active' }); });
+      return out;
+    } });
+}
 function setDashView(v){ state.dashView=v; render(); }
 function renderDashHome(c){
   if(!state.dashView) state.dashView='inwon';
@@ -583,7 +601,8 @@ function renderDashHome(c){
        분원 계정도 이 탭으로 들어오면 안 되니 반개설현황과 같이 admin 전용으로 둔다. */
     +((session&&session.role)==='admin'
       ? '<button onclick="setDashView(\'acemove\')" style="'+btn(state.dashView==='acemove')+'">ACE 진급</button>' : '')
-    +'</div><div id="dashBody"></div>';
+    +'<div id="exhSearch" style="margin-left:auto"></div></div><div id="dashBody"></div>';
+  examHistoryMount();
   const body=$('dashBody');
   if(state.dashView==='mgmt') renderMgmtDash(body);
   else if(state.dashView==='jh') renderJeonhyeongDash(body);
