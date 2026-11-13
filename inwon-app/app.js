@@ -4501,7 +4501,7 @@ function renderDataManagement(){
       <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line-2)">
         <div style="font-size:13px;font-weight:700;margin-bottom:4px">학생 개별 삭제</div>
         <div class="pd" style="margin-bottom:8px">특정 학생만 명단에서 제거합니다. 이름이나 회원코드로 검색해서 고르세요. (해당 학생의 상담이력도 함께 삭제됩니다)</div>
-        <input id="delSearch" placeholder="예: 김태양" autocomplete="off" oninput="renderDelResults()" style="width:100%;height:38px;padding:0 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface-2)">
+        <input id="delSearch" placeholder="예: 김태양" autocomplete="off" oninput="renderDelResults()" style="width:100%;height:44px;padding:0 14px;border:2px solid #6B4FD8;border-radius:var(--radius-sm);background:#F7F4FF;font-weight:700;box-shadow:0 3px 12px #6b4fd830">
         <div id="delResults" class="wd-results" style="margin-top:8px"></div>
       </div>
     </div>`;
@@ -4987,7 +4987,7 @@ function stuSearchPanelHTML(){
       <div><h3>현 재원생 검색</h3></div>
     </div>
     <input id="stuSearch" placeholder="이름·회원코드·학교·반·담임 검색 (예: 월수금 PA2)" autocomplete="off" oninput="renderStuSearch()"
-      style="width:100%;height:38px;padding:0 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface-2)">
+      style="width:100%;height:44px;padding:0 14px;border:2px solid #6B4FD8;border-radius:var(--radius-sm);background:#F7F4FF;font-weight:700;box-shadow:0 3px 12px #6b4fd830">
     <div id="stuSearchResults" style="margin-top:10px"></div>
   </div>`;
 }

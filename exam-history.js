@@ -15,8 +15,10 @@
 (function(){
   var CSS = ''
   + '.exh-wrap{position:relative;display:inline-block}'
-  + '.exh-in{display:flex;align-items:center;gap:9px;width:300px;border:1.5px solid #e2dcf2;border-radius:999px;background:#fff;padding:8px 16px;font-size:13.5px;transition:box-shadow .15s,border-color .15s}'
-  + '.exh-in:focus-within{border-color:#6B4FD8;box-shadow:0 0 0 3px #6b4fd822,0 6px 18px #6b4fd822}'
+  /* 검색창이 눈에 안 띈다는 운영자 지적 — 테두리를 진한 보라 2px + 옅은 보라 바탕 + 그림자로 */
+  + '.exh-in{display:flex;align-items:center;gap:10px;width:340px;border:2px solid #6B4FD8;border-radius:999px;background:#F7F4FF;padding:10px 18px;font-size:14px;box-shadow:0 3px 12px #6b4fd830;transition:box-shadow .15s,background .15s}'
+  + '.exh-in:focus-within{background:#fff;box-shadow:0 0 0 4px #6b4fd830,0 6px 18px #6b4fd830}'
+  + '.exh-in input::placeholder{color:#6B4FD8;opacity:.75;font-weight:700}'
   + '.exh-in input{border:0;outline:0;flex:1;min-width:0;font:inherit;font-weight:700;color:#2f3138;background:none}'
   + '.exh-in svg{flex:none}'
   + '.exh-dd{position:absolute;right:0;top:calc(100% + 8px);width:480px;max-width:92vw;background:#fff;border-radius:18px;box-shadow:0 18px 50px #4b35b238,0 0 0 1px #ece9f6;overflow:hidden;z-index:3000;display:none;text-align:left}'
@@ -86,7 +88,7 @@
     SB = opts.sb;
     var host = typeof opts.host==='string' ? document.getElementById(opts.host) : opts.host;
     if(!host) return;
-    host.innerHTML = '<div class="exh-wrap"><div class="exh-in"><svg width="16" height="16" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="#6B4FD8" stroke-width="2.4"/><path d="M20 20l-4-4" stroke="#6B4FD8" stroke-width="2.4" stroke-linecap="round"/></svg>'
+    host.innerHTML = '<div class="exh-wrap"><div class="exh-in"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="#6B4FD8" stroke-width="2.8"/><path d="M20 20l-4-4" stroke="#6B4FD8" stroke-width="2.4" stroke-linecap="round"/></svg>'
       + '<input type="text" autocomplete="off" placeholder="' + esc(opts.placeholder||'학생 이름 검색 (시험 기록)') + '"></div><div class="exh-dd"></div></div>';
     var inp = host.querySelector('input'), dd = host.querySelector('.exh-dd'), list = [], cur = 0;
     function close(){ dd.classList.remove('on'); }
