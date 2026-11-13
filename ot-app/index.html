@@ -456,6 +456,14 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .sw .msg i{font-size:calc(2.90cqw*var(--s));line-height:1.65;margin:calc(1.01cqw*var(--s)) 0}
 .sw .hwc-box{gap:calc(1.51cqw*var(--s))}
 .wt .hwc-box ol.items{flex:1;justify-content:space-around}
+/* 독해·문법·듣기 과제(.hg) — 박스는 내용 높이만큼, 박스 사이 간격을 넓게(안 그러면 긴 박스가 아래 박스에 붙어 보인다) */
+.hg{gap:calc(3.53cqw*var(--s))}
+.hg .tri-sec{flex:none;gap:calc(1.51cqw*var(--s))}
+.hg .hwc-bar{padding-top:calc(1.01cqw*var(--s));padding-bottom:calc(1.01cqw*var(--s))}
+.hg .hwc-box{flex:none;justify-content:flex-start;padding:calc(1.76cqw*var(--s)) calc(3.27cqw*var(--s))}
+.hg .hwc-box ol.items{flex:none;gap:calc(1.76cqw*var(--s))}
+.hg .hwc-box ol.items li{font-size:calc(2.71cqw*var(--s));padding-left:calc(6.30cqw*var(--s));line-height:1.4}
+.hg .hwc-box ol.items li::before{width:calc(3.78cqw*var(--s));height:calc(3.78cqw*var(--s));font-size:calc(1.76cqw*var(--s));top:50%;transform:translateY(-50%)}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -467,7 +475,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=42"></script>
+<script src="default-content.js?v=43"></script>
 </head>
 <body>
 <div class="hd" id="hd">
