@@ -536,6 +536,24 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .ls.tp4 .tp-row img{height:27.08cqw;width:auto;max-width:100%;margin:0;border:0;display:block}
 .ls.tp4 .tp-row figure:nth-child(3) img{height:23.93cqw}
 .ls.tp4 .ls-all{justify-content:flex-start}
+/* ---------- 합친 목록 쪽 B 방식(운영자 확정): 제목을 위에 한 줄로 크게 + 아래 굵은 선, 항목은 쪽 폭 전체. 위쪽 A식(.ls 왼쪽 제목)을 덮어쓴다 ---------- */
+.ls .ls-all{justify-content:flex-start;gap:0}
+.ls .ls-sec:not(.top){display:flex;flex-direction:column;flex:1 1 auto;min-height:min-content;gap:calc(1.76cqw*var(--s));padding:calc(0.50cqw*var(--s)) 0 calc(2.27cqw*var(--s))}
+.ls .ls-sec:not(.top) .ls-h{display:flex;align-items:center;gap:calc(2.02cqw*var(--s));font-size:calc(4.79cqw*var(--s));padding:0 0 calc(1.51cqw*var(--s));border-bottom:0.38cqw solid #1C2A4A;line-height:1.25}
+.ls .ls-sec:not(.top) .ls-h i{margin:0;font-size:calc(2.52cqw*var(--s));background:#FDE2E4;color:#9A2E3E;border-radius:50%;min-width:calc(5.54cqw*var(--s));height:calc(5.54cqw*var(--s));display:grid;place-items:center}
+.ls .ls-sec:not(.top) .ls-b{flex:1 1 auto;min-height:min-content;display:flex;flex-direction:column;justify-content:space-around}
+.ls .ls-sec:not(.top) ol.items{flex:1;justify-content:space-around}
+.ls .ls-sec:not(.top) ol.items li{border-bottom:0;font-size:calc(3.40cqw*var(--s));padding:calc(0.76cqw*var(--s)) 0 calc(0.76cqw*var(--s)) calc(6.05cqw*var(--s))}
+.ls .ls-sec:not(.top) ol.items li::before{color:#D23B3B!important;font-size:calc(2.52cqw*var(--s))!important;top:50%;transform:translateY(-50%)}
+.ls .ls-sec:not(.top) ol.items li:first-child{padding-top:calc(0.76cqw*var(--s))}
+.ls .ls-sec:not(.top) ol.items li small{font-size:calc(2.39cqw*var(--s))}
+.ls .ls-sec:not(.top) .hl{margin:calc(1.01cqw*var(--s)) 0 0 calc(6.05cqw*var(--s));font-size:calc(3.15cqw*var(--s));padding:calc(2.02cqw*var(--s)) calc(2.77cqw*var(--s))}
+.ls .ls-sec:not(.top) .msg{font-size:calc(3.65cqw*var(--s));line-height:1.7;padding:calc(0.50cqw*var(--s)) 0}
+.ls .ls-sec:not(.top) .msg i{font-size:calc(3.15cqw*var(--s))}
+.ls .ls-sec:not(.top) .ls-b img{margin:0;width:100%;height:auto;flex:none;max-height:none}
+.ls .ls-sec:not(.top) .ls-b img[alt*="My Tree"]{width:42%}
+.ls .ls-sec:not(.top) .ls-b>div.hwc-row{display:block}
+.ls .ls-sec:not(.top) .ji-pic img{width:90%}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -547,7 +565,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=49"></script>
+<script src="default-content.js?v=52"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -701,7 +719,7 @@ function fitPort(s){
   if(s.matches('.cover,.imgcard,.full'))return;
   var over=function(){
     if(s.scrollHeight>s.clientHeight+1)return true;
-    return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.nbm,.card-b,.ls-all,.time .cols,.time .col,.ev-rows,.ev-r'),function(p){return p.scrollHeight>p.clientHeight+1;});
+    return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.nbm,.card-b,.ls-all,.ls-sec,.ls-b,.time .cols,.time .col,.ev-rows,.ev-r'),function(p){return p.scrollHeight>p.clientHeight+1;});
   };
   /* 첫 주 일정(.wkp)은 전 반 글자 크기를 같게(운영자 요청: 쪽마다 크기가 달라 들쭉날쭉) — 1.0배 고정, 안 들어갈 때만 줄인다(키우지 않음) */
   var lo=0.5,hi=(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time')||s.classList.contains('hwc')||s.classList.contains('ls'))?1.0:2.2;
