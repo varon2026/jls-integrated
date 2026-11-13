@@ -376,7 +376,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 
 /* STaRT 안내 5쪽(.ev.st) — 평가 일정과 같은 틀에 항목 앞 점(.bl)을 붙인 것. 점은 '문장'마다(줄마다 아님): 앞 문장에서 이어지는 줄은 .bl.c 로 점 없이 들여쓴다.
    한 줄은 안 꺾이게(nowrap) 말 단위로 미리 끊어 두었다 — 중간에서 어색하게 꺾이는 게 싫다는 운영자 요청. */
-.ev.st .bl{display:block;position:relative;padding-left:1.1em}.ev.st .bl::before{content:"";position:absolute;left:.1em;top:.62em;width:.36em;height:.36em;border-radius:50%;background:#1C2A4A}.ev.st .bl.c::before{display:none}.ev.st .bl.c{padding-left:1.1em}.ev.st .ev-ds{font-size:calc(2.8cqw*var(--s));line-height:1.9;word-break:keep-all;overflow-wrap:normal;white-space:nowrap}.ev.st .ev-nm{font-size:calc(3.5cqw*var(--s))}.ev.st .ev-ok{font-size:calc(2.4cqw*var(--s))}.ev.st .ev-all{font-size:calc(2.8cqw*var(--s))}.ev.st .ev-all i{font-size:calc(2.4cqw*var(--s))}.ev.st .ev-r{grid-template-columns:21% 1fr}
+.ev.st .bl{display:block;position:relative;padding-left:1.1em}.ev.st .bl::before{content:"";position:absolute;left:.1em;top:.62em;width:.36em;height:.36em;border-radius:50%;background:#1C2A4A}.ev.st .dw{display:inline-block;min-width:3.4em}.ev.st .bl.c::before{display:none}.ev.st .bl.c{padding-left:1.1em}.ev.st .ev-ds{font-size:calc(2.8cqw*var(--s));line-height:1.9;word-break:keep-all;overflow-wrap:normal;white-space:nowrap}.ev.st .ev-nm{font-size:calc(3.5cqw*var(--s))}.ev.st .ev-ok{font-size:calc(2.4cqw*var(--s))}.ev.st .ev-all{font-size:calc(2.8cqw*var(--s))}.ev.st .ev-all i{font-size:calc(2.4cqw*var(--s))}.ev.st .ev-r{grid-template-columns:21% 1fr}
 /* 시간표(.time): 교재 이름이 길면(NEW Grammar Map Basic A + workbook(기본편)) 두 줄로 꺾여 칸 밖으로 삐져나왔다(PA2 월수금·화목).
    글자를 조금 줄이고, 글자 크기는 자동으로 키우지 않으며(fitPort 상한 1.0), 칸 높이는 글이 꺾여도 늘어나게(min-content) 한다. */
 .time .col{grid-auto-rows:minmax(min-content,1fr)}
@@ -580,7 +580,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=60"></script>
+<script src="default-content.js?v=61"></script>
 </head>
 <body>
 <div class="hd" id="hd">
