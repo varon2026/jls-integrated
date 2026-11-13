@@ -382,6 +382,21 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .time.tight .col .sub{font-size:calc(2.2cqw*var(--s))}
 .time.tight .col .sub b{font-size:calc(2.6cqw*var(--s))}
 .time.tight .col .per{font-size:calc(1.9cqw*var(--s))}
+/* ---------- 숙제 확인 하는 방법 + 숙제에도 순서가 있다 — 3쪽을 한 쪽에(.hwc) ---------- */
+.hwc{padding:5.04cqw 5.04cqw 4.28cqw;display:flex;flex-direction:column;gap:1.76cqw}
+.hwc-bar{flex:none;background:#EEF3FF;border:0.19cqw solid #CFDCF7;color:#2E4FA6;border-radius:1.51cqw;display:flex;align-items:center;gap:1.76cqw;padding:1.26cqw 2.77cqw}
+.hwc-bar h2{font-family:var(--disp);font-size:calc(3.78cqw*var(--s));font-weight:400;margin:0;line-height:1.3}
+.hwc-bar .n{background:#FDE2E4;color:#9A2E3E;border-radius:50%;min-width:calc(5.04cqw*var(--s));height:calc(5.04cqw*var(--s));display:grid;place-items:center;font-size:calc(2.27cqw*var(--s));font-weight:800;flex:none}
+.hwc-box{flex:none;border:0.19cqw solid #CFDCF7;border-radius:1.51cqw;padding:2.02cqw 2.77cqw}
+.hwc-box ol.items{gap:calc(1.51cqw*var(--s))}
+.hwc-box ol.items li{font-size:calc(2.90cqw*var(--s));padding-left:calc(6.30cqw*var(--s));line-height:1.45}
+.hwc-box ol.items li::before{width:calc(4.53cqw*var(--s));height:calc(4.53cqw*var(--s));font-size:calc(2.02cqw*var(--s))}
+.hwc-row{display:grid;grid-template-columns:1fr 37.78cqw;gap:2.27cqw;align-items:center}
+.hwc img{width:100%;display:block;border-radius:0.76cqw;border:1px solid #E4E9F7;max-width:100%}
+.hwc-box>img{margin-top:1.51cqw}
+.hwc-last{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
+.hwc-last ol.items li{font-size:calc(3.27cqw*var(--s))}
+.hwc .hl{margin-top:1.9cqw;font-size:calc(2.9cqw*var(--s));font-weight:800;padding:1.9cqw 2.6cqw}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -393,7 +408,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=35"></script>
+<script src="default-content.js?v=37"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -549,9 +564,9 @@ function fitPort(s){
     return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.nbm,.card-b,.time .cols,.time .col,.ev-rows,.ev-r'),function(p){return p.scrollHeight>p.clientHeight+1;});
   };
   /* 첫 주 일정(.wkp)은 전 반 글자 크기를 같게(운영자 요청: 쪽마다 크기가 달라 들쭉날쭉) — 1.0배 고정, 안 들어갈 때만 줄인다(키우지 않음) */
-  var lo=0.5,hi=(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time'))?1.0:2.2;
+  var lo=0.5,hi=(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time')||s.classList.contains('hwc'))?1.0:2.2;
   for(var i=0;i<14;i++){var m=(lo+hi)/2;s.style.setProperty('--s',m);if(over())hi=m;else lo=m;}
-  s.style.setProperty('--s',(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time'))?lo:lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
+  s.style.setProperty('--s',(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time')||s.classList.contains('hwc'))?lo:lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
 }
 function fitAll(){document.querySelectorAll('.ot-slide').forEach(fitPort);}
 var _fitT=null;
