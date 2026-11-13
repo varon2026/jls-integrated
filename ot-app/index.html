@@ -576,7 +576,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=56"></script>
+<script src="default-content.js?v=57"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -616,7 +616,7 @@ var LEVELS=[
   {k:'hb', label:'HB반', sub:'ACE High Bridge', doc:'hb', color:'#F9E8A8'},
   {k:'pa1',label:'PA1반',sub:'Pre Ace 1',       days:{mwf:'pa1mwf',tt:'pa1tt'}, color:'#AED26A'},
   {k:'pa2',label:'PA2반',sub:'Pre Ace 2',       days:{mwf:'pa2mwf',tt:'pa2'},   color:'#C09CE0'},
-  {k:'a1', label:'A1반', sub:'Ace 1',           days:{mwf:'a1mwf',tt:'a1tt'},   color:'#9DB8F0'}
+  {k:'a1', label:'A1반', sub:'Ace 1',           doc:'a1tt', color:'#9DB8F0'}   /* A1은 화목반만 있다(월수금반 없음 — 운영자). 저장 키는 처음 만든 a1tt 그대로 */
 ];
 var DAYS=[{k:'mwf',label:'월수금'},{k:'tt',label:'화목'}];
 var LV=null, DAY=null;
@@ -709,7 +709,7 @@ function render(){
       '<span class="brand">JLS 정상어학원</span><div class="welcome">Welcome to JLS!</div><h1>진급 OT 안내</h1>'+
       '<p>체스에서 에이스로 올라가는 학생들을 위한 OT 자료예요.<br>반을 골라 주세요.</p></div>'+
       '<div class="levels">'+LEVELS.map(function(l){return '<button class="lv" onclick="go(\''+l.k+'\''+(l.days?',\'mwf\'':'')+')"><span class="dot" style="background:'+l.color+'">'+esc(l.label.replace('반',''))+'</span><b>'+esc(l.label)+'</b><small>'+esc(l.sub)+'</small>'+(l.days?'<i>월수금 · 화목</i>':'')+'</button>';}).join('')+'</div>'+
-      '<div class="tip">PA1 · PA2 · A1반은 반을 고른 뒤 월수금 / 화목 중에 골라요</div>';
+      '<div class="tip">PA1 · PA2반은 반을 고른 뒤 월수금 / 화목 중에 골라요</div>';
     document.getElementById('bPrint').style.display='none';return;
   }
   document.getElementById('root').className='wrap';
