@@ -554,6 +554,10 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .ls .ls-sec:not(.top) .ls-b img[alt*="My Tree"]{width:42%}
 .ls .ls-sec:not(.top) .ls-b>div.hwc-row{display:block}
 .ls .ls-sec:not(.top) .ji-pic img{width:90%}
+/* 제목을 위에 두는 변형(.top: 10번 단어는 어떻게 외우나요?·시험지 부착 위치)도 다른 쪽과 같은 번호 동그라미·굵은 밑줄 (운영자 지적: 10번만 번호표가 달랐다) */
+.ls .ls-sec.top .ls-h{display:flex;align-items:center;gap:calc(2.02cqw*var(--s));font-size:calc(4.79cqw*var(--s));padding:0 0 calc(1.51cqw*var(--s));border-bottom:0.38cqw solid #1C2A4A;margin-bottom:calc(1.76cqw*var(--s))}
+.ls .ls-sec.top .ls-h i{margin:0;font-size:calc(2.52cqw*var(--s));background:#FDE2E4;color:#9A2E3E;border-radius:50%;min-width:calc(5.54cqw*var(--s));height:calc(5.54cqw*var(--s));display:grid;place-items:center;vertical-align:baseline}
+.ls .ls-sec.top:not(:first-child) .ls-h{font-size:calc(3.02cqw*var(--s));border-bottom:0;padding-bottom:0;margin-bottom:calc(0.76cqw*var(--s))}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -565,7 +569,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=52"></script>
+<script src="default-content.js?v=53"></script>
 </head>
 <body>
 <div class="hd" id="hd">
