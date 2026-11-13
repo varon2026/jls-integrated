@@ -47,7 +47,7 @@
   + '.exh-exp{margin-left:auto;font-size:12.5px;font-weight:800;color:#6B4FD8;background:none;border:0;cursor:pointer;font-family:inherit;padding:6px 0}'
   + '.exh-bd{padding:18px 28px 24px;overflow:auto;flex:1}'
   + '.exh-sem{display:grid;grid-template-columns:112px 1fr;gap:6px 16px;margin-bottom:20px}'
-  + '.exh-sl b{font-size:16px;font-weight:800;display:block}.exh-sl small{font-size:11.5px;color:#8b90a0;display:block;margin-top:3px;line-height:1.5;overflow-wrap:anywhere}'
+  + '.exh-sl b{font-size:16px;font-weight:800;display:block;white-space:nowrap}.exh-sl small{font-size:11.5px;color:#8b90a0;display:block;margin-top:3px;line-height:1.5;overflow-wrap:anywhere}'
   + '.exh-ex{border-radius:15px;box-shadow:0 0 0 1px #ece9f6;padding:15px 19px;margin-bottom:10px;position:relative}'
   + '.exh-ex:before{content:"";position:absolute;left:-14px;top:23px;width:8px;height:8px;border-radius:50%;background:#8A74F0}'
   + '.exh-eh{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.exh-eh b{font-size:15px;font-weight:800}.exh-eh small{color:#8b90a0;font-size:12px}'
@@ -145,6 +145,8 @@
       var ok = a.type==='sa' ? (v==='1') : (normA(v)===normA(a.ans)); if(ok) got[p]+=(a.pt||0); });
     return parts.map(function(p){ return { name:p, got:r1(got[p]), pt:r1(pt[p]) }; });
   }
+  /* 학기 이름은 '2026년 가을학기' 로 길게 저장돼 있어 왼쪽 칸에서 두 줄로 꺾였다 — '2026 가을' 로 줄이고 한 줄로 고정한다 */
+  function shortSem(n){ return String(n||'').replace(/년\s*/,' ').replace(/학기$/,'').trim(); }
   function chunks(a){ return a.map(function(x){ return '<span style="white-space:nowrap">'+x+'</span>'; }).join(' · '); }
   /* 반 이름은 '[DSD2]FA2/MWF/J' 처럼 길어서 왼쪽 칸에서 잘렸다 — 괄호·빗금을 점으로 바꿔 짧게 읽히게 하고 줄바꿈도 허용한다 */
   function shortCls(c){ return String(c||'').replace(/[\[\]]/g,' ').replace(/\s*\/\s*/g,' · ').replace(/\s+/g,' ').trim(); }
@@ -255,7 +257,7 @@
       model.forEach(function(s){
         var ex = s.exams.filter(function(e){ return cur==='all' || e.type===cur; });
         if(!ex.length) return;
-        h += '<div class="exh-sem"><div class="exh-sl"><b>'+esc(s.name)+'</b><small>'+esc(shortCls(ex[0].cls))+'</small></div><div>'+ex.map(exHtml).join('')+'</div></div>';
+        h += '<div class="exh-sem"><div class="exh-sl"><b>'+esc(shortSem(s.name))+'</b><small>'+esc(shortCls(ex[0].cls))+'</small></div><div>'+ex.map(exHtml).join('')+'</div></div>';
       });
       return h || '<div class="exh-none">'+(n?'이 종류의 시험 기록이 없어요':'아직 저장된 시험 기록이 없어요')+'</div>';
     }
