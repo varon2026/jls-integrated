@@ -4991,6 +4991,15 @@ function stuSearchPanelHTML(){
     <div id="stuSearchResults" style="margin-top:10px"></div>
   </div>`;
 }
+/* 현 재원생 검색 결과의 이름을 누르면 그 학생의 DT·AT·내신모의고사 전 학기 기록 창을 연다(exam-history.js) */
+let _stuSearchShown = [];
+function stuSearchExam(i){
+  const x=_stuSearchShown[i]; if(!x || typeof ExamHistory==='undefined') return;
+  const b=getBranch(x.r.branchId);
+  ExamHistory.open({ code:x.s.code, name:x.s.name, school:x.s.school, grade:x.s.grade, branchName:b?b.name:'',
+    className:classLabel(x.r.className)||x.r.classLabel||x.r.className||'', teacher:x.r.teacher||'', status:'active' },
+    { sb:sb, semesters:()=>db.semesters||[] });
+}
 /* 현 재원생 검색 — 입력했을 때만 결과 표시. 대상 분원은 state.stuSearchBranch(없으면 세션 분원). */
 function renderStuSearch(){
   const box = el('stuSearchResults'); if(!box) return;
@@ -5012,8 +5021,9 @@ function renderStuSearch(){
     || String(a.s.name||'').localeCompare(String(b.s.name||''),'ko'));
   if(!list.length){ box.innerHTML = `<div style="padding:12px;color:var(--ink-3);font-size:12.5px">${q?'검색 결과가 없습니다.':'현재 재원생이 없습니다.'}</div>`; return; }
   const CAP = 400;
-  const body = list.slice(0,CAP).map(({r,s})=>`<tr>
-    <td style="padding:5px 8px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap">${esc(s.name||'?')}</td>
+  _stuSearchShown = list.slice(0,CAP);   // 이름을 누르면 시험 기록(exam-history.js)을 열기 위해 보이는 목록을 기억한다
+  const body = _stuSearchShown.map(({r,s},i)=>`<tr>
+    <td style="padding:5px 8px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap"><a href="javascript:void(0)" onclick="stuSearchExam(${i})" title="시험 기록 보기" style="color:inherit;text-decoration:underline;text-decoration-color:#c9bff0;text-underline-offset:3px;cursor:pointer">${esc(s.name||'?')}</a></td>
     <td style="padding:5px 8px;border-bottom:1px solid var(--line);color:var(--ink-3);font-size:11.5px;white-space:nowrap">${esc(s.code||'')}</td>
     <td style="padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap">${esc((s.school||'')+(s.grade?(' '+s.grade):''))}</td>
     <td style="padding:5px 8px;border-bottom:1px solid var(--line)">${esc(classLabel(r.className)||r.classLabel||r.className||'')}</td>
