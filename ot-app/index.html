@@ -464,6 +464,17 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .hg .hwc-box ol.items{flex:none;gap:calc(1.76cqw*var(--s))}
 .hg .hwc-box ol.items li{font-size:calc(2.71cqw*var(--s));padding-left:calc(6.30cqw*var(--s));line-height:1.4}
 .hg .hwc-box ol.items li::before{width:calc(3.78cqw*var(--s));height:calc(3.78cqw*var(--s));font-size:calc(1.76cqw*var(--s));top:50%;transform:translateY(-50%)}
+/* 시험지 부착 위치(.tp) — 전 레벨 공통. 사진 3장: 겉표지·안쪽 첫 장(위 두 칸) + Chapter Intro(아래 넓게) */
+.tp .tp-note{flex:none;background:#FFF6D6;border-radius:1.26cqw;padding:calc(1.51cqw*var(--s)) calc(2.27cqw*var(--s));font-size:calc(2.27cqw*var(--s));font-weight:800;text-align:center}
+.tp .tp-box{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-around;gap:calc(2.02cqw*var(--s));padding:2.27cqw 2.77cqw}
+.tp-g2{display:grid;grid-template-columns:1fr 1fr;gap:2.27cqw;align-items:start}
+.tp-ph{display:flex;flex-direction:column;gap:calc(1.01cqw*var(--s))}
+.tp-t{font-size:calc(2.02cqw*var(--s));font-weight:800;display:flex;align-items:center;gap:calc(1.01cqw*var(--s));line-height:1.3}
+.tp-b{border-radius:50%;width:calc(3.78cqw*var(--s));height:calc(3.78cqw*var(--s));display:grid;place-items:center;font-size:calc(1.76cqw*var(--s));font-weight:800;flex:none}
+.tp .tp-ph img{width:100%;height:auto;max-height:37.78cqw;object-fit:contain;display:block;border:0;border-radius:0.76cqw}
+.tp .tp-g2 .tp-ph:first-child img{width:auto;margin:0 auto}
+.tp .tp-wide img{width:auto;max-height:52.90cqw;margin:0 auto}
+.tp .c1{background:#FDE2E4;color:#9A2E3E}.tp .c2{background:#FFF0BD;color:#7A5B00}.tp .c3{background:#D9F3E6;color:#1F6B4A}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -475,7 +486,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=43"></script>
+<script src="default-content.js?v=44"></script>
 </head>
 <body>
 <div class="hd" id="hd">
