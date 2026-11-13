@@ -2926,7 +2926,7 @@ function renderWonmuHub(b){
   if(G==='hak' && session.username==='엄윤경'){
     h+=`<div class="hub-card" onclick="openOt()">
       <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>진급 OT 안내</h3><p>체스 → 에이스 진급생 OT 자료 · 반별로 보고 인쇄해요</p></div><div class="hc-go">열기 ›</div></div>
-      <div class="hc-foot"><span class="l">HB · PA1 · PA2 · B</span><span class="r"><span class="b">슬라이드 · PDF 인쇄</span></span></div></div>`;
+      <div class="hc-foot"><span class="l">HB · PA1 · PA2 · A1 · B</span><span class="r"><span class="b">슬라이드 · PDF 인쇄</span></span></div></div>`;
   }
   h+=`</div>`;
   b.innerHTML=h;
