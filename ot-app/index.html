@@ -512,6 +512,22 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .ls .hl{margin:calc(1.51cqw*var(--s)) 0 0 calc(5.54cqw*var(--s));background:#FFF6D6;border-radius:1.01cqw;padding:calc(1.39cqw*var(--s)) calc(2.02cqw*var(--s));font-size:calc(2.27cqw*var(--s));font-weight:800}
 .ls .msg{font-size:calc(2.64cqw*var(--s));font-weight:700;line-height:1.6;padding:calc(1.26cqw*var(--s)) 0 calc(1.26cqw*var(--s)) calc(5.54cqw*var(--s))}
 .ls .msg i{display:block;font-style:normal;font-size:calc(2.39cqw*var(--s));color:#5a6d9d;margin:calc(1.01cqw*var(--s)) 0;line-height:1.6}
+/* QR 단어장(.vq)·시험지 부착 위치(.tp)도 같은 틀 — 제목을 위에 두는 변형(.top), 네모 박스 없음 */
+.ls .ls-sec.top{display:block}
+.ls .ls-sec.top .ls-h{padding-top:0;margin-bottom:calc(1.01cqw*var(--s));font-size:calc(3.53cqw*var(--s))}
+.ls .ls-sec.top .ls-h i{display:inline-block;margin:0 calc(1.26cqw*var(--s)) 0 0;vertical-align:middle;font-size:calc(2.02cqw*var(--s))}
+.ls .ls-sm{font-size:calc(1.76cqw*var(--s));font-weight:700;color:#6B7BA0;margin-left:calc(1.51cqw*var(--s))}
+.ls.vq .vq-vc{border:0;background:none;padding:0}
+.ls.vq .vq-vs{gap:3.02cqw}
+.ls.vq .ls-b img,.ls.tp .ls-b img{margin:0;border:0;border-radius:0}
+.ls.vq .ls-b img.vq-ph{width:15.87cqw;border-radius:1.26cqw}
+.ls.vq .ls-b img.vq-q{width:14.11cqw;height:14.11cqw;border:1px solid #E4E9F7}
+.ls.vq .hl{margin-left:0}
+.ls .vq-last{display:block}
+.ls.tp .tp-note{margin-bottom:calc(1.76cqw*var(--s))}
+.ls.tp .tp-g2 .tp-ph:not(:first-child) img{width:100%}
+.ls.tp .tp-wide img{width:auto;margin:0 auto}
+.ls.tp .tp-g2{margin-bottom:calc(2.52cqw*var(--s))}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -523,7 +539,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=46"></script>
+<script src="default-content.js?v=47"></script>
 </head>
 <body>
 <div class="hd" id="hd">
