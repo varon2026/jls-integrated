@@ -18,18 +18,17 @@ alter table exam_keys add column if not exists branch_id text;
 alter table exam_keys add column if not exists semester text;
 notify pgrst, 'reload schema';
 
--- 3. 수정: ★ 아래 두 값을 1번 조회 결과에 맞게 바꾸세요 — '서수원'이 아니라 '수원분원' id(br_...)와 학기 이름(예: 2026년 가을학기)
---    (한 번에 쓰려면 아래 :BR / :SEM 두 곳을 직접 고쳐서 실행)
+-- 3. 수정: 수원분원 id = br_suwon (서수원분원 br_seosuwon 과 다름). 학기 이름은 그 점수에 저장된 값을 그대로 가져온다.
 insert into exam_keys (name,test_type,track,level,num_q,answers,updated_at,branch_id,semester)
-select name,test_type,track,level,num_q,answers,now(),'BR_여기에_수원분원_id','여기에_학기이름'
+select name,test_type,track,level,num_q,answers,now(),'br_suwon',(select semester from exam_scores where test_type='DT' and key_name='DT · MSB1' and branch='수원분원' limit 1)
 from exam_keys_backup_ms_20261112 where upper(level)='MSB1' limit 1;
 
 -- 3-2. 11/11~11/12에 저장돼 정답키와 끊긴 수원 MSB1 점수를 이 키에 다시 연결 (끊긴 것만)
-update exam_scores s set key_id=(select id from exam_keys where branch_id='BR_여기에_수원분원_id' and upper(level)='MSB1' limit 1)
-where s.test_type='DT' and s.key_name='DT · MSB1' and s.key_id is null and s.branch like '%수원%' and s.branch not like '%서수원%';
+update exam_scores s set key_id=(select id from exam_keys where branch_id='br_suwon' and upper(level)='MSB1' limit 1)
+where s.test_type='DT' and s.key_name='DT · MSB1' and s.key_id is null and s.branch='수원분원';
 
 -- 4. 검증: 연결 안 된 수원 MSB1 점수가 0 이어야 하고, 전용 키가 1개여야 한다
-select count(*) as 아직_끊긴_점수 from exam_scores where test_type='DT' and key_name='DT · MSB1' and key_id is null and branch like '%수원%' and branch not like '%서수원%';
+select count(*) as 아직_끊긴_점수 from exam_scores where test_type='DT' and key_name='DT · MSB1' and key_id is null and branch='수원분원';
 select id, level, branch_id, semester, num_q from exam_keys where branch_id is not null;
 
--- 되돌리기: delete from exam_keys where branch_id='BR_여기에_수원분원_id' and upper(level)='MSB1';
+-- 되돌리기: delete from exam_keys where branch_id='br_suwon' and upper(level)='MSB1';
