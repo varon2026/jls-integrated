@@ -397,6 +397,39 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .hwc-last{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
 .hwc-last ol.items li{font-size:calc(3.27cqw*var(--s))}
 .hwc .hl{margin-top:1.9cqw;font-size:calc(2.9cqw*var(--s));font-weight:800;padding:1.9cqw 2.6cqw}
+/* ---------- 단어는 어떻게 외우나요? (.vq — .hwc 틀을 같이 쓴다) : 온라인 단어장(QR+휴대폰 화면) + Self-test(공책 4칸 접기 그림) ---------- */
+.vq{gap:1.64cqw}
+.vq .vq-tips{display:grid;grid-template-columns:repeat(3,1fr);gap:1.51cqw}
+.vq .vq-tips li{border:0.19cqw solid #E4E9F7;border-radius:1.26cqw;padding:calc(1.26cqw*var(--s)) calc(1.26cqw*var(--s)) calc(1.26cqw*var(--s)) calc(5.79cqw*var(--s));font-size:calc(2.08cqw*var(--s));font-weight:700;line-height:1.4;margin:0}
+.vq .vq-tips li::before{left:calc(1.26cqw*var(--s));top:calc(1.26cqw*var(--s));width:calc(3.27cqw*var(--s));height:calc(3.27cqw*var(--s));font-size:calc(1.51cqw*var(--s))}
+.vq-sec{flex:none;font-size:calc(2.39cqw*var(--s));font-weight:800;margin:0.25cqw 0 -0.25cqw;display:flex;align-items:center;gap:1.01cqw}
+.vq-sec i{font-style:normal;background:#1C2A4A;color:#fff;border-radius:999px;font-size:calc(1.51cqw*var(--s));padding:calc(0.25cqw*var(--s)) calc(1.26cqw*var(--s));font-weight:800}
+.vq-box{padding:1.51cqw 2.02cqw}
+.vq-vs{display:grid;grid-template-columns:1fr 1fr;gap:1.76cqw}
+.vq-vc{border:0.19cqw solid #E4E9F7;border-radius:1.26cqw;padding:calc(1.26cqw*var(--s)) calc(1.51cqw*var(--s));background:#FAFBFF}
+.vq-vh{font-size:calc(2.27cqw*var(--s));font-weight:800;color:#2E4FA6;margin-bottom:calc(0.76cqw*var(--s))}
+.vq-vb{display:flex;gap:1.51cqw;align-items:flex-start}
+.vq .vq-ph{width:15.87cqw;height:auto;display:block;border-radius:1.26cqw;flex:none;border:0}
+.vq-vr{display:flex;flex-direction:column;align-items:center;gap:calc(0.76cqw*var(--s));flex:1}
+.vq .vq-q{width:14.11cqw;height:14.11cqw;object-fit:contain;border:1px solid #E4E9F7;background:#fff;border-radius:0}
+.vq-sm{font-size:calc(1.57cqw*var(--s));color:#5A6B95;text-align:center;line-height:1.35;font-weight:700}
+.vq-vc ul{list-style:none;margin:calc(1.01cqw*var(--s)) 0 0;padding:0;font-size:calc(1.70cqw*var(--s));font-weight:700;line-height:1.5}
+.vq-vc li::before{content:"● ";color:#D23B3B;font-size:calc(1.13cqw*var(--s))}
+.vq .hl{font-size:calc(1.83cqw*var(--s));margin-top:calc(1.26cqw*var(--s));padding:calc(1.13cqw*var(--s)) calc(1.76cqw*var(--s))}
+.vq-last{flex:1;display:flex;flex-direction:column;justify-content:space-between;min-height:0}
+.vq-txt{font-size:calc(2.02cqw*var(--s));font-weight:700}
+.vq-red{color:#D23B3B}
+.vq-sheet{display:grid;grid-template-columns:repeat(4,1fr);border:0.25cqw solid #1C2A4A;border-radius:0.76cqw;overflow:hidden;margin:1.01cqw 0 0.76cqw}
+.vq-sheet>div{padding:calc(0.88cqw*var(--s)) calc(1.26cqw*var(--s)) calc(1.26cqw*var(--s));border-right:0.25cqw dashed #8A95B8;min-height:calc(18.89cqw*var(--s))}
+.vq-sheet>div:last-child{border-right:0}
+.vq-h5{font-family:inherit;font-size:calc(1.76cqw*var(--s));font-weight:800;color:#2E4FA6;margin:0 0 calc(0.50cqw*var(--s))}
+.vq-sp{font-size:calc(1.95cqw*var(--s));font-weight:700;line-height:1.7;margin:0}
+.vq-sp em{font-style:normal;color:#D23B3B;font-weight:800;margin-left:calc(0.50cqw*var(--s))}
+.vq-hid{color:#B8C0D8}
+.vq-fold{font-size:calc(1.64cqw*var(--s));color:#8A95B8;font-weight:700;text-align:center}
+.vq-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:1.26cqw;font-size:calc(1.83cqw*var(--s));line-height:1.45;font-weight:700}
+.vq-steps b{display:block;color:#2E4FA6;font-weight:800;font-size:calc(1.95cqw*var(--s))}
+.vq-note{font-size:calc(1.89cqw*var(--s));font-weight:700;background:#EEF3FF;border-radius:1.26cqw;padding:calc(1.13cqw*var(--s)) calc(1.76cqw*var(--s))}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -408,7 +441,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=37"></script>
+<script src="default-content.js?v=38"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -575,7 +608,7 @@ window.addEventListener('resize',function(){clearTimeout(_fitT);_fitT=setTimeout
 
 
 /* ---------- 수정 모드 ---------- */
-var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per,.w2-day,.w2-per,.w2-time,.w2-wk,.w2-sub,.w2-l,.w2-v,.w2-hwl,.w2-ref,.w2-foot,.w3-ph,.w3-pt,.wp-ph,.wp-pt,.ev-t,.ev-sub,.ev-lab,.ev-mh,.ev-mp,.ev-all,.ev-nm,.ev-ds,.ev-ok';
+var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per,.w2-day,.w2-per,.w2-time,.w2-wk,.w2-sub,.w2-l,.w2-v,.w2-hwl,.w2-ref,.w2-foot,.w3-ph,.w3-pt,.wp-ph,.wp-pt,.vq-sec,.vq-vh,.vq-sm,.vq-txt,.vq-h5,.vq-sp,.vq-fold,.vq-steps div,.vq-note,.ev-t,.ev-sub,.ev-lab,.ev-mh,.ev-mp,.ev-all,.ev-nm,.ev-ds,.ev-ok';
 function decorateEdit(){
   document.querySelectorAll('.ot-slide').forEach(function(s){
     s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
