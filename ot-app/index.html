@@ -490,6 +490,28 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .tm2 .md-t small{display:block;font-size:calc(1.76cqw*var(--s));font-weight:700;color:#6B7BA0;margin-top:calc(0.25cqw*var(--s))}
 .tm2 .md-s{display:block;font-size:calc(3.15cqw*var(--s));font-weight:800;color:#D23B3B;margin-bottom:calc(0.38cqw*var(--s))}
 .tm2 .md-k{font-size:calc(2.27cqw*var(--s));font-weight:700;line-height:1.4}
+/* ---------- 합친 목록 쪽(.ls) — 운영자 시안: 새 시간표 느낌. 왼쪽 큰 제목(위에 작은 빨간 번호) + 오른쪽 점선 항목, 박스·제목 띠·분홍 동그라미 없음 ---------- */
+.ls{padding:5.29cqw 5.79cqw 4.79cqw;display:flex;flex-direction:column}
+.ls .ls-all{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-around;gap:calc(1.26cqw*var(--s))}
+.ls .ls-sec{display:grid;grid-template-columns:28.97cqw 1fr;align-items:start;gap:0 1.26cqw}
+.ls .ls-h{font-family:inherit;font-size:calc(4.03cqw*var(--s));font-weight:800;line-height:1.25;color:#1C2A4A;padding-top:calc(1.76cqw*var(--s));margin:0}
+.ls .ls-h i{display:block;font-style:normal;font-size:calc(1.89cqw*var(--s));font-weight:800;color:#9A2E3E;margin-bottom:calc(0.76cqw*var(--s))}
+.ls .ls-b{min-width:0}
+.ls ol.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;counter-reset:c}
+.ls ol.items li{position:relative;padding:calc(1.64cqw*var(--s)) 0 calc(1.64cqw*var(--s)) calc(5.54cqw*var(--s));border-bottom:0.19cqw dotted #AEB8D4;font-size:calc(2.64cqw*var(--s));font-weight:700;line-height:1.4;margin:0}
+.ls ol.items li:last-child{border-bottom:0}
+.ls ol.items li:first-child{padding-top:calc(1.76cqw*var(--s))}
+.ls ol.items li::before{content:counter(c,decimal-leading-zero);counter-increment:c;position:absolute;left:0;top:calc(2.27cqw*var(--s));width:auto!important;height:auto!important;border-radius:0!important;background:none!important;color:#8A95B8!important;font-size:calc(1.76cqw*var(--s))!important;font-weight:800;display:block;place-items:unset}
+.ls ol.items li:first-child::before{top:calc(2.39cqw*var(--s))}
+.ls ol.items li{counter-increment:none}
+.ls ol.items li small{display:block;font-size:calc(1.89cqw*var(--s));font-weight:400;color:#5A6B95;margin-top:calc(0.25cqw*var(--s))}
+.ls .ls-b img{display:block;max-width:100%;border:1px solid #E4E9F7;border-radius:0.76cqw;margin:calc(1.01cqw*var(--s)) 0 calc(0.76cqw*var(--s)) calc(5.54cqw*var(--s));width:calc(100% - calc(5.54cqw*var(--s)))}
+.ls .ls-b img[alt*="My Tree"]{width:60%}
+.ls .ls-b img[alt*="사용 예시"]{width:calc(100% - calc(5.54cqw*var(--s)))}
+.ls .hwc-row,.ls .ji-pic{display:block;border:0;padding:0;margin:0}
+.ls .hl{margin:calc(1.51cqw*var(--s)) 0 0 calc(5.54cqw*var(--s));background:#FFF6D6;border-radius:1.01cqw;padding:calc(1.39cqw*var(--s)) calc(2.02cqw*var(--s));font-size:calc(2.27cqw*var(--s));font-weight:800}
+.ls .msg{font-size:calc(2.64cqw*var(--s));font-weight:700;line-height:1.6;padding:calc(1.26cqw*var(--s)) 0 calc(1.26cqw*var(--s)) calc(5.54cqw*var(--s))}
+.ls .msg i{display:block;font-style:normal;font-size:calc(2.39cqw*var(--s));color:#5a6d9d;margin:calc(1.01cqw*var(--s)) 0;line-height:1.6}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -501,7 +523,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=45"></script>
+<script src="default-content.js?v=46"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -654,12 +676,12 @@ function fitPort(s){
   if(s.matches('.cover,.imgcard,.full'))return;
   var over=function(){
     if(s.scrollHeight>s.clientHeight+1)return true;
-    return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.nbm,.card-b,.time .cols,.time .col,.ev-rows,.ev-r'),function(p){return p.scrollHeight>p.clientHeight+1;});
+    return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.nbm,.card-b,.ls-all,.time .cols,.time .col,.ev-rows,.ev-r'),function(p){return p.scrollHeight>p.clientHeight+1;});
   };
   /* 첫 주 일정(.wkp)은 전 반 글자 크기를 같게(운영자 요청: 쪽마다 크기가 달라 들쭉날쭉) — 1.0배 고정, 안 들어갈 때만 줄인다(키우지 않음) */
-  var lo=0.5,hi=(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time')||s.classList.contains('hwc'))?1.0:2.2;
+  var lo=0.5,hi=(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time')||s.classList.contains('hwc')||s.classList.contains('ls'))?1.0:2.2;
   for(var i=0;i<14;i++){var m=(lo+hi)/2;s.style.setProperty('--s',m);if(over())hi=m;else lo=m;}
-  s.style.setProperty('--s',(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time')||s.classList.contains('hwc'))?lo:lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
+  s.style.setProperty('--s',(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time')||s.classList.contains('hwc')||s.classList.contains('ls'))?lo:lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
 }
 function fitAll(){document.querySelectorAll('.ot-slide').forEach(fitPort);}
 var _fitT=null;
@@ -668,7 +690,7 @@ window.addEventListener('resize',function(){clearTimeout(_fitT);_fitT=setTimeout
 
 
 /* ---------- 수정 모드 ---------- */
-var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per,.w2-day,.w2-per,.w2-time,.w2-wk,.w2-sub,.w2-l,.w2-v,.w2-hwl,.w2-ref,.w2-foot,.w3-ph,.w3-pt,.wp-ph,.wp-pt,.md-d,.md-t,.md-s,.md-k,.tm-hd h2,.vq-sec,.vq-vh,.vq-sm,.vq-txt,.vq-h5,.vq-sp,.vq-fold,.vq-steps div,.vq-note,.ev-t,.ev-sub,.ev-lab,.ev-mh,.ev-mp,.ev-all,.ev-nm,.ev-ds,.ev-ok';
+var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per,.w2-day,.w2-per,.w2-time,.w2-wk,.w2-sub,.w2-l,.w2-v,.w2-hwl,.w2-ref,.w2-foot,.w3-ph,.w3-pt,.wp-ph,.wp-pt,.md-d,.md-t,.md-s,.md-k,.tm-hd h2,.ls-h,.vq-sec,.vq-vh,.vq-sm,.vq-txt,.vq-h5,.vq-sp,.vq-fold,.vq-steps div,.vq-note,.ev-t,.ev-sub,.ev-lab,.ev-mh,.ev-mp,.ev-all,.ev-nm,.ev-ds,.ev-ok';
 function decorateEdit(){
   document.querySelectorAll('.ot-slide').forEach(function(s){
     s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
