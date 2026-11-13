@@ -474,6 +474,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .tp .tp-ph img{width:100%;height:auto;max-height:37.78cqw;object-fit:contain;display:block;border:0;border-radius:0.76cqw}
 .tp .tp-g2 .tp-ph:first-child img{width:auto;margin:0 auto}
 .tp .tp-wide img{width:auto;max-height:52.90cqw;margin:0 auto}
+.tp .c4{background:#E2ECFF;color:#2E4FA6}
 .tp .c1{background:#FDE2E4;color:#9A2E3E}.tp .c2{background:#FFF0BD;color:#7A5B00}.tp .c3{background:#D9F3E6;color:#1F6B4A}
 /* ---------- 수업 시간표(.tm2) — 운영자 시안: 큰 요일 + 교시 줄, 박스·요일 위 선 없음. 과목은 빨강(첫 주 일정과 같은 색) ---------- */
 .time.tm2{padding:5.29cqw 5.79cqw 4.79cqw;display:flex;flex-direction:column;gap:2.27cqw}
@@ -533,9 +534,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .tp4 .tp-row{display:flex;gap:1.76cqw;align-items:flex-end;margin-top:calc(1.01cqw*var(--s))}
 .tp4 figure{margin:0;display:flex;flex-direction:column;gap:calc(0.50cqw*var(--s));align-items:center}
 .tp4 figcaption{font-size:calc(1.51cqw*var(--s));font-weight:700;color:#6B7BA0}
-.ls.tp4 .tp-row img{height:27.08cqw;width:auto;max-width:100%;margin:0;border:0;display:block}
-.ls.tp4 .tp-row figure:nth-child(3) img{height:23.93cqw}
-.ls.tp4 .ls-all{justify-content:flex-start}
+
 /* ---------- 합친 목록 쪽 B 방식(운영자 확정): 제목을 위에 한 줄로 크게 + 아래 굵은 선, 항목은 쪽 폭 전체. 위쪽 A식(.ls 왼쪽 제목)을 덮어쓴다 ---------- */
 .ls .ls-all{justify-content:flex-start;gap:0}
 .ls .ls-sec:not(.top){display:flex;flex-direction:column;flex:1 1 auto;min-height:min-content;gap:calc(1.76cqw*var(--s));padding:calc(0.50cqw*var(--s)) 0 calc(2.27cqw*var(--s))}
@@ -558,6 +557,14 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .ls .ls-sec.top .ls-h{display:flex;align-items:center;gap:calc(2.02cqw*var(--s));font-size:calc(4.79cqw*var(--s));padding:0 0 calc(1.51cqw*var(--s));border-bottom:0.38cqw solid #1C2A4A;margin-bottom:calc(1.76cqw*var(--s))}
 .ls .ls-sec.top .ls-h i{margin:0;font-size:calc(2.52cqw*var(--s));background:#FDE2E4;color:#9A2E3E;border-radius:50%;min-width:calc(5.54cqw*var(--s));height:calc(5.54cqw*var(--s));display:grid;place-items:center;vertical-align:baseline}
 .ls .ls-sec.top:not(:first-child) .ls-h{font-size:calc(3.02cqw*var(--s));border-bottom:0;padding-bottom:0;margin-bottom:calc(0.76cqw*var(--s))}
+.tp4 .tp-two{display:grid;grid-template-columns:1fr 1fr;gap:2.52cqw}
+.ls.tp4 .tp-row img{height:25.19cqw;width:auto;max-width:100%;margin:0;border:0;display:block}
+.ls.tp4 .tp-row figure:nth-child(3) img{height:22.04cqw}
+.ls.tp4 .tp-two .tp-row img{height:28.97cqw}
+.ls.tp4 .tp-bk:last-child .tp-row img{height:27.08cqw}
+.ls.tp4 .tp-bk:last-child .tp-row figure:nth-child(3) img{height:24.56cqw}
+.ls.tp4 .ls-all{justify-content:flex-start}
+.ls.tp4 .tp-bk{margin-top:calc(1.26cqw*var(--s))}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -569,7 +576,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=53"></script>
+<script src="default-content.js?v=55"></script>
 </head>
 <body>
 <div class="hd" id="hd">
