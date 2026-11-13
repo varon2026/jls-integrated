@@ -363,11 +363,21 @@ function wGroup(){ return wonmuState.group||'wonmu'; }
 function gInfo(g){ return WONMU_GROUPS.find(x=>x.g===(g||wGroup()))||WONMU_GROUPS[0]; }
 /* 예전 '원무' 화면에 들어올 수 있던 조건(레벨테스트·인원현황·시험채점 중 하나). 묶음을 나눠도 이 문턱은 그대로 둔다 —
    안 그러면 총무 권한만 있는 분원 계정(자동으로 시상관리가 열리는 계정)에게 시상관리·신입생 안내가 새로 열린다. */
+/* 진급 OT 안내를 볼 수 있는 사람: 엄윤경 계정 + 서수원분원 관리자(branch 계정). 담임·조교·본사·다른 분원은 안 보인다(운영자 결정).
+   수정은 여기와 상관없이 ot-app 안에서 엄윤경 계정만 한다. 다른 분원에 열 때는 아래 분원 이름 판정만 바꾸면 된다. */
+function otVisible(){
+  if(!session) return false;
+  if(session.username==='엄윤경') return true;
+  if(session.role!=='branch') return false;
+  const b=((typeof db!=='undefined'&&db.branches)||[]).find(x=>x.id===session.branchId);
+  const nm=String(b&&b.name||'').replace(/분원$/,'').replace(/JLS/gi,'').trim();
+  return nm==='서수원';
+}
 function wonmuEntry(){ return hasMenu('leveltest') || hasMenu('inwon') || hasMenu('grading'); }
 function groupVisible(g){
   if(!wonmuEntry()) return false;
   if(g==='wonmu') return hasMenu('leveltest') || session.role==='branch' || session.role==='admin';   // 신입생 안내 카드는 분원·본사 관리자에게 열려 있다
-  if(g==='hak')   return hasMenu('inwon') || hasMenu('award') || (session.username==='엄윤경');
+  if(g==='hak')   return hasMenu('inwon') || hasMenu('award') || otVisible();
   if(g==='exam')  return hasMenu('grading');
   return false;
 }
@@ -2922,8 +2932,8 @@ function renderWonmuHub(b){
     <div class="hc-foot"><span class="l">담임이 반배정표에서 바로 선택</span><span class="r"><span class="b">분원 관리자가 확인</span></span></div></div>`;
   }
 
-  // 진급 OT 안내 — 체스→에이스 진급생 OT 자료. 아직 엄윤경 계정만 쓴다(운영자 결정): 카드가 다른 계정에는 아예 안 보인다.
-  if(G==='hak' && session.username==='엄윤경'){
+  // 진급 OT 안내 — 체스→에이스 진급생 OT 자료. 엄윤경 계정 + 서수원분원 관리자만 쓴다(otVisible): 카드가 다른 계정에는 아예 안 보인다.
+  if(G==='hak' && otVisible()){
     h+=`<div class="hub-card" onclick="openOt()">
       <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>진급 OT 안내</h3><p>체스 → 에이스 진급생 OT 자료 · 반별로 보고 인쇄해요</p></div><div class="hc-go">열기 ›</div></div>
       <div class="hc-foot"><span class="l">HB · PA1 · PA2 · A1 · B</span><span class="r"><span class="b">슬라이드 · PDF 인쇄</span></span></div></div>`;
