@@ -475,6 +475,21 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .tp .tp-g2 .tp-ph:first-child img{width:auto;margin:0 auto}
 .tp .tp-wide img{width:auto;max-height:52.90cqw;margin:0 auto}
 .tp .c1{background:#FDE2E4;color:#9A2E3E}.tp .c2{background:#FFF0BD;color:#7A5B00}.tp .c3{background:#D9F3E6;color:#1F6B4A}
+/* ---------- 수업 시간표(.tm2) — 운영자 시안: 큰 요일 + 교시 줄, 박스·요일 위 선 없음. 과목은 빨강(첫 주 일정과 같은 색) ---------- */
+.time.tm2{padding:5.29cqw 5.79cqw 4.79cqw;display:flex;flex-direction:column;gap:2.27cqw}
+.tm2 .tm-hd{flex:none;display:flex;align-items:center;gap:calc(1.76cqw*var(--s));border-bottom:0.25cqw solid #1C2A4A;padding-bottom:calc(1.51cqw*var(--s))}
+.tm2 .tm-hd h2{font-family:inherit;font-size:calc(4.53cqw*var(--s));font-weight:800;letter-spacing:-.02em;margin:0;color:#1C2A4A;line-height:1.3}
+.tm2 .tm-hd .n{background:#FDE2E4;color:#9A2E3E;border-radius:50%;min-width:calc(5.04cqw*var(--s));height:calc(5.04cqw*var(--s));display:grid;place-items:center;font-size:calc(2.27cqw*var(--s));font-weight:800}
+.tm2 .md-all{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-around;gap:calc(0.76cqw*var(--s))}
+.tm2 .md{display:grid;grid-template-columns:18.89cqw 1fr;align-items:start}
+.tm2 .md-d{font-family:inherit;font-size:calc(5.29cqw*var(--s));font-weight:800;line-height:1.1;color:#1C2A4A;margin:0;padding-top:calc(2.27cqw*var(--s))}
+.tm2 .md-ps{display:flex;flex-direction:column}
+.tm2 .md-pr{display:grid;grid-template-columns:17.63cqw 1fr;align-items:center;gap:calc(0.76cqw*var(--s));padding:calc(2.52cqw*var(--s)) 0;border-bottom:0.19cqw dotted #AEB8D4}
+.tm2 .md-pr:last-child{border-bottom:0}.tm2 .md-pr:first-child{padding-top:calc(1.26cqw*var(--s))}
+.tm2 .md-t{font-size:calc(2.27cqw*var(--s));font-weight:800;color:#1C2A4A;line-height:1.35;white-space:nowrap}
+.tm2 .md-t small{display:block;font-size:calc(1.76cqw*var(--s));font-weight:700;color:#6B7BA0;margin-top:calc(0.25cqw*var(--s))}
+.tm2 .md-s{display:block;font-size:calc(3.15cqw*var(--s));font-weight:800;color:#D23B3B;margin-bottom:calc(0.38cqw*var(--s))}
+.tm2 .md-k{font-size:calc(2.27cqw*var(--s));font-weight:700;line-height:1.4}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -486,7 +501,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=44"></script>
+<script src="default-content.js?v=45"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -653,7 +668,7 @@ window.addEventListener('resize',function(){clearTimeout(_fitT);_fitT=setTimeout
 
 
 /* ---------- 수정 모드 ---------- */
-var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per,.w2-day,.w2-per,.w2-time,.w2-wk,.w2-sub,.w2-l,.w2-v,.w2-hwl,.w2-ref,.w2-foot,.w3-ph,.w3-pt,.wp-ph,.wp-pt,.vq-sec,.vq-vh,.vq-sm,.vq-txt,.vq-h5,.vq-sp,.vq-fold,.vq-steps div,.vq-note,.ev-t,.ev-sub,.ev-lab,.ev-mh,.ev-mp,.ev-all,.ev-nm,.ev-ds,.ev-ok';
+var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cls-name:not([data-auto]),.wk-tag,.wk-book,.wk-l,.wk-h,.wk-n,.wk-foot,.wk-per,.w2-day,.w2-per,.w2-time,.w2-wk,.w2-sub,.w2-l,.w2-v,.w2-hwl,.w2-ref,.w2-foot,.w3-ph,.w3-pt,.wp-ph,.wp-pt,.md-d,.md-t,.md-s,.md-k,.tm-hd h2,.vq-sec,.vq-vh,.vq-sm,.vq-txt,.vq-h5,.vq-sp,.vq-fold,.vq-steps div,.vq-note,.ev-t,.ev-sub,.ev-lab,.ev-mh,.ev-mp,.ev-all,.ev-nm,.ev-ds,.ev-ok';
 function decorateEdit(){
   document.querySelectorAll('.ot-slide').forEach(function(s){
     s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
