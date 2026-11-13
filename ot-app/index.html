@@ -450,6 +450,12 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .ji .hwc-box ol.items li{font-size:calc(2.64cqw*var(--s))}
 .ji-pic{border-top:0.19cqw dashed #CFDCF7;padding-top:1.51cqw;margin-top:0.25cqw}
 .ji-pic img{width:100%;display:block;border:0;border-radius:0}
+/* 학교 수행 평가 + ASK ME(.sw), 단어 TEST 준비 ①+②(.wt) — .tri 틀 재사용 */
+.sw .hwc-box,.wt .hwc-box{justify-content:center}
+.sw .msg{font-size:calc(3.27cqw*var(--s));line-height:1.7;padding:0;margin:0}
+.sw .msg i{font-size:calc(2.90cqw*var(--s));line-height:1.65;margin:calc(1.01cqw*var(--s)) 0}
+.sw .hwc-box{gap:calc(1.51cqw*var(--s))}
+.wt .hwc-box ol.items{flex:1;justify-content:space-around}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -461,7 +467,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=41"></script>
+<script src="default-content.js?v=42"></script>
 </head>
 <body>
 <div class="hd" id="hd">
