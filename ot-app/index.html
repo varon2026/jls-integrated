@@ -373,6 +373,15 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .ev-nm{font-size:calc(2.90cqw*var(--s));font-weight:800;line-height:1.35}
 .ev-ds{font-size:calc(2.14cqw*var(--s));line-height:1.55}
 .ev-ok{display:inline-block;margin-top:calc(0.76cqw*var(--s));font-size:calc(1.76cqw*var(--s));font-weight:800;color:#D23B3B;border:0.19cqw solid #D23B3B;border-radius:999px;padding:0 calc(1.51cqw*var(--s))}
+/* 시간표(.time): 교재 이름이 길면(NEW Grammar Map Basic A + workbook(기본편)) 두 줄로 꺾여 칸 밖으로 삐져나왔다(PA2 월수금·화목).
+   글자를 조금 줄이고, 글자 크기는 자동으로 키우지 않으며(fitPort 상한 1.0), 칸 높이는 글이 꺾여도 늘어나게(min-content) 한다. */
+.time .col{grid-auto-rows:minmax(min-content,1fr)}
+.time .col .sub{font-size:calc(2.3cqw*var(--s));min-height:min-content;line-height:1.4}
+.time .col .sub b{font-size:calc(2.7cqw*var(--s))}
+.time .col .per{font-size:calc(2cqw*var(--s))}
+.time.tight .col .sub{font-size:calc(2.2cqw*var(--s))}
+.time.tight .col .sub b{font-size:calc(2.6cqw*var(--s))}
+.time.tight .col .per{font-size:calc(1.9cqw*var(--s))}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -384,7 +393,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=34"></script>
+<script src="default-content.js?v=35"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -540,9 +549,9 @@ function fitPort(s){
     return [].some.call(s.querySelectorAll('.wp-body,.wp-band,.wp-bb,.w2-col,.nb-r,.nbm,.card-b,.time .cols,.time .col,.ev-rows,.ev-r'),function(p){return p.scrollHeight>p.clientHeight+1;});
   };
   /* 첫 주 일정(.wkp)은 전 반 글자 크기를 같게(운영자 요청: 쪽마다 크기가 달라 들쭉날쭉) — 1.0배 고정, 안 들어갈 때만 줄인다(키우지 않음) */
-  var lo=0.5,hi=s.classList.contains('wkp')?1.0:s.classList.contains('ev')?1.0:2.2;
+  var lo=0.5,hi=(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time'))?1.0:2.2;
   for(var i=0;i<14;i++){var m=(lo+hi)/2;s.style.setProperty('--s',m);if(over())hi=m;else lo=m;}
-  s.style.setProperty('--s',(s.classList.contains('wkp')||s.classList.contains('ev'))?lo:lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
+  s.style.setProperty('--s',(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time'))?lo:lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
 }
 function fitAll(){document.querySelectorAll('.ot-slide').forEach(fitPort);}
 var _fitT=null;
