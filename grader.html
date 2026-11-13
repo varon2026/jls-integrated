@@ -890,6 +890,34 @@ function rtCalGo(type,code){
   tr.scrollIntoView({behavior:'smooth',block:'center'});
   tr.classList.remove('rtcal-flash');void tr.offsetWidth;tr.classList.add('rtcal-flash');
 }
+
+/* ── 재시험 대상자 엑셀 다운로드 (운영자 요청) ──
+   화면에 보이는 것과 같은 범위(rtScoped — 본사=전 분원, 분원=자기 분원, 담임=자기 반)를 그대로 뽑는다.
+   따로 짜면 화면 인원과 엑셀 인원이 어긋난다. 체스(DT)·에이스(AT)를 시트 두 장으로 나눈다(점수 칸이 달라서). */
+function rtXlDate(v){
+  if(!v)return '';
+  const d=new Date(v);if(isNaN(d.getTime()))return '';
+  const p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+function rtXlNum(v){return v==null?'':v;}
+function rtExportXlsx(){
+  if(typeof XLSX==='undefined'){toast('엑셀 도구를 아직 못 불러왔어요. 잠시 뒤 다시 눌러주세요',false);return;}
+  const sc=rtScoped();
+  if(!sc.dt.length&&!sc.at.length){toast('내보낼 재시험 대상이 없어요',false);return;}
+  const byBr=(a,b)=>String(a.branchName||'').localeCompare(String(b.branchName||''),'ko')||String(a.teacher||'').localeCompare(String(b.teacher||''),'ko')||String(a.name||'').localeCompare(String(b.name||''),'ko');
+  const dt=[['분원','학생','학년','학교','담임','반','본시험','재시험일정','보강일정','재시험 점수','성장폭','재시험 통과','보강 완료']];
+  sc.dt.slice().sort(byBr).forEach(x=>dt.push([x.branchName||'',x.name||'',gradeKey(x.grade)||x.grade||'',x.school||'',x.teacher||'',x.classLabel||x.className||'',rtXlNum(x.baseTotal),rtXlDate(x.scheduledAt),rtXlDate(x.makeupAt),x.hasRetest?rtXlNum(x.retestTotal):'',x.hasRetest?rtXlNum(x.growth):'',x.passed?'통과':'',x.makeupDone?'완료':'']));
+  const at=[['분원','학생','학년','학교','담임','반','본시험 독해','본시험 문법','본시험 합계','재시험일정','보강일정','재시험 독해','재시험 문법','재시험 합계','성장폭','재시험 통과','보강 완료']];
+  sc.at.slice().sort(byBr).forEach(x=>at.push([x.branchName||'',x.name||'',gradeKey(x.grade)||x.grade||'',x.school||'',x.teacher||'',x.classLabel||x.className||'',rtXlNum(x.baseRead),rtXlNum(x.baseGram),x.baseTotal==null?'판단보류':x.baseTotal,rtXlDate(x.scheduledAt),rtXlDate(x.makeupAt),x.hasRetest?rtXlNum(x.retestRead):'',x.hasRetest?rtXlNum(x.retestGram):'',x.hasRetest?rtXlNum(x.retestTotal):'',x.hasRetest?rtXlNum(x.growth):'',x.passed?'통과':'',x.makeupDone?'완료':'']));
+  const wb=XLSX.utils.book_new();
+  const mk=(rows,w)=>{const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=w.map(n=>({wch:n}));return ws;};
+  XLSX.utils.book_append_sheet(wb,mk(dt,[12,10,6,14,16,18,8,17,17,10,8,10,9]),'체스(DT)');
+  XLSX.utils.book_append_sheet(wb,mk(at,[12,10,6,14,16,18,10,10,10,17,17,10,10,10,8,10,9]),'에이스(AT)');
+  const t=new Date(),p=n=>String(n).padStart(2,'0');
+  XLSX.writeFile(wb,'재시험대상_'+semName(SEM)+'_'+t.getFullYear()+p(t.getMonth()+1)+p(t.getDate())+'.xlsx');
+  toast('엑셀로 내려받았어요 ✓ (체스 '+sc.dt.length+'명 · 에이스 '+sc.at.length+'명)');
+}
 function renderRetestView(){
   const host=$('content');
   if(!cutlineActive()){
@@ -906,6 +934,7 @@ function renderRetestView(){
       <div class="div"></div>
       <b>에이스(AT)</b> 합계 <span class="val">${retestCutlineFor('AT')}</span>점 미만 → 재시험
       ${isTeacherRO()?'':`<button class="ghost mini" onclick="editRtCutline('DT')">DT 기준 수정</button><button class="ghost mini" onclick="editRtCutline('AT')">AT 기준 수정</button>`}
+      <button class="ghost mini" style="margin-left:auto" onclick="rtExportXlsx()">📥 엑셀 다운로드</button>
     </div>`;
   let bodyHtml;
   if(TEACHER){
