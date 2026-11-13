@@ -440,6 +440,16 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 .tri .hwc-box ol.items li{font-size:calc(2.90cqw*var(--s));padding-left:calc(6.55cqw*var(--s))}
 .tri .hwc-box ol.items li small{display:block;font-size:calc(2.02cqw*var(--s));font-weight:400;color:#5A6B95;margin-top:calc(0.25cqw*var(--s))}
 .tri .hwc-box ol.items li::before{width:calc(4.53cqw*var(--s));height:calc(4.53cqw*var(--s));font-size:calc(2.02cqw*var(--s))}
+/* 지내수 사용 방법 + 활용 독해 사용 방법 한 쪽(.ji — .tri 틀 재사용). 위 칸은 내용만큼, 아래 칸이 남는 높이를 차지한다 */
+.ji .tri-sec{flex:none}
+.ji .tri-sec:last-child{flex:1}
+.ji .hwc-box{justify-content:flex-start;gap:calc(1.76cqw*var(--s))}
+.ji .tri-sec:last-child .hwc-box{justify-content:space-around}
+.ji .hwc-box ol.items{flex:none;gap:calc(1.51cqw*var(--s))}
+.ji .tri-sec:last-child .hwc-box ol.items{flex:1;justify-content:space-around}
+.ji .hwc-box ol.items li{font-size:calc(2.64cqw*var(--s))}
+.ji-pic{border-top:0.19cqw dashed #CFDCF7;padding-top:1.51cqw;margin-top:0.25cqw}
+.ji-pic img{width:100%;display:block;border:0;border-radius:0}
 /* ---------- 인쇄: 슬라이드 한 장 = 한 쪽 (A4 세로) ---------- */
 @page{size:210mm 297mm;margin:0}
 @media print{
@@ -451,7 +461,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=40"></script>
+<script src="default-content.js?v=41"></script>
 </head>
 <body>
 <div class="hd" id="hd">
