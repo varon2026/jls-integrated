@@ -582,8 +582,21 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide:not(.full){height:1123px;aspect-ratio:auto}
   .ot-slide.full img{width:794px}
 }
+
+/* ---------- 소책자 인쇄 — 슬라이드를 쪽 순서만 바꿔 A4 가로 한 장에 두 쪽씩(접어서 A5 책자).
+   프린터 드라이버의 소책자 기능이 없는 컴퓨터가 있어서(HP 범용 드라이버) 화면 쪽에서 직접 순서를 맞춘다.
+   슬라이드는 지금 화면의 내용(수정한 것 포함)을 그대로 복제해 쓰므로, 내용을 고친 뒤에도 같은 버튼으로 다시 뽑으면 된다. ---------- */
+#bkRoot{display:none}
+@page bk{size:297mm 210mm;margin:0}
+@media print{
+  body.bk #root,body.bk .hd,body.bk .edbar,body.bk #notice{display:none !important}
+  body.bk #bkRoot{display:block}
+  .bk-sheet{page:bk;width:1123px;height:794px;display:flex;overflow:hidden;break-after:page;page-break-after:always;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .bk-cell{width:561.5px;height:794px;overflow:hidden;position:relative;flex:none}
+  .bk-cell .wrap{position:absolute;left:0;top:0;width:794px !important;max-width:none !important;margin:0 !important;padding:0 !important;zoom:.7066}  /* transform:scale 은 인쇄에서 줄이기 전 크기(1123px)로 쪽을 나눠 아래 30%가 잘렸다 — 레이아웃 크기까지 줄이는 zoom 을 쓴다 */
+}
 </style>
-<script src="default-content.js?v=73"></script>
+<script src="default-content.js?v=75"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -593,6 +606,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   <div class="sp"></div>
   <span id="who" style="font-size:12px;color:#7a8bb5;font-weight:700"></span>
   <button class="btn ghost" id="bPrint" onclick="window.print()">🖨 인쇄 / PDF</button>
+  <button class="btn ghost" id="bBook" onclick="printBooklet()" title="A4 가로 양면 인쇄 → 반으로 접어 스테이플">📖 소책자 인쇄</button>
   <button class="btn" id="bEdit" onclick="startEdit()" style="display:none">✏️ 수정</button>
   <button class="btn" id="bSave" onclick="saveAll()" style="display:none">💾 저장</button>
   <button class="btn ghost" id="bCancel" onclick="cancelEdit()" style="display:none">취소</button>
@@ -609,6 +623,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 </div>
 <div id="notice"></div>
 <div class="wrap" id="root"></div>
+<div id="bkRoot"></div>
 <input type="file" id="file" accept="image/*" style="display:none">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -688,7 +703,7 @@ function paintHeader(){
 }
 /* 화면 이동(주소는 바꾸되 새로 불러오지 않는다 — 고치던 내용이 있으면 먼저 물어본다) */
 function urlFor(){var q=new URLSearchParams(location.search),e=q.get('embed')==='1'?'&embed=1':'';return LV?'?cls='+LV+(lvOf(LV).days?'&day='+DAY:'')+e:(e?'?embed=1':location.pathname);}
-function leaveEdit(){ if(EDIT){ if(DIRTY&&!confirm('고친 내용이 저장되지 않았어요. 버리고 넘어갈까요?'))return false; EDIT=false;DIRTY=false;document.body.classList.remove('editing');['bSave','bCancel'].forEach(function(i){document.getElementById(i).style.display='none';});['bEdit','bPrint'].forEach(function(i){document.getElementById(i).style.display='';});document.getElementById('bEdit').style.display=CAN_EDIT?'':'none'; } return true; }
+function leaveEdit(){ if(EDIT){ if(DIRTY&&!confirm('고친 내용이 저장되지 않았어요. 버리고 넘어갈까요?'))return false; EDIT=false;DIRTY=false;document.body.classList.remove('editing');['bSave','bCancel'].forEach(function(i){document.getElementById(i).style.display='none';});['bEdit','bPrint','bBook'].forEach(function(i){document.getElementById(i).style.display='';});document.getElementById('bEdit').style.display=CAN_EDIT?'':'none'; } return true; }
 function go(lv,day){ if(!leaveEdit()){paintHeader();return;} LV=lv;DAY=day||null;setCur();try{history.replaceState(null,'',urlFor());}catch(e){} paintHeader();render();window.scrollTo(0,0); }
 function goLanding(){ go(null,null); }
 function pickDay(k){ go(LV,k); }
@@ -717,10 +732,10 @@ function render(){
       '<p>체스에서 에이스로 올라가는 학생들을 위한 OT 자료예요.<br>반을 골라 주세요.</p></div>'+
       '<div class="levels">'+LEVELS.map(function(l){return '<button class="lv" onclick="go(\''+l.k+'\''+(l.days?',\'mwf\'':'')+')"><span class="dot" style="background:'+l.color+'">'+esc(l.label.replace('반',''))+'</span><b>'+esc(l.label)+'</b><small>'+esc(l.sub)+'</small>'+(l.days?'<i>월수금 · 화목</i>':'')+'</button>';}).join('')+'</div>'+
       '<div class="tip">PA1 · PA2반은 반을 고른 뒤 월수금 / 화목 중에 골라요</div>';
-    document.getElementById('bPrint').style.display='none';return;
+    document.getElementById('bPrint').style.display='none';document.getElementById('bBook').style.display='none';return;
   }
   document.getElementById('root').className='wrap';
-  document.getElementById('bPrint').style.display=EDIT?'none':'';
+  document.getElementById('bPrint').style.display=EDIT?'none':'';document.getElementById('bBook').style.display=EDIT?'none':'';
   var slides=composeSlides();
   root.innerHTML='';
   slides.forEach(function(s,i){root.appendChild(s);deco(s);});
@@ -745,6 +760,38 @@ function fitPort(s){
   s.style.setProperty('--s',(s.classList.contains('wkp')||s.classList.contains('ev')||s.classList.contains('time')||s.classList.contains('hwc')||s.classList.contains('ls'))?lo:lo*0.97);   /* 딱 맞추면 글이 칸 테두리에 닿아 답답해 보여서 3% 여유 */
 }
 function fitAll(){document.querySelectorAll('.ot-slide').forEach(fitPort);}
+/* 소책자 인쇄: 지금 화면의 슬라이드(수정한 내용 포함)를 소책자 쪽 순서로 다시 늘어놓고 인쇄 창을 연다.
+   한 장(앞면/뒷면)에 두 쪽 — 앞면: [마지막-2k | 2k], 뒷면: [2k+1 | 마지막-1-2k]. 쪽 수가 4의 배수가 아니면 빈 쪽을
+   '맨 마지막 쪽(끝 슬라이드) 바로 앞'에 끼워 끝 슬라이드가 뒤표지로 남게 한다. */
+function printBooklet(){
+  var slides=[].slice.call(document.querySelectorAll('#root .ot-slide'));
+  if(!slides.length){toast('인쇄할 슬라이드가 없어요',true);return;}
+  var n=slides.length,N=Math.ceil(n/4)*4,pages=slides.slice(0,n-1);
+  for(var i=0;i<N-n;i++)pages.push(null);
+  pages.push(slides[n-1]);
+  var box=document.getElementById('bkRoot');box.innerHTML='';
+  function cell(sl){
+    var c=document.createElement('div');c.className='bk-cell';
+    if(sl){
+      var w=document.createElement('div');w.className='wrap';
+      var cl=sl.cloneNode(true);
+      [].forEach.call(cl.querySelectorAll('[contenteditable]'),function(e){e.removeAttribute('contenteditable');});
+      w.appendChild(cl);c.appendChild(w);
+    }
+    return c;
+  }
+  function sheet(l,r){var d=document.createElement('div');d.className='bk-sheet';d.appendChild(cell(l));d.appendChild(cell(r));box.appendChild(d);}
+  for(var k=0;k<N/4;k++){
+    sheet(pages[N-1-2*k],pages[2*k]);        // 앞면
+    sheet(pages[2*k+1],pages[N-2-2*k]);      // 뒷면
+  }
+  document.body.classList.add('bk');
+  var done=function(){document.body.classList.remove('bk');box.innerHTML='';window.removeEventListener('afterprint',done);};
+  window.addEventListener('afterprint',done);
+  toast('인쇄 창에서 용지 A4 · 가로 · 양면(짧은 가장자리) · 배율 100% 로 해 주세요 → 다 뽑으면 반으로 접어 스테이플');
+  setTimeout(function(){window.print();},350);
+}
+
 var _fitT=null;
 document.addEventListener('input',function(e){var s=e.target.closest&&e.target.closest('.ot-slide');if(!s)return;clearTimeout(_fitT);_fitT=setTimeout(function(){fitPort(s);},250);});
 window.addEventListener('resize',function(){clearTimeout(_fitT);_fitT=setTimeout(fitAll,150);});
