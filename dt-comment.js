@@ -101,12 +101,12 @@ const ACE=[
  {
   "label": "PA2 반 (월수금)",
   "name": "Pre Ace2",
-  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해/듣기 : NEW Total English Map Inter B1~B3\n- 문법 : NEW Grammar Map Basic A + New Grammar Map Basic A Work Book (기본편)\n- 활용 : Science & Technology (Explorer)\n\n■단어시험: 일일 40개 시험"
+  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해/듣기 : NEW Total English Map Inter B1~B3\n- 문법 : NEW Grammar Map Basic A + New Grammar Map Basic A Work Book (기본편)\n- 활용 : Careers & Inspiring people (Foundation)\n\n■단어시험: 일일 40개 시험"
  },
  {
   "label": "PA2 반 (화목)",
   "name": "Pre Ace2",
-  "body": "■수업시간 : 화목 1부 15:30~18:30(180')\n\n■교재\n- 독해/듣기 : NEW Total English Map Inter B1~B3\n- 문법 : NEW Grammar Map Basic A + New Grammar Map Basic A Work Book (기본편)\n- 활용 : Science & Technology (Explorer)\n\n■단어시험: 화요일: 독해단어 40개 + 활용단어 50개시험 / 목요일: 독해단어 40개"
+  "body": "■수업시간 : 화목 1부 15:30~18:30(180')\n\n■교재\n- 독해/듣기 : NEW Total English Map Inter B1~B3\n- 문법 : NEW Grammar Map Basic A + New Grammar Map Basic A Work Book (기본편)\n- 활용 : Careers & Inspiring people (Foundation)\n\n■단어시험: 화요일: 독해단어 40개 + 활용단어 50개시험 / 목요일: 독해단어 40개"
  },
  /* 2026-11-12 A1반 추가(운영자 — 월수금·화목 둘 다). 본문은 운영자가 준 문구 그대로(단어시험 줄의 띄어쓰기까지). */
  {
