@@ -2257,7 +2257,8 @@ function isGradeE5(grade){ return /5/.test(String(grade||'')); }
 const ACE_LINKED_TRANSFER = {br_unjeong1:'br_unjeong2'};
 /* 이관 대상자 — 초5이면서 체스 트랙(지금 체스거나, 이번 학기 들어 이미 체스→에이스로 넘어간 얼리버드). */
 function aceMoveCandidates(branchId, semId){
-  const recs = recordsOf(branchId, semId).filter(r=>r.status==='active' && isGradeE5(r.grade));
+  /* 기록 학년이 비어 있으면 학생 정보의 학년으로 판단(inwon-app/app.js 와 같게) — 비었던 학생이 통째로 빠졌다 */
+  const recs = recordsOf(branchId, semId).filter(r=>r.status==='active' && isGradeE5(r.grade || (getStudent(r.studentId)||{}).grade));
   const prevId = prevSemId(semId);
   const prevMap = new Map();
   if(prevId){
