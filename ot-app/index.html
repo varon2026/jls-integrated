@@ -69,7 +69,7 @@ body{font-family:"NanumSquare","Apple SD Gothic Neo","Malgun Gothic",system-ui,s
    인쇄 잉크를 아끼려고 바탕은 흰색, 색은 연한 파스텔로만 쓴다(예전엔 바탕이 전부 파랑이라 잉크를 많이 먹었다).
    위쪽 가는 색줄과 연한 제목 띠 정도만 색이 들어간다. 진한 파랑은 글자·테두리에만 쓴다. */
 .ot-slide{font-family:inherit;container-type:inline-size;position:relative;width:100%;max-width:1100px;margin:0 auto 22px;aspect-ratio:16/9;background:#fff;border:1px solid #CFDCF7;border-radius:14px;overflow:hidden;color:#1C2A4A;box-shadow:0 4px 16px rgba(46,79,166,.10);font-size:2cqw;line-height:1.4}
-.ot-slide:not(.full)::before{content:"";position:absolute;left:0;right:0;top:0;height:1.3cqw;background:linear-gradient(90deg,#FDB5B5 0 20%,#F9E8A8 20% 40%,#AED26A 40% 60%,#9DB8F0 60% 80%,#C09CE0 80%)}
+.ot-slide:not(.full)::before{display:none}
 .ot-slide.full{aspect-ratio:auto}
 .ot-slide.full img{display:block;width:100%;height:auto}
 .ot-slide [contenteditable]{outline:none}
@@ -209,7 +209,7 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 
 /* 표지·끝 — 흰 바탕에 글자만 */
 .cover{display:grid;place-items:center;text-align:center;color:#2E4FA6}
-.cover::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.3cqw;background:linear-gradient(90deg,#FDB5B5 0 20%,#F9E8A8 20% 40%,#AED26A 40% 60%,#9DB8F0 60% 80%,#C09CE0 80%)}
+.cover::after{display:none}
 .cv-in{position:relative;z-index:2}
 .cover h1{font-family:var(--disp);font-size:6.8cqw;margin:.6cqw 0 0;font-weight:400;line-height:1.2;color:#2E4FA6}
 .cover .en{font-size:3.6cqw;font-family:var(--hand);font-weight:700;color:#E8693A}
@@ -240,7 +240,7 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
    ⚠️ 과목 제목은 색 하나로 통일(운영자) — 과목마다 색이 달라 정신 사납다고 했다. */
 .ot-slide.port{aspect-ratio:794/1123;max-width:794px}
 .wkp{--s:1;display:flex;flex-direction:column;padding:5.04cqw 6.80cqw 4.28cqw;word-break:keep-all;overflow-wrap:normal;line-height:1.5}
-.wkp::before{content:"";position:absolute;left:0;right:0;top:0;height:1.51cqw;background:linear-gradient(90deg,#FDB5B5 0 20%,#F9E8A8 20% 40%,#AED26A 40% 60%,#9DB8F0 60% 80%,#C09CE0 80%)}
+.wkp::before{display:none}
 .wkp .w2-head{flex:none;border-bottom:0.25cqw solid #1C2A4A;padding-bottom:1.26cqw}
 .wkp .w2-day{font-size:5.04cqw}
 .wkp .w2-wk{font-size:1.76cqw}
@@ -583,7 +583,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .ot-slide.full img{width:794px}
 }
 </style>
-<script src="default-content.js?v=72"></script>
+<script src="default-content.js?v=73"></script>
 </head>
 <body>
 <div class="hd" id="hd">
