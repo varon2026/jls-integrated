@@ -1407,7 +1407,9 @@ function aceMoveCandidates(branchId, semId){
   }
   // 코호트 기준 명단 — 가을학기 레코드는 재원/퇴원 가리지 않고 전부 본다(recordsOf, activeRecordsOf 아님)
   const cohortRecs = recordsOf(branchId, cohortSemId).filter(r=>{
-    if(!isGradeE5(r.grade)) return false;
+    /* 학기 기록의 학년이 비어 있는 학생(전체명단에 학년 칸이 비었던 경우)이 이 명단에서 통째로 빠졌다 — 지준서(서수원 2026 가을).
+       기록 학년이 비면 학생 정보의 학년으로 판단한다. */
+    if(!isGradeE5(r.grade || (getStudent(r.studentId)||{}).grade)) return false;
     if(isChess(r.className)) return true;
     /* B레벨은 직전 학기 이력과 무관하게 조기 이관생으로 본다 — 초5 ACE
        진급시험 화면(ace-e5-grading.html)과 같은 기준. 직전 학기 체스
@@ -1441,7 +1443,7 @@ function aceMoveCandidates(branchId, semId){
   const linkedTo = ACE_LINKED_TRANSFER[branchId];
   if(linkedTo && prevId){
     db.semesterRecords.filter(r=>r.branchId===branchId && r.semesterId===prevId && (r.kind||'regular')!=='exam'
-      && r.status==='withdraw' && r.transfer && r.transferTo===linkedTo && isGradeE5(r.grade) && isChess(r.className)
+      && r.status==='withdraw' && r.transfer && r.transferTo===linkedTo && isGradeE5(r.grade || (getStudent(r.studentId)||{}).grade) && isChess(r.className)
     ).forEach(prev=>{
       const cur = db.semesterRecords.find(r=>r.studentId===prev.studentId && r.semesterId===semId
         && r.branchId===linkedTo && r.status!=='withdraw' && (r.kind||'regular')!=='exam');
