@@ -86,7 +86,7 @@ const ACE=[
  {
   "label": "HB 반",
   "name": "High Bridge",
-  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해/듣기 : Total English Map Starter Inter A1~A3\n- 문법 : Grammar Map Starter A-2 + Total English Map Starter Grammar Workbook A-1\n- 활용 : Art & Architecture (Foundation)\n\n■단어시험 : 일일 40개 시험"
+  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해/듣기 : Total English Map Starter Inter B-1\n- 문법 : Grammar Map Starter A-2 + Total English Map Starter Grammar Workbook B-1\n- 활용 : Art & Architecture (Foundation)\n\n■단어시험 : 일일 40개 시험"
  },
  {
   "label": "PA1 반 (월수금)",
