@@ -363,16 +363,13 @@ function wGroup(){ return wonmuState.group||'wonmu'; }
 function gInfo(g){ return WONMU_GROUPS.find(x=>x.g===(g||wGroup()))||WONMU_GROUPS[0]; }
 /* 예전 '원무' 화면에 들어올 수 있던 조건(레벨테스트·인원현황·시험채점 중 하나). 묶음을 나눠도 이 문턱은 그대로 둔다 —
    안 그러면 총무 권한만 있는 분원 계정(자동으로 시상관리가 열리는 계정)에게 시상관리·신입생 안내가 새로 열린다. */
-/* 진급 OT 안내를 볼 수 있는 사람: 엄윤경 계정 + 서수원분원 관리자·직원(branch·assistant 계정). 담임·본사·다른 분원은 안 보인다(운영자 결정).
+/* 진급 OT 안내를 볼 수 있는 사람: 엄윤경 계정 + 전 분원 관리자·직원·본사.
    수정은 여기와 상관없이 ot-app 안에서 엄윤경 계정만 한다. 다른 분원에 열 때는 아래 분원 이름 판정만 바꾸면 된다. */
 function otVisible(){
   if(!session) return false;
   if(session.username==='엄윤경') return true;
-  /* 분원 관리자(branch)뿐 아니라 조교·직원(assistant)도 본다 — 서수원 직원 우지민 계정에 카드가 안 떴다. 담임(teacher)·본사(admin)는 제외. */
-  if(session.role!=='branch' && session.role!=='assistant') return false;
-  const b=((typeof db!=='undefined'&&db.branches)||[]).find(x=>x.id===session.branchId);
-  const nm=String(b&&b.name||'').replace(/분원$/,'').replace(/JLS/gi,'').trim();
-  return nm==='서수원';
+  /* 이제 전 분원 관리자·직원(branch·assistant)과 본사(보기만)에게 열린다. 담임은 안 보인다. 분원 관리자는 자기 분원 몫을 고칠 수 있다(ot-app 안에서 판정). */
+  return session.role==='branch' || session.role==='assistant' || session.role==='admin';
 }
 function wonmuEntry(){ return hasMenu('leveltest') || hasMenu('inwon') || hasMenu('grading'); }
 function groupVisible(g){

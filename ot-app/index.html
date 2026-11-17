@@ -608,6 +608,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   <button class="btn ghost" id="bPrint" onclick="window.print()">🖨 인쇄 / PDF</button>
   <button class="btn ghost" id="bBook" onclick="printBooklet()" title="A4 가로 양면 인쇄 → 반으로 접어 스테이플">📖 소책자 인쇄</button>
   <button class="btn" id="bEdit" onclick="startEdit()" style="display:none">✏️ 수정</button>
+  <button class="btn ghost" id="bReset" onclick="resetBranch()" style="display:none" title="우리 분원이 고친 내용을 지우고 본사 기본 내용으로">↩ 기본으로</button>
   <button class="btn" id="bSave" onclick="saveAll()" style="display:none">💾 저장</button>
   <button class="btn ghost" id="bCancel" onclick="cancelEdit()" style="display:none">취소</button>
 </div>
@@ -644,21 +645,31 @@ var DAYS=[{k:'mwf',label:'월수금'},{k:'tt',label:'화목'}];
 var LV=null, DAY=null;
 var DB={};            // DB에 저장된 수정본 { doc_key: html }
 var TABLE_OK=true;    // ot_guides 표가 있는지
+var BASE={};          // 수정 시작할 때의 영역별 내용(분원 관리자 저장용)
 var CUR=null, EDIT=false, DIRTY=false;   // CUR = 지금 반의 저장 키 앞머리(hb, pa1mwf …). 첫 화면에서는 null
 var SEGS=['common','front','back'];
 
-/* 수정은 엄윤경 계정 한 명만 (운영자 결정). 통합관리에서 들어오면 sessionStorage 에 로그인 정보가 있다. */
-function whoAmI(){ try{ var s=JSON.parse(sessionStorage.getItem('jls_int_session')||'null'); return s&&s.username||''; }catch(e){ return ''; } }
-var CAN_EDIT=(whoAmI()==='엄윤경');
+/* 통합관리에서 들어오면 sessionStorage 에 로그인 정보가 있다.
+   · 엄윤경 계정 = 본사 '기본' 내용을 고친다(모든 분원이 따로 안 고쳤으면 이 내용을 본다).
+   · 분원 관리자(role=branch) = 자기 분원 몫의 사본만 고친다. 저장하면 doc_key 앞에 '분원id::' 를 붙여 따로 저장하므로
+     다른 분원과 본사 기본에는 영향이 없다. 조교·담임·본사 계정은 보기만 한다. */
+function sessInfo(){ try{ return JSON.parse(sessionStorage.getItem('jls_int_session')||'null')||{}; }catch(e){ return {}; } }
+function whoAmI(){ return sessInfo().username||''; }
+var IS_HQ_EDITOR=(whoAmI()==='엄윤경');
+var MY_BRANCH=(!IS_HQ_EDITOR && (sessInfo().role==='branch'||sessInfo().role==='assistant') && sessInfo().branchId) ? sessInfo().branchId : '';   // 이 분원의 수정본을 먼저 보여준다
+var BR_EDITOR=(!IS_HQ_EDITOR && sessInfo().role==='branch' && !!MY_BRANCH);
+var CAN_EDIT=(IS_HQ_EDITOR||BR_EDITOR);
+function brKey(key){ return MY_BRANCH+'::'+key; }
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function toast(m,bad){var t=document.createElement('div');t.className='toast'+(bad?' bad':'');t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove();},bad?4500:2600);}
 function lvOf(k){return LEVELS.filter(function(c){return c.k===k;})[0];}
 function dayLabel(k){var d=DAYS.filter(function(x){return x.k===k;})[0];return d?d.label:'';}
+function hasBranchCopy(){ return !!(MY_BRANCH&&CUR&&(DB[brKey('common')]!=null||DB[brKey(CUR+'_front')]!=null||DB[brKey(CUR+'_back')]!=null)); }
 function setCur(){var l=lvOf(LV);CUR=l?(l.days?l.days[DAY]:l.doc):null;}
 function clsLabel(){var l=lvOf(LV);return l?(l.label+(l.days?' '+dayLabel(DAY):'')):'';}
 function docKey(seg){return seg==='common'?'common':CUR+'_'+seg;}
-function docHtml(key){ return DB[key]!=null?DB[key]:(OT_DEFAULT[key]||''); }
+function docHtml(key){ if(MY_BRANCH&&DB[brKey(key)]!=null)return DB[brKey(key)]; return DB[key]!=null?DB[key]:(OT_DEFAULT[key]||''); }
 
 /* 저장된 내용을 그릴 때 스크립트·이벤트 속성은 걸러낸다(혹시 모를 붙여넣기 대비) */
 function parseDoc(html,seg){
@@ -694,6 +705,7 @@ function paintHeader(){
   hd.classList.add('on');
   /* 수정 버튼: 첫 화면에서 반을 골라 들어온 경우에도 떠야 한다(예전엔 주소로 바로 열 때만 켜져서 '수정 버튼이 없다'고 했다) */
   document.getElementById('bEdit').style.display=(CAN_EDIT&&!EDIT)?'':'none';
+  document.getElementById('bReset').style.display=(BR_EDITOR&&!EDIT&&hasBranchCopy())?'':'none';
   document.getElementById('hTitle').textContent=l.label;
   var d=document.getElementById('days');
   if(!l.days){d.innerHTML='';return;}
@@ -890,16 +902,18 @@ document.getElementById('file').addEventListener('change',function(e){
 function startEdit(){
   if(!CAN_EDIT)return;
   EDIT=true;DIRTY=false;document.body.classList.add('editing');
-  ['bEdit','bPrint'].forEach(function(i){document.getElementById(i).style.display='none';});
+  ['bEdit','bPrint','bBook','bReset'].forEach(function(i){document.getElementById(i).style.display='none';});
   ['bSave','bCancel'].forEach(function(i){document.getElementById(i).style.display='';});
   render();
+  BASE={};SEGS.forEach(function(seg){BASE[seg]=serialize(seg);});   // 분원 관리자 저장 때 '바뀐 영역'만 가리기 위한 기준
 }
 function cancelEdit(){
   if(DIRTY&&!confirm('고친 내용이 저장되지 않았어요. 버리고 나갈까요?'))return;
   EDIT=false;DIRTY=false;document.body.classList.remove('editing');
   ['bSave','bCancel'].forEach(function(i){document.getElementById(i).style.display='none';});
-  ['bEdit','bPrint'].forEach(function(i){document.getElementById(i).style.display='';});
+  ['bEdit','bPrint','bBook'].forEach(function(i){document.getElementById(i).style.display='';});
   document.getElementById('bEdit').style.display=CAN_EDIT?'':'none';
+  document.getElementById('bReset').style.display=(BR_EDITOR&&hasBranchCopy())?'':'none';
   render();
 }
 /* 화면에서 영역별(공통/반별 앞/뒤)로 모아서, 수정 도구를 뺀 깨끗한 HTML 로 만든다 */
@@ -917,14 +931,31 @@ function serialize(seg){
 function saveAll(){
   if(!CAN_EDIT)return;
   if(!TABLE_OK){toast('sql/ot_guides.sql 을 먼저 실행해 주세요. 지금은 저장이 안 돼요',true);return;}
-  var me=whoAmI(),now=new Date().toISOString();
-  var rows=SEGS.map(function(seg){return {doc_key:docKey(seg),content_html:serialize(seg),updated_by:me,updated_at:now};});
+  var me=whoAmI(),now=new Date().toISOString(),rows;
+  if(BR_EDITOR){
+    /* 분원 관리자: 바뀐 영역만 우리 분원 몫으로 저장한다(안 건드린 영역까지 사본으로 굳어 버리면 본사가 나중에 고쳐도 반영이 안 된다) */
+    rows=[];SEGS.forEach(function(seg){var h=serialize(seg);if(h!==BASE[seg])rows.push({doc_key:brKey(docKey(seg)),content_html:h,updated_by:me,updated_at:now});});
+    if(!rows.length){toast('바뀐 내용이 없어요');cancelEdit();return;}
+  }else{
+    rows=SEGS.map(function(seg){return {doc_key:docKey(seg),content_html:serialize(seg),updated_by:me,updated_at:now};});
+  }
   document.getElementById('bSave').disabled=true;
   sb.from('ot_guides').upsert(rows,{onConflict:'doc_key'}).then(function(r){
     document.getElementById('bSave').disabled=false;
     if(r.error){toast('저장 실패: '+r.error.message,true);return;}
     rows.forEach(function(x){DB[x.doc_key]=x.content_html;});
-    DIRTY=false;toast('저장했어요 ✓ 공통 슬라이드는 모든 반에 반영돼요');cancelEdit();
+    DIRTY=false;toast(BR_EDITOR?'저장했어요 ✓ 우리 분원에만 반영돼요':'저장했어요 ✓ 공통 슬라이드는 모든 반에 반영돼요');cancelEdit();
+  });
+}
+/* 분원 관리자: 우리 분원 수정본을 지우고 본사 기본 내용으로 되돌린다(이 반의 앞·뒤 + 공통) */
+function resetBranch(){
+  if(!BR_EDITOR||!CUR)return;
+  if(!confirm('우리 분원이 고친 내용을 지우고 본사 기본 내용으로 되돌릴까요?\n(이 반의 시간표·첫 주 일정·시험지 쪽과 공통 슬라이드가 해당돼요. 되돌릴 수 없어요.)'))return;
+  var keys=['common',CUR+'_front',CUR+'_back'].map(brKey);
+  sb.from('ot_guides').delete().in('doc_key',keys).then(function(r){
+    if(r.error){toast('되돌리기 실패: '+r.error.message,true);return;}
+    keys.forEach(function(k){delete DB[k];});
+    toast('본사 기본 내용으로 되돌렸어요 ✓');render();paintHeader();
   });
 }
 window.addEventListener('beforeunload',function(e){if(EDIT&&DIRTY){e.preventDefault();e.returnValue='';}});
@@ -937,10 +968,10 @@ window.addEventListener('beforeunload',function(e){if(EDIT&&DIRTY){e.preventDefa
   LV=lvOf(c)?c:null;
   if(LV&&lvOf(LV).days){ DAY=(d==='tt'||d==='mwf')?d:'mwf'; }
   setCur();
-  document.getElementById('who').textContent=CAN_EDIT?'수정 권한: 엄윤경':'';
+  document.getElementById('who').textContent=IS_HQ_EDITOR?'수정 권한: 엄윤경(본사 기본)':(BR_EDITOR?'우리 분원 수정 가능':'');
   paintHeader();
   load(function(){
-    paintNotice();
+    paintNotice();paintHeader();
     if(CUR&&CAN_EDIT)document.getElementById('bEdit').style.display='';
     render();
   });
