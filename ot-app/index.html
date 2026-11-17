@@ -650,15 +650,15 @@ var CUR=null, EDIT=false, DIRTY=false;   // CUR = 지금 반의 저장 키 앞�
 var SEGS=['common','front','back'];
 
 /* 통합관리에서 들어오면 sessionStorage 에 로그인 정보가 있다.
-   · 엄윤경 계정 = 본사 '기본' 내용을 고친다(모든 분원이 따로 안 고쳤으면 이 내용을 본다).
-   · 분원 관리자(role=branch) = 자기 분원 몫의 사본만 고친다. 저장하면 doc_key 앞에 '분원id::' 를 붙여 따로 저장하므로
-     다른 분원과 본사 기본에는 영향이 없다. 조교·담임·본사 계정은 보기만 한다. */
+   · 수정은 분원 관리자(role=branch)가 자기 분원 몫의 사본만 한다. 엄윤경 계정도 서수원분원 관리자로서 똑같이 서수원 몫만 고친다(2026-11-17 운영자).
+     저장하면 doc_key 앞에 '분원id::' 를 붙여 따로 저장하므로 다른 분원에는 영향이 없다.
+   · 그 아래 바탕은 본사 기본(분원 id 없는 ot_guides 줄, 예전에 엄윤경이 고쳐 둔 것 포함) → 코드 기본(default-content.js) 순서다.
+   · 조교·담임·본사 계정은 보기만 한다. */
 function sessInfo(){ try{ return JSON.parse(sessionStorage.getItem('jls_int_session')||'null')||{}; }catch(e){ return {}; } }
 function whoAmI(){ return sessInfo().username||''; }
-var IS_HQ_EDITOR=(whoAmI()==='엄윤경');
-var MY_BRANCH=(!IS_HQ_EDITOR && (sessInfo().role==='branch'||sessInfo().role==='assistant') && sessInfo().branchId) ? sessInfo().branchId : '';   // 이 분원의 수정본을 먼저 보여준다
-var BR_EDITOR=(!IS_HQ_EDITOR && sessInfo().role==='branch' && !!MY_BRANCH);
-var CAN_EDIT=(IS_HQ_EDITOR||BR_EDITOR);
+var MY_BRANCH=((sessInfo().role==='branch'||sessInfo().role==='assistant') && sessInfo().branchId) ? sessInfo().branchId : '';   // 이 분원의 수정본을 먼저 보여준다
+var BR_EDITOR=(sessInfo().role==='branch' && !!MY_BRANCH);
+var CAN_EDIT=BR_EDITOR;
 function brKey(key){ return MY_BRANCH+'::'+key; }
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
@@ -931,20 +931,16 @@ function serialize(seg){
 function saveAll(){
   if(!CAN_EDIT)return;
   if(!TABLE_OK){toast('sql/ot_guides.sql 을 먼저 실행해 주세요. 지금은 저장이 안 돼요',true);return;}
-  var me=whoAmI(),now=new Date().toISOString(),rows;
-  if(BR_EDITOR){
-    /* 분원 관리자: 바뀐 영역만 우리 분원 몫으로 저장한다(안 건드린 영역까지 사본으로 굳어 버리면 본사가 나중에 고쳐도 반영이 안 된다) */
-    rows=[];SEGS.forEach(function(seg){var h=serialize(seg);if(h!==BASE[seg])rows.push({doc_key:brKey(docKey(seg)),content_html:h,updated_by:me,updated_at:now});});
-    if(!rows.length){toast('바뀐 내용이 없어요');cancelEdit();return;}
-  }else{
-    rows=SEGS.map(function(seg){return {doc_key:docKey(seg),content_html:serialize(seg),updated_by:me,updated_at:now};});
-  }
+  var me=whoAmI(),now=new Date().toISOString(),rows=[];
+  /* 바뀐 영역만 우리 분원 몫으로 저장한다(안 건드린 영역까지 사본으로 굳어 버리면 본사가 나중에 기본을 고쳐도 반영이 안 된다) */
+  SEGS.forEach(function(seg){var h=serialize(seg);if(h!==BASE[seg])rows.push({doc_key:brKey(docKey(seg)),content_html:h,updated_by:me,updated_at:now});});
+  if(!rows.length){toast('바뀐 내용이 없어요');cancelEdit();return;}
   document.getElementById('bSave').disabled=true;
   sb.from('ot_guides').upsert(rows,{onConflict:'doc_key'}).then(function(r){
     document.getElementById('bSave').disabled=false;
     if(r.error){toast('저장 실패: '+r.error.message,true);return;}
     rows.forEach(function(x){DB[x.doc_key]=x.content_html;});
-    DIRTY=false;toast(BR_EDITOR?'저장했어요 ✓ 우리 분원에만 반영돼요':'저장했어요 ✓ 공통 슬라이드는 모든 반에 반영돼요');cancelEdit();
+    DIRTY=false;toast('저장했어요 ✓ 우리 분원에만 반영돼요');cancelEdit();
   });
 }
 /* 분원 관리자: 우리 분원 수정본을 지우고 본사 기본 내용으로 되돌린다(이 반의 앞·뒤 + 공통) */
@@ -968,7 +964,7 @@ window.addEventListener('beforeunload',function(e){if(EDIT&&DIRTY){e.preventDefa
   LV=lvOf(c)?c:null;
   if(LV&&lvOf(LV).days){ DAY=(d==='tt'||d==='mwf')?d:'mwf'; }
   setCur();
-  document.getElementById('who').textContent=IS_HQ_EDITOR?'수정 권한: 엄윤경(본사 기본)':(BR_EDITOR?'우리 분원 수정 가능':'');
+  document.getElementById('who').textContent=BR_EDITOR?'우리 분원 수정 가능':'';
   paintHeader();
   load(function(){
     paintNotice();paintHeader();
