@@ -1127,10 +1127,10 @@ function mgSvgLt(rows){
   rows.forEach((r,i)=>{ const cx=L+gw*i+gw/2, vals=[r.booked,r.attended,r.enrolled], sx=cx-(bw*3+gap*2)/2;
     vals.forEach((v,k)=>{ const bx=sx+k*(bw+gap), by=y(v), bh=T+ih-by; bars+='<rect x="'+bx+'" y="'+by+'" width="'+bw+'" height="'+Math.max(bh,1)+'" rx="3.5" fill="'+cols[k]+'"/><text x="'+(bx+bw/2)+'" y="'+(by-3)+'" font-size="9" font-weight="800" fill="#52514e" text-anchor="middle">'+v+'</text>'; });
     bars+='<text x="'+cx+'" y="'+(H-11)+'" font-size="10" fill="#898781" text-anchor="middle">'+mgLabel(r)+'</text>'; });
-  const tb=rows.reduce((a,r)=>a+r.booked,0), ta=rows.reduce((a,r)=>a+r.attended,0), te=rows.reduce((a,r)=>a+r.enrolled,0); const rx=W-R+14;
+  const tb=rows.reduce((a,r)=>a+r.booked,0), ta=rows.reduce((a,r)=>a+r.attended,0), te=rows.reduce((a,r)=>a+r.enrolled,0), tbEnr=tb-rows.reduce((a,r)=>a+(r.failed||0)+(r.upcoming||0),0);   /* 등록률 분모는 대시보드와 같은 규칙: 예약 − 미통과 − 시험 예정 */ const rx=W-R+14;
   const sm='<text x="'+rx+'" y="'+(T+24)+'" font-size="10" fill="#898781">기간 합계</text>'
     +'<text x="'+rx+'" y="'+(T+48)+'" font-size="10" fill="#898781">참석률</text><text x="'+rx+'" y="'+(T+70)+'" font-size="20" font-weight="800" fill="#5598e7">'+(tb?Math.round(ta/tb*100):0)+'%</text>'
-    +'<text x="'+rx+'" y="'+(T+104)+'" font-size="10" fill="#898781">등록률</text><text x="'+rx+'" y="'+(T+126)+'" font-size="20" font-weight="800" fill="#184f95">'+(tb?Math.round(te/tb*100):0)+'%</text>';
+    +'<text x="'+rx+'" y="'+(T+104)+'" font-size="10" fill="#898781">등록률</text><text x="'+rx+'" y="'+(T+126)+'" font-size="20" font-weight="800" fill="#184f95">'+(tbEnr>0?Math.round(te/tbEnr*100):0)+'%</text>';
   return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;overflow:visible">'+g+bars+sm+'</svg>';
 }
 function mgSetRange(which,val){ val=+val;
@@ -2469,10 +2469,16 @@ function renderDashboard(c){
 }
 
 /* ---------- 대시보드: 레벨테스트 퍼널 (예약→참석→등록, 분원별·월별) ---------- */
+/* 오늘 날짜(YYYY-MM-DD, 컴퓨터 시계 기준) — '아직 시험 날이 안 된 예약'을 가를 때 쓴다 */
+function ltTodayStr(){ const d=new Date(); const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
 function ltMetrics(recs){
-  let booked=recs.filter(r=>r.status!=='canceled' && r.status!=='noshow').length, attended=0, enrolled=0, notEnr=0, failed=0, waitNext=0, noshow=0, canceled=0, parentOnly=0;
+  let booked=recs.filter(r=>r.status!=='canceled' && r.status!=='noshow').length, attended=0, enrolled=0, notEnr=0, failed=0, waitNext=0, noshow=0, canceled=0, parentOnly=0, upcoming=0;
+  const today=ltTodayStr();
   recs.forEach(r=>{
     const en=r.enrolled, st=r.status;
+    /* 예약만 해 두고 시험 날짜가 아직 안 온 학생(결과도 없음) — 등록할 수가 없는데 등록률 분모에 들어가서 등록률이 낮게 나왔다(공팀장님 지적).
+       날짜가 지났는데 결과를 안 넣은 학생은 일부러 여기 안 센다 — 분원이 입력을 빼먹은 것까지 가려지면 안 되기 때문이다. */
+    if(st!=='canceled' && st!=='noshow' && st!=='attended' && en!=='enrolled' && en!=='not_enrolled' && en!=='failed' && en!=='waiting_next' && String(r.reserved_date||'').slice(0,10)>today) upcoming++;
     if(st==='canceled') canceled++;
     else if(st==='noshow') noshow++;
     else if(st==='parent_only') parentOnly++;   // 학부모만 참석 — 시험 안 봤으니 응시/합격 아님
@@ -2483,17 +2489,17 @@ function ltMetrics(recs){
     if(en==='failed' && st!=='parent_only') failed++;   // 미통과: 성적 미달로 등록 불가
     if(en==='waiting_next' && st!=='parent_only') waitNext++;  // 다음학기 대기
   });
-  return {booked,attended,enrolled,notEnr,failed,waitNext,noshow,canceled,parentOnly};
+  return {booked,attended,enrolled,notEnr,failed,waitNext,noshow,canceled,parentOnly,upcoming};
 }
 /* 미통과는 "우리가 등록시킬 수 없는" 인원이라 등록률·전환율 분모에서 제외.
    대신 미통과율은 별도 지표로 표시. */
 function ltRates(m){
   const convBase = Math.max(0, m.attended - m.failed);   // 전환 모수 = 참석 − 미통과 (시험 통과자)
-  const bookBase = Math.max(0, m.booked   - m.failed);   // 예약 기준에서도 미통과 제외
+  const bookBase = Math.max(0, m.booked   - m.failed - (m.upcoming||0));   // 예약 기준에서도 미통과 제외 + 아직 시험 날이 안 된 예약 제외
   return {
     att:  m.booked   ? m.attended/m.booked*100   : 0,    // 참석률 (미통과도 시험은 봤으니 포함)
     conv: convBase   ? m.enrolled/convBase*100   : 0,    // 전환율 (참석 기준, 미통과 제외)
-    enr:  bookBase   ? m.enrolled/bookBase*100   : 0,    // 등록률 (예약 기준, 미통과 제외)
+    enr:  bookBase   ? m.enrolled/bookBase*100   : 0,    // 등록률 (예약 기준, 미통과·시험 예정 제외)
     fail: m.attended ? m.failed/m.attended*100   : 0,    // 미통과율 (참석 기준)
     convBase, bookBase
   };
@@ -2908,7 +2914,7 @@ function renderWonmuHub(b){
     <div class="legend"><div class="ls"><div class="li"><span class="sw r0"></span>예약</div><div class="li"><span class="sw r1"></span>참석</div><div class="li"><span class="sw r2"></span>등록</div></div><span class="mo">${esc(semName(state.semId))} · 분원별</span></div>`;
   if(ltRows.length){ ltRows.forEach(r=>{ h+=ltBarRow(r.b.name, r.m, maxBooked); }); }
   else h+=`<div class="empty-msg">표시할 분원이 없어요.</div>`;
-  h+=`<div class="hc-foot"><span class="l">전체 예약 ${ltTot.booked} · 참석 ${ltTot.attended} · 등록 ${ltTot.enrolled}${ltTot.failed?` · 미통과 ${ltTot.failed}`:''}</span><span class="r"><span class="b">참석률 ${ltR.att.toFixed(0)}%</span> · 등록률 ${ltR.enr.toFixed(0)}%</span></div></div>`;
+  h+=`<div class="hc-foot"><span class="l">전체 예약 ${ltTot.booked} · 참석 ${ltTot.attended} · 등록 ${ltTot.enrolled}${ltTot.failed?` · 미통과 ${ltTot.failed}`:''}${ltTot.upcoming?` · 시험 예정 ${ltTot.upcoming}(등록률 제외)`:''}</span><span class="r"><span class="b">참석률 ${ltR.att.toFixed(0)}%</span> · 등록률 ${ltR.enr.toFixed(0)}%</span></div></div>`;
   }
 
   // 인원현황 카드 (인원현황 메뉴 권한 있을 때만)
@@ -3146,7 +3152,7 @@ function renderLtDetail(b){
       <span class="sarrow">›</span>
       <div class="sstep tipable" onmouseover="ltTip(event,'attended')" onmouseout="ltTipHide()"><span class="l" style="color:var(--wpos)">참석</span><span class="v">${tot.attended}<span class="u">명</span></span><span class="r">${tot.booked?'참석률 '+R.att.toFixed(0)+'%':'&nbsp;'}</span></div>
       <span class="sarrow">›</span>
-      <div class="sstep tipable" onmouseover="ltTip(event,'enrolled')" onmouseout="ltTipHide()"><span class="l" style="color:var(--wblue)">등록</span><span class="v">${tot.enrolled}<span class="u">명</span></span><span class="r">${tot.booked?'등록률 '+R.enr.toFixed(0)+'%':'&nbsp;'}</span></div>
+      <div class="sstep tipable" onmouseover="ltTip(event,'enrolled')" onmouseout="ltTipHide()"><span class="l" style="color:var(--wblue)">등록</span><span class="v">${tot.enrolled}<span class="u">명</span></span><span class="r">${tot.booked?'등록률 '+R.enr.toFixed(0)+'%'+(tot.upcoming?' · 시험 예정 '+tot.upcoming+'명 제외':''):'&nbsp;'}</span></div>
       <span class="sdiv">｜</span>
       <div class="sstep tipable" onmouseover="ltTip(event,'waitn')" onmouseout="ltTipHide()"><span class="l" style="color:#1f8a95">다음학기 대기</span><span class="v" style="color:#1f8a95">${tot.waitNext}<span class="u">명</span></span><span class="r">&nbsp;</span></div>
     </div>
