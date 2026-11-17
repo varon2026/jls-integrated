@@ -877,6 +877,25 @@ function newSlide(kind,seg){
 }
 function fmt(cmd,val){document.execCommand(cmd,false,val||null);DIRTY=true;}
 document.addEventListener('input',function(e){if(EDIT&&e.target.closest&&e.target.closest('.ot-slide'))DIRTY=true;});
+/* 과제·목록 줄 추가/삭제 — 예전엔 줄 끝에서 Enter 를 눌러도 같은 줄 안에서 줄바꿈만 돼서 번호가 안 늘었다(번호 1,2,3 은 줄마다 CSS 가 매긴다).
+   Enter = 아래에 새 번호 줄(<li>) 추가, Shift+Enter = 같은 줄 안에서 줄바꿈, 빈 줄에서 Backspace = 그 줄 삭제 */
+document.addEventListener('keydown',function(e){
+  if(!EDIT)return;
+  var li=e.target&&e.target.closest?e.target.closest('ol > li'):null;
+  if(!li||!li.closest('.ot-slide'))return;
+  if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){
+    e.preventDefault();
+    var n=document.createElement('li');n.setAttribute('contenteditable','true');n.innerHTML='<br>';
+    li.after(n);n.focus();
+    var r=document.createRange();r.selectNodeContents(n);r.collapse(true);var sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);
+    DIRTY=true;
+  }else if(e.key==='Backspace'&&!e.isComposing&&!li.textContent.replace(/\s/g,'')&&li.parentNode.querySelectorAll(':scope > li').length>1){
+    e.preventDefault();
+    var prev=li.previousElementSibling||li.nextElementSibling;li.remove();
+    if(prev){prev.focus();var r2=document.createRange();r2.selectNodeContents(prev);r2.collapse(prev===null||!!li.previousElementSibling===false?true:false);var s2=window.getSelection();s2.removeAllRanges();s2.addRange(r2);}
+    DIRTY=true;
+  }
+});
 
 /* 사진 바꾸기 — 큰 사진은 줄여서(가로 1600) guide-images 저장소에 올린다 */
 var PICK_IMG=null;
