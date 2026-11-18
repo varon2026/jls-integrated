@@ -52,87 +52,110 @@ var CSS=
 /* ── 시간표 ── */
 '.pv-time{padding:46px 56px 40px;display:flex;flex-direction:column;gap:26px}'+
 '.pv-time .tm-h{flex:none;display:flex;align-items:center;gap:18px;border-bottom:3px solid #1C2A4A;padding-bottom:14px}'+
-'.pv-time .tm-h .n{background:#FDE2E4;color:#9A2E3E;border-radius:50%;min-width:56px;height:56px;display:grid;place-items:center;font-size:26px;font-weight:800}'+
-'.pv-time .tm-h h2{font-family:inherit;font-size:calc(50px*var(--s));font-weight:800;letter-spacing:-.02em;margin:0;color:#1C2A4A}'+
+'.pv-time .tm-h .n{background:#FDE2E4;color:#9A2E3E;border-radius:50%;min-width:56px;height:56px;display:grid;place-items:center;font-size:15.6px;font-weight:800}'+
+'.pv-time .tm-h h2{font-family:inherit;font-size:30px;font-weight:800;letter-spacing:-.02em;margin:0;color:#1C2A4A}'+
 '.pv-tcols{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--n),1fr);gap:22px}'+
 '.pv-tcol{min-height:0;border-radius:22px;background:#F4F7FF;padding:22px 22px 18px;display:flex;flex-direction:column;gap:12px}'+
-'.pv-tcol .d{font-size:calc(46px*var(--s));font-weight:800;color:#1C2A4A;text-align:center;line-height:1.1;padding-bottom:8px}'+
+'.pv-tcol .d{font-size:calc(27.6px*var(--s));font-weight:800;color:#1C2A4A;text-align:center;line-height:1.1;padding-bottom:8px}'+
 '.pv-tr{flex:1 1 0;min-height:0;background:#fff;border-radius:16px;padding:calc(12px*var(--s)) calc(16px*var(--s));display:flex;flex-direction:column;justify-content:center;gap:2px}'+
-'.pv-tr .t{font-size:calc(22px*var(--s));font-weight:800;color:#5A6B95;line-height:1.3}'+
-'.pv-tr .t small{font-size:calc(18px*var(--s));font-weight:700;margin-left:8px;color:#8A95B8}'+
-'.pv-tr .s{font-size:calc(34px*var(--s));font-weight:800;color:#D23B3B;line-height:1.2}'+
-'.pv-tr .k{font-size:calc(22px*var(--s));font-weight:700;color:#1C2A4A;line-height:1.35}'+
+'.pv-tr .t{font-size:calc(13.2px*var(--s));font-weight:800;color:#5A6B95;line-height:1.3}'+
+'.pv-tr .t small{font-size:calc(10.8px*var(--s));font-weight:700;margin-left:8px;color:#8A95B8}'+
+'.pv-tr .s{font-size:calc(20.4px*var(--s));font-weight:800;color:#D23B3B;line-height:1.2}'+
+'.pv-tr .k{font-size:calc(13.2px*var(--s));font-weight:700;color:#1C2A4A;line-height:1.35}'+
 /* ── 첫 주 일정: 왼쪽 교재·범위 / 오른쪽 과제 ── */
 '.pv-w .wkp{padding:38px 56px 34px;display:flex;flex-direction:column}'+
 '.pv-w .wkp .w2-head{padding-bottom:12px}'+
-'.pv-w .wkp .w2-day{font-size:calc(54px*var(--s))}'+
-'.pv-w .wkp .w2-wk{font-size:24px}'+
-'.pv-w .wkp .wp-body{margin-top:14px}'+
-'.pv-w .wkp .wp-band{flex:1 1 auto}.pv-w .wkp .wp-bb{flex:1 1 auto}'+
-'.pv-w .wkp .wp-ph{font-size:calc(40px*var(--s));padding-bottom:6px;margin-bottom:10px;border-bottom-width:4px}'+
-'.pv-w .wkp .wp-pt{font-size:calc(26px*var(--s))}'+
+'.pv-w .wkp .w2-day{font-size:43.1px}'+
+'.pv-w .wkp .w2-wk{font-size:14.4px}'+
+'.pv-w .wkp .wp-body{margin-top:14px;justify-content:center}'+
+'.pv-w .wkp .wp-band{flex:0 0 auto;margin:auto 0}.pv-w .wkp .wp-bb{flex:1 1 auto}'+
+'.pv-w .wkp .wp-ph{font-size:calc(31.9px*var(--s));padding-bottom:6px;margin-bottom:10px;border-bottom:0}'+
+'.pv-w .wkp .wp-pt{font-size:calc(20.7px*var(--s))}'+
 '.pv-w .wkp .w2-col{flex:1 1 auto;display:flex;flex-direction:column;justify-content:flex-start;padding:0}'+
-'.pv-w .wkp .w2-sub{font-size:calc(40px*var(--s));margin-bottom:calc(10px*var(--s))}'+
+'.pv-w .wkp .w2-sub{font-size:calc(31.9px*var(--s));margin-bottom:calc(10px*var(--s))}'+
 '.pv-2{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:0 44px}'+
 '.pv-2.one{grid-template-columns:1fr}'+
 '.pv-2>div{min-width:0}'+
-'.pv-2 .pv-r{border-left:3px dotted #AEB8D4;padding-left:36px}'+
-'.pv-w .wkp .w2-row{grid-template-columns:calc(86px*var(--s)) 1fr;gap:12px;font-size:calc(26px*var(--s));line-height:1.45;margin-bottom:calc(10px*var(--s))}'+
-'.pv-w .wkp .w2-l{font-size:calc(21px*var(--s))}'+
-'.pv-w .wkp .w2-book{font-size:calc(28px*var(--s))}'+
-'.pv-w .wkp .w2-hwl{font-size:calc(24px*var(--s));margin:0 0 calc(10px*var(--s));padding-top:0;border-top:0;color:#D23B3B;font-weight:800}'+
-'.pv-w .wkp .w2-ol li,.pv-w .wkp .w2-ol.sm li{font-size:calc(27px*var(--s));padding-left:calc(42px*var(--s));margin-bottom:calc(11px*var(--s));line-height:1.42}'+
-'.pv-w .wkp .w2-ol li small{font-size:calc(22px*var(--s))}'+
-'.pv-w .wkp .w2-ref{font-size:calc(22px*var(--s))}'+
+'.pv-2 .pv-r{padding-left:8px}'+
+'.pv-w .wkp .w2-row{grid-template-columns:calc(86px*var(--s)) 1fr;gap:12px;font-size:calc(20.7px*var(--s));line-height:1.45;margin-bottom:calc(10px*var(--s))}'+
+'.pv-w .wkp .w2-l{font-size:calc(16.8px*var(--s))}'+
+'.pv-w .wkp .w2-book{font-size:calc(22.3px*var(--s))}'+
+'.pv-w .wkp .w2-hwl{font-size:calc(19.2px*var(--s));margin:0 0 calc(10px*var(--s));padding-top:0;border-top:0;color:#D23B3B;font-weight:800}'+
+'.pv-w .wkp .w2-ol li,.pv-w .wkp .w2-ol.sm li{font-size:calc(21.5px*var(--s));padding-left:calc(42px*var(--s));margin-bottom:calc(11px*var(--s));line-height:1.42}'+
+'.pv-w .wkp .w2-ol li small{font-size:calc(17.6px*var(--s))}'+
+'.pv-w .wkp .w2-ref{font-size:calc(17.6px*var(--s))}'+
 /* ── 평가 일정 · STaRT ── */
 '.pv-w .ev{padding:44px 60px 36px}'+
 '.pv-w .ev-head{padding-bottom:14px;border-bottom-width:3px}'+
-'.pv-w .ev-t{font-size:calc(58px*var(--s))}'+
-'.pv-w .ev-head .n{min-width:calc(58px*var(--s));height:calc(58px*var(--s));font-size:calc(28px*var(--s))}'+
-'.pv-w .ev-sub{font-size:calc(26px*var(--s))}'+
-'.pv-w .ev-tl{margin:26px 0 8px}'+
-'.pv-w .ev-lab{font-size:calc(24px*var(--s));margin-bottom:12px}'+
-'.pv-w .ev-bar{border-width:3px}'+
-'.pv-w .ev-bar>div{padding:calc(18px*var(--s)) calc(22px*var(--s));border-right-width:3px;min-height:0}'+
-'.pv-w .ev-mh{font-size:calc(32px*var(--s));margin-bottom:calc(10px*var(--s))}'+
-'.pv-w .ev-mp{font-size:calc(27px*var(--s));line-height:1.55}'+
-'.pv-w .ev-mp::before{font-size:calc(18px*var(--s))}'+
-'.pv-w .ev-all{margin-top:calc(18px*var(--s));font-size:calc(27px*var(--s));gap:calc(14px*var(--s))}'+
-'.pv-w .ev-all i{font-size:calc(23px*var(--s));padding:calc(2px*var(--s)) calc(18px*var(--s))}'+
-'.pv-w .ev-rows{margin-top:18px;justify-content:center}'+
-'.pv-w .ev-r{flex:0 1 auto;grid-template-columns:27% 1fr;gap:0 40px;padding:calc(20px*var(--s)) 0;border-top-width:2px}'+
-'.pv-w .ev-r:first-child{border-top-width:3px}'+
-'.pv-w .ev-nm{font-size:calc(38px*var(--s))}'+
-'.pv-w .ev-ds{font-size:calc(28px*var(--s));line-height:1.55}'+
-'.pv-w .ev-ok{font-size:calc(22px*var(--s));border-width:2px;margin-top:calc(8px*var(--s))}'+
+'.pv-w .ev-t{font-size:41.1px}'+
+'.pv-w .ev-head .n{min-width:58px;height:58px;font-size:19.8px}'+
+'.pv-w .ev-sub{font-size:18.4px}'+
+'.pv-w .ev-tl{margin:auto 0}'+
+'.pv-w .ev-lab{font-size:calc(17px*var(--s));margin-bottom:12px}'+
+'.pv-w .ev-bar{border:0;gap:18px;background:none}'+
+'.pv-w .ev-bar>div{padding:calc(18px*var(--s)) calc(22px*var(--s));border:0;background:#F4F7FF;border-radius:18px;min-height:0}'+
+'.pv-w .ev-mh{font-size:calc(22.7px*var(--s));margin-bottom:calc(10px*var(--s))}'+
+'.pv-w .ev-mp{font-size:calc(19.1px*var(--s));line-height:1.55}'+
+'.pv-w .ev-mp::before{font-size:calc(12.7px*var(--s))}'+
+'.pv-w .ev-all{margin-top:calc(18px*var(--s));font-size:calc(19.1px*var(--s));gap:calc(14px*var(--s))}'+
+'.pv-w .ev-all i{font-size:calc(16.3px*var(--s));padding:calc(2px*var(--s)) calc(18px*var(--s))}'+
+'.pv-w .ev-rows{margin-top:18px;justify-content:center;gap:6px}'+
+'.pv-w .ev-r{flex:0 1 auto;grid-template-columns:27% 1fr;gap:0 40px;padding:calc(20px*var(--s)) 0;border:0}'+
+'.pv-w .ev-r:first-child{border:0}'+
+'.pv-w .ev-nm{font-size:calc(26.9px*var(--s))}'+
+'.pv-w .ev-ds{font-size:calc(19.8px*var(--s));line-height:1.55}'+
+'.pv-w .ev-ok{font-size:calc(15.6px*var(--s));border-width:2px;margin-top:calc(8px*var(--s))}'+
 /* ── 목록(준비물·숙제 방법…) ── */
 '.pv-w .ls{padding:48px 70px 40px}'+
 '.pv-w .ls .ls-all{justify-content:center}'+
 '.pv-w .ls .ls-sec:not(.top){flex:0 1 auto;gap:calc(22px*var(--s));padding:0}'+
-'.pv-w .ls .ls-sec:not(.top) .ls-h{font-size:calc(62px*var(--s));padding-bottom:calc(16px*var(--s));border-bottom-width:5px;gap:calc(24px*var(--s))}'+
-'.pv-w .ls .ls-sec.top .ls-h{font-size:calc(58px*var(--s));padding-bottom:calc(14px*var(--s));border-bottom:5px solid #1C2A4A;margin-bottom:calc(16px*var(--s))}'+
-'.pv-w .ls .ls-sec.top .ls-h i{font-size:calc(28px*var(--s))}'+
-'.pv-w .ls .ls-sec.top .ls-sm{font-size:calc(26px*var(--s))}'+
-'.pv-w .ls .ls-sec:not(.top) .ls-h i{font-size:calc(30px*var(--s));min-width:calc(66px*var(--s));height:calc(66px*var(--s))}'+
+'.pv-w .ls .ls-sec:not(.top) .ls-h{font-size:37.2px;padding-bottom:16px;border-bottom-width:5px;gap:24px}'+
+'.pv-w .ls .ls-sec.top .ls-h{font-size:34.8px;padding-bottom:14px;border-bottom:5px solid #1C2A4A;margin-bottom:16px}'+
+'.pv-w .ls .ls-sec.top .ls-h i{font-size:16.8px}'+
+'.pv-w .ls .ls-sec.top .ls-sm{font-size:calc(15.6px*var(--s))}'+
+'.pv-w .ls .ls-sec:not(.top) .ls-h i{font-size:18px;min-width:66px;height:66px}'+
 '.pv-w .ls .ls-sec:not(.top) .ls-b{justify-content:flex-start}'+
+'.pv-w .ls .ls-sec,.pv-w .ls ol.items li{border-left:0}'+
 '.pv-w .ls .ls-sec:not(.top) ol.items{flex:none;justify-content:flex-start}'+
-'.pv-w .ls .ls-sec ol.items li{font-size:calc(40px*var(--s));padding:calc(11px*var(--s)) 0 calc(11px*var(--s)) calc(76px*var(--s))}'+
-'.pv-w .ls .ls-sec ol.items li::before{font-size:calc(30px*var(--s))!important}'+
-'.pv-w .ls .ls-sec ol.items li small{font-size:calc(28px*var(--s))}'+
-'.pv-w .ls .ls-sec .hl{font-size:calc(36px*var(--s));margin-left:calc(76px*var(--s));padding:calc(20px*var(--s)) calc(30px*var(--s))}'+
-'.pv-w .ls .ls-sec .msg{font-size:calc(42px*var(--s))}'+
-'.pv-w .ls .ls-sec .msg i{font-size:calc(36px*var(--s))}'+
+'.pv-w .ls .ls-sec ol.items li{font-size:calc(24px*var(--s));padding:calc(11px*var(--s)) 0 calc(11px*var(--s)) calc(76px*var(--s))}'+
+'.pv-w .ls .ls-sec ol.items li::before{font-size:calc(18px*var(--s))!important}'+
+'.pv-w .ls .ls-sec ol.items li small{font-size:calc(16.8px*var(--s))}'+
+'.pv-w .ls .ls-sec .hl{font-size:calc(21.6px*var(--s));margin-left:calc(76px*var(--s));padding:calc(20px*var(--s)) calc(30px*var(--s))}'+
+'.pv-w .ls .ls-sec .msg{font-size:calc(25.2px*var(--s))}'+
+'.pv-w .ls .ls-sec .msg i{font-size:calc(21.6px*var(--s))}'+
 '.pv-w .ls .ls-sec .ls-b img{max-height:calc(420px*var(--s));width:auto;max-width:100%;object-fit:contain}'+
 /* ── 사진 한 장 화면(시험지 부착 위치) ── */
 '.pv-ph{padding:40px 60px 34px;display:flex;flex-direction:column;gap:16px}'+
 '.pv-ph .h{flex:none;display:flex;align-items:center;gap:20px;border-bottom:4px solid #1C2A4A;padding-bottom:12px}'+
-'.pv-ph .h h2{font-family:inherit;font-size:54px;font-weight:800;margin:0;color:#1C2A4A}'+
-'.pv-ph .note{flex:none;background:#FFF6D6;border-radius:16px;padding:12px 24px;font-size:28px;font-weight:800;text-align:center}'+
-'.pv-ph .lab{flex:none;font-size:32px;font-weight:800;display:flex;align-items:center;gap:14px}'+
-'.pv-ph .lab .tp-b{display:inline-grid;place-items:center;width:46px;height:46px;border-radius:50%;font-size:26px}'+
+'.pv-ph .h h2{font-family:inherit;font-size:32.4px;font-weight:800;margin:0;color:#1C2A4A}'+
+'.pv-ph .note{flex:none;background:#FFF6D6;border-radius:16px;padding:12px 24px;font-size:16.8px;font-weight:800;text-align:center}'+
+'.pv-ph .lab{flex:none;font-size:19.2px;font-weight:800;display:flex;align-items:center;gap:14px}'+
+'.pv-ph .lab .tp-b{display:inline-grid;place-items:center;width:46px;height:46px;border-radius:50%;font-size:15.6px}'+
 '.pv-ph .pic{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}'+
 '.pv-ph .pic img{max-width:100%;max-height:100%;object-fit:contain;border-radius:12px;box-shadow:0 4px 18px rgba(30,50,110,.15)}'+
 '.c1{background:#FDE2E4;color:#9A2E3E}.c2{background:#FFF0BD;color:#7A5B00}.c3{background:#D9F3E6;color:#1F6B4A}.c4{background:#E2ECFF;color:#2E4FA6}'+
+/* ── Self-test 4칸 접기: 클릭할 때마다 한 칸씩(신규생 안내의 Self-test 와 같은 방식) ── */
+'.pv-st{padding:38px 56px 30px;display:flex;flex-direction:column}'+
+'.pv-st .h{flex:none;display:flex;align-items:center;gap:14px;border-bottom:2px solid #1C2A4A;padding-bottom:12px}'+
+'.pv-st .h .n:empty{display:none}.pv-st .h .n{background:#FDE2E4;color:#9A2E3E;border-radius:50%;width:40px;height:40px;display:grid;place-items:center;font-size:18px;font-weight:800}'+
+'.pv-st .h h2{font-family:inherit;font-size:31px;font-weight:800;margin:0;letter-spacing:-.02em}'+
+'.pv-st .h .sub{margin-left:auto;font-size:17px;font-weight:700;color:#8A95B8}'+
+'.pv-st .lead{font-size:20px;font-weight:700;margin:18px 0 0;line-height:1.5}.pv-st .lead em{font-style:normal;color:#D23B3B}'+
+'.pv-stg{margin-top:24px;display:grid;grid-template-columns:repeat(4,1fr);border:2px solid #1C2A4A;border-radius:14px;overflow:hidden;height:340px;flex:none}'+
+'.pv-gc{padding:12px 16px;border-right:1.5px dashed #C9D3EE;position:relative}.pv-gc:last-child{border-right:0}'+
+'.pv-gc .hh{font-size:15px;font-weight:800;color:#2E4FA6;margin-bottom:6px;display:block}'+
+'.pv-gc .w{display:block;font-size:24px;line-height:1.7;font-weight:700;white-space:nowrap}'+
+'.pv-gc .w::after{content:"\\25CB";color:#E0304F;font-size:16px;margin-left:6px}'+
+'.pv-gc .w.bad{color:#8A95B8;text-decoration:line-through 2px #E0304F}.pv-gc .w.bad::after{content:"\\2715"}'+
+'.pv-gc .fx{display:block;color:#E0304F;font-weight:800;font-size:15px;margin:-4px 0 2px}'+
+'.pv-gc.hidden{background:repeating-linear-gradient(135deg,#F1F4FC 0 6px,#E3E9F7 6px 7px)}.pv-gc.hidden>*{visibility:hidden}'+
+'.pv-gc.blank .w,.pv-gc.blank .fx{visibility:hidden}'+
+'.pv-gc.now{box-shadow:inset 0 0 0 4px #FFD36E;animation:pvPulse .5s}'+
+'@keyframes pvPulse{0%{transform:scale(.96)}60%{transform:scale(1.02)}100%{transform:scale(1)}}'+
+'.pv-st .cap{margin-top:28px;background:#EEF3FF;border-radius:14px;padding:16px 24px;font-size:20px;font-weight:700;line-height:1.5}.pv-st .cap b{color:#2E4FA6}'+
+'.pv-st .tabs{margin-top:26px;display:flex;align-items:center;gap:8px}'+
+'.pv-st .tabs span{font-size:16px;font-weight:800;border-radius:999px;padding:6px 16px;background:#EEF1F8;color:#8A95B8;cursor:pointer}'+
+'.pv-st .tabs span.on{background:#2E4FA6;color:#fff}.pv-st .tabs .hint{margin-left:auto;background:none;color:#8A95B8;font-weight:700;cursor:default}'+
 /* ── 통째로 줄여 넣은 쪽(fallback) ── */
 '.pv-fb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#fff}'+
 /* ── 막대 · 쪽수 · 버튼 ── */
@@ -163,7 +186,7 @@ function fit(s,min,max){
   s.style.setProperty('--s',max);
   if(!over(s))return max;
   for(var i=0;i<13;i++){var m=(lo+hi)/2;s.style.setProperty('--s',m);if(over(s))hi=m;else lo=m;}
-  s.style.setProperty('--s',lo*0.985);
+  s.style.setProperty('--s',lo*0.94);
   return lo;
 }
 
@@ -188,6 +211,7 @@ function finish(sc,slide,min,max,anim){
   var fitbox=sc.querySelector('.pv-fit');fitbox.style.transform='none';
   if(slide&&max)fit(slide,min,max);
   fitbox.style.transform='';
+  if(slide&&max)sc._refit=function(){var fb=sc.querySelector('.pv-fit');fb.style.transform='none';fit(slide,min,max);fb.style.transform='';};
   /* 나타나는 순서: 제목 → 항목들 */
   var i=0;
   (anim||[]).forEach(function(sel){[].forEach.call(sc.querySelectorAll(sel),function(n){n.classList.add('pv-a');n.style.setProperty('--i',i++);});});
@@ -222,7 +246,7 @@ function timeScreen(s){
    '<div class="pv-tcols" style="--n:'+days.length+'">'+days.map(function(d){
      return '<div class="pv-tcol"><div class="d">'+d.d+'</div>'+d.rows.map(function(r){
        return '<div class="pv-tr"><div class="t">'+r.t+(r.tm?'<small>'+r.tm+'</small>':'')+'</div><div class="s">'+r.s+'</div><div class="k">'+r.k+'</div></div>';}).join('')+'</div>';}).join('')+'</div>';
-  var sc=mk(sl);finish(sc,sl,0.5,2.0,[ANIM_HEAD,'.pv-tcol']);
+  var sc=mk(sl);finish(sc,sl,0.5,1.15,[ANIM_HEAD,'.pv-tcol']);
   /* 칸 안 줄도 차례로 */
   return true;
 }
@@ -246,7 +270,7 @@ function wkpScreens(s){
       two.appendChild(L);if(hw>=0)two.appendChild(R);col.appendChild(two);
       bb.appendChild(col);band.appendChild(bb);body.appendChild(band);sl.appendChild(body);
       strip(sl);
-      var sc=mk(sl);finish(sc,sl,0.45,1.25,[ANIM_HEAD,'.w2-sub','.w2-row','.w2-hwl','.w2-ol li','.w2-ref']);made++;
+      var sc=mk(sl);finish(sc,sl,0.45,1.3,[ANIM_HEAD,'.w2-sub','.w2-row','.w2-hwl','.w2-ol li','.w2-ref']);made++;
     });
   });
   return made>0;
@@ -271,18 +295,45 @@ function evScreens(s){
   function place(list,withTl){
     var sl=build(list,withTl),sc=mk(sl),m=measureBox();m.appendChild(sc);
     var fb=sc.querySelector('.pv-fit');fb.style.transform='none';
-    var v=fit(sl,0.5,1.3);fb.style.transform='';m.removeChild(sc);
+    var v=fit(sl,0.5,1.15);fb.style.transform='';m.removeChild(sc);
     if(v<0.8&&list.length>1){var h=Math.ceil(list.length/2);place(list.slice(0,h),withTl);place(list.slice(h),false);return;}
-    finish(sc,sl,0.5,1.3,[ANIM_HEAD,'.ev-lab','.ev-bar>div','.ev-all','.ev-r']);
+    finish(sc,sl,0.5,1.15,[ANIM_HEAD,'.ev-lab','.ev-bar>div','.ev-all','.ev-r']);
   }
   if(hasTl){place([],true);place(rows,false);}   // 첫 화면은 '한 학기 흐름', 그 뒤로 시험별 설명
   else place(rows,false);
   return true;
 }
+/* Self-test 4칸 접기 — 한 번 클릭할 때마다 한 칸씩 나타난다(앞 칸은 가려짐). 단어는 신규생 안내와 같은 예시 */
+var ST_W=[['사과','apple'],['빌리다','borrow'],['용감한','brave'],['도서관','library']];
+var ST_CAP=['단어책을 보면서 <b>1칸에 뜻</b>을 적고, 다 적으면 바로 채점(○)해요.','1칸을 가리고 <b>2칸에 영어</b>를 써요. 쓰자마자 채점! 틀린 단어는 다시 확인해요.','1~2칸을 가리고 2칸의 영어만 보면서 <b>3칸에 뜻</b>을 써요.','1~3칸을 가리고 <b>4칸에 영어</b>를 써요. 아까 틀린 단어도 이번엔 맞게!'];
+function isSelfTest(sec){var h=sec.querySelector('.ls-h');return !!h&&/Self-test/i.test(h.textContent)&&/4칸/.test(sec.textContent);}
+function stScreen(sec){
+  var h=sec.querySelector('.ls-h'),n=h.querySelector('i'),sm=h.querySelector('.ls-sm');
+  var hc=h.cloneNode(true);[].forEach.call(hc.querySelectorAll('i,.ls-sm'),function(x){x.remove();});
+  var sl=el('section','ot-slide pv-st');
+  sl.innerHTML='<div class="h"><span class="n">'+(n?n.innerHTML:'')+'</span><h2>'+hc.innerHTML+'</h2><span class="sub">'+(sm?sm.textContent:'공책 4칸 접기')+'</span></div>'+
+    '<p class="lead">보지 않고 <em>직접 써 보는 것</em>이 핵심! 한 칸 쓰고 <em>바로 채점</em>, 그다음 칸으로.</p><div class="pv-stg"></div><div class="cap"></div>'+
+    '<div class="tabs">'+['1칸 뜻','2칸 영어','3칸 뜻','4칸 영어'].map(function(t,i){return '<span class="pv-tab" data-j="'+i+'">'+t+'</span>';}).join('')+'<span class="hint"></span></div>';
+  var sc=mk(sl);
+  sc._steps=4;sc._step=0;
+  sc._render=function(){
+    var st=sc._step;
+    sl.querySelector('.pv-stg').innerHTML=[0,1,2,3].map(function(c){
+      var ko=c%2===0,cls=c===st?'now':c===st-1?'show':c<st?'hidden':'blank';
+      return '<div class="pv-gc '+cls+'"><span class="hh">'+(c+1)+'칸 · '+(ko?'뜻':'영어')+'</span>'+ST_W.map(function(w,i){
+        return (c===1&&i===1)?'<span class="w bad">borow</span><span class="fx">→ borrow</span>':'<span class="w">'+(ko?w[0]:w[1])+'</span>';}).join('')+'</div>';}).join('');
+    sl.querySelector('.cap').innerHTML=ST_CAP[st];
+    [].forEach.call(sl.querySelectorAll('.pv-tab'),function(b,i){b.classList.toggle('on',i===st);});
+    sl.querySelector('.hint').textContent=st<3?'클릭하면 다음 칸 ▶  ('+(st+1)+' / 4)':'클릭하면 다음 화면 ▶  (4 / 4)';
+  };
+  sc._render();
+  finish(sc,null,0,0,['.h','.lead','.pv-stg','.cap','.tabs']);
+}
 function lsScreens(s){
   var secs=[].slice.call(s.querySelectorAll('.ls-sec'));
   if(!secs.length)return false;
   secs.forEach(function(sec){
+    if(isSelfTest(sec)){stScreen(sec);return;}
     var phs=[].slice.call(sec.querySelectorAll('.tp-ph'));
     if(s.classList.contains('tp')&&phs.length){          // 시험지 부착 위치: 사진 한 장당 한 화면
       var ttl=(sec.querySelector('.ls-h')||{}).textContent||'시험지 부착 위치',note=sec.querySelector('.tp-note');
@@ -305,10 +356,10 @@ function lsScreens(s){
        QR 단어장(.vq)처럼 사진이 내용 자체인 쪽은 그대로 둔다. */
     if(imgs.length&&!s.classList.contains('vq')){
       var t=mk(sl),m=measureBox();m.appendChild(t);t.querySelector('.pv-fit').style.transform='none';
-      var v=fit(sl,0.3,1.4);m.removeChild(t);
+      var v=fit(sl,0.3,1.15);m.removeChild(t);
       if(v<0.62){
         var tsl=mkSl(sec,true);
-        var sc0=mk(tsl);finish(sc0,tsl,0.3,1.4,['.ls-h','.items li','.hl','.msg','.ls-b p']);
+        var sc0=mk(tsl);finish(sc0,tsl,0.3,1.15,['.ls-h','.items li','.hl','.msg','.ls-b p']);
         var th=sec.querySelector('.ls-h'),thc=th?th.cloneNode(true):null;if(thc)[].forEach.call(thc.querySelectorAll('i'),function(i){i.remove();});var ttl=thc?thc.innerHTML:'';
         imgs.forEach(function(im){
           var pl=el('section','ot-slide pv-ph');
@@ -319,7 +370,7 @@ function lsScreens(s){
       }
       sl=mkSl(sec,false);
     }
-    var sc=mk(sl);finish(sc,sl,0.3,1.4,['.ls-h','.items li','.hl','.msg','.ls-b img','.ls-b p']);
+    var sc=mk(sl);finish(sc,sl,0.3,1.15,['.ls-h','.items li','.hl','.msg','.ls-b img','.ls-b p']);
   });
   return true;
 }
@@ -360,13 +411,15 @@ function show(i,dir){
   if(prev&&prev!==SC[i]&&prev.classList.contains('on')){prev.classList.remove('on');prev.classList.add('out');(function(p){setTimeout(function(){p.classList.remove('out');},520);})(prev);}
   IDX=i;
   var cur=SC[i];cur.classList.remove('out');
+  if(cur._steps){cur._step=dir<0?cur._steps-1:0;cur._render();}
+  if(cur._refit)cur._refit();
   /* 같은 화면을 다시 보면 애니메이션이 처음부터 돌도록 한 번 껐다 켠다 */
   cur.classList.remove('on');void cur.offsetWidth;cur.classList.add('on');
   var bar=STAGE.querySelector('.pv-bar');bar.style.width=((i+1)/SC.length*100)+'%';
   STAGE.querySelector('.pv-cnt').textContent=(i+1)+' / '+SC.length;
 }
-function next(){if(IDX<SC.length-1)show(IDX+1,1);}
-function prev(){if(IDX>0)show(IDX-1,-1);}
+function next(){var c=SC[IDX];if(c&&c._steps&&c._step<c._steps-1){c._step++;c._render();return;}if(IDX<SC.length-1)show(IDX+1,1);}
+function prev(){var c=SC[IDX];if(c&&c._steps&&c._step>0){c._step--;c._render();return;}if(IDX>0)show(IDX-1,-1);}
 function scale(){
   var k=Math.min(window.innerWidth/1920,window.innerHeight/1080);
   STAGE.style.setProperty('--k',k);
@@ -404,6 +457,7 @@ function start(){
     ROOT.appendChild(STAGE);document.body.appendChild(ROOT);
     ROOT.addEventListener('mousemove',wake);
     ROOT.addEventListener('click',function(e){
+      var tb=e.target.closest('.pv-tab');if(tb){var c=SC[IDX];if(c&&c._steps){c._step=+tb.getAttribute('data-j');c._render();}return;}
       if(e.target.closest('.pv-nav,.pv-x'))return;
       if(e.clientX<window.innerWidth*0.3)prev();else next();wake();
     });
