@@ -409,6 +409,68 @@ function renderBooks(c){
       <iframe class="bk-fs-frame" id="booksFrame" src="${BOOKS_APP_URL}?embed=1" title="교재 재고관리" allow="clipboard-write"></iframe>
     </div>`;
   booksHookSso(code);
+  booksAutoSyncRoster();
+}
+/* ===== 교재 명단 자동 등록 =====
+   교재 시스템은 학생 명단(bk_students)을 따로 들고 있어서, 통합관리에 중도신규(11월 등)가 들어와도
+   분원이 교재 쪽에 손으로 다시 넣기 전엔 교재비 입금현황·출고에 안 떴다(운정2 이예원·이아린 건).
+   그래서 분원 계정이 교재 시스템을 열 때, 이번 학기 정규반 재원생 중 **교재 쪽에 아직 없는 학생만** 채워 넣는다.
+   · 이미 교재 쪽에 있는 학생(퇴원 포함)은 절대 안 건드린다 — 총무가 손본 학기·반·상태·연락처를 덮어쓰면 안 되기 때문(ignore-duplicates).
+   · 회원코드가 없는 학생(임시-…)은 교재 쪽 학생ID로 쓸 수 없어 건너뛴다(명단에 진짜 코드가 올라오면 다음에 들어간다).
+   · 관리자(본사)는 분원이 여러 곳이라 하지 않는다 — 각 분원이 자기 교재 시스템을 열 때 채운다. */
+function bkSemLabel(semId){
+  const m=String(semId||'').match(/^sem_(\d+)_(spring|summer|fall|winter)$/); if(!m) return '';
+  return String(m[1]).slice(2)+'년'+({spring:'봄',summer:'여름',fall:'가을',winter:'겨울'})[m[2]];
+}
+function bkDivision(grade, cls){
+  const cn=String(cls||'').toUpperCase(), bm=cn.match(/\[([A-Z0-9]+)\]/), lv=bm?bm[1]:cn.trim();
+  const CH=['DSA','DSB','DSC','DSD','LSA','LSB','LSC','LSD','MSA','MSB','IS'], AC=['HB','PA1','PA2','A1','A2','MA','HM','HA'];
+  if(CH.some(x=>lv.startsWith(x))) return 'CHESS';
+  if(lv==='B'||AC.some(x=>lv.startsWith(x))) return 'ACE';
+  const g=String(grade||'');
+  if(g.includes('중')||g.includes('초6')||g.includes('초등6')) return 'ACE';
+  return 'CHESS';
+}
+let _bkSyncBusy=false;
+async function booksAutoSyncRoster(){
+  if(_bkSyncBusy || session.role==='admin') return;
+  const code=booksBranchCode(); if(!code || code==='varon' || code==='baronbooks') return;
+  _bkSyncBusy=true;
+  try{
+    const semId=currentSemester().id, label=bkSemLabel(semId); if(!label) return;
+    const recs=(db.semesterRecords||[]).filter(r=>r.branchId===session.branchId && r.semesterId===semId
+      && (r.kind||'regular')!=='exam' && r.status==='active');
+    if(!recs.length) return;
+    const have=new Set((await booksSb('students','select=student_id&branch=eq.'+encodeURIComponent(code))).map(x=>x.student_id));
+    const seen=new Set(), rows=[]; let noCode=0;
+    recs.forEach(r=>{
+      const st=(db.students||[]).find(x=>x.id===r.studentId); if(!st) return;
+      const sid=String(st.code||'').trim();
+      if(!sid || /^임시/.test(sid)){ noCode++; return; }
+      if(have.has(sid) || seen.has(sid)) return;
+      seen.add(sid);
+      const grade=(typeof gradeTxt==='function'?gradeTxt(st.grade):st.grade)||null;
+      rows.push({ student_id:sid, name:st.name, semester:label, grade, class_name:r.className||null, school:st.school||null,
+        note:r.teacher||null, branch:code, status:'재원', division:bkDivision(grade, r.className), updated_at:new Date().toISOString() });
+    });
+    if(!rows.length) return;
+    /* 안전장치 — 이 기능은 '가끔 들어오는 중도신규'를 채우려는 것이다. ① 교재 쪽 학생과 통합관리 회원코드가 하나도 안 겹치면
+       (ID 표기가 다르다는 뜻) 전원을 새 학생으로 넣어 명단이 두 배가 되므로 멈추고, ② 한꺼번에 20명을 넘으면(학기초 일괄 업로드 시기)
+       총무가 명단 업로드로 처리하는 때라 건드리지 않는다. */
+    const overlap=recs.some(r=>{ const st=(db.students||[]).find(x=>x.id===r.studentId); return st && have.has(String(st.code||'').trim()); });
+    if((have.size>0 && recs.length>=10 && !overlap) || rows.length>20){ if(window.console) console.warn('교재 명단 자동 등록 건너뜀(ID 불일치 또는 대량)',rows.length); return; }
+    const h=Object.assign({},BOOKS_SB_HEADERS,{'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=representation'});
+    let added=0;
+    for(let i=0;i<rows.length;i+=50){
+      const r=await fetch(BOOKS_SB_URL+'/bk_students?on_conflict=student_id,branch',{method:'POST',headers:h,body:JSON.stringify(rows.slice(i,i+50))});
+      if(r.ok){ const j=await r.json(); added+=Array.isArray(j)?j.length:0; }
+    }
+    if(added>0){
+      if(typeof toast==='function') toast('교재 시스템에 새 학생 '+added+'명을 자동으로 넣었어요 ('+rows.slice(0,3).map(x=>x.name).join(', ')+(rows.length>3?' 외':'')+')');
+      const f=document.getElementById('booksFrame'); if(f) f.src=f.src;   // 명단이 이미 읽힌 뒤에 들어갔으면 다시 불러온다
+    }
+  }catch(e){ if(window.console) console.warn('교재 명단 자동 등록 실패(교재 시스템은 그대로 열립니다)',e); }
+  finally{ _bkSyncBusy=false; }
 }
 function booksHookSso(code){
   if(window.__booksSsoHooked) return;
