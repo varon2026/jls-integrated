@@ -444,20 +444,19 @@ async function booksAutoSyncRoster(){
     const bkRows=await booksSb('students','select=student_id,school,grade,created_at&branch=eq.'+encodeURIComponent(code));
     const have=new Set(bkRows.map(x=>x.student_id));
     /* 학교·학년은 통합관리 학생정보가 원본이다. 예전엔 한 번 넣은 뒤로 안 고쳐서, 통합관리에서 산내초→산내중으로 바로잡아도
-       교재관리엔 산내초로 남았다(운정2 이예원). 단 총무가 손으로 쓴 표기(학교 이름 줄임말 등)를 전 학생 일괄로 덮어쓰면 안 되니
-       **최근 30일 안에 교재 쪽에 들어온 학생**의 학교·학년만 맞춘다(자동 등록·중도신규가 여기 해당). 반·학기·상태는 안 건드린다. */
-    const bkBy=new Map(bkRows.map(x=>[x.student_id,x])), recent=Date.now()-30*86400000;
+       교재관리엔 산내초로 남았다(운정2 이예원). 운영자 결정: 기간 제한 없이 항상 통합관리 정보로 맞춘다
+       (총무가 교재 쪽에 손으로 쓴 학교 표기도 통합관리 기준으로 바뀐다). 반·학기·상태는 안 건드린다. */
+    const bkBy=new Map(bkRows.map(x=>[x.student_id,x]));
     const fixes=[];
     recs.forEach(r=>{
       const st=(db.students||[]).find(x=>x.id===r.studentId); if(!st) return;
       const sid=String(st.code||'').trim(), b=bkBy.get(sid); if(!b) return;
-      if(!b.created_at || new Date(b.created_at).getTime()<recent) return;
       const g=(typeof gradeTxt==='function'?gradeTxt(st.grade):st.grade)||'', sc=String(st.school||'').trim(), patch={};
       if(sc && sc!==(b.school||'')) patch.school=sc;
       if(g && g!==(b.grade||'')) patch.grade=g;
       if(Object.keys(patch).length) fixes.push({sid,patch});
     });
-    if(fixes.length && fixes.length<=30){
+    if(fixes.length){
       const hp=Object.assign({},BOOKS_SB_HEADERS,{'Content-Type':'application/json','Prefer':'return=minimal'});
       for(const f of fixes) await fetch(BOOKS_SB_URL+'/bk_students?student_id=eq.'+encodeURIComponent(f.sid)+'&branch=eq.'+encodeURIComponent(code),{method:'PATCH',headers:hp,body:JSON.stringify(Object.assign({updated_at:new Date().toISOString()},f.patch))});
       const fr=document.getElementById('booksFrame'); if(fr) fr.src=fr.src;
