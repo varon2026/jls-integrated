@@ -38,6 +38,7 @@ body{font-family:"NanumSquare","Apple SD Gothic Neo","Malgun Gothic",system-ui,s
 .edbar .tb{border:1px solid #d9c46c;background:#fff;border-radius:8px;font:inherit;font-weight:800;padding:5px 11px;cursor:pointer;color:#5b4500}
 .edbar .sw{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #d9c46c;cursor:pointer;padding:0}
 .notice{max-width:1100px;margin:12px auto 0;padding:10px 14px;border-radius:10px;background:#fff0f0;color:#b3263e;font-weight:700;font-size:13px;line-height:1.6}
+.editing #bPres{display:none}
 .wrap{padding:18px 12px 60px}
 .wrap{padding:0 12px 60px}
 .wrap.landing{padding:0 0 60px}
@@ -597,6 +598,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
 }
 </style>
 <script src="default-content.js?v=86"></script>
+<script src="present.js?v=3"></script>
 </head>
 <body>
 <div class="hd" id="hd">
@@ -607,6 +609,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   <span id="who" style="font-size:12px;color:#7a8bb5;font-weight:700"></span>
   <button class="btn ghost" id="bPrint" onclick="window.print()">🖨 인쇄 / PDF</button>
   <button class="btn ghost" id="bBook" onclick="printBooklet()" title="A4 가로 양면 인쇄 → 반으로 접어 스테이플">📖 소책자 인쇄</button>
+  <button class="btn" id="bPres" onclick="startPresent()" title="TV에 전체화면 슬라이드로 띄우기">▶ 발표</button>
   <button class="btn" id="bEdit" onclick="startEdit()" style="display:none">✏️ 수정</button>
   <button class="btn ghost" id="bReset" onclick="resetBranch()" style="display:none" title="우리 분원이 고친 내용을 지우고 본사 기본 내용으로">↩ 기본으로</button>
   <button class="btn" id="bSave" onclick="saveAll()" style="display:none">💾 저장</button>
