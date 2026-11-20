@@ -86,9 +86,9 @@ const ACE=[
  {
   "label": "HB 반",
   "name": "High Bridge",
-  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해/듣기 : Total English Map Starter Inter B-1\n- 문법 : Grammar Map Starter A-2 + Total English Map Starter Grammar Workbook B-1\n\n■단어시험 : 일일 40개 시험"
+  "body": "■수업시간 : 월수금 3부 17:50~19:50 (120')\n\n■교재\n- 독해/듣기 : Total English Map Starter Inter B-1\n- 문법 : Total English Map Starter Grammar Workbook B-1\n\n■단어시험 : 일일 40개 시험"
  },
- /* 2026-11-20 장안 HB가 두 반이다 — 레벨은 같은데 문법교재가 다르다(HB(1-3)(1): Grammar Map Starter A-2 / HB(1-3)(2): Grammar Map Starter B-2). 나머지 교재는 같다.
+ /* 2026-11-20 장안 HB가 두 반이다 — 레벨은 같은데 문법교재가 다르다(HB(1-3)(1): 문법책 없이 워크북만 / HB(1-3)(2): Grammar Map Starter B-2 + 워크북). 나머지 교재는 같다.
     분원별 문구 수정은 'ACE|라벨' 한 칸에 하나라서 한 라벨로는 두 반을 못 나눈다 → 반을 하나 더 둔다. 다른 분원에도 선택지로 보이지만 해가 없다. */
  {
   "label": "HB 반 (문법 B-2)",
