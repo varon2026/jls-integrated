@@ -3632,11 +3632,25 @@ function anExportCsv(){
 /* 인원현황(renderInwon 등) → inwon.js 로 분리됨 */
 
 let ltResults={};   // reservation_id → { id, assigned_level, total_score }
+/* 서버는 한 번에 1000줄까지만 준다(Supabase 기본). 예전 레벨테스트 불러오기는 한 번만 불러서, 예약이 1000건을 넘자
+   **뒤쪽(새로 들어온 11월 예약)이 조용히 잘렸다** — 손영우·오주원이 응시자 상세 검색에 안 뜬 원인으로 의심된다.
+   성적(level_test_results)도 오래된 순으로 1000건만 와서 새 성적이 빠질 수 있었다. 1000줄씩 이어서 전부 받는다. */
+async function sbSelectAll(table, cols, orderCol){
+  const PAGE=1000; let all=[], from=0;
+  while(true){
+    let q=sb.from(table).select(cols);
+    if(orderCol) q=q.order(orderCol,{ascending:true}).order('id',{ascending:true});   // 줄 순서가 매번 같아야 페이지 사이에 빠지거나 겹치지 않는다
+    const { data, error }=await q.range(from, from+PAGE-1);
+    if(error) throw error;
+    const chunk=data||[]; all=all.concat(chunk);
+    if(chunk.length<PAGE) break; from+=PAGE;
+  }
+  return all;
+}
 async function loadLtResults(){
   try{
     initSupabase();
-    const { data, error } = await sb.from('level_test_results').select('id,reservation_id,assigned_level,total_score,report_type,exam_key,created_at').order('created_at',{ascending:true});
-    if(error) throw error;
+    const data = await sbSelectAll('level_test_results','id,reservation_id,assigned_level,total_score,report_type,exam_key,created_at','created_at');
     ltResults={};
     (data||[]).forEach(r=>{ if(r.reservation_id) ltResults[r.reservation_id]=r; });  // 같은 예약 여러개면 최신 유지
   }catch(e){ console.error('성적 로드 실패', e); }
@@ -3644,9 +3658,7 @@ async function loadLtResults(){
 async function ensureReservations(){
   try{
     initSupabase();
-    const { data, error } = await sb.from('level_test_reservations').select('*');
-    if(error) throw error;
-    reservations = data||[];
+    reservations = await sbSelectAll('level_test_reservations','*','id');
   }catch(e){ console.error('예약 로드 실패', e); toast('예약을 불러오지 못했어요','err'); reservations=[]; }
   await loadLtResults();
   await loadCounselLogs();
