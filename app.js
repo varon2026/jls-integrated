@@ -461,11 +461,11 @@ function enterApp(){
    · 형제할인 기간을 '내년 12월'로 바꾸고, 중등3(졸업) 학생의 형제 할인은 11월까지로 바꾸라는 안내.
    · [나중에 하기] = 이번에만 닫음(다음 로그인 때 다시 뜸). [그만 보기] = 올해는 다음 로그인부터 안 뜸.
    · '그만 보기'는 이 브라우저(localStorage)에 계정별로 기억한다 — 다른 컴퓨터에서는 다시 뜰 수 있다. 해가 바뀌면 다시 뜬다.
-   · 본사·담임·조교에게는 안 띄운다(IMS 형제할인은 분원 관리자가 한다). */
+   · 담임·조교에게는 안 띄운다. 본사(admin)에게는 띄운다(운영자 요청 — 분원이 했는지 챙기려고). */
 function sibPopupActive(d){ const m=d.getMonth()+1, day=d.getDate(); return (m===11 && day>=30) || m===12; }
 function sibPopupMaybe(now){
   try{
-    if(!session || session.role!=='branch') return;
+    if(!session || (session.role!=='branch' && session.role!=='admin')) return;   /* 분원 관리자 + 본사(2026-11-23 운영자 요청). 담임·조교는 제외 */
     const d=now||new Date(); if(!sibPopupActive(d)) return;
     const y=d.getFullYear(), key='jls_sib_stop_'+y+'_'+(session.userId||session.username||'');
     let stopped=null; try{ stopped=localStorage.getItem(key); }catch(e){}
