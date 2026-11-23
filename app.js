@@ -487,11 +487,13 @@ function sibGrad3(){
 function sibListHtml(g3, isAdm){
   if(!g3.length) return '<span style="font-size:13px;color:#9a8fb8">이번 학기 중등3 재원생이 없어요</span>';
   const who=s=>(isAdm&&s.br?'<span style="color:#9a8fb8;font-weight:600">'+esc(s.br)+' · </span>':'')+esc(s.name)+(s.school?'<span style="color:#9a8fb8;font-weight:600"> ('+esc(s.school)+')</span>':'');
-  if(!g3.some(s=>s.sib)) return g3.map(s=>'<span style="display:inline-block;background:#fff;border:1px solid #F3C2D0;border-radius:999px;padding:2px 10px;margin:2px 4px 2px 0;font-size:13px;font-weight:700;color:#4b4268">'+who(s)+'</span>').join('');
+  const enriched=g3.some(s=>s.sib);
+  if(enriched){ g3=g3.filter(s=>s.sib.state!=='none');   /* 같은 연락처 형제가 없다고 확인된 학생은 명단에서 뺀다(운영자 요청). 연락처가 없거나 교재 명단에 없는 학생은 있는지 없는지 모르니 남긴다 */
+    if(!g3.length) return '<span style="font-size:13px;color:#9a8fb8">형제가 있는 중등3 학생이 없어요</span>'; }
+  if(!enriched) return g3.map(s=>'<span style="display:inline-block;background:#fff;border:1px solid #F3C2D0;border-radius:999px;padding:2px 10px;margin:2px 4px 2px 0;font-size:13px;font-weight:700;color:#4b4268">'+who(s)+'</span>').join('');
   return g3.map(s=>{
     const q=s.sib; let tail;
     if(q.state==='found') tail='<span style="color:#D23B5E;font-weight:800">형제 '+q.list.map(x=>esc(x.name)+(x.grade?'<span style="font-weight:600;color:#9a8fb8"> '+esc(x.grade)+'</span>':'')).join(', ')+'</span>';
-    else if(q.state==='none') tail='<span style="color:#9a8fb8">형제 없음(연락처 기준)</span>';
     else if(q.state==='nophone') tail='<span style="color:#b9a9c4">연락처 없음 — IMS에서 확인</span>';
     else tail='<span style="color:#b9a9c4">교재 명단에 없음 — IMS에서 확인</span>';
     return '<div style="font-size:13px;padding:4px 0;border-bottom:1px dashed #F3D6DE"><b style="color:#2a2340">'+who(s)+'</b> <span style="color:#c9b6c2">→</span> '+tail+'</div>';
@@ -543,7 +545,7 @@ function sibPopupMaybe(now){
           +'<div style="flex:none;width:30px;height:30px;border-radius:50%;background:#E0507A;color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px">2</div>'
           +'<div style="min-width:0"><div style="font-size:17px;font-weight:800;color:#2a2340">중등3 학생의 형제는 <span style="color:#D23B5E">11월까지</span>로 꼭 변경!</div>'
           +'<div style="font-size:13.5px;line-height:1.55;color:#4b4268;margin-top:4px">중등3 학생은 졸업하기 때문에, 그 형제에게 적용 중인 <b>IMS 형제할인은 11월까지</b>로 바꿔야 해요. (그대로 두면 12월부터 잘못 할인돼요)</div>'
-          +'<div style="margin-top:10px;background:#fff;border-radius:12px;padding:10px 12px"><div style="font-size:13px;font-weight:800;color:#D23B5E;margin-bottom:4px">중등3 학생 '+g3.length+'명 <span id="sibG3Hint" style="font-weight:600;color:#9a8fb8">— 형제를 찾는 중…</span></div>'
+          +'<div style="margin-top:10px;background:#fff;border-radius:12px;padding:10px 12px"><div style="font-size:13px;font-weight:800;color:#D23B5E;margin-bottom:4px"><span id="sibG3Cnt">중등3 학생 '+g3.length+'명</span> <span id="sibG3Hint" style="font-weight:600;color:#9a8fb8">— 형제를 찾는 중…</span></div>'
           +'<div id="sibG3List" style="max-height:170px;overflow:auto">'+sibListHtml(g3,isAdm)+'</div></div></div></div>'
       +'</div>'
       +'<div style="display:flex;gap:10px;justify-content:flex-end;padding:14px 28px 22px">'
@@ -559,8 +561,10 @@ function sibPopupMaybe(now){
     const hint=ov.querySelector('#sibG3Hint');
     sibFindSiblings(g3).then(ok=>{
       const box=document.getElementById('sibG3List'); if(!box) return;
-      if(ok) box.innerHTML=sibListHtml(g3,isAdm);
-      if(hint) hint.textContent=ok?'— 연락처가 같은 형제를 찾았어요(교재 명단 기준)':'— IMS에서 이 학생들의 형제를 찾아 주세요';
+      if(ok){ box.innerHTML=sibListHtml(g3,isAdm);
+        const cnt=document.getElementById('sibG3Cnt'); const shown=g3.filter(s=>s.sib&&s.sib.state!=='none').length;
+        if(cnt) cnt.textContent='중등3 학생 '+shown+'명'; }
+      if(hint) hint.textContent=ok?'— 연락처가 같은 형제를 찾았어요':'— IMS에서 이 학생들의 형제를 찾아 주세요';
     }).catch(e=>{ if(hint) hint.textContent='— 형제 조회 실패, IMS에서 확인해 주세요'; if(window.console) console.warn('형제 조회 실패',e); });
   }catch(e){ if(window.console) console.warn('형제할인 안내 팝업 실패(화면은 정상)',e); }
 }
