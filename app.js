@@ -457,12 +457,14 @@ function enterApp(){
   sibPopupMaybe();
 }
 /* ===== 12월 IMS 형제할인 안내 팝업 (분원 관리자) =====
-   11월 30일(겨울학기 시작)부터 12월 말까지, 분원 관리자 계정이 로그인하면 띄운다.
+   11월 23일(원래 겨울학기 시작일 11/30 이었으나 앞당김)부터 12월 말까지, 분원 관리자·본사 계정이 로그인하면 띄운다.
    · 형제할인 기간을 '내년 12월'로 바꾸고, 중등3(졸업) 학생의 형제 할인은 11월까지로 바꾸라는 안내.
    · [나중에 하기] = 이번에만 닫음(다음 로그인 때 다시 뜸). [그만 보기] = 올해는 다음 로그인부터 안 뜸.
    · '그만 보기'는 이 브라우저(localStorage)에 계정별로 기억한다 — 다른 컴퓨터에서는 다시 뜰 수 있다. 해가 바뀌면 다시 뜬다.
    · 담임·조교에게는 안 띄운다. 본사(admin)에게는 띄운다(운영자 요청 — 분원이 했는지 챙기려고). */
-function sibPopupActive(d){ const m=d.getMonth()+1, day=d.getDate(); return (m===11 && day>=30) || m===12; }
+/* 시작일: 원래 겨울학기 시작(11/30)부터였는데, 운영자가 '지금부터 보이게' 요청해서 11/23 로 앞당겼다(2026-11-23). */
+const SIB_START_DAY=23;
+function sibPopupActive(d){ const m=d.getMonth()+1, day=d.getDate(); return (m===11 && day>=SIB_START_DAY) || m===12; }
 function sibPopupMaybe(now){
   try{
     if(!session || (session.role!=='branch' && session.role!=='admin')) return;   /* 분원 관리자 + 본사(2026-11-23 운영자 요청). 담임·조교는 제외 */
