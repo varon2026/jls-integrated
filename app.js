@@ -465,6 +465,24 @@ function enterApp(){
 /* 시작일: 원래 겨울학기 시작(11/30)부터였는데, 운영자가 '지금부터 보이게' 요청해서 11/23 로 앞당겼다(2026-11-23). */
 const SIB_START_DAY=23;
 function sibPopupActive(d){ const m=d.getMonth()+1, day=d.getDate(); return (m===11 && day>=SIB_START_DAY) || m===12; }
+/* 이번 학기(와 12월엔 직전 학기) 정규반 재원생 중 중등3 — 졸업하는 학생이라 그 형제의 IMS 형제할인을 11월까지로 바꿔야 한다.
+   형제 관계는 시스템에 없어서 학생만 보여 주고, 형제는 IMS에서 찾아야 한다. 본사는 전 분원, 분원 관리자는 자기 분원만. */
+function sibGrad3(){
+  const cur=currentSemester().id, sems=[cur];
+  if(new Date().getMonth()===11){ const m=String(cur).match(/sem_(\d+)_(\w+)/); if(m){ const order=['spring','summer','fall','winter']; let y=+m[1], k=order.indexOf(m[2])-1; if(k<0){k=3;y--;} sems.push('sem_'+y+'_'+order[k]); } }
+  const seen=new Set(), out=[];
+  (db.semesterRecords||[]).forEach(r=>{
+    if(sems.indexOf(r.semesterId)<0 || (r.kind||'regular')==='exam' || r.status!=='active') return;
+    if(session.role!=='admin' && r.branchId!==session.branchId) return;
+    const st=(db.students||[]).find(x=>x.id===r.studentId); if(!st || seen.has(st.id)) return;
+    const g=String(r.grade||st.grade||'').trim();
+    if(!(gradeKey(g)==='중3' || /^m3$/i.test(g))) return;
+    seen.add(st.id);
+    out.push({ name:st.name||'', school:String(st.school||'').replace(/등학교$/,'').replace(/학교$/,''), br:(typeof bName==='function'?bName(r.branchId):'').replace(/\s/g,'').replace(/분원$/,'') });
+  });
+  out.sort((a,b)=> a.br.localeCompare(b.br,'ko') || a.name.localeCompare(b.name,'ko'));
+  return out;
+}
 function sibPopupMaybe(now){
   try{
     if(!session || (session.role!=='branch' && session.role!=='admin')) return;   /* 분원 관리자 + 본사(2026-11-23 운영자 요청). 담임·조교는 제외 */
@@ -475,19 +493,24 @@ function sibPopupMaybe(now){
     if(document.getElementById('sibPopup')) return;
     const ov=document.createElement('div'); ov.id='sibPopup';
     ov.style.cssText='position:fixed;inset:0;background:rgba(40,28,80,.42);display:flex;align-items:center;justify-content:center;z-index:99998;padding:16px';
-    const nextYm=(y+1)+'-12';
-    ov.innerHTML='<div style="background:#fff;border-radius:22px;max-width:560px;width:100%;box-shadow:0 24px 70px rgba(30,20,70,.4);overflow:hidden">'
+    const nextYm=(y+1)+'-12', g3=sibGrad3(), isAdm=session.role==='admin';
+    const chips=g3.length ? g3.map(s=>'<span style="display:inline-block;background:#fff;border:1px solid #F3C2D0;border-radius:999px;padding:2px 10px;margin:2px 4px 2px 0;font-size:13px;font-weight:700;color:#4b4268">'
+        +(isAdm&&s.br?'<span style="color:#9a8fb8;font-weight:600">'+esc(s.br)+' · </span>':'')+esc(s.name)+(s.school?'<span style="color:#9a8fb8;font-weight:600"> ('+esc(s.school)+')</span>':'')+'</span>').join('')
+      : '<span style="font-size:13px;color:#9a8fb8">이번 학기 중등3 재원생이 없어요</span>';
+    ov.innerHTML='<div style="background:#fff;border-radius:22px;max-width:640px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 70px rgba(30,20,70,.4)">'
       +'<div style="background:linear-gradient(135deg,#FFE3EC,#EDE4FF);padding:22px 28px 16px"><div style="font-size:22px;font-weight:800;letter-spacing:-.02em;color:#2a2340">12월 IMS 형제할인 확인하세요</div>'
-      +'<div style="font-size:13px;font-weight:700;color:#7b6aa8;margin-top:3px">분원 관리자 안내 · '+y+'년 12월</div></div>'
+      +'<div style="font-size:13px;font-weight:700;color:#7b6aa8;margin-top:3px">'+(isAdm?'':'분원 관리자 안내 · ')+y+'년 12월</div></div>'
       +'<div style="padding:20px 28px 6px">'
         +'<div style="display:flex;gap:12px;background:#F1EBFF;border-radius:14px;padding:14px 16px;margin-bottom:10px">'
           +'<div style="flex:none;width:30px;height:30px;border-radius:50%;background:#8f6fe0;color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px">1</div>'
-          +'<div><div style="font-size:17px;font-weight:800;color:#2a2340">IMS 형제할인 기간을 <span style="background:#FFE8A3;border-radius:5px;padding:0 5px">내년 12월('+nextYm+')</span>로 바꿔 주세요</div>'
-          +'<div style="font-size:14px;line-height:1.55;color:#4b4268;margin-top:4px">IMS에서 할인 중인 형제 학생 모두, 종료일을 <b>'+(y+1)+'년 12월</b>로 변경해야 해요.</div></div></div>'
+          +'<div style="min-width:0"><div style="font-size:17px;font-weight:800;color:#2a2340">IMS 형제할인 기간을 <span style="background:#FFE8A3;border-radius:5px;padding:0 5px">내년 12월('+nextYm+')</span>로 바꿔 주세요</div>'
+          +'<div style="font-size:13.5px;line-height:1.55;color:#4b4268;margin-top:4px;white-space:nowrap">IMS에서 할인 중인 형제 모두, 종료일을 <b>'+(y+1)+'년 12월</b>로 변경해야 해요.</div></div></div>'
         +'<div style="display:flex;gap:12px;background:#FFF0F3;border:2px solid #F3A9BE;border-radius:14px;padding:14px 16px;margin-bottom:6px">'
           +'<div style="flex:none;width:30px;height:30px;border-radius:50%;background:#E0507A;color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px">2</div>'
-          +'<div><div style="font-size:17px;font-weight:800;color:#2a2340">중등3 학생의 형제는 <span style="color:#D23B5E">11월까지</span>로 꼭 변경!</div>'
-          +'<div style="font-size:14px;line-height:1.55;color:#4b4268;margin-top:4px">중등3 학생은 졸업하기 때문에, 그 형제에게 적용 중인 <b>IMS 형제할인은 11월까지</b>로 바꿔야 해요. (그대로 두면 12월부터 잘못 할인돼요)</div></div></div>'
+          +'<div style="min-width:0"><div style="font-size:17px;font-weight:800;color:#2a2340">중등3 학생의 형제는 <span style="color:#D23B5E">11월까지</span>로 꼭 변경!</div>'
+          +'<div style="font-size:13.5px;line-height:1.55;color:#4b4268;margin-top:4px">중등3 학생은 졸업하기 때문에, 그 형제에게 적용 중인 <b>IMS 형제할인은 11월까지</b>로 바꿔야 해요. (그대로 두면 12월부터 잘못 할인돼요)</div>'
+          +'<div style="margin-top:10px;background:#fff;border-radius:12px;padding:10px 12px"><div style="font-size:13px;font-weight:800;color:#D23B5E;margin-bottom:4px">중등3 학생 '+g3.length+'명 <span style="font-weight:600;color:#9a8fb8">— IMS에서 이 학생들의 형제를 찾아 주세요</span></div>'
+          +'<div style="max-height:130px;overflow:auto">'+chips+'</div></div></div></div>'
       +'</div>'
       +'<div style="display:flex;gap:10px;justify-content:flex-end;padding:14px 28px 22px">'
         +'<button id="sibLater" style="border:0;background:#F1EBFF;color:#6a4fc0;font:inherit;font-weight:800;font-size:15px;border-radius:12px;padding:11px 20px;cursor:pointer">나중에 하기</button>'
