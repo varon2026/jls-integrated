@@ -23,11 +23,15 @@ const BOOKS_BRANCHES = [
 const BOOKS_NAME = (code)=>{ const b=BOOKS_BRANCHES.find(x=>x.code===code); return b?b.name:code; };
 
 /* 통합 분원 → 교재 앱 분원코드 (이름 기준, 공백·"분원" 제거 후 매칭) */
-function booksBranchCode(){
-  if(session.role==='admin') return 'varon';            // 관리자 = 전체
-  const nm = String((typeof bName==='function'?bName(session.branchId):'')||'').replace(/\s/g,'').replace(/분원$/,'');
+/* 통합 분원 id → 교재 앱 분원코드 (이름 기준). 교재 앱 코드는 분원 이름과 따로 정해져 있다. */
+function booksCodeByBranchId(brId){
+  const nm = String((typeof bName==='function'?bName(brId):'')||'').replace(/\s/g,'').replace(/분원$/,'');
   const map = {'서수원':'seosuwonjls','장안':'suwonjls2009','수원':'suwon_jls','운정1':'unjeongjls','운정2':'unjeongjls2','남동탄':'namdongtanjls','바론':'baronbooks','아산탕정':'asantangjeongjls','탕정':'asantangjeongjls'};
   return map[nm] || '';
+}
+function booksBranchCode(){
+  if(session.role==='admin') return 'varon';            // 관리자 = 전체
+  return booksCodeByBranchId(session.branchId);
 }
 /* 이 계정이 입금현황에서 볼 분원 코드들 (admin=6개 / 분원=자기 1개) */
 function booksScopeCodes(){

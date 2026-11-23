@@ -478,10 +478,47 @@ function sibGrad3(){
     const g=String(r.grade||st.grade||'').trim();
     if(!(gradeKey(g)==='중3' || /^m3$/i.test(g))) return;
     seen.add(st.id);
-    out.push({ name:st.name||'', school:String(st.school||'').replace(/등학교$/,'').replace(/학교$/,''), br:(typeof bName==='function'?bName(r.branchId):'').replace(/\s/g,'').replace(/분원$/,'') });
+    out.push({ id:st.id, code:String(st.code||'').trim(), branchId:r.branchId, name:st.name||'', school:String(st.school||'').replace(/등학교$/,'').replace(/학교$/,''), br:(typeof bName==='function'?bName(r.branchId):'').replace(/\s/g,'').replace(/분원$/,'') });
   });
   out.sort((a,b)=> a.br.localeCompare(b.br,'ko') || a.name.localeCompare(b.name,'ko'));
   return out;
+}
+/* 중3 학생 목록 그리기. 형제를 아직 못 찾았으면(s.sib 없음) 이름 칩만, 찾았으면 '학생 → 형제' 한 줄씩. */
+function sibListHtml(g3, isAdm){
+  if(!g3.length) return '<span style="font-size:13px;color:#9a8fb8">이번 학기 중등3 재원생이 없어요</span>';
+  const who=s=>(isAdm&&s.br?'<span style="color:#9a8fb8;font-weight:600">'+esc(s.br)+' · </span>':'')+esc(s.name)+(s.school?'<span style="color:#9a8fb8;font-weight:600"> ('+esc(s.school)+')</span>':'');
+  if(!g3.some(s=>s.sib)) return g3.map(s=>'<span style="display:inline-block;background:#fff;border:1px solid #F3C2D0;border-radius:999px;padding:2px 10px;margin:2px 4px 2px 0;font-size:13px;font-weight:700;color:#4b4268">'+who(s)+'</span>').join('');
+  return g3.map(s=>{
+    const q=s.sib; let tail;
+    if(q.state==='found') tail='<span style="color:#D23B5E;font-weight:800">형제 '+q.list.map(x=>esc(x.name)+(x.grade?'<span style="font-weight:600;color:#9a8fb8"> '+esc(x.grade)+'</span>':'')).join(', ')+'</span>';
+    else if(q.state==='none') tail='<span style="color:#9a8fb8">형제 없음(연락처 기준)</span>';
+    else if(q.state==='nophone') tail='<span style="color:#b9a9c4">연락처 없음 — IMS에서 확인</span>';
+    else tail='<span style="color:#b9a9c4">교재 명단에 없음 — IMS에서 확인</span>';
+    return '<div style="font-size:13px;padding:4px 0;border-bottom:1px dashed #F3D6DE"><b style="color:#2a2340">'+who(s)+'</b> <span style="color:#c9b6c2">→</span> '+tail+'</div>';
+  }).join('');
+}
+/* 형제 찾기 — 통합관리 학생 표에는 학부모 연락처가 없어서, 연락처를 들고 있는 교재 시스템 명단(bk_students.contact)에서
+   같은 번호를 쓰는 다른 재원생을 찾는다. 한계: 교재 명단에 없는 학생·연락처가 빈 학생·부모 번호가 다른 형제는 못 찾는다(그땐 IMS에서 확인).
+   번호는 숫자만 비교하고, 앞의 0이 빠진 10자리(1036198621)는 0을 붙여서 본다. */
+async function sibFindSiblings(g3){
+  const norm=p=>{ let d=phNorm(p); if(d.length===10 && d.startsWith('10')) d='0'+d; return d.length>=10?d:''; };
+  const codes=[...new Set(g3.map(s=>booksCodeByBranchId(s.branchId)).filter(Boolean))];
+  if(!codes.length) return false;
+  const rows=await booksSb('students','select=student_id,name,contact,grade,status,branch&branch=in.('+codes.join(',')+')');
+  const byPh=new Map(), mine=new Map();
+  rows.forEach(r=>{
+    mine.set(r.branch+'|'+r.student_id, r);
+    const ph=norm(r.contact); if(!ph || r.status==='퇴원') return;
+    const k=r.branch+'|'+ph; if(!byPh.has(k)) byPh.set(k,[]); byPh.get(k).push(r);
+  });
+  g3.forEach(s=>{
+    const br=booksCodeByBranchId(s.branchId), me=mine.get(br+'|'+s.code);
+    if(!me){ s.sib={state:'nobk'}; return; }
+    const ph=norm(me.contact); if(!ph){ s.sib={state:'nophone'}; return; }
+    const list=(byPh.get(br+'|'+ph)||[]).filter(x=>x.student_id!==s.code).map(x=>({name:x.name||'',grade:x.grade||''}));
+    s.sib= list.length ? {state:'found',list} : {state:'none'};
+  });
+  return true;
 }
 function sibPopupMaybe(now){
   try{
@@ -494,9 +531,6 @@ function sibPopupMaybe(now){
     const ov=document.createElement('div'); ov.id='sibPopup';
     ov.style.cssText='position:fixed;inset:0;background:rgba(40,28,80,.42);display:flex;align-items:center;justify-content:center;z-index:99998;padding:16px';
     const nextYm=(y+1)+'-12', g3=sibGrad3(), isAdm=session.role==='admin';
-    const chips=g3.length ? g3.map(s=>'<span style="display:inline-block;background:#fff;border:1px solid #F3C2D0;border-radius:999px;padding:2px 10px;margin:2px 4px 2px 0;font-size:13px;font-weight:700;color:#4b4268">'
-        +(isAdm&&s.br?'<span style="color:#9a8fb8;font-weight:600">'+esc(s.br)+' · </span>':'')+esc(s.name)+(s.school?'<span style="color:#9a8fb8;font-weight:600"> ('+esc(s.school)+')</span>':'')+'</span>').join('')
-      : '<span style="font-size:13px;color:#9a8fb8">이번 학기 중등3 재원생이 없어요</span>';
     ov.innerHTML='<div style="background:#fff;border-radius:22px;max-width:640px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 24px 70px rgba(30,20,70,.4)">'
       +'<div style="background:linear-gradient(135deg,#FFE3EC,#EDE4FF);padding:22px 28px 16px"><div style="font-size:22px;font-weight:800;letter-spacing:-.02em;color:#2a2340">12월 IMS 형제할인 확인하세요</div>'
       +'<div style="font-size:13px;font-weight:700;color:#7b6aa8;margin-top:3px">'+(isAdm?'':'분원 관리자 안내 · ')+y+'년 12월</div></div>'
@@ -509,8 +543,8 @@ function sibPopupMaybe(now){
           +'<div style="flex:none;width:30px;height:30px;border-radius:50%;background:#E0507A;color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px">2</div>'
           +'<div style="min-width:0"><div style="font-size:17px;font-weight:800;color:#2a2340">중등3 학생의 형제는 <span style="color:#D23B5E">11월까지</span>로 꼭 변경!</div>'
           +'<div style="font-size:13.5px;line-height:1.55;color:#4b4268;margin-top:4px">중등3 학생은 졸업하기 때문에, 그 형제에게 적용 중인 <b>IMS 형제할인은 11월까지</b>로 바꿔야 해요. (그대로 두면 12월부터 잘못 할인돼요)</div>'
-          +'<div style="margin-top:10px;background:#fff;border-radius:12px;padding:10px 12px"><div style="font-size:13px;font-weight:800;color:#D23B5E;margin-bottom:4px">중등3 학생 '+g3.length+'명 <span style="font-weight:600;color:#9a8fb8">— IMS에서 이 학생들의 형제를 찾아 주세요</span></div>'
-          +'<div style="max-height:130px;overflow:auto">'+chips+'</div></div></div></div>'
+          +'<div style="margin-top:10px;background:#fff;border-radius:12px;padding:10px 12px"><div style="font-size:13px;font-weight:800;color:#D23B5E;margin-bottom:4px">중등3 학생 '+g3.length+'명 <span id="sibG3Hint" style="font-weight:600;color:#9a8fb8">— 형제를 찾는 중…</span></div>'
+          +'<div id="sibG3List" style="max-height:170px;overflow:auto">'+sibListHtml(g3,isAdm)+'</div></div></div></div>'
       +'</div>'
       +'<div style="display:flex;gap:10px;justify-content:flex-end;padding:14px 28px 22px">'
         +'<button id="sibLater" style="border:0;background:#F1EBFF;color:#6a4fc0;font:inherit;font-weight:800;font-size:15px;border-radius:12px;padding:11px 20px;cursor:pointer">나중에 하기</button>'
@@ -521,6 +555,13 @@ function sibPopupMaybe(now){
     const close=()=>{ const m=document.getElementById('sibPopup'); if(m) m.remove(); };
     document.getElementById('sibLater').onclick=close;
     document.getElementById('sibStop').onclick=()=>{ try{ localStorage.setItem(key,'1'); }catch(e){} close(); };
+    /* 형제는 따로 찾아서 이어 붙인다 — 조회가 느리거나 실패해도 팝업은 이미 떠 있다 */
+    const hint=ov.querySelector('#sibG3Hint');
+    sibFindSiblings(g3).then(ok=>{
+      const box=document.getElementById('sibG3List'); if(!box) return;
+      if(ok) box.innerHTML=sibListHtml(g3,isAdm);
+      if(hint) hint.textContent=ok?'— 연락처가 같은 형제를 찾았어요(교재 명단 기준)':'— IMS에서 이 학생들의 형제를 찾아 주세요';
+    }).catch(e=>{ if(hint) hint.textContent='— 형제 조회 실패, IMS에서 확인해 주세요'; if(window.console) console.warn('형제 조회 실패',e); });
   }catch(e){ if(window.console) console.warn('형제할인 안내 팝업 실패(화면은 정상)',e); }
 }
 function buildSidebar(){
