@@ -454,6 +454,49 @@ function enterApp(){
   wonmuState.group = firstWonmuGroup();
   buildSidebar();
   render();
+  sibPopupMaybe();
+}
+/* ===== 12월 IMS 형제할인 안내 팝업 (분원 관리자) =====
+   11월 30일(겨울학기 시작)부터 12월 말까지, 분원 관리자 계정이 로그인하면 띄운다.
+   · 형제할인 기간을 '내년 12월'로 바꾸고, 중등3(졸업) 학생의 형제 할인은 11월까지로 바꾸라는 안내.
+   · [나중에 하기] = 이번에만 닫음(다음 로그인 때 다시 뜸). [그만 보기] = 올해는 다음 로그인부터 안 뜸.
+   · '그만 보기'는 이 브라우저(localStorage)에 계정별로 기억한다 — 다른 컴퓨터에서는 다시 뜰 수 있다. 해가 바뀌면 다시 뜬다.
+   · 본사·담임·조교에게는 안 띄운다(IMS 형제할인은 분원 관리자가 한다). */
+function sibPopupActive(d){ const m=d.getMonth()+1, day=d.getDate(); return (m===11 && day>=30) || m===12; }
+function sibPopupMaybe(now){
+  try{
+    if(!session || session.role!=='branch') return;
+    const d=now||new Date(); if(!sibPopupActive(d)) return;
+    const y=d.getFullYear(), key='jls_sib_stop_'+y+'_'+(session.userId||session.username||'');
+    let stopped=null; try{ stopped=localStorage.getItem(key); }catch(e){}
+    if(stopped==='1') return;
+    if(document.getElementById('sibPopup')) return;
+    const ov=document.createElement('div'); ov.id='sibPopup';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(40,28,80,.42);display:flex;align-items:center;justify-content:center;z-index:99998;padding:16px';
+    const nextYm=(y+1)+'-12';
+    ov.innerHTML='<div style="background:#fff;border-radius:22px;max-width:560px;width:100%;box-shadow:0 24px 70px rgba(30,20,70,.4);overflow:hidden">'
+      +'<div style="background:linear-gradient(135deg,#FFE3EC,#EDE4FF);padding:22px 28px 16px"><div style="font-size:22px;font-weight:800;letter-spacing:-.02em;color:#2a2340">12월 IMS 형제할인 확인하세요</div>'
+      +'<div style="font-size:13px;font-weight:700;color:#7b6aa8;margin-top:3px">분원 관리자 안내 · '+y+'년 12월</div></div>'
+      +'<div style="padding:20px 28px 6px">'
+        +'<div style="display:flex;gap:12px;background:#F1EBFF;border-radius:14px;padding:14px 16px;margin-bottom:10px">'
+          +'<div style="flex:none;width:30px;height:30px;border-radius:50%;background:#8f6fe0;color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px">1</div>'
+          +'<div><div style="font-size:17px;font-weight:800;color:#2a2340">IMS 형제할인 기간을 <span style="background:#FFE8A3;border-radius:5px;padding:0 5px">내년 12월('+nextYm+')</span>로 바꿔 주세요</div>'
+          +'<div style="font-size:14px;line-height:1.55;color:#4b4268;margin-top:4px">IMS에서 할인 중인 형제 학생 모두, 종료일을 <b>'+(y+1)+'년 12월</b>로 변경해야 해요.</div></div></div>'
+        +'<div style="display:flex;gap:12px;background:#FFF0F3;border:2px solid #F3A9BE;border-radius:14px;padding:14px 16px;margin-bottom:6px">'
+          +'<div style="flex:none;width:30px;height:30px;border-radius:50%;background:#E0507A;color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px">2</div>'
+          +'<div><div style="font-size:17px;font-weight:800;color:#2a2340">중등3 학생의 형제는 <span style="color:#D23B5E">11월까지</span>로 꼭 변경!</div>'
+          +'<div style="font-size:14px;line-height:1.55;color:#4b4268;margin-top:4px">중등3 학생은 졸업하기 때문에, 그 형제에게 적용 중인 <b>IMS 형제할인은 11월까지</b>로 바꿔야 해요. (그대로 두면 12월부터 잘못 할인돼요)</div></div></div>'
+      +'</div>'
+      +'<div style="display:flex;gap:10px;justify-content:flex-end;padding:14px 28px 22px">'
+        +'<button id="sibLater" style="border:0;background:#F1EBFF;color:#6a4fc0;font:inherit;font-weight:800;font-size:15px;border-radius:12px;padding:11px 20px;cursor:pointer">나중에 하기</button>'
+        +'<button id="sibStop" style="border:0;background:#8f6fe0;color:#fff;font:inherit;font-weight:800;font-size:15px;border-radius:12px;padding:11px 22px;cursor:pointer;box-shadow:0 6px 16px rgba(143,111,224,.4)">그만 보기</button></div>'
+      +'<div style="padding:0 28px 16px;font-size:12px;color:#9a8fb8">※ 「그만 보기」를 누르면 이 컴퓨터에서는 다음 로그인부터 안 떠요. 「나중에 하기」는 다음 로그인 때 다시 떠요.</div>'
+      +'</div>';
+    document.body.appendChild(ov);
+    const close=()=>{ const m=document.getElementById('sibPopup'); if(m) m.remove(); };
+    document.getElementById('sibLater').onclick=close;
+    document.getElementById('sibStop').onclick=()=>{ try{ localStorage.setItem(key,'1'); }catch(e){} close(); };
+  }catch(e){ if(window.console) console.warn('형제할인 안내 팝업 실패(화면은 정상)',e); }
 }
 function buildSidebar(){
   let h='<div class="sb-sect">메뉴</div>';
