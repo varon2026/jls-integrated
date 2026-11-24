@@ -55,20 +55,22 @@ function tbAllBaseNames(){
   const s=new Set();
   Object.values(TB_BASE.chess).forEach(a=>a.forEach(i=>s.add(i.n)));
   Object.values(TB_BASE.ace).forEach(t=>Object.values(t).forEach(a=>a.forEach(i=>s.add(i.n))));
+  /* 드롭다운 후보에 있는 이름도 '기본 목록'으로 본다 — 안 그러면 활용교재를 골랐는데 외부교재 표시가 붙는다 */
+  Object.values(TB_CHOICES).forEach(f=>Object.values(f).forEach(a=>a.forEach(n=>s.add(n))));
   return (_tbAllNames=s);
 }
-/* 활용교재 후보 — 에이스 기본 목록 중 영역이 '활용'인 것 전부 */
-let _tbHwal=null;
-function tbHwalList(){
-  if(_tbHwal) return _tbHwal;
-  const s=new Set();
-  Object.values(TB_BASE.ace).forEach(t=>Object.values(t).forEach(a=>a.forEach(i=>{ if(i.a==='활용') s.add(i.n); })));
-  return (_tbHwal=[...s].sort((a,b)=>a.localeCompare(b)));
+/* 활용·문법·몰입교재는 드롭다운으로 고른다 — 후보는 체스/에이스별로 따로(textbook-data.js의 TB_CHOICES) */
+const TB_PICK_AREAS=['활용','문법','몰입'];
+function tbChoices(lk, area){
+  const fam = lk.indexOf('|')<0 ? 'chess' : 'ace';
+  return ((TB_CHOICES[fam]||{})[area]||[]).slice();
 }
+/* 몰입교재는 여름·겨울학기에만 나간다(운영자). 봄·가을학기엔 목록에서 뺀다. */
+function tbHasImmersion(semId){ return /summer|winter/.test(String(semId||'')); }
 /* 이 분원·학기·레벨의 교재 목록: 분원이 고친 게 있으면 그것, 없으면 기본 */
 function tbItems(brId, semId, lk){
   const o = TB.levels.get(brId+'|'+semId+'|'+lk);
-  const arr = (o||tbBase(lk)).map(i=>({n:i.n, a:i.a||''}));
+  const arr = (o||tbBase(lk)).map(i=>({n:i.n, a:i.a||''})).filter(i=> i.a!=='몰입' || tbHasImmersion(semId));
   const known = tbAllBaseNames();
   arr.forEach(i=>{ i.x = !known.has(i.n); });     // 기본 목록에 없는 이름 = 외부교재
   return {items:arr, changed:!!o};
@@ -241,6 +243,9 @@ async function renderTextbook(){
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">${brSel}${termSel}
       ${tbIsMgr()?'<button class="btn sm" onclick="tbExport()">엑셀 내보내기</button>':''}
       ${isT?'<button class="btn sm" onclick="tbExport()">내 교재 엑셀</button>':''}</div></div>`;
+  html += `<div style="background:var(--brand-soft);border:1.5px solid #cebef4;border-radius:12px;padding:14px 18px;margin:0 0 16px;color:var(--ink);font-size:14px;line-height:1.7;font-weight:700">
+      <div style="color:var(--brand)">현재 교재리스트는 기본으로 세팅되어 있으니, 각 분원에 맞게 설정을 꼭 해야 합니다.</div>
+      <div>선생님들은 본인 교재가 잘 맞게 들어왔으면 <span style="color:var(--brand)">받은 것으로 체크</span>해 주세요.</div></div>`;
   if(TB.missing) html += `<div class="tb-warn tb-bad"><b>교재표 표가 아직 만들어지지 않았습니다.</b> Supabase → SQL Editor 에서 <b>sql/textbook_list.sql</b> 을 한 번 실행한 뒤 새로고침해 주세요. (그 전에는 목록은 보이지만 체크·수정은 저장되지 않습니다)</div>`;
   if(tbIsMgr() && M.unreadable.length){
     const u=M.unreadable.slice(0,4).map(x=>`${esc(x.teacher)} · ${esc(x.cn)}`).join(' / ');
@@ -290,9 +295,10 @@ function tbPaint(){
     L.items.forEach((it,bi)=>{
       const k=tbChk(t.key,L.lk,it.n);
       let nameCell;
-      if(mgr && it.a==='활용' && !it.x){
-        const opts=tbHwalList().slice(); if(opts.indexOf(it.n)<0) opts.push(it.n);
-        nameCell=`<select class="tb-sel" onchange="tbPickHwal(${li},${bi},this.value)">${opts.map(o=>`<option value="${esc(o)}"${o===it.n?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+      const cho = tbChoices(L.lk, it.a);
+      if(mgr && TB_PICK_AREAS.indexOf(it.a)>=0 && cho.length && !it.x){
+        const opts=cho; if(opts.indexOf(it.n)<0) opts.unshift(it.n);
+        nameCell=`<select class="tb-sel" onchange="tbPick(${li},${bi},this.value)">${opts.map(o=>`<option value="${esc(o)}"${o===it.n?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
       } else nameCell=esc(it.n);
       const dCk = mgr ? `<span class="tb-ck${k.delivered?' y':''}" onclick="tbToggle(${li},${bi},'d')"></span>`
                       : `<span class="tb-ck ro${k.delivered?' y':''}"></span>`;
@@ -324,8 +330,8 @@ async function tbBulk(li, w){
     if(w==='r' && k.delivered && !k.received) await tbSetCheck(t.key,L.lk,it.n,{received:true});
   }
 }
-/* 활용교재만 드롭다운으로 바꾼다 — 그 레벨의 바뀐 목록으로 저장 */
-async function tbPickHwal(li,bi,val){
+/* 활용·문법·몰입교재를 드롭다운으로 바꾼다 — 그 레벨의 바뀐 목록으로 저장 */
+async function tbPick(li,bi,val){
   const t=tbCur(); if(!t) return; const L=t.levels[li];
   const items=L.items.map((x,i)=>({n:i===bi?val:x.n, a:x.a}));
   if(await tbSaveLevel(tbBranchId(), state.semId, L.lk, items)){ TB.model=tbBuild(tbBranchId(), state.semId); tbPaint(); }
@@ -341,20 +347,28 @@ function tbEdit(li){
 }
 function tbEditPaint(){
   const E=_tbEdit;
-  const opts=a=>TB_AREAS.map(x=>`<option value="${x}"${x===a?' selected':''}>${x}</option>`).join('')+(TB_AREAS.indexOf(a)<0&&a?`<option selected>${esc(a)}</option>`:'');
-  openModal(`<div style="width:min(760px,92vw);max-height:84vh;overflow:auto">
-    <h3 style="margin:0 0 4px;font-size:16px">${esc(E.label)} 교재 목록</h3>
-    <div style="font-size:12.5px;color:var(--ink-3);margin-bottom:12px">이 분원의 이 레벨만 바뀌고, 기본 목록은 그대로예요. 활용교재 칸에는 기본 목록의 이름이 후보로 떠요.</div>
-    <datalist id="tbDl">${tbHwalList().map(o=>`<option value="${esc(o)}">`).join('')}</datalist>
-    ${E.items.map((it,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-      <input class="tb-in" list="tbDl" value="${esc(it.n)}" onchange="_tbEdit.items[${i}].n=this.value.trim()" placeholder="교재명 직접 입력">
-      <select class="tb-sel" style="width:120px" onchange="_tbEdit.items[${i}].a=this.value">${opts(it.a)}</select>
-      <span style="color:var(--ink-3);cursor:pointer;padding:6px;white-space:nowrap" onclick="tbEditDel(${i})">삭제</span></div>`).join('')}
-    <div style="margin:6px 0 14px"><span class="btn sm" onclick="tbEditAdd()">+ 교재 추가</span></div>
-    <div style="display:flex;justify-content:space-between;gap:8px">
+  const areas=TB_AREAS.filter(a=> a!=='몰입' || tbHasImmersion(state.semId));
+  const aopt=a=>areas.map(x=>`<option value="${x}"${x===a?' selected':''}>${x}</option>`).join('')+(areas.indexOf(a)<0&&a?`<option selected>${esc(a)}</option>`:'');
+  const rows=E.items.map((it,i)=>{
+    const cho=tbChoices(E.lk, it.a);
+    const nameEl = (TB_PICK_AREAS.indexOf(it.a)>=0 && cho.length)
+      ? `<select class="tb-sel" style="flex:1;min-width:0;max-width:none" onchange="_tbEdit.items[${i}].n=this.value">${(cho.indexOf(it.n)<0?[it.n].concat(cho):cho).filter(Boolean).map(o=>`<option value="${esc(o)}"${o===it.n?' selected':''}>${esc(o)}</option>`).join('')}${it.n?'':'<option value="" selected>— 선택 —</option>'}</select>`
+      : `<input class="tb-in" style="flex:1;min-width:0" value="${esc(it.n)}" onchange="_tbEdit.items[${i}].n=this.value.trim()" placeholder="교재명 직접 입력">`;
+    return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+      <select class="tb-sel" style="width:104px;flex:none" onchange="tbEditArea(${i},this.value)">${aopt(it.a)}</select>${nameEl}
+      <span style="color:var(--ink-3);cursor:pointer;padding:6px 4px;white-space:nowrap;flex:none" onclick="tbEditDel(${i})">삭제</span></div>`;
+  }).join('');
+  openModal(`<div class="modal-head"><div><h3>${esc(E.label)} 교재 목록</h3>
+      <div class="mh-sub">이 분원의 이 레벨만 바뀌고 기본 목록은 그대로예요. 활용·문법·몰입교재는 목록에서 고르고, 그 밖의 교재는 직접 입력해요.</div></div>
+      <button class="modal-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">${rows||'<div style="color:var(--ink-3);font-size:13px;padding:6px 0">교재가 없습니다. 아래에서 추가해 주세요.</div>'}
+      <div style="margin:10px 0 4px"><span class="btn sm" onclick="tbEditAdd()">+ 교재 추가</span></div></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;padding:12px 22px 18px;border-top:1px solid var(--line-2)">
       <span class="btn sm" onclick="tbEditReset()">기본 목록으로 되돌리기</span>
-      <span style="display:flex;gap:8px"><span class="btn sm" onclick="closeModal()">취소</span><span class="btn sm primary" onclick="tbEditSave()">저장</span></span></div></div>`);
+      <span style="display:flex;gap:8px"><span class="btn sm" onclick="closeModal()">취소</span><span class="btn sm primary" onclick="tbEditSave()">저장</span></span></div>`);
+  el('modalBox').style.width='min(760px,96vw)';
 }
+function tbEditArea(i,a){ const it=_tbEdit.items[i]; it.a=a; const cho=tbChoices(_tbEdit.lk,a); if(TB_PICK_AREAS.indexOf(a)>=0 && cho.length && cho.indexOf(it.n)<0) it.n=cho[0]; tbEditPaint(); }
 function tbEditDel(i){ _tbEdit.items.splice(i,1); tbEditPaint(); }
 function tbEditAdd(){ _tbEdit.items.push({n:'',a:'외부'}); tbEditPaint(); }
 async function tbEditSave(){

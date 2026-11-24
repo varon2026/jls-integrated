@@ -7910,7 +7910,7 @@ function saveSegment(){
 /* ============================================================================
    18. 모달 유틸
    ============================================================================ */
-function openModal(html){ el('modalBox').innerHTML=html; el('modalOverlay').classList.add('open'); }
+function openModal(html){ el('modalBox').style.width=''; el('modalBox').innerHTML=html; el('modalOverlay').classList.add('open'); }
 function closeModal(){ el('modalOverlay').classList.remove('open'); }
 el('modalOverlay').addEventListener('click', e=>{ if(e.target===el('modalOverlay')) closeModal(); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
