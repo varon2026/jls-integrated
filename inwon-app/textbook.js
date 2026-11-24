@@ -395,38 +395,33 @@ async function tbEditReset(){
 }
 
 /* ── 엑셀 ──────────────────────────────────────────────────────── */
-/* 시트1 = 본사가 보내던 '분원 교재 배부현황' 양식(레벨·교재 × 선생님, 사용하면 1, 맨 끝 TOT)
-   시트2 = 선생님 / 레벨 / 영역 / 교재명을 한 줄씩 — 필터로 선생님별로 바로 볼 수 있게 */
-function tbExport(){
-  const M=TB.model; if(!M) return;
+/* 선생님마다 시트 한 장 + 맨 앞 전체 요약. 모양은 textbook-xlsx.js 가 만든다. */
+function tbExportData(){
+  const M=TB.model; if(!M) return null;
   const brId=tbBranchId(), semId=state.semId;
-  const bn=(getBranch(brId)||{}).name||'분원', sn=(db.semesters.find(s=>s.id===semId)||{}).name||'';
   const ts = session.role==='teacher' ? M.teachers.filter(t=>t.key===TB.sel) : M.teachers;
-  const levelMap=new Map();
-  ts.forEach(t=>t.levels.forEach(L=>{ if(!levelMap.has(L.lk)) levelMap.set(L.lk,{L:L,teachers:new Set()}); levelMap.get(L.lk).teachers.add(t.key); }));
-  const lvs=[...levelMap.values()].sort((a,b)=> banLvRank(a.L.lk.split('|')[0]) - banLvRank(b.L.lk.split('|')[0]) || a.L.lk.localeCompare(b.L.lk));
-  const head=['사용 학년','iMS레벨명','영역','사용기간','교재명'].concat(ts.map(t=>t.name),['TOT']);
-  const rows=[[bn+' '+sn+' 교재 배부현황'],[],head];
-  lvs.forEach(({L,teachers})=>{
-    L.items.forEach(it=>{
-      const per=/\(고등\)/.test(L.lk)?'12주':'3개월';
-      const r=[L.grade, L.label, it.a, per, it.n];
-      let tot=0; ts.forEach(t=>{ const on=teachers.has(t.key)&&t.levels.some(x=>x.lk===L.lk); r.push(on?1:''); if(on) tot++; });
-      r.push(tot); rows.push(r);
-    });
-  });
-  const ws1=XLSX.utils.aoa_to_sheet(rows);
-  ws1['!cols']=[{wch:9},{wch:16},{wch:9},{wch:8},{wch:42}].concat(ts.map(()=>({wch:9})),[{wch:6}]);
-  const r2=[['선생님','사용 학년','레벨','영역','교재명','외부교재','학원 배부','수령 확인','비고']];
-  ts.forEach(t=>t.levels.forEach(L=>L.items.forEach(it=>{
-    const k=tbChk(t.key,L.lk,it.n);
-    r2.push([t.name,L.grade,L.label,it.a,it.n,it.x?'외부':'',k.delivered?'O':'',k.received?'O':'',k.mismatch?'받은 것과 다름':'']);
-  })));
-  const ws2=XLSX.utils.aoa_to_sheet(r2);
-  ws2['!cols']=[{wch:14},{wch:9},{wch:16},{wch:9},{wch:42},{wch:8},{wch:9},{wch:9},{wch:16}];
-  ws2['!autofilter']={ref:'A1:I'+r2.length};
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, '교재 배부현황');
-  XLSX.utils.book_append_sheet(wb, ws2, '선생님별 목록');
-  XLSX.writeFile(wb, bn+'_교재리스트_'+sn+'.xlsx');
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return {
+    branch:(getBranch(brId)||{}).name||'분원',
+    semester:(db.semesters.find(s=>s.id===semId)||{}).name||'',
+    date:d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()),
+    teachers: ts.map(t=>({ name:t.name, levels:t.levels.map(L=>({
+      lk:L.lk, label:L.label, grade:L.grade, students:L.students,
+      classes:L.classes.map(c=>tbClassLine(c,brId)),
+      items:L.items.map(it=>{ const k=tbChk(t.key,L.lk,it.n); return {n:it.n,a:it.a,x:it.x,d:k.delivered,r:k.received,m:k.mismatch}; })
+    })) }))
+  };
+}
+async function tbExport(){
+  const data=tbExportData(); if(!data) return;
+  if(typeof ExcelJS==='undefined' || typeof tbBuildWorkbook!=='function'){ toast('엑셀 도구를 불러오지 못했습니다. 새로고침(Ctrl+Shift+R) 후 다시 눌러 주세요','err'); return; }
+  try{
+    const wb=tbBuildWorkbook(ExcelJS, data);
+    const buf=await wb.xlsx.writeBuffer();
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    a.download=data.branch+'_교재리스트_'+data.semester+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  }catch(e){ console.error(e); toast('엑셀을 만들지 못했습니다','err'); }
 }
