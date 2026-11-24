@@ -259,6 +259,27 @@ function renderAward(b){
     </div>`;
   inwonHookSso();
 }
+/* 교재표 — 시상관리와 같은 방식(inwon-app 한 화면만 빌려 씀). #/textbook 으로 바로 들어간다. */
+function renderTextbookHub(b){
+  try{
+    if(session) sessionStorage.setItem('jls_session_v1', JSON.stringify({
+      userId:session.userId, username:session.username, role:session.role,
+      branchId:session.branchId, teacherName:session.teacherName||null,
+      canEdit:(typeof curCanEdit==='function'?curCanEdit():true),
+      inwon: inwonSubPerms()
+    }));
+  }catch(e){}
+  const src = inwonSrc()+'&bare=1#/textbook';
+  b.innerHTML = `<div class="iw-fs">
+      <div class="iw-fs-bar">
+        <button class="iw-fs-back" onclick="wonmuGo('hub')">‹ 통합 홈</button>
+        <span class="iw-fs-title">교재표 · 학사관리</span>
+        <a class="iw-fs-open" href="${src.replace('embed=1&','').replace('&bare=1','')}" target="_blank" rel="noopener">새 탭으로 열기 ↗</a>
+      </div>
+      <iframe class="iw-fs-frame" id="inwonFrame" src="${src}" title="교재표 · 학사관리" allow="clipboard-write"></iframe>
+    </div>`;
+  inwonHookSso();
+}
 /* 백업 경로 — iframe이 'ready' 보내면 세션을 postMessage로도 넘겨줌(세션 심기 실패 대비) */
 function inwonHookSso(){
   if(window.__inwonSsoHooked) return;
