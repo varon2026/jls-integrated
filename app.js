@@ -3074,7 +3074,7 @@ function renderWonmuHub(b){
   if(G==='hak' && hasMenu('inwon') && (session.role==='branch' || session.role==='admin')){
   h+=`<div class="hub-card" onclick="wonmuGo('textbook')">
     <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>교재표</h3><p>전체명단 반 이름으로 선생님별 교재 목록 자동 정리 · 배부 확인 · 엑셀</p></div><div class="hc-go">들어가기 ›</div></div>
-    <div class="hc-foot"><span class="l">겨울학기 교사용 교재 배부</span><span class="r"><span class="b">엑셀로 내보내기</span></span></div></div>`;
+    <div class="hc-foot"><span class="l">${esc(semName(state.semId))} 교사용 교재 배부</span><span class="r"><span class="b">엑셀로 내보내기</span></span></div></div>`;
   }
 
   // 진급 OT 안내 — 체스→에이스 진급생 OT 자료. 엄윤경 계정 + 서수원분원 관리자만 쓴다(otVisible): 카드가 다른 계정에는 아예 안 보인다.
