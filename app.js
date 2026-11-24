@@ -355,7 +355,7 @@ function hasMenu(k){ return userMenus().includes(k); }
    메뉴 권한 키(leveltest·inwon·grading·award)는 그대로라 계정에 저장된 권한도 그대로 유지된다. */
 const WONMU_GROUPS=[
   {g:'wonmu', name:'신규',     ic:'wonmu', desc:'레벨테스트 · 신입생 안내'},   // 예전 이름은 '원무' — 뜻이 넓어 헷갈린다고 '신규'로 바꿨다(내부 키 wonmu 는 그대로)
-  {g:'hak',   name:'학사관리', ic:'hak',   desc:'인원현황 · 시상관리 · 교재표 · 진급 OT 안내'},
+  {g:'hak',   name:'학사관리', ic:'hak',   desc:'인원현황 · 시상관리 · 교재리스트 · 진급 OT 안내'},
   {g:'exam',  name:'시험',     ic:'clip',  desc:'시험채점 · 초등5 ACE 진급시험'},
 ];
 const WONMU_GROUP_OF={leveltest:'wonmu',booking:'wonmu',inwon:'hak',award:'hak',textbook:'hak',ace5:'exam',exam:'exam'};
@@ -2640,7 +2640,7 @@ function renderWonmuBody(){
   if(v==='leveltest'){ if(cr) cr.innerHTML=`${home} › <b>레벨테스트</b>`; renderLtDetail(body); }
   else if(v==='inwon'){ if(cr) cr.innerHTML=`${home} › <b>인원현황</b>`; renderInwon(body); }
   else if(v==='award'){ if(cr) cr.innerHTML=`${home} › <b>시상관리</b>`; renderAward(body); }
-  else if(v==='textbook'){ if(cr) cr.innerHTML=`${home} › <b>교재표</b>`; renderTextbookHub(body); }
+  else if(v==='textbook'){ if(cr) cr.innerHTML=`${home} › <b>교재리스트</b>`; renderTextbookHub(body); }
   else if(v==='ace5'){ if(cr) cr.innerHTML=`${home} › <b>초등5 ACE 진급시험</b>`; renderAceE5(body); }
   else if(v==='booking'){ if(cr) cr.innerHTML=`${home} › <span class="cl" onclick="wonmuGo('leveltest')">레벨테스트</span> › <b>예약 입력</b>`; body.innerHTML='<div class="lt-back" onclick="wonmuGo(\'leveltest\')">‹ 레벨테스트로</div><div id="bkInner"></div>'; renderBooking($('bkInner')); }
   else if(v==='exam'){ if(cr) cr.innerHTML='<b>'+gInfo().name+'</b>'; wonmuState.view='hub'; renderWonmuHub(body); openExam(); }
@@ -3070,10 +3070,10 @@ function renderWonmuHub(b){
     <div class="hc-foot"><span class="l">담임이 반배정표에서 바로 선택</span><span class="r"><span class="b">분원 관리자가 확인</span></span></div></div>`;
   }
 
-  // 교재표 카드 — 전체명단의 반 이름에서 선생님별 교재 목록을 자동으로 만든다. 분원 관리자·본사만(담임은 학사관리 사이드바 '내 교재').
+  // 교재리스트 카드 — 전체명단의 반 이름에서 선생님별 교재 목록을 자동으로 만든다. 분원 관리자·본사만(담임은 학사관리 사이드바 '내 교재').
   if(G==='hak' && hasMenu('inwon') && (session.role==='branch' || session.role==='admin')){
   h+=`<div class="hub-card" onclick="wonmuGo('textbook')">
-    <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>교재표</h3><p>전체명단 반 이름으로 선생님별 교재 목록 자동 정리 · 배부 확인 · 엑셀</p></div><div class="hc-go">들어가기 ›</div></div>
+    <div class="hc-head"><div class="hc-ic hd">${IC_ROSTER}</div><div class="hc-t"><h3>교재리스트</h3><p>전체명단 반 이름으로 선생님별 교재 목록 자동 정리 · 배부 확인 · 엑셀</p></div><div class="hc-go">들어가기 ›</div></div>
     <div class="hc-foot"><span class="l">${esc(semName(state.semId))} 교사용 교재 배부</span><span class="r"><span class="b">엑셀로 내보내기</span></span></div></div>`;
   }
 

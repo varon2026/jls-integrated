@@ -1866,7 +1866,7 @@ function buildShell(){
       <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>
       <div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>
       <div class="sb-sect">교재</div>
-      <div class="sb-item" data-nav="textbook">${I.data}<span>교재표</span></div>`;
+      <div class="sb-item" data-nav="textbook">${I.data}<span>교재리스트</span></div>`;
 } else if(isTeacher){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
@@ -1901,7 +1901,7 @@ function buildShell(){
       if(P.retest)   nv+=`<div class="sb-item" data-nav="retest">${I.roster}<span>미통과 관리</span></div>`;
       if(P.retestUp) nv+=`<div class="sb-item" data-nav="retest-up">${I.data}<span>성적 올리기</span></div>`;
     }
-    nv+=`<div class="sb-sect">교재</div><div class="sb-item" data-nav="textbook">${I.data}<span>교재표</span></div>`;
+    nv+=`<div class="sb-sect">교재</div><div class="sb-item" data-nav="textbook">${I.data}<span>교재리스트</span></div>`;
     if(P.segments) nv+=`<div class="sb-sect">상담</div><div class="sb-item" data-nav="segments-edit">${I.seg}<span>세그먼트 공지</span></div>`;
     if(P.data){
       nv+=`<div class="sb-sect">설정</div><div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;

@@ -1,5 +1,5 @@
 /* ============================================================================
-   교재표 (학사관리 › 교재표)
+   교재리스트 (학사관리 › 교재리스트)
 
    목적: 겨울학기 전체명단을 올리면 반 이름에서 레벨을 읽어, 선생님마다 받을 교재
    목록을 자동으로 만든다. 예전엔 본사가 보낸 '분원 교재 배부현황' 엑셀에서
@@ -91,13 +91,13 @@ async function tbLoad(brId, semId){
     (b.data||[]).forEach(r=> TB.checks.set(r.teacher_key+'|'+r.level_key+'|'+r.book_name, {delivered:!!r.delivered, received:!!r.received, mismatch:!!r.mismatch}));
     TB.loadedFor = tag;
   }catch(e){
-    console.error('교재표 불러오기 실패', e);
+    console.error('교재리스트 불러오기 실패', e);
     TB.missing = true;       // sql/textbook_list.sql 을 아직 안 돌린 경우
   }
 }
 function tbChk(tk, lk, name){ return TB.checks.get(tk+'|'+lk+'|'+name) || {delivered:false,received:false,mismatch:false}; }
 async function tbSetCheck(tk, lk, name, patch){
-  if(TB.missing){ toast('교재표 표가 아직 없습니다 — sql/textbook_list.sql 을 먼저 실행해 주세요','err'); return; }
+  if(TB.missing){ toast('교재리스트 표가 아직 없습니다 — sql/textbook_list.sql 을 먼저 실행해 주세요','err'); return; }
   const key=tk+'|'+lk+'|'+name, old=tbChk(tk,lk,name), next=Object.assign({},old,patch);
   /* 받은 게 맞다고 확인하면 '다름' 표시는 풀고, 배부를 취소하면 수령 확인도 같이 푼다 */
   if(patch.received) next.mismatch=false;
@@ -221,11 +221,20 @@ function tbCss(){
   `;
   document.head.appendChild(s);
 }
+/* 화면을 그리다 어디서 막히면 '불러오는 중'에 영원히 멈춰 있지 말고 이유를 화면에 보여준다
+   (예전 textbook-data.js 가 브라우저에 남아 새 코드와 안 맞았을 때 이렇게 멈춘 적이 있다). */
 async function renderTextbook(){
+  try{ await renderTextbookInner(); }
+  catch(e){
+    console.error('교재리스트 화면 오류', e);
+    el('content').innerHTML='<div class="page-head"><h2>교재리스트</h2></div><div class="tb-warn tb-bad" style="margin-top:14px"><b>화면을 불러오지 못했습니다.</b> Ctrl+Shift+R 로 새로고침해 보고, 그래도 안 되면 아래 내용을 알려 주세요.<br><code style="font-size:12px">'+esc(String(e&&e.message||e))+'</code></div>';
+  }
+}
+async function renderTextbookInner(){
   tbCss();
   const brId=tbBranchId(), semId=state.semId;
   const b=getBranch(brId)||{}, sem=(db.semesters.find(s=>s.id===semId)||{}).name||'';
-  crumbs([{label:'교재표'}]);
+  crumbs([{label:'교재리스트'}]);
   el('content').innerHTML='<div style="padding:40px;color:var(--ink-3)">불러오는 중…</div>';
   await tbLoad(brId, semId);
   TB.model = tbBuild(brId, semId);
@@ -239,17 +248,17 @@ async function renderTextbook(){
   const termSel = tbIsMgr()
     ? `<span style="font-size:12px;color:var(--ink-3)">에이스 반이름에 괄호가 없으면</span> <select class="tb-sel" onchange="TB.term=this.value;renderTextbook()"><option value="3"${TB.term==='3'?' selected':''}>3번째 텀(1-3개월)</option><option value="4"${TB.term==='4'?' selected':''}>4번째 텀(4-6개월)</option></select> <span style="font-size:12px;color:var(--ink-3)">으로 봄</span>` : '';
   let html = `<div class="page-head" style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap">
-      <div><h2>${isT?'내 교재':'교재표'}</h2><div class="sub">${esc(b.name||'')} · ${esc(sem)} · 전체명단의 반 이름으로 자동 정리</div></div>
+      <div><h2>${isT?'내 교재':'교재리스트'}</h2><div class="sub">${esc(b.name||'')} · ${esc(sem)} · 전체명단의 반 이름으로 자동 정리</div></div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">${brSel}${termSel}
       ${tbIsMgr()?'<button class="btn sm" onclick="tbExport()">엑셀 내보내기</button>':''}
       ${isT?'<button class="btn sm" onclick="tbExport()">내 교재 엑셀</button>':''}</div></div>`;
   html += `<div style="background:var(--brand-soft);border:1.5px solid #cebef4;border-radius:12px;padding:14px 18px;margin:0 0 16px;color:var(--ink);font-size:14px;line-height:1.7;font-weight:700">
       <div style="color:var(--brand)">현재 교재리스트는 기본으로 세팅되어 있으니, 각 분원에 맞게 설정을 꼭 해야 합니다.</div>
       <div>선생님들은 본인 교재가 잘 맞게 들어왔으면 <span style="color:var(--brand)">받은 것으로 체크</span>해 주세요.</div></div>`;
-  if(TB.missing) html += `<div class="tb-warn tb-bad"><b>교재표 표가 아직 만들어지지 않았습니다.</b> Supabase → SQL Editor 에서 <b>sql/textbook_list.sql</b> 을 한 번 실행한 뒤 새로고침해 주세요. (그 전에는 목록은 보이지만 체크·수정은 저장되지 않습니다)</div>`;
+  if(TB.missing) html += `<div class="tb-warn tb-bad"><b>교재리스트 표가 아직 만들어지지 않았습니다.</b> Supabase → SQL Editor 에서 <b>sql/textbook_list.sql</b> 을 한 번 실행한 뒤 새로고침해 주세요. (그 전에는 목록은 보이지만 체크·수정은 저장되지 않습니다)</div>`;
   if(tbIsMgr() && M.unreadable.length){
     const u=M.unreadable.slice(0,4).map(x=>`${esc(x.teacher)} · ${esc(x.cn)}`).join(' / ');
-    html += `<div class="tb-warn">레벨을 못 읽은 반 ${M.unreadable.length}개 — 교재표에서 빠져 있습니다. 예: ${u}${M.unreadable.length>4?' …':''}</div>`;
+    html += `<div class="tb-warn">레벨을 못 읽은 반 ${M.unreadable.length}개 — 교재리스트에서 빠져 있습니다. 예: ${u}${M.unreadable.length>4?' …':''}</div>`;
   }
   if(tbIsMgr()){
     const noList=[]; M.teachers.forEach(t=>t.levels.forEach(L=>{ if(!L.items.length && noList.indexOf(L.label)<0) noList.push(L.label); }));
@@ -419,5 +428,5 @@ function tbExport(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, '교재 배부현황');
   XLSX.utils.book_append_sheet(wb, ws2, '선생님별 목록');
-  XLSX.writeFile(wb, bn+'_교재표_'+sn+'.xlsx');
+  XLSX.writeFile(wb, bn+'_교재리스트_'+sn+'.xlsx');
 }
