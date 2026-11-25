@@ -3621,6 +3621,13 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
   const fTeacher = state.rosterTeacher||'';
   const fQuery = (state.rosterQuery||'').trim().toLowerCase();
   if(fTeacher) rows = rows.filter(r=>r.teacher===fTeacher);
+  /* 머리글을 눌러 정렬 — 안 누르면 예전처럼 '최근 순' */
+  const rs = state.rosterSort;
+  if(rs && rs.key) rows = rosterSortRows(rows, rs.key, rs.dir, tab);
+  const TH = (key,label,style)=>{
+    const on = rs && rs.key===key;
+    return `<th class="rs-th${on?' on':''}" ${style?`style="${style}"`:''} onclick="setRosterSort('${key}')" title="누르면 정렬">${label}<span class="rs-ar">${on?(rs.dir==='desc'?'▼':'▲'):'↕'}</span></th>`;
+  };
 
   let html = `
     ${isAdmin?backLink('신규·퇴원 명단','roster'):''}
@@ -3656,9 +3663,9 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
     html += `<div class="table-wrap"><div class="table-scroll">
       <table class="rank-table" id="rosterTable">
         <thead><tr>
-          <th>학생명</th><th>회원코드</th><th>반</th><th>담임</th>
-          <th>학교/학년</th><th>${(tab==='new'||tab==='transferIn')?'입학일':'퇴원일'}</th>
-          ${isInTab?`<th>메모</th>${tab==='new'?'<th style="width:120px">입학 관리</th>':''}${tab==='transferIn'?'<th style="width:180px">전입 관리</th>':''}${tab==='transferOut'?'<th style="width:180px">전출 관리</th>':''}`:'<th style="width:130px">사유</th><th style="min-width:200px">메모</th>'}
+          ${TH('name','학생명')}${TH('code','회원코드')}${TH('cls','반')}${TH('teacher','담임')}
+          ${TH('school','학교/학년')}${TH('date',(tab==='new'||tab==='transferIn')?'입학일':'퇴원일')}
+          ${isInTab?`${TH('memo','메모')}${tab==='new'?'<th style="width:120px">입학 관리</th>':''}${tab==='transferIn'?'<th style="width:180px">전입 관리</th>':''}${tab==='transferOut'?'<th style="width:180px">전출 관리</th>':''}`:`${TH('reason','사유','width:130px')}${TH('memo','메모','min-width:200px')}`}
         </tr></thead>
         <tbody>
         ${rows.map(r=>{
@@ -3707,7 +3714,7 @@ const isInTab = (tab==='new' || tab==='transferIn' || tab==='transferOut');
         </tbody>
       </table>
     </div></div>
-<div style="margin-top:10px;font-size:12px;color:var(--ink-3)">총 ${rows.length}명${fTeacher?` · ${esc(fTeacher)} 담임`:''} · 최근 순</div>`;
+<div style="margin-top:10px;font-size:12px;color:var(--ink-3)">총 ${rows.length}명${fTeacher?` · ${esc(fTeacher)} 담임`:''} · ${rs&&rs.key?'머리글 정렬 중 (한 번 더 누르면 반대로, 세 번째는 최근 순)':'최근 순'}</div>`;
   }
   el('content').innerHTML = html;
   if(state.rosterQuery) setRosterQuery(state.rosterQuery);
@@ -3754,6 +3761,38 @@ function setEnrollDate(recId, val){
   saveDB().then(ok=>{ toast(ok?'입학일 저장됨 ✓':'저장 실패', ok?'ok':'err'); });
 }
 function setRosterTab(tab){ state.rosterTab=tab; state.rosterTeacher=''; state.rosterQuery=''; render(); }
+/* 머리글 정렬: 누를 때마다 오름차순 → 내림차순 → 정렬 끄기(최근 순) */
+function setRosterSort(key){
+  const cur=state.rosterSort;
+  if(!cur || cur.key!==key) state.rosterSort={key:key, dir:'asc'};
+  else if(cur.dir==='asc') state.rosterSort={key:key, dir:'desc'};
+  else state.rosterSort=null;
+  render();
+}
+/* 빈 칸은 정렬 방향과 상관없이 맨 아래로. 숫자가 섞인 이름(FA1, FA2, FA10)은 숫자 크기대로. */
+function rosterSortRows(rows, key, dir, tab){
+  const val=r=>{
+    switch(key){
+      case 'name': return r.name||'';
+      case 'code': return r.code||'';
+      case 'cls': return r.classLabel||'';
+      case 'teacher': return r.teacher||'';
+      case 'school': return ((r.school||'')+' '+(r.grade||'')).trim();
+      case 'date': return r.date||'';
+      case 'reason': return r.withdrawReason ? wdReasonLabel(r.withdrawReason) : '';
+      case 'memo': return (tab==='withdraw' ? r.withdrawMemo : r.memo) || '';
+    }
+    return '';
+  };
+  const sign = dir==='desc' ? -1 : 1;
+  return rows.map((r,i)=>({r:r,i:i,v:String(val(r))})).sort((a,b)=>{
+    if(!a.v && !b.v) return a.i-b.i;
+    if(!a.v) return 1;
+    if(!b.v) return -1;
+    const c=a.v.localeCompare(b.v,'ko',{numeric:true});
+    return c ? c*sign : a.i-b.i;
+  }).map(x=>x.r);
+}
 function setRosterTeacher(v){ state.rosterTeacher=v; render(); }
 function clearRosterFilter(){ state.rosterTeacher=''; state.rosterQuery=''; render(); }
 /* 검색은 전체 리렌더 없이 표 행만 즉시 필터(입력 포커스 유지) */
