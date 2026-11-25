@@ -36,8 +36,10 @@ function tbLevelKey(cn){
   if(banIsChess(base)) return base;
   let term = TB.term;
   if(/4\s*[-~]\s*6/.test(par)) term='4'; else if(/1\s*[-~]\s*3/.test(par)) term='3';
-  /* HM3 처럼 '고등' 표에만 있는 레벨은 괄호가 없어도 그쪽으로 본다 */
-  if(/고등/.test(par) || (!TB_BASE.ace[base] && TB_BASE.ace[base+'(고등)'])) return base+'(고등)|'+term;
+  /* 반 이름에 '(고등)'이라고 적혔을 때만 고등 표로 본다. HM3(4-6)처럼 텀이 적힌 반은 텀 그대로 두고
+     (화면에 'HM3 (4-6개월)'로 나옴) 교재 목록만 없으면 고등 표를 빌려 쓴다(tbBase). 예전엔 HM3 가 에이스
+     표에 없다는 이유로 'HM3 (고등)'으로 바꿔 버려서 HM3(4-6) 반이 고등 반처럼 보였다. */
+  if(/고등/.test(par)) return base+'(고등)|3';
   return base+'|'+term;
 }
 function tbLevelLabel(lk){
@@ -47,7 +49,8 @@ function tbLevelLabel(lk){
 }
 function tbBase(lk){
   if(lk.indexOf('|')<0) return TB_BASE.chess[lk]||[];
-  const p=lk.split('|'); return ((TB_BASE.ace[p[0]]||{})[p[1]])||[];
+  const p=lk.split('|');
+  return ((TB_BASE.ace[p[0]]||{})[p[1]]) || ((TB_BASE.ace[p[0]+'(고등)']||{})[p[1]]) || ((TB_BASE.ace[p[0]+'(고등)']||{})['3']) || [];
 }
 let _tbAllNames=null;
 function tbAllBaseNames(){
