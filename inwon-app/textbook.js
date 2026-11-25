@@ -78,10 +78,13 @@ function tbHasImmersion(semId){ return /summer|winter/.test(String(semId||'')); 
 /* 이 분원·학기·레벨의 교재 목록: 분원이 고친 게 있으면 그것, 없으면 기본 */
 function tbItems(brId, semId, lk){
   const o = TB.levels.get(brId+'|'+semId+'|'+lk);
-  const arr = (o||tbBase(lk)).map(i=>({n:i.n, a:i.a||''})).filter(i=> i.a!=='몰입' || tbHasImmersion(semId));
+  /* 분원이 저장해 둔 목록이 기본과 똑같으면 '수정'이 아니다 — 기본 목록을 나중에 그 내용으로 고쳤을 때
+     예전에 저장해 둔 줄이 계속 '분원 수정·외부교재'로 보이지 않게 한다. */
+  const same = o && JSON.stringify(o.map(i=>[i.n,i.a||'']))===JSON.stringify(tbBase(lk).map(i=>[i.n,i.a||'']));
+  const arr = ((o&&!same)?o:tbBase(lk)).map(i=>({n:i.n, a:i.a||''})).filter(i=> i.a!=='몰입' || tbHasImmersion(semId));
   const known = tbAllBaseNames();
   arr.forEach(i=>{ i.none = (i.n===TB_NONE); i.x = !i.none && !known.has(i.n); });     // 기본 목록에 없는 이름 = 외부교재
-  return {items:arr, changed:!!o};
+  return {items:arr, changed:!!o && !same};
 }
 
 /* ── 서버 읽기 · 쓰기 ──────────────────────────────────────────── */
