@@ -57,13 +57,18 @@ function tbAllBaseNames(){
   Object.values(TB_BASE.ace).forEach(t=>Object.values(t).forEach(a=>a.forEach(i=>s.add(i.n))));
   /* 드롭다운 후보에 있는 이름도 '기본 목록'으로 본다 — 안 그러면 활용교재를 골랐는데 외부교재 표시가 붙는다 */
   Object.values(TB_CHOICES).forEach(f=>Object.values(f).forEach(a=>a.forEach(n=>s.add(n))));
+  s.add('활용없음');
   return (_tbAllNames=s);
 }
 /* 활용·문법·몰입교재는 드롭다운으로 고른다 — 후보는 체스/에이스별로 따로(textbook-data.js의 TB_CHOICES) */
 const TB_PICK_AREAS=['활용','문법','몰입'];
+/* 활용교재를 안 쓰는 분원·반을 위한 선택지. 이름이 '활용없음'인 줄은 교재가 아니라 '없음' 표시라서
+   배부·수령 체크, 권수 집계, 엑셀에서 전부 뺀다(드롭다운에서 다시 고를 수 있게 줄 자체는 남겨 둔다). */
+const TB_NONE='활용없음';
 function tbChoices(lk, area){
   const fam = lk.indexOf('|')<0 ? 'chess' : 'ace';
-  return ((TB_CHOICES[fam]||{})[area]||[]).slice();
+  const c=((TB_CHOICES[fam]||{})[area]||[]).slice();
+  return (area==='활용' && c.length) ? [TB_NONE].concat(c) : c;
 }
 /* 몰입교재는 여름·겨울학기에만 나간다(운영자). 봄·가을학기엔 목록에서 뺀다. */
 function tbHasImmersion(semId){ return /summer|winter/.test(String(semId||'')); }
@@ -72,7 +77,7 @@ function tbItems(brId, semId, lk){
   const o = TB.levels.get(brId+'|'+semId+'|'+lk);
   const arr = (o||tbBase(lk)).map(i=>({n:i.n, a:i.a||''})).filter(i=> i.a!=='몰입' || tbHasImmersion(semId));
   const known = tbAllBaseNames();
-  arr.forEach(i=>{ i.x = !known.has(i.n); });     // 기본 목록에 없는 이름 = 외부교재
+  arr.forEach(i=>{ i.none = (i.n===TB_NONE); i.x = !i.none && !known.has(i.n); });     // 기본 목록에 없는 이름 = 외부교재
   return {items:arr, changed:!!o};
 }
 
@@ -174,7 +179,7 @@ function tbClassLine(c, brId){
 }
 function tbCount(t){
   let all=0, got=0;
-  t.levels.forEach(L=>L.items.forEach(i=>{ all++; if(tbChk(t.key,L.lk,i.n).received) got++; }));
+  t.levels.forEach(L=>L.items.forEach(i=>{ if(i.none) return; all++; if(tbChk(t.key,L.lk,i.n).received) got++; }));
   return {all:all, got:got};
 }
 
@@ -308,7 +313,11 @@ function tbPaint(){
       if(mgr && TB_PICK_AREAS.indexOf(it.a)>=0 && cho.length && !it.x){
         const opts=cho; if(opts.indexOf(it.n)<0) opts.unshift(it.n);
         nameCell=`<select class="tb-sel" onchange="tbPick(${li},${bi},this.value)">${opts.map(o=>`<option value="${esc(o)}"${o===it.n?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
-      } else nameCell=esc(it.n);
+      } else nameCell=it.none ? '<span style="color:var(--ink-3)">활용교재 없음</span>' : esc(it.n);
+      if(it.none){
+        h += `<tr style="background:var(--surface-2)"><td>${nameCell}</td><td class="a">${esc(it.a)}</td><td class="s"></td><td class="s"></td><td></td></tr>`;
+        return;
+      }
       const dCk = mgr ? `<span class="tb-ck${k.delivered?' y':''}" onclick="tbToggle(${li},${bi},'d')"></span>`
                       : `<span class="tb-ck ro${k.delivered?' y':''}"></span>`;
       const rCk = mgr ? `<span class="tb-ck ro${k.received?' y':''}"></span>`
@@ -327,6 +336,7 @@ function tbPaint(){
 function tbCur(){ const t=TB.model.teachers.find(x=>x.key===TB.sel); return t; }
 function tbToggle(li,bi,w){
   const t=tbCur(); if(!t) return; const L=t.levels[li], it=L.items[bi], k=tbChk(t.key,L.lk,it.n);
+  if(it.none) return;
   if(w==='d' && tbIsMgr()) tbSetCheck(t.key,L.lk,it.n,{delivered:!k.delivered});
   else if(w==='r' && session.role==='teacher'){ if(k.delivered) tbSetCheck(t.key,L.lk,it.n,{received:!k.received}); }
   else if(w==='m' && session.role==='teacher'){ if(k.delivered||k.mismatch) tbSetCheck(t.key,L.lk,it.n,{mismatch:!k.mismatch}); }
@@ -334,6 +344,7 @@ function tbToggle(li,bi,w){
 async function tbBulk(li, w){
   const t=tbCur(); if(!t) return; const L=t.levels[li];
   for(const it of L.items){
+    if(it.none) continue;
     const k=tbChk(t.key,L.lk,it.n);
     if(w==='d' && !k.delivered) await tbSetCheck(t.key,L.lk,it.n,{delivered:true});
     if(w==='r' && k.delivered && !k.received) await tbSetCheck(t.key,L.lk,it.n,{received:true});
@@ -408,7 +419,7 @@ function tbExportData(){
     teachers: ts.map(t=>({ name:t.name, levels:t.levels.map(L=>({
       lk:L.lk, label:L.label, grade:L.grade, students:L.students,
       classes:L.classes.map(c=>tbClassLine(c,brId)),
-      items:L.items.map(it=>{ const k=tbChk(t.key,L.lk,it.n); return {n:it.n,a:it.a,x:it.x,d:k.delivered,r:k.received,m:k.mismatch}; })
+      items:L.items.filter(it=>!it.none).map(it=>{ const k=tbChk(t.key,L.lk,it.n); return {n:it.n,a:it.a,x:it.x,d:k.delivered,r:k.received,m:k.mismatch}; })
     })) }))
   };
 }
