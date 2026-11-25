@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><title>AT 성적표</title>
+<!-- 학생이 문자로 받은 링크를 여는 화면. ?t=긴글자 하나로 그 학생 한 명 것만 불러온다(sql/at_report_cards.sql).
+     분원 로그인 없이 열려야 해서 이 파일은 홈페이지 앱과 따로 서 있다. 글씨체는 학부모 폰에 있는 것만 쓴다. -->
+<style>
+:root{--pink:#ff4f81;--ink:#222;--mut:#9a9aa5;--bg:#fff;--card:#f2f2f6;--lav:#efebfa;--tot:#e9e1f3}
+*{box-sizing:border-box}html,body{margin:0}body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;color:var(--ink);background:#fff;-webkit-text-size-adjust:100%}
+.wrap{max-width:480px;margin:0 auto;padding-bottom:40px}
+.hd{display:flex;align-items:center;gap:14px;padding:22px 20px;background:#f6f6f7;border-bottom:1px solid #eee}
+.av{width:52px;height:52px;border-radius:50%;background:#dcdce0;flex:none;position:relative;overflow:hidden}
+.av:before{content:'';position:absolute;left:17px;top:11px;width:18px;height:18px;border-radius:50%;background:#8a8a92}
+.av:after{content:'';position:absolute;left:10px;top:31px;width:32px;height:30px;border-radius:50%;background:#8a8a92}
+.nm{font-size:22px;font-weight:800;line-height:1.2}.sc{font-size:12.5px;color:var(--mut);margin-top:3px}
+.tc{margin-left:auto;background:#ececef;border-radius:22px;padding:8px 14px;font-size:13px;color:#777;white-space:nowrap}.tc b{color:#222;font-size:16px;margin-left:4px}
+.tt{text-align:center;font-size:16px;font-weight:700;margin:24px 12px 14px;line-height:1.4}
+.tot{margin:0 16px 14px;background:var(--tot);border-radius:22px;padding:18px 10px;text-align:center}.tot u{font-weight:700;font-size:14px;text-decoration:none}
+.gw{position:relative;width:180px;height:104px;margin:12px auto 0}
+.gw svg{display:block}.gw .num{position:absolute;left:0;right:0;top:38px;font-size:40px;font-weight:800;color:var(--pink)}
+.gm{display:flex;justify-content:space-between;width:196px;margin:-2px auto 0;font-size:14px}
+.sm{font-size:12px;color:var(--mut)}
+.sec{margin:0 16px 12px;background:var(--card);border-radius:22px;padding:16px 18px}
+.sh{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:2px solid #222}.sh u{font-weight:800;font-size:16px;text-decoration:none}
+.big{font-size:28px;font-weight:800;color:var(--pink)}.big span{font-size:16px;color:#888;font-weight:500}
+.r{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #e0e0e6;font-size:15px;gap:8px}.r:last-child{border-bottom:0}
+.r:before{content:'';width:6px;height:6px;border-radius:50%;background:var(--pink);flex:none}.r span:nth-child(1){flex:1}
+.b{background:#fff;border-radius:18px;padding:6px 13px;font-size:15px;color:#999;white-space:nowrap}.b i{color:var(--pink);font-style:normal;font-weight:700}
+.msg{padding:80px 24px;text-align:center;color:#777;line-height:1.7}
+.foot{margin:26px 16px 0;text-align:center;font-size:12px;color:#b5b5bd}
+</style></head><body><div class="wrap" id="app"><div class="msg">성적표를 불러오는 중…</div></div>
+<script>
+const SB_URL='https://hplndiuoohantbalixwu.supabase.co';
+const SB_KEY='sb_publishable_xO8KB46SzMx8KeuEE-OVSw_su22mv9X';
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>{n=+n; return Number.isInteger(n)?String(n):n.toFixed(1)};
+let D=null;
+/* 반원 게이지 — 반지름 80 반원의 길이(π·80)를 점수 비율만큼만 칠한다 */
+function gauge(sc,max){
+  const L=Math.PI*80, p=max>0?Math.max(0,Math.min(1,sc/max)):0;
+  return '<svg viewBox="0 0 200 106" width="180" height="104"><path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#cfcfd4" stroke-width="12" stroke-linecap="round"/>'
+   +'<path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#ff4f81" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+(L*p)+' '+L+'"/></svg>';
+}
+function render(){
+  const P=D.payload, st=P.student||{};
+  const secs=(P.sections||[]).map(s=>'<div class="sec"><div class="sh"><u>'+esc(s.name)+' 영역</u><div class="big">'+fmt(s.score)+'<span> / '+fmt(s.max)+'</span></div></div>'
+    +(s.items||[]).map(it=>'<div class="r"><span>'+esc(it.name)+'</span><span class="b"><i>'+fmt(it.score)+'</i> / '+fmt(it.max)+'</span></div>').join('')+'</div>').join('');
+  document.getElementById('app').innerHTML=
+   '<div class="hd"><div class="av"></div><div><div class="nm">'+esc(D.name)+'</div><div class="sc">'+esc(st.school||'')+'</div></div>'
+   +(st.teacher?'<div class="tc">담임 <b>'+esc(String(st.teacher).replace(/^[A-Za-z .]+/,'')||st.teacher)+'</b></div>':'')+'</div>'
+   +'<div class="tt">'+esc(D.exam_title)+' 점수</div>'
+   +'<div class="tot"><u>총 점수</u><div class="gw">'+gauge(P.total.score,P.total.max)+'<div class="num">'+Math.round(P.total.score)+'</div></div>'
+   +'<div class="gm"><span>0</span><span>'+fmt(P.total.max)+'</span></div><div style="font-size:18px;margin-top:8px">'+fmt(P.total.score)+' <span class="sm" style="font-size:14px">/ '+fmt(P.total.max)+'</span></div></div>'
+   +secs+'<div class="foot">정상어학원</div>';
+}
+(async()=>{
+  const t=new URLSearchParams(location.search).get('t')||'';
+  const box=document.getElementById('app');
+  if(!/^[0-9a-f]{20,}$/i.test(t)){ box.innerHTML='<div class="msg">성적표 주소가 올바르지 않아요.<br>문자로 받은 링크를 다시 눌러 주세요.</div>'; return; }
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/at_card_get',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:t})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    D=await r.json();
+    if(!D||!D.payload){ box.innerHTML='<div class="msg">성적표를 찾을 수 없어요.<br>학원에 문의해 주세요.</div>'; return; }
+    render();
+  }catch(e){ box.innerHTML='<div class="msg">성적표를 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</div>'; }
+})();
+</script></body></html>
