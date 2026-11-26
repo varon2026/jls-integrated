@@ -1766,10 +1766,10 @@ function enterApp(){
     // 로그인 계정이 갈 수 없는 경로면 홈으로 강제
     const root = location.hash.replace(/^#\//,'').split('/')[0];
     const allowedRoots = {
-      admin:['admin','roster','closing','passrate-hub','accounts','award','textbook','atcard'],
+      admin:['admin','roster','closing','passrate-hub','accounts','award','textbook'],
       teacher:['myclasses','segments','myaccount','branch','passrate','retest','award','textbook'],
       assistant:['start','retest','retest-up'],
-      branch:['branch','roster','closing','data','students','start','passrate','segments-edit','teachers','retest','retest-up','award','textbook','atcard']
+      branch:['branch','roster','closing','data','students','start','passrate','segments-edit','teachers','retest','retest-up','award','textbook']
     }[session.role]||[];
    if(!allowedRoots.includes(root)) location.hash = home;
     else render();
@@ -1866,9 +1866,7 @@ function buildShell(){
       <div class="sb-item" data-nav="closing">${I.closing}<span>인원마감표</span></div>
       <div class="sb-item" data-nav="students">${I.stu}<span>학생관리</span></div>
       <div class="sb-sect">교재</div>
-      <div class="sb-item" data-nav="textbook">${I.data}<span>교재리스트</span></div>
-      <div class="sb-sect">성적표</div>
-      <div class="sb-item" data-nav="atcard">${I.closing}<span>AT 성적표</span></div>`;
+      <div class="sb-item" data-nav="textbook">${I.data}<span>교재리스트</span></div>`;
 } else if(isTeacher){
     nav.innerHTML = `
       <div class="sb-sect">선생님</div>
@@ -1904,7 +1902,6 @@ function buildShell(){
       if(P.retestUp) nv+=`<div class="sb-item" data-nav="retest-up">${I.data}<span>성적 올리기</span></div>`;
     }
     nv+=`<div class="sb-sect">교재</div><div class="sb-item" data-nav="textbook">${I.data}<span>교재리스트</span></div>`;
-    nv+=`<div class="sb-sect">성적표</div><div class="sb-item" data-nav="atcard">${I.closing}<span>AT 성적표</span></div>`;
     if(P.segments) nv+=`<div class="sb-sect">상담</div><div class="sb-item" data-nav="segments-edit">${I.seg}<span>세그먼트 공지</span></div>`;
     if(P.data){
       nv+=`<div class="sb-sect">설정</div><div class="sb-item" data-nav="data">${I.data}<span>데이터관리</span></div>`;
@@ -2006,7 +2003,6 @@ else if(root==='segments-edit'){ setActiveNav('segments-edit'); renderSegmentEdi
   else if(root==='retest'){ setActiveNav('retest'); renderRetest(); }
   else if(root==='retest-up'){ setActiveNav('retest-up'); renderRetestUpload(); }
   else if(root==='textbook'){ setActiveNav('textbook'); renderTextbook(); }
-  else if(root==='atcard'){ setActiveNav('atcard'); renderAtCard(); }
   else if(root==='myaccount'){ setActiveNav('myaccount'); renderMyAccount(); }
   else if(root==='myclasses'){ setActiveNav('myclasses'); renderTeacherHome(); }
   else if(root==='award'){ setActiveNav('award');
