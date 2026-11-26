@@ -57,7 +57,7 @@ body{font-family:"NanumSquare","Apple SD Gothic Neo","Malgun Gothic",system-ui,s
 .hero .welcome{font-family:var(--hand);font-size:22px;margin-top:12px;position:relative;z-index:1}
 .hero h1{font-family:var(--disp);font-weight:400;margin:4px 0 0;font-size:clamp(32px,8vw,44px);letter-spacing:-.01em;position:relative;z-index:1}
 .hero p{margin:12px auto 0;max-width:30em;font-size:14px;opacity:.95;position:relative;z-index:1}
-.levels{max-width:1000px;margin:-64px auto 0;padding:0 16px;display:grid;grid-template-columns:repeat(5,1fr);gap:14px;position:relative;z-index:2}
+.levels{max-width:1000px;margin:-64px auto 0;padding:0 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;position:relative;z-index:2}   /* 반이 6개(MA1 추가)라 3열 2줄 — 5열이면 마지막 한 장이 혼자 아래줄에 남는다 */
 .lv{display:block;background:#fff;border-radius:20px;padding:28px 12px 22px;text-align:center;text-decoration:none;color:#1C2A4A;box-shadow:0 2px 0 #CFDCF7,0 10px 24px rgba(46,79,166,.12);position:relative;cursor:pointer;border:0;font:inherit}
 .lv::before{content:"";position:absolute;left:18px;right:18px;top:-9px;height:13px;background:repeating-linear-gradient(90deg,#AEBFDD 0 2px,transparent 2px 20px);filter:drop-shadow(0 2px .5px rgba(28,42,74,.2))}
 .lv:hover{transform:translateY(-2px)}
@@ -637,14 +637,15 @@ var SUPA_URL='https://hplndiuoohantbalixwu.supabase.co';
 var SUPA_KEY='sb_publishable_xO8KB46SzMx8KeuEE-OVSw_su22mv9X';
 var sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPA_URL,SUPA_KEY):null;
 
-/* 레벨 순서는 B → HB → PA1 → PA2 → A1 (운영자 지정, A1 은 2026-11-13 추가). 월수금/화목이 있는 반(PA1·PA2)은 버튼을 둘로 나누지 않고
+/* 레벨 순서는 B → HB → PA1 → PA2 → A1 → MA1 (운영자 지정, A1 은 2026-11-13, MA1 은 2026-11-26 추가). 월수금/화목이 있는 반(PA1·PA2)은 버튼을 둘로 나누지 않고
    반을 고른 뒤 화면 위 체크박스로 고른다. 저장 키(doc)는 예전 이름 그대로 — pa2 는 '화목'반이다. */
 var LEVELS=[
   {k:'b',  label:'B반',  sub:'ACE Bridge',      doc:'b',  color:'#FDB5B5'},
   {k:'hb', label:'HB반', sub:'ACE High Bridge', doc:'hb', color:'#F9E8A8'},
   {k:'pa1',label:'PA1반',sub:'Pre Ace 1',       days:{mwf:'pa1mwf',tt:'pa1tt'}, color:'#AED26A'},
   {k:'pa2',label:'PA2반',sub:'Pre Ace 2',       days:{mwf:'pa2mwf',tt:'pa2'},   color:'#C09CE0'},
-  {k:'a1', label:'A1반', sub:'Ace 1',           doc:'a1tt', color:'#9DB8F0'}   /* A1은 화목반만 있다(월수금반 없음 — 운영자). 저장 키는 처음 만든 a1tt 그대로 */
+  {k:'a1', label:'A1반', sub:'Ace 1',           doc:'a1tt', color:'#9DB8F0'},  /* A1은 화목반만 있다(월수금반 없음 — 운영자). 저장 키는 처음 만든 a1tt 그대로 */
+  {k:'ma1',label:'MA1반',sub:'Master Ace 1',    doc:'ma1tt', color:'#F2B79A'}   /* MA1(2026-11-26 추가)도 화목반만 있다. 저장 키 ma1tt */
 ];
 var DAYS=[{k:'mwf',label:'월수금'},{k:'tt',label:'화목'}];
 var LV=null, DAY=null;
