@@ -2871,8 +2871,10 @@ function tempStudentCode(){
   }
   return '임시-'+Date.now().toString(36).toUpperCase();
 }
-async function enrollNewFromRes(r, semId, enrollDate, pickCls){
-  const brId=r.branch_id||session.branchId, code=(r.student_code||'').trim();
+async function enrollNewFromRes(r, semId, enrollDate, pickCls, codeIn){
+  /* 회원코드는 등록 팝업에서 직접 넣을 수 있다(codeIn). 안 넣으면(빈칸) 예약에 있던 코드, 그것도 없으면 아래에서 '임시-…' 를 발급한다.
+     예전엔 팝업에 칸이 없어서 IMS 회원코드를 알고 있어도 항상 임시코드로 들어갔고, 나중에 전체명단을 올려야 바뀌었다. */
+  const brId=r.branch_id||session.branchId, code=(codeIn!=null?String(codeIn):(r.student_code||'')).trim();
   let className='미배정', classLabelV='미배정', teacherV='미배정';
   if(pickCls && pickCls!=='미배정'){
     const ref=(db.semesterRecords||[]).find(x=>x.branchId===brId && x.semesterId===semId && x.className===pickCls);
@@ -2920,7 +2922,10 @@ async function enrollNewFromRes(r, semId, enrollDate, pickCls){
     db.studentMovements&&db.studentMovements.push({ id:mvId, studentId:stu.id, branchId:brId, semesterId:semId, type:'new', date:enrollDate, memo:'레벨테스트 대기→등록' });
   }
   // 대기 학기를 지우지 않고 '실제로 등록한 학기'로 확정 → 전형 현황에서 등록으로 잡힌다
-  await updateReservation(r.id, { enrolled:'enrolled', not_enrolled_reason:null, wait_semester:semId });
+  /* 방금 정한 회원코드를 예약에도 남긴다 — 그래야 이후 전형 현황·등록 취소가 같은 학생을 코드로 찾는다 */
+  const patch={ enrolled:'enrolled', not_enrolled_reason:null, wait_semester:semId };
+  if(code && code!==(r.student_code||'').trim()) patch.student_code=code;
+  await updateReservation(r.id, patch);
   return { name:r.student_name||'', className, classLabelV, dup };
 }
 /* [등록] 캘린더 팝업 → 신규생(미배정) 자동 등록 */
@@ -2941,6 +2946,8 @@ function waitRegisterOpen(resId){
     <div style="font-size:13px;color:#667;line-height:1.6;margin-bottom:14px">${esc(r.student_name||'')} · ${esc([r.school,gradeTxt(r.grade)].filter(Boolean).join(' · '))}</div>
     <label style="font-size:12.5px;font-weight:700;color:#556">입학일(등원일)</label>
     <input type="date" id="waitRegDate" value="${defDate}" style="width:100%;height:40px;padding:0 11px;margin:5px 0 12px;border:1px solid #dcdce6;border-radius:9px">
+    <label style="font-size:12.5px;font-weight:700;color:#556">회원코드 <span style="font-weight:500;color:#8a8fa3">(IMS 회원코드 · 모르면 비워두세요)</span></label>
+    <input type="text" id="waitRegCode" value="${esc(r.student_code||'')}" placeholder="비우면 임시코드가 자동으로 붙어요" autocomplete="off" style="width:100%;height:40px;padding:0 11px;margin:5px 0 12px;border:1px solid #dcdce6;border-radius:9px">
     <label style="font-size:12.5px;font-weight:700;color:#556">등록 반</label>
     <select id="waitRegClass" ${hasCls?'':'disabled'} style="width:100%;height:40px;padding:0 8px;margin-top:5px;border:1px solid #dcdce6;border-radius:9px;background:${hasCls?'#fff':'#f3f3f6'}">${clsOpts}</select>
     <div style="font-size:12px;color:#8a8fa3;margin-top:6px">${hasCls?'이미 올라온 가을 반 중에서 고르세요. (미정이면 미배정)':'전체명단 업로드 전이라 반 선택은 잠겨 있어요 → <b>미배정</b>으로 등록됩니다.'}</div>
@@ -2968,8 +2975,16 @@ async function waitRegisterConfirm(resId){
   if(!enrollDate){ toast('입학일을 선택하세요','err'); return; }
   const semId=r.wait_semester||resNextSemId(r);
   const pickCls=($('waitRegClass')&&$('waitRegClass').value)||'미배정';
+  const codeIn=(($('waitRegCode')&&$('waitRegCode').value)||'').trim();
+  if(/^임시-/.test(codeIn)){ toast('임시코드는 직접 넣지 않아도 자동으로 붙어요 — 칸을 비워 주세요','err'); return; }
+  if(codeIn){
+    /* 이미 그 코드를 쓰는 학생이 있으면 그 학생으로 등록된다 — 이름이 다르면 사람 잘못 붙이는 것이라 한 번 묻는다 */
+    const ex=(db.students||[]).find(x=>x.code===codeIn);
+    if(ex && String(ex.name||'').trim()!==String(r.student_name||'').trim()
+       && !confirm(`회원코드 ${codeIn} 는 이미 '${ex.name}' 학생이 쓰고 있어요.\n'${r.student_name||''}' 학생을 그 학생으로 등록할까요?`)) return;
+  }
   try{
-    const out=await enrollNewFromRes(r, semId, enrollDate, pickCls);
+    const out=await enrollNewFromRes(r, semId, enrollDate, pickCls, codeIn);
     waitModalClose();
     toast(out.dup ? `${out.name} 학생은 이미 ${semNameFromId(semId)} 명단에 있어요 — 예약만 등록완료로 ✓`
                   : `${out.name} 신규생 등록 완료 (${out.className==='미배정'?'미배정':out.classLabelV}) ✓`);
