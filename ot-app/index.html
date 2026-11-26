@@ -227,6 +227,10 @@ ol.items li:nth-child(5n+5)::before{background:#FDE2E4;color:#9A2E3E}
 .editing .ot-tools{display:flex;position:absolute;right:10px;top:8px;z-index:6;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:70%}
 .ot-tools button{border:0;background:#fff;color:#214e9e;font:inherit;font-size:12px;font-weight:800;padding:5px 9px;border-radius:8px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .ot-tools button.d{color:#c8375e}
+.li-x{display:none}
+.editing .ot-slide ol > li{position:relative}
+.editing .ot-slide .li-x{display:inline-block;position:absolute;right:-1.6cqw;top:0;width:1.5cqw;height:1.5cqw;min-width:16px;min-height:16px;line-height:1.5cqw;font-size:max(12px,1.3cqw);text-align:center;font-weight:800;border-radius:50%;background:#ffe0e6;color:#c8375e;cursor:pointer;user-select:none;zoom:1}
+.editing .ot-slide .li-x:hover{background:#c8375e;color:#fff}
 .editing .ot-slide img{cursor:pointer}
 .editing .ot-slide img:hover{outline:3px dashed #ffb400}
 .addrow{display:none;max-width:1100px;margin:-8px auto 14px;text-align:center}
@@ -599,7 +603,7 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   .bk-cell .wrap{position:absolute;left:0;top:0;width:794px !important;max-width:none !important;margin:0 !important;padding:0 !important;zoom:.7066}  /* transform:scale 은 인쇄에서 줄이기 전 크기(1123px)로 쪽을 나눠 아래 30%가 잘렸다 — 레이아웃 크기까지 줄이는 zoom 을 쓴다 */
 }
 </style>
-<script src="default-content.js?v=86"></script>
+<script src="default-content.js?v=87"></script>
 <script src="present.js?v=7"></script>
 </head>
 <body>
@@ -624,7 +628,9 @@ ol.items li::before{width:calc(4.2cqw*var(--s));height:calc(4.2cqw*var(--s));fon
   <button class="sw" title="빨강" style="background:#d6283f" onmousedown="event.preventDefault();fmt('foreColor','#d6283f')"></button>
   <button class="sw" title="파랑" style="background:#2e63c7" onmousedown="event.preventDefault();fmt('foreColor','#2e63c7')"></button>
   <button class="sw" title="흰색" style="background:#fff" onmousedown="event.preventDefault();fmt('foreColor','#ffffff')"></button>
-  <button class="tb" onmousedown="event.preventDefault();fmt('removeFormat')">서식 지우기</button>
+  <button class="tb" title="글자를 누른(커서 있는) 줄의 크기를 줄여요" onmousedown="event.preventDefault();fsz(-1)">가−</button>
+  <button class="tb" title="글자를 누른(커서 있는) 줄의 크기를 키워요" onmousedown="event.preventDefault();fsz(1)">가＋</button>
+  <button class="tb" onmousedown="event.preventDefault();fmt('removeFormat');fsz(0)">서식 지우기</button>
   <span style="margin-left:10px">· 글자를 눌러 바로 고치고, 사진을 누르면 바꿀 수 있어요. <b style="color:#b3263e">빨간 '공통' 표시 슬라이드는 모든 반에 같이 바뀌어요.</b></span>
 </div>
 <div id="notice"></div>
@@ -820,6 +826,7 @@ var EDITABLE='h1,h2,li,td,th,.day,.per,.sub,.msg,.hl,.en,.hint-edit,.nb-n,.n,.cl
 function decorateEdit(){
   document.querySelectorAll('.ot-slide').forEach(function(s){
     s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
+    liDel(s);
     var ca=s.querySelector('[data-auto="cls"]');if(ca)ca.removeAttribute('contenteditable');
     var seg=s.getAttribute('data-seg');
     var lab=document.createElement('span');lab.className='seglab'+(seg==='common'?' c':'');lab.setAttribute('data-ui','1');lab.textContent=seg==='common'?'공통 · 모든 반에 같이 바뀜':'이 반만';s.appendChild(lab);
@@ -861,6 +868,7 @@ function decorateOne(s){
   /* 새로 만든·복제한 슬라이드 하나에만 수정 도구를 붙인다 */
   var tmp=document.createElement('div');
   s.querySelectorAll(EDITABLE).forEach(function(e){e.setAttribute('contenteditable','true');});
+  liDel(s);
   var seg=s.getAttribute('data-seg');
   var lab=document.createElement('span');lab.className='seglab'+(seg==='common'?' c':'');lab.setAttribute('data-ui','1');lab.textContent=seg==='common'?'공통 · 모든 반에 같이 바뀜':'이 반만';s.appendChild(lab);
   var t=document.createElement('div');t.className='ot-tools';t.setAttribute('data-ui','1');
@@ -882,6 +890,36 @@ function newSlide(kind,seg){
   return s;
 }
 function fmt(cmd,val){document.execCommand(cmd,false,val||null);DIRTY=true;}
+/* 글자 크기 — 커서가 있는 칸(제목·한 줄·항목)을 10%씩 키우고 줄인다. 슬라이드 글자는 쪽 폭(cqw) 기준이라 execCommand fontSize(1~7단계)가 안 맞아서
+   그 칸에 zoom 을 건다(화면·인쇄 모양이 같음). 0 을 주면 원래 크기로. 넘치면 fitPort 가 전체를 알아서 줄인다. */
+function fsz(dir){
+  if(!EDIT)return;
+  var sel=window.getSelection();if(!sel.rangeCount)return;
+  var n=sel.anchorNode;n=n&&(n.nodeType===3?n.parentElement:n);
+  var el=n&&n.closest?n.closest('[contenteditable="true"]'):null;
+  if(!el||!el.closest('.ot-slide')){toast('크기를 바꿀 글자 칸을 먼저 눌러 주세요',true);return;}
+  var cur=parseFloat(el.style.zoom)||1,nx=dir===0?1:Math.max(.5,Math.min(2,Math.round((cur+dir*.1)*100)/100));
+  if(nx===1)el.style.removeProperty('zoom');else el.style.zoom=nx;
+  if(!el.getAttribute('style'))el.removeAttribute('style');
+  DIRTY=true;fitPort(el.closest('.ot-slide'));
+}
+/* 과제·목록 줄마다 지우기 버튼(×) — 수정 화면에서만 보이고 저장할 땐 빠진다([data-ui]).
+   줄을 다 지워 목록이 비면 '과제' 제목 줄과 빈 목록도 같이 치운다. */
+function liDel(root){
+  root.querySelectorAll('ol > li').forEach(function(li){
+    if(li.querySelector(':scope > .li-x'))return;
+    var x=document.createElement('span');x.className='li-x';x.setAttribute('data-ui','1');x.setAttribute('contenteditable','false');x.title='이 줄 지우기';x.textContent='×';
+    li.appendChild(x);
+  });
+}
+document.addEventListener('mousedown',function(e){
+  if(!EDIT)return;var x=e.target.closest&&e.target.closest('.li-x');if(!x)return;
+  e.preventDefault();
+  var li=x.parentElement,ol=li.parentElement,s=li.closest('.ot-slide');
+  li.remove();
+  if(!ol.querySelector(':scope > li')){var pv=ol.previousElementSibling;if(pv&&pv.classList.contains('w2-hwl'))pv.remove();ol.remove();}
+  DIRTY=true;if(s)fitPort(s);
+});
 document.addEventListener('input',function(e){if(EDIT&&e.target.closest&&e.target.closest('.ot-slide'))DIRTY=true;});
 /* 과제·목록 줄 추가/삭제 — 예전엔 줄 끝에서 Enter 를 눌러도 같은 줄 안에서 줄바꿈만 돼서 번호가 안 늘었다(번호 1,2,3 은 줄마다 CSS 가 매긴다).
    Enter = 아래에 새 번호 줄(<li>) 추가, Shift+Enter = 같은 줄 안에서 줄바꿈, 빈 줄에서 Backspace = 그 줄 삭제 */
@@ -892,10 +930,10 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){
     e.preventDefault();
     var n=document.createElement('li');n.setAttribute('contenteditable','true');n.innerHTML='<br>';
-    li.after(n);n.focus();
+    li.after(n);liDel(n.parentNode);n.focus();
     var r=document.createRange();r.selectNodeContents(n);r.collapse(true);var sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);
     DIRTY=true;
-  }else if(e.key==='Backspace'&&!e.isComposing&&!li.textContent.replace(/\s/g,'')&&li.parentNode.querySelectorAll(':scope > li').length>1){
+  }else if(e.key==='Backspace'&&!e.isComposing&&!li.textContent.replace(/×$/,'').replace(/\s/g,'')&&li.parentNode.querySelectorAll(':scope > li').length>1){
     e.preventDefault();
     var prev=li.previousElementSibling||li.nextElementSibling;li.remove();
     if(prev){prev.focus();var r2=document.createRange();r2.selectNodeContents(prev);r2.collapse(prev===null||!!li.previousElementSibling===false?true:false);var s2=window.getSelection();s2.removeAllRanges();s2.addRange(r2);}
