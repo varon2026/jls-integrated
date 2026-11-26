@@ -59,10 +59,10 @@ function render(){
   if(!/^[0-9a-f]{20,}$/i.test(t)){ box.innerHTML='<div class="msg">성적표 주소가 올바르지 않아요.<br>문자로 받은 링크를 다시 눌러 주세요.</div>'; return; }
   try{
     const r=await fetch(SB_URL+'/rest/v1/rpc/at_card_get',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:t})});
-    if(!r.ok) throw new Error('HTTP '+r.status);
+    if(!r.ok){ let m=''; try{ const j=await r.json(); m=(j.code||'')+' '+(j.message||''); }catch(e){} throw new Error('HTTP '+r.status+' '+m); }
     D=await r.json();
     if(!D||!D.payload){ box.innerHTML='<div class="msg">성적표를 찾을 수 없어요.<br>학원에 문의해 주세요.</div>'; return; }
     render();
-  }catch(e){ box.innerHTML='<div class="msg">성적표를 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</div>'; }
+  }catch(e){ box.innerHTML='<div class="msg">성적표를 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.<div style="margin-top:18px;font-size:11px;color:#bbb;word-break:break-all">'+esc(String(e&&e.message||e))+'</div></div>'; }
 })();
 </script></body></html>
